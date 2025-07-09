@@ -1,0 +1,159 @@
+---
+description:Invest _V3 — 台灣去中心化模擬投資競賽平台
+1. 產品定位與願景
+使命：以 LINE 式易用體驗，結合區塊鏈透明度，讓台灣投資社群可以在安全合規環境下進行模擬競賽、閱讀高品質內容並回饋創作者。
+核心差異化
+1.	台股專屬：資料源採證交所（TWSE/TPEx）與 TEJ 及 Alpha Vantage 台股擴充 API。
+2.	Web3 透明度：所有買賣指令、入會費、抖內與紅利記錄皆上鏈（Solana）並以 Supabase 快取／備份。
+3.	Creator Economy：類 Seeking Alpha 的內容＋抖內／分潤機制，支援每日免費額度與付費訂閱。
+ 
+2. 里程碑規劃
+時程	版本	MVP 目標	次要功能	依賴 & 風險
+M1 (0 4 週)	v0.1	• iOS 框架 (5 Tab) • Supabase 架構 & RLS • 台股報價快取 (拉 5 檔) • 模擬組合 CRUD • 群組聊天 (無即時)	—	• 台股 API 需轉檔 • RLS 測試
+M2 (5 8 週)	v0.2	• 即時聊天室 (Supabase Realtime) • 投資指令解析與回測 • 排名榜單 (每週/季) • InfoView 免費文章 (3/日)	• Headless CMS 整合	• 即時訊息延遲
+M3 (9 12 週)	v0.3	• 文章付費牆 + 訂閱 In App Purchase • 抖內禮物飛入動畫 • Wallet   模擬 NTD 餘額 • KYC Placeholder	—	• IAP Sandbox 流程
+M4 (13 16 週)	v1.0	• Solana tx 簽名（指令/抖內） • 主持人提領流程 (後台) • iPad Layout & 深色模式 • 法遵聲明／隱私	• Governance token 草稿	• 加密錢包 UX
+💡 金流整合（街口/藍新）置於 Post MVP，先以模擬餘額 + Apple IAP 付費牆驗證商業模式。
+ 
+3. 系統架構
+flowchart LR
+    subgraph iOS
+      A[SwiftUI App]
+    end
+    subgraph Cloud
+      B[Supabase<br/>Postgres • RLS • Realtime • Storage]
+      C[Edge Functions<br/>TypeScript Cron]
+    end
+    subgraph Chain
+      D[Solana RPC]
+    end
+    subgraph Data
+      E[Alpha Vantage / TWSE]
+    end
+
+    A -- REST/WS --> B
+    B -- trigger --> C
+    C -- tx hash --> D
+    A -- price feed --> E
+3.1 前端
+•	語言/框架：Swift 5.9、SwiftUI、Combine、@Observable
+•	模組化：每個 Tab 一個 Swift Package (Home, Chat, Info, Wallet, Settings)
+•	路由：NavigationStack + deep link，URL Scheme investv3://
+•	本地快取：AppStorage(UserDefaults) + FileCache 圖片
+•	CI/CD：Xcode Cloud → TestFlight –> App Store Connect
+3.2 後端 (Supabase)
+•	表結構：users, investment_groups, chat_messages, portfolio_transactions, articles, article_likes, article_comments, wallet_transactions
+•	RLS：針對 user_id 權限，群組操作 via membership 確認
+•	Edge Functions：
+o	calculate_return_rate.ts — 5 min cron 抓股價計算回報率
+o	creator_bonus.ts — 每日結算閱讀量 / 訂閱分潤
+3.3 第三方服務
+功能	MVP Provider	替代方案
+台股報價	Alpha Vantage (台股終端點)	Fugle API
+IAP	Apple StoreKit 2	RevenueCat
+推播	OneSignal Free	Firebase FCM
+ 
+4. 資料模型（精簡）
+-- 文章表
+CREATE TABLE articles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_id UUID REFERENCES users(id),
+  title TEXT NOT NULL,
+  summary TEXT,
+  body TEXT,
+  category TEXT,
+  is_free BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- 虛擬交易
+CREATE TABLE portfolio_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  symbol TEXT,
+  action TEXT CHECK (action IN ('buy','sell')),
+  amount NUMERIC,
+  price NUMERIC,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+(完整 schema 已收錄於 Supabase SQL)
+ 
+5. 法遵 & 合規
+1.	KYC：採「後綁流程」—— 提領真實 NTD 才需提交身分證 + 第二證件。
+2.	證交所授權：僅用於模擬回測，展示延遲 > 20 分鐘台股價。
+3.	金流：Apple IAP 屬「數位內容／訂閱」；實體 NTD 入會費日後需接街口或藍新並辦理特店。
+4.	個資：Supabase Storage 存頭像，RLS 禁止跨用戶讀寫。
+ 
+6. 待辦與分工（M2 前）
+Owner	Issue	PRD Link
+iOS	InfoView ↔️ Supabase articles	#12
+Backend	RLS Policy for portfolio_transactions	#9
+UX	Figma 深色模式 token	#7
+ 
+7. UI / UX 詳規（iOS Full Stack 實作參考）
+✨ 所有尺寸以 iPhone 14 Pro (390×844 pt) 為基準，除非特別標註。
+7.1 Design Tokens
+Token	Light	Dark	說明
+--brand green	#00B900	#00B900	主要 CTA / Toggle ON
+--brand orange	#FD7E14	#FD7E14	付費／警示 CTA
+--gray 100	#F7F7F7	#121212	背景 Layer 1
+--gray 900	#1E1E1E	#E0E0E0	主要文本
+Radius	12 pt	—	全域圓角
+Shadow	0 2 2 #0000000D	0 2 2 #00000033	卡片 Elevation 1
+7.2 共用元件
+元件	File Name	Props	行為
+GreenButton	UI/Buttons/GreenButton.swift	title:String, icon:SF?, isDisabled:Bool	opacity 0.3 on disabled
+SegmentedTab	UI/Tab/CategorySegment.swift	items:[String], selected:Int	withAnimation(.easeInOut(duration:0.2))
+PieChartView	UI/Charts/PieChartView.swift	data:[(label,String,percent,Color)]	130 ms spring 交互放大
+7.3 各畫面規格
+Home
+•	Safe area top 54 pt (餘額列)，底部 TabBar 60 pt。
+•	ChampionCarousel 寬 360 pt，高 130 pt，使用 TabView(.page)。
+•	類別篩選 ScrollView(.horizontal)；Item 46×32 pt。
+•	群組 GroupCard：內邊距 16 pt，卡片高度 94 pt；使用 HStack + Spacer()；右側 JoinButton 寬 88 pt。
+Chat
+•	Message Bubble：
+o	Host 指令 isCommand==true → 背景 brand blue #007BFF, 白字。
+o	角半徑 host 12 pt, arrow 不做。
+•	投資面板
+o	顶部折疊手柄 RoundedRectangle 24 × 4 pt。
+o	PieChartView 固定 90 × 90 pt，右側文字列間距 6 pt。
+Info (文章列表)
+區域	尺寸	注意事項
+搜尋框	343×40 pt	左 icon 20 pt，字體 body 14 pt
+ArticleCard	343×116 pt	影陰：Elevation 1
+Tag	46×20 pt	caption2 字體，圓角 10 pt
+推薦作者	卡片寬 70 pt	按鈕 FollowButton ↔️ FollowingButton 動畫 fade
+Wallet
+•	餘額標題右對齊；使用 Text + .monospacedDigit() 保持對齊。
+•	GiftStoreCell：列表寬 327 pt，高 92 pt；左 Emoji 48 pt。
+•	提領彈窗：使用 Alert；二次確認 Destructive style。
+Settings
+•	個人頭像圖檔裁切為 512×512 JPG。
+•	QR Code 放大視圖：背景 systemBackground 90% → 白卡片圓角 24 pt。
+•	通知開關使用 ToggleStyle(.switch) + tint: brand green。
+7.4 動效與手勢
+元件	動效	參數
+Tab 切換	slide	0.15 s
+Join Group	scale (0.1) → 1	spring 0.4
+禮物飛入	offset(y:-120) + opacity	0.5 s easeOut
+7.5 無障礙／在地化
+•	使用 Text("主頁", tableName:"Localizable")；語系檔 zh Hant, en。
+•	Dynamic Type 支援：字體採 Font.body、Font.title3。
+•	VoiceOver：message bubble accessibilityLabel 組合「Tom 說：文字內容」。
+7.6 Figma 檔案結構（for Handoff）
+📁 Invest V3
+  ├─ 🌐 Design Tokens
+  ├─ 📱 iOS / iPhone14Pro / Light
+  │     ├─ Home
+  │     ├─ Chat
+  │     ├─ Info
+  │     ├─ Wallet
+  │     └─ Settings
+  ├─ 📱 iOS / iPhone14Pro / Dark
+  └─ 🖥  Icons & Emoji Assets
+每個 Component 皆命名 Prefix_ComponentName; 例如 Info_ArticleCard / Default。
+
+globs:
+alwaysApply: false
+---

@@ -1,0 +1,228 @@
+import Foundation
+import Supabase
+
+@MainActor
+class AuthenticationService: ObservableObject {
+    @Published var session: Session?
+    @Published var currentUserProfile: UserProfile?
+    @Published var isLoading = false
+    @Published var error: String?
+
+    var isAuthenticated: Bool {
+        return session != nil
+    }
+    
+    // 為了兼容性，添加 currentUser 屬性
+    var currentUser: UserProfile? {
+        return currentUserProfile
+    }
+
+    private var client: SupabaseClient {
+        SupabaseManager.shared.client
+    }
+
+    init() {
+        Task {
+            await SupabaseManager.shared.initialize()
+            for await state in self.client.auth.authStateChanges {
+                self.session = state.session
+                if let user = state.session?.user {
+                    await self.fetchUserProfile(for: user)
+                } else {
+                    self.currentUserProfile = nil
+                }
+            }
+        }
+    }
+
+    // MARK: - 標準用戶註冊
+    func registerUser(email: String, password: String, username: String, displayName: String) async throws {
+        guard !email.isEmpty, !password.isEmpty, !username.isEmpty else {
+            self.error = "請填寫所有必填欄位。"
+            throw AuthError.invalidInput
+        }
+        
+        isLoading = true
+        defer { isLoading = false }
+        error = nil
+
+        do {
+            // 1. 在 Supabase Auth 中註冊用戶
+            let authResponse = try await client.auth.signUp(
+                email: email,
+                password: password
+            )
+
+            // signUp 成功後，user 物件是非可選的，直接賦值即可
+            let user = authResponse.user
+            
+            print("✅ Supabase Auth user created with id: \(user.id)")
+
+            // 2. 創建 UserProfile
+            let profile = UserProfile(
+                id: user.id,
+                email: email,
+                username: username,
+                displayName: displayName,
+                avatarUrl: nil,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            
+            // 3. 將 Profile 插入資料庫
+            try await client.database
+                .from("user_profiles")
+                .insert(profile)
+                .execute()
+
+            print("✅ User profile created for \(username)")
+            
+            // 手動登入以觸發 session 更新
+            try await signIn(email: email, password: password)
+            
+        } catch {
+            print("❌ 註冊失敗: \(error.localizedDescription)")
+            self.error = "註冊失敗：\(error.localizedDescription)"
+            throw error
+        }
+    }
+
+    // MARK: - 標準用戶登入
+    func signIn(email: String, password: String) async throws {
+        guard !email.isEmpty, !password.isEmpty else {
+            self.error = "Email 和密碼不能為空。"
+            throw AuthError.invalidInput
+        }
+        
+        isLoading = true
+        defer { isLoading = false }
+        error = nil
+        
+        do {
+            try await client.auth.signIn(email: email, password: password)
+            print("✅ 登入成功: \(email)")
+        } catch {
+            print("❌ 登入失敗: \(error.localizedDescription)")
+            self.error = "登入失敗：Email 或密碼錯誤。"
+            throw error
+        }
+    }
+
+    // MARK: - 登出
+    func signOut() async {
+        isLoading = true
+        defer { isLoading = false }
+        error = nil
+        
+        do {
+            try await client.auth.signOut()
+            
+            // 清除本地用戶資料
+            self.currentUserProfile = nil
+            UserDefaults.standard.removeObject(forKey: "current_user")
+            
+            print("✅ 用戶登出")
+        } catch {
+            print("❌ 登出失敗: \(error.localizedDescription)")
+            self.error = "登出時發生錯誤。"
+        }
+    }
+    
+    // MARK: - 獲取用戶資料
+    func fetchUserProfile(for user: User) async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            let profiles: [UserProfile] = try await client.database
+                .from("user_profiles")
+                .select()
+                .eq("id", value: user.id)
+                .limit(1)
+                .execute()
+                .value
+            
+            if let profile = profiles.first {
+                self.currentUserProfile = profile
+                
+                // 將用戶資料保存到 UserDefaults 供 SupabaseService 使用
+                if let data = try? JSONEncoder().encode(profile) {
+                    UserDefaults.standard.set(data, forKey: "current_user")
+                    print("✅ 用戶資料已保存到 UserDefaults")
+                }
+                
+                print("✅ 已獲取用戶資料: \(profile.username)")
+            } else {
+                print("⚠️ 未找到用戶 \(user.id) 的個人資料")
+                // 清除 UserDefaults 中的舊資料
+                UserDefaults.standard.removeObject(forKey: "current_user")
+            }
+        } catch {
+            print("❌ 獲取用戶資料失敗: \(error.localizedDescription)")
+            // 清除 UserDefaults 中的舊資料
+            UserDefaults.standard.removeObject(forKey: "current_user")
+        }
+    }
+
+    // MARK: - 更新用戶資料
+    func updateUserProfile(displayName: String, avatarUrl: String? = nil) async throws {
+        
+        isLoading = true
+        defer { isLoading = false }
+        error = nil
+        
+        do {
+            // 1. 從 Supabase Auth 獲取當前登入的 User
+            guard let user = try? await client.auth.user() else {
+                throw AuthError.notAuthenticated
+            }
+            
+            // 2. 獲取對應的 UserProfile
+            guard var profileToUpdate = currentUserProfile, profileToUpdate.id == user.id else {
+                throw AuthError.userNotFound
+            }
+
+            // 3. 更新本地 profile 物件
+            profileToUpdate.displayName = displayName
+            profileToUpdate.avatarUrl = avatarUrl ?? profileToUpdate.avatarUrl
+            profileToUpdate.updatedAt = Date()
+            
+            // 4. 將更新後的 profile 寫回資料庫
+            try await client.database
+                .from("user_profiles")
+                .update(profileToUpdate)
+                .eq("id", value: user.id)
+                .execute()
+
+            // 5. 更新本地發布的屬性以刷新 UI
+            self.currentUserProfile = profileToUpdate
+            print("✅ 用戶資料更新成功")
+
+        } catch {
+            self.error = error.localizedDescription
+            print("❌ 更新失敗: \(error)")
+            throw error
+        }
+    }
+}
+
+// MARK: - 錯誤類型
+enum AuthError: Error, LocalizedError {
+    case invalidInput
+    case userCreationError
+    case userNotFound
+    case notAuthenticated
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidInput:
+            return "請輸入有效的資料"
+        case .userCreationError:
+            return "無法在認證系統中建立使用者"
+        case .userNotFound:
+            return "用戶不存在或密碼錯誤"
+        case .notAuthenticated:
+            return "需要認證才能執行此操作"
+        }
+    }
+}
