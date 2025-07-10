@@ -12,6 +12,9 @@ struct Invest_V3App: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task {
+                    await SupabaseService.shared.initialize()
+                }
         }
     }
 }

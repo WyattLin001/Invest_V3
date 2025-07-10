@@ -8,22 +8,41 @@
 import Foundation
 import Supabase
 
+@MainActor
 class SupabaseService: ObservableObject {
     static let shared = SupabaseService()
     
-    private let client: SupabaseClient
+    private var client: SupabaseClient!
+    private var isInitialized = false
     
-    private init() {
-        guard let url = URL(string: "https://your-project.supabase.co"),
-              let key = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String else {
-            fatalError("Missing Supabase configuration")
+    private init() {}
+    
+    func initialize() async {
+        guard !isInitialized else { return }
+        
+        let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co")!
+        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTMxNjcsImV4cCI6MjA2NzM4OTE2N30.2-l82gsxWDLMj3gUnSpj8sHddMLtX-JgqrbnY5c_9bg"
+        
+        client = SupabaseClient(supabaseURL: url, supabaseKey: anonKey)
+        
+        // 設置認證狀態監聽
+        await client.auth.onAuthStateChange { event, session in
+            Task { @MainActor in
+                if let session = session {
+                    print("✅ Auth State Changed: \(event), User: \(session.user.id)")
+                } else {
+                    print("ℹ️ Auth State Changed: \(event), No session")
+                }
+            }
         }
         
-        client = SupabaseClient(supabaseURL: url, supabaseKey: key)
+        isInitialized = true
+        print("✅ Supabase 初始化成功")
     }
     
     // MARK: - Authentication
     func signInAnonymously() async throws {
+        await initialize()
         try await client.auth.signInAnonymously()
     }
     
@@ -33,6 +52,9 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Investment Groups
     func fetchInvestmentGroups() async throws -> [InvestmentGroup] {
+        await initialize()
+        try await signInAnonymously()
+        
         let response: [InvestmentGroup] = try await client.database
             .from("investment_groups")
             .select()
@@ -43,6 +65,9 @@ class SupabaseService: ObservableObject {
     }
     
     func createInvestmentGroup(_ group: InvestmentGroup) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
         try await client.database
             .from("investment_groups")
             .insert(group)
@@ -50,6 +75,9 @@ class SupabaseService: ObservableObject {
     }
     
     func joinGroup(groupId: UUID, userId: UUID) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
         let membership = GroupMembership(groupId: groupId, userId: userId)
         try await client.database
             .from("group_members")
@@ -59,6 +87,9 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Articles
     func fetchArticles() async throws -> [Article] {
+        await initialize()
+        try await signInAnonymously()
+        
         let response: [Article] = try await client.database
             .from("articles")
             .select()
@@ -69,6 +100,9 @@ class SupabaseService: ObservableObject {
     }
     
     func createArticle(_ article: Article) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
         try await client.database
             .from("articles")
             .insert(article)
@@ -76,6 +110,9 @@ class SupabaseService: ObservableObject {
     }
     
     func likeArticle(articleId: UUID, userId: UUID) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
         let like = ArticleLike(articleId: articleId, userId: userId)
         try await client.database
             .from("article_likes")
@@ -84,6 +121,9 @@ class SupabaseService: ObservableObject {
     }
     
     func unlikeArticle(articleId: UUID, userId: UUID) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
         try await client.database
             .from("article_likes")
             .delete()
@@ -94,6 +134,9 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Chat Messages
     func fetchChatMessages(groupId: UUID) async throws -> [ChatMessage] {
+        await initialize()
+        try await signInAnonymously()
+        
         let response: [ChatMessage] = try await client.database
             .from("chat_messages")
             .select()
@@ -105,6 +148,9 @@ class SupabaseService: ObservableObject {
     }
     
     func sendChatMessage(_ message: ChatMessage) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
         try await client.database
             .from("chat_messages")
             .insert(message)
@@ -113,6 +159,9 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Portfolio
     func fetchUserPortfolio(userId: UUID) async throws -> [Portfolio] {
+        await initialize()
+        try await signInAnonymously()
+        
         let response: [Portfolio] = try await client.database
             .from("user_portfolios")
             .select()
@@ -123,6 +172,9 @@ class SupabaseService: ObservableObject {
     }
     
     func executeTransaction(_ transaction: PortfolioTransaction) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
         try await client.database
             .from("portfolio_transactions")
             .insert(transaction)
@@ -131,6 +183,9 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Wallet & Payments
     func fetchUserBalance(userId: UUID) async throws -> UserBalance? {
+        await initialize()
+        try await signInAnonymously()
+        
         let response: [UserBalance] = try await client.database
             .from("user_balances")
             .select()
@@ -141,6 +196,9 @@ class SupabaseService: ObservableObject {
     }
     
     func createWalletTransaction(_ transaction: WalletTransaction) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
         try await client.database
             .from("wallet_transactions")
             .insert(transaction)
@@ -148,12 +206,17 @@ class SupabaseService: ObservableObject {
     }
     
     func purchaseGift(userId: UUID, giftId: UUID, recipientGroupId: UUID, quantity: Int, totalCost: Int) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
         let gift = UserGift(
+            id: UUID(),
             userId: userId,
             giftId: giftId,
             recipientGroupId: recipientGroupId,
             quantity: quantity,
-            totalCost: totalCost
+            totalCost: totalCost,
+            createdAt: Date()
         )
         try await client.database
             .from("user_gifts")
@@ -163,7 +226,15 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Subscriptions
     func createSubscription(userId: UUID, authorId: UUID) async throws {
-        let subscription = Subscription(userId: userId, authorId: authorId)
+        await initialize()
+        try await signInAnonymously()
+        
+        let subscription = Subscription(
+            id: UUID(),
+            userId: userId,
+            authorId: authorId,
+            startDate: Date()
+        )
         try await client.database
             .from("subscriptions")
             .insert(subscription)
@@ -171,6 +242,9 @@ class SupabaseService: ObservableObject {
     }
     
     func fetchUserSubscriptions(userId: UUID) async throws -> [Subscription] {
+        await initialize()
+        try await signInAnonymously()
+        
         let response: [Subscription] = try await client.database
             .from("subscriptions")
             .select()
@@ -182,6 +256,9 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Weekly Rankings
     func fetchWeeklyRankings() async throws -> [WeeklyRanking] {
+        await initialize()
+        try await signInAnonymously()
+        
         let response: [WeeklyRanking] = try await client.database
             .from("weekly_rankings")
             .select()
@@ -191,26 +268,79 @@ class SupabaseService: ObservableObject {
             .value
         return response
     }
+    
+    // MARK: - Investment Commands (模擬投資指令)
+    func processInvestmentCommand(userId: UUID, groupId: UUID, command: String, symbol: String, amount: Double) async throws {
+        await initialize()
+        try await signInAnonymously()
+        
+        let transaction = PortfolioTransaction(
+            id: UUID(),
+            userId: userId,
+            symbol: symbol,
+            action: command == "買入" ? "buy" : "sell",
+            amount: amount,
+            price: nil, // 將由觸發器填入當前市價
+            executedAt: Date()
+        )
+        
+        try await executeTransaction(transaction)
+        
+        // 同時記錄為聊天訊息
+        let chatMessage = ChatMessage(
+            id: UUID(),
+            groupId: groupId,
+            senderId: userId,
+            senderName: "投資者", // 實際應用中應該從用戶資料獲取
+            content: "[\(command)] \(symbol) \(Int(amount/10000))萬",
+            isInvestmentCommand: true,
+            createdAt: Date()
+        )
+        
+        try await sendChatMessage(chatMessage)
+    }
 }
 
 // MARK: - Supporting Models
 struct GroupMembership: Codable {
+    let id: UUID
     let groupId: UUID
     let userId: UUID
+    let joinedAt: Date?
+    
+    init(groupId: UUID, userId: UUID) {
+        self.id = UUID()
+        self.groupId = groupId
+        self.userId = userId
+        self.joinedAt = Date()
+    }
     
     enum CodingKeys: String, CodingKey {
+        case id
         case groupId = "group_id"
         case userId = "user_id"
+        case joinedAt = "joined_at"
     }
 }
 
 struct ArticleLike: Codable {
+    let id: UUID
     let articleId: UUID
     let userId: UUID
+    let createdAt: Date?
+    
+    init(articleId: UUID, userId: UUID) {
+        self.id = UUID()
+        self.articleId = articleId
+        self.userId = userId
+        self.createdAt = Date()
+    }
     
     enum CodingKeys: String, CodingKey {
+        case id
         case articleId = "article_id"
         case userId = "user_id"
+        case createdAt = "created_at"
     }
 }
 
