@@ -66,6 +66,21 @@ extension Article {
             isFree: false,
             createdAt: Date(),
             updatedAt: Date()
+        ),
+        Article(
+            id: UUID(),
+            title: "加密貨幣市場展望",
+            author: "區塊鏈專家",
+            authorId: UUID(),
+            summary: "分析當前加密貨幣市場趨勢，探討比特幣、以太坊等主流幣種的投資價值。",
+            fullContent: "加密貨幣市場在經歷了多次波動後，正逐漸走向成熟...",
+            category: "加密貨幣",
+            readTime: "6 分鐘",
+            likesCount: 234,
+            commentsCount: 45,
+            isFree: true,
+            createdAt: Date(),
+            updatedAt: Date()
         )
     ]
 }
