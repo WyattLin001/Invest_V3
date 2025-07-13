@@ -64,6 +64,9 @@ struct SettingsView: View {
                             // 訂閱管理
                             subscriptionSection
                             
+                            // 創作者收益
+                            creatorRevenueSection
+                            
                             // 登出按鈕
                             logoutButton
                             
@@ -374,6 +377,102 @@ struct SettingsView: View {
         .brandCardStyle()
     }
     
+    private var creatorRevenueSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+            Text("創作者收益")
+                .font(.sectionHeader)
+                .fontWeight(.semibold)
+                .foregroundColor(.gray900)
+            
+            VStack(spacing: DesignTokens.spacingSM) {
+                NavigationLink(destination: CreatorRevenueDashboardView(authorId: getCurrentUserId())) {
+                    HStack {
+                        Image(systemName: "chart.bar.fill")
+                            .font(.title3)
+                            .foregroundColor(.brandGreen)
+                            .frame(width: 24, height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("收益儀表板")
+                                .font(.bodyText)
+                                .fontWeight(.medium)
+                                .foregroundColor(.gray900)
+                            
+                            Text("查看您的創作收益統計")
+                                .font(.caption)
+                                .foregroundColor(.gray600)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.gray600)
+                    }
+                    .padding(.vertical, DesignTokens.spacingXS)
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                NavigationLink(destination: EarningsStatisticsView(authorId: getCurrentUserId())) {
+                    HStack {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.title3)
+                            .foregroundColor(.brandOrange)
+                            .frame(width: 24, height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("收益統計")
+                                .font(.bodyText)
+                                .fontWeight(.medium)
+                                .foregroundColor(.gray900)
+                            
+                            Text("詳細的收益分析和趨勢")
+                                .font(.caption)
+                                .foregroundColor(.gray600)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.gray600)
+                    }
+                    .padding(.vertical, DesignTokens.spacingXS)
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                NavigationLink(destination: WithdrawalRequestView(authorId: getCurrentUserId(), availableBalance: 500000)) {
+                    HStack {
+                        Image(systemName: "creditcard.fill")
+                            .font(.title3)
+                            .foregroundColor(.brandBlue)
+                            .frame(width: 24, height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("提領申請")
+                                .font(.bodyText)
+                                .fontWeight(.medium)
+                                .foregroundColor(.gray900)
+                            
+                            Text("申請提領您的收益")
+                                .font(.caption)
+                                .foregroundColor(.gray600)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.gray600)
+                    }
+                    .padding(.vertical, DesignTokens.spacingXS)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .brandCardStyle()
+    }
+    
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
             Text("關於")
@@ -409,6 +508,12 @@ struct SettingsView: View {
     }
     
     // MARK: - 輔助方法
+    private func getCurrentUserId() -> UUID {
+        // 這裡應該從 AuthenticationService 獲取當前用戶 ID
+        // 暫時返回一個示例 UUID
+        return UUID()
+    }
+    
     private func settingRow(title: String, isOn: Binding<Bool>) -> some View {
         Toggle(title, isOn: isOn)
             .font(.bodyText) // 使用自定義字體
