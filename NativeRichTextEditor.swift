@@ -160,6 +160,7 @@ struct NativeRichTextEditor: View {
             // 富文字編輯器
             RichTextView(
                 attributedText: $attributedContent,
+                showImagePicker: $showImagePicker,
                 onTextChange: { newText in
                     // 同步更新 draft
                     draft.bodyMD = newText.string
@@ -302,8 +303,6 @@ struct NativeRichTextEditor: View {
     }
     
     private func insertTable(rows: Int, columns: Int) {
-        guard let textView = getCurrentTextView() else { return }
-        
         // 生成 Markdown 表格
         var tableMarkdown = "\n"
         
@@ -332,9 +331,12 @@ struct NativeRichTextEditor: View {
         
         tableMarkdown += "\n"
         
+        // 直接更新 draft 的 bodyMD
+        draft.bodyMD += tableMarkdown
+        
+        // 更新 attributedContent
         let tableString = NSAttributedString(string: tableMarkdown)
-        let selectedRange = textView.selectedRange
-        insertAttributedText(tableString, at: selectedRange.location)
+        attributedContent.append(tableString)
     }
     
     private func publishArticle(_ publishedDraft: ArticleDraft) async {
@@ -405,18 +407,15 @@ struct NativeRichTextEditor: View {
     }
 
     private func insertImagePlaceholder(url: URL) {
-        guard let textView = getCurrentTextView() else { return }
-        
         // 創建一個佔位符，顯示圖片 URL 的 Markdown 格式
-        let markdownImage = "![圖片](\(url.absoluteString))"
+        let markdownImage = "![圖片](\(url.absoluteString))\n"
+        
+        // 直接更新 draft 的 bodyMD
+        draft.bodyMD += markdownImage
+        
+        // 更新 attributedContent
         let imageString = NSAttributedString(string: markdownImage)
-        
-        let selectedRange = textView.selectedRange
-        insertAttributedText(imageString, at: selectedRange.location)
-        
-        // 可選：添加一個換行符
-        let newLine = NSAttributedString(string: "\n")
-        insertAttributedText(newLine, at: selectedRange.location + imageString.length)
+        attributedContent.append(imageString)
     }
 }
 
@@ -424,6 +423,7 @@ struct NativeRichTextEditor: View {
 
 struct RichTextView: UIViewRepresentable {
     @Binding var attributedText: NSMutableAttributedString
+    @Binding var showImagePicker: Bool
     let onTextChange: (NSAttributedString) -> Void
     
     func makeUIView(context: Context) -> UITextView {
@@ -543,6 +543,31 @@ struct RichTextView: UIViewRepresentable {
             ),
             UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
             UIBarButtonItem(
+                image: UIImage(systemName: "list.bullet"),
+                style: .plain,
+                target: coordinator,
+                action: #selector(Coordinator.insertBulletList)
+            ),
+            UIBarButtonItem(
+                image: UIImage(systemName: "list.number"),
+                style: .plain,
+                target: coordinator,
+                action: #selector(Coordinator.insertNumberedList)
+            ),
+            UIBarButtonItem(
+                image: UIImage(systemName: "quote.bubble"),
+                style: .plain,
+                target: coordinator,
+                action: #selector(Coordinator.insertQuote)
+            ),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            UIBarButtonItem(
+                image: UIImage(systemName: "curlybraces"),
+                style: .plain,
+                target: coordinator,
+                action: #selector(Coordinator.insertCodeBlock)
+            ),
+            UIBarButtonItem(
                 image: UIImage(systemName: "link"),
                 style: .plain,
                 target: coordinator,
@@ -590,6 +615,22 @@ extension RichTextView.Coordinator {
         toggleTextStyle(isItalic: true)
     }
     
+    @objc func insertBulletList() {
+        insertList(bullet: true)
+    }
+    
+    @objc func insertNumberedList() {
+        insertList(bullet: false)
+    }
+    
+    @objc func insertQuote() {
+        insertQuotePlaceholder()
+    }
+    
+    @objc func insertCodeBlock() {
+        insertCodeBlockPlaceholder()
+    }
+    
     @objc func insertLink() {
         insertLinkPlaceholder()
     }
@@ -606,6 +647,10 @@ extension RichTextView.Coordinator {
     }
     
     // MARK: - Helper Methods
+    
+    private func getCurrentTextView() -> UITextView? {
+        return textView
+    }
     
     private func applyHeadingStyle(level: Int) {
         guard let textView = getCurrentTextView() else { return }
@@ -711,6 +756,45 @@ extension RichTextView.Coordinator {
         }
     }
     
+    private func insertList(bullet: Bool) {
+        guard let textView = getCurrentTextView() else { return }
+        
+        let bulletPoint = bullet ? "•" : "1."
+        let listItem = "\n\(bulletPoint) 列表項目\n"
+        
+        let listString = NSAttributedString(string: listItem)
+        let selectedRange = textView.selectedRange
+        insertAttributedText(listString, at: selectedRange.location)
+    }
+    
+    private func insertQuotePlaceholder() {
+        guard let textView = getCurrentTextView() else { return }
+        
+        let quoteText = "引言文字"
+        let quoteAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: UIColor.systemGray,
+            .font: UIFont.preferredFont(forTextStyle: .body),
+            .paragraphStyle: NSMutableParagraphStyle().withQuote()
+        ]
+        
+        let attributedQuote = NSAttributedString(string: quoteText, attributes: quoteAttributes)
+        insertAttributedText(attributedQuote, at: textView.selectedRange.location)
+    }
+    
+    private func insertCodeBlockPlaceholder() {
+        guard let textView = getCurrentTextView() else { return }
+        
+        let codeBlock = "```\n程式碼內容\n```"
+        let codeBlockAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: UIColor.systemGray,
+            .font: UIFont.preferredFont(forTextStyle: .body),
+            .paragraphStyle: NSMutableParagraphStyle().withCodeBlock()
+        ]
+        
+        let attributedCodeBlock = NSAttributedString(string: codeBlock, attributes: codeBlockAttributes)
+        insertAttributedText(attributedCodeBlock, at: textView.selectedRange.location)
+    }
+    
     private func insertLinkPlaceholder() {
         guard let textView = getCurrentTextView() else { return }
         
@@ -725,21 +809,6 @@ extension RichTextView.Coordinator {
         insertAttributedText(attributedLink, at: textView.selectedRange.location)
     }
     
-    private func insertImagePlaceholder() {
-        guard let textView = getCurrentTextView() else { return }
-        
-        // 創建圖片佔位符
-        let attachment = NSTextAttachment()
-        attachment.image = UIImage(systemName: "photo.fill")?.withTintColor(.systemGray3)
-        
-        // 設置圖片大小
-        let imageSize = CGSize(width: 60, height: 44)
-        attachment.bounds = CGRect(origin: .zero, size: imageSize)
-        
-        let imageString = NSAttributedString(attachment: attachment)
-        insertAttributedText(imageString, at: textView.selectedRange.location)
-    }
-    
     private func insertAttributedText(_ attributedText: NSAttributedString, at location: Int) {
         guard let textView = getCurrentTextView() else { return }
         
@@ -751,10 +820,6 @@ extension RichTextView.Coordinator {
         
         parent.attributedText = NSMutableAttributedString(attributedString: mutableText)
         parent.onTextChange(mutableText)
-    }
-    
-    private func getCurrentTextView() -> UITextView? {
-        return textView
     }
 }
 
@@ -819,4 +884,23 @@ struct AttributedTextView: UIViewRepresentable {
 // MARK: - Preview
 #Preview {
     NativeRichTextEditor()
+} 
+
+// MARK: - NSMutableParagraphStyle Extensions
+extension NSMutableParagraphStyle {
+    func withQuote() -> NSMutableParagraphStyle {
+        self.headIndent = 20
+        self.tailIndent = -20
+        self.firstLineHeadIndent = 20
+        self.paragraphSpacing = 12
+        return self
+    }
+    
+    func withCodeBlock() -> NSMutableParagraphStyle {
+        self.headIndent = 16
+        self.tailIndent = -16
+        self.firstLineHeadIndent = 16
+        self.paragraphSpacing = 8
+        return self
+    }
 } 
