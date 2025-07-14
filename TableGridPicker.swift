@@ -12,6 +12,10 @@ struct TableGridPicker: View {
     let onSelection: (Int, Int) -> Void
     @Environment(\.dismiss) private var dismiss
     
+    init(onSelection: @escaping (Int, Int) -> Void) {
+        self.onSelection = onSelection
+    }
+    
     var body: some View {
         VStack(spacing: 16) {
             // Title
@@ -87,6 +91,10 @@ struct TableGridPickerSheet: View {
     
     @State private var selectedRows: Int = 2
     @State private var selectedCols: Int = 2
+    
+    init(onSelection: @escaping (Int, Int) -> Void) {
+        self.onSelection = onSelection
+    }
     
     var body: some View {
         NavigationView {

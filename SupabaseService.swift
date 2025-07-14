@@ -664,6 +664,105 @@ class SupabaseService: ObservableObject {
         return insertedArticle
     }
     
+    // 支持關鍵字和圖片的文章創建函數
+    public func publishArticle(from draft: ArticleDraft) async throws -> Article {
+        await SupabaseManager.shared.initialize()
+        
+        let currentUser = try await getCurrentUserAsync()
+        
+        struct ArticleInsertWithTags: Codable {
+            let title: String
+            let author: String
+            let authorId: String
+            let summary: String
+            let fullContent: String
+            let bodyMD: String
+            let category: String
+            let tags: [String]
+            let isFree: Bool
+            let createdAt: Date
+            let updatedAt: Date
+            
+            enum CodingKeys: String, CodingKey {
+                case title
+                case author
+                case authorId = "author_id"
+                case summary
+                case fullContent = "full_content"
+                case bodyMD = "body_md"
+                case category
+                case tags
+                case isFree = "is_free"
+                case createdAt = "created_at"
+                case updatedAt = "updated_at"
+            }
+        }
+        
+        // 生成文章摘要（取前200字）
+        let summary = draft.summary.isEmpty ? String(draft.bodyMD.prefix(200)) : draft.summary
+        
+        let articleData = ArticleInsertWithTags(
+            title: draft.title,
+            author: currentUser.displayName,
+            authorId: currentUser.id.uuidString,
+            summary: summary,
+            fullContent: draft.bodyMD,
+            bodyMD: draft.bodyMD,
+            category: draft.category,
+            tags: draft.tags,
+            isFree: draft.isFree,
+            createdAt: draft.createdAt,
+            updatedAt: Date()
+        )
+        
+        let insertedArticle: Article = try await client.database
+            .from("articles")
+            .insert(articleData)
+            .select()
+            .single()
+            .execute()
+            .value
+        
+        return insertedArticle
+    }
+    
+    // 上傳圖片到 Supabase Storage
+    public func uploadArticleImage(_ imageData: Data, fileName: String) async throws -> String {
+        await SupabaseManager.shared.initialize()
+        
+        let path = "article_images/\(fileName)"
+        
+        try await client.storage
+            .from("article_images")
+            .upload(path: path, file: imageData, options: FileOptions(contentType: "image/jpeg"))
+        
+        // 獲取公開 URL
+        let publicURL = try client.storage
+            .from("article_images")
+            .getPublicURL(path: path)
+        
+        return publicURL.absoluteString
+    }
+    
+    // 根據分類獲取文章
+    public func fetchArticlesByCategory(_ category: String) async throws -> [Article] {
+        await SupabaseManager.shared.initialize()
+        
+        if category == "全部" {
+            return try await fetchArticles()
+        }
+        
+        let articles: [Article] = try await client.database
+            .from("articles")
+            .select()
+            .eq("category", value: category)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+        
+        return articles
+    }
+    
     func deleteArticle(id: UUID) async throws {
         await SupabaseManager.shared.initialize()
         

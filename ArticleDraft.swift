@@ -5,13 +5,18 @@ import Foundation
 struct ArticleDraft: Identifiable, Codable {
     let id: UUID = UUID()
     var title: String = ""
-    var subtitle: String = ""
+    var subtitle: String? = nil      // 修復：允許 nil 值
+    var summary: String = ""         // 文章摘要
     var bodyMD: String = ""
+    var category: String = "投資分析" // 文章分類
     var tags: [String] = []          // ≤5 tags
     var slug: String = ""            // custom URL path component
     var isPaid: Bool = false         // free vs. paid
+    var isFree: Bool = true          // 兼容性屬性
     var isUnlisted: Bool = false     // unlisted vs. public
     var publication: Publication?    // optional host publication
+    var createdAt: Date = Date()     // 創建時間
+    var updatedAt: Date = Date()     // 更新時間
     
     /// Computed canonical URL shown to the user
     var canonicalURL: String {

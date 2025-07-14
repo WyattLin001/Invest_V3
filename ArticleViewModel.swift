@@ -31,6 +31,44 @@ class ArticleViewModel: ObservableObject {
         isLoading = false
     }
     
+    func publishArticle(from draft: ArticleDraft) async {
+        isLoading = true
+        do {
+            // 使用新的 Supabase 服務發布文章
+            let article = try await SupabaseService.shared.publishArticle(from: draft)
+            
+            // 保存到本地列表
+            articles.insert(article, at: 0)
+            // 重新篩選文章列表
+            filteredArticles = articles
+            
+            print("✅ 文章發布成功: \(article.title)")
+        } catch {
+            self.error = error
+            print("❌ 文章發布失敗: \(error)")
+        }
+        isLoading = false
+    }
+    
+    private func calculateReadTime(content: String) -> String {
+        // 計算中文字符數和英文單詞數
+        let chineseCharacterCount = content.filter { character in
+            let scalar = character.unicodeScalars.first!
+            return CharacterSet(charactersIn: "\u{4e00}"..."\u{9fff}").contains(scalar)
+        }.count
+        
+        let englishWordCount = content.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty && !$0.allSatisfy { char in
+                let scalar = char.unicodeScalars.first!
+                return CharacterSet(charactersIn: "\u{4e00}"..."\u{9fff}").contains(scalar)
+            }}.count
+        
+        // 中文按字計算，英文按詞計算，每分鐘 300 字/詞
+        let totalWords = chineseCharacterCount + englishWordCount
+        let minutes = max(1, totalWords / 300)
+        return "\(minutes) 分鐘"
+    }
+    
     func filteredArticles(search: String) -> [Article] {
         var result = filteredArticles
         
@@ -48,7 +86,22 @@ class ArticleViewModel: ObservableObject {
     
     func filterByCategory(_ category: String) {
         selectedCategory = category
-        applyFilter()
+        Task {
+            await fetchArticlesByCategory(category)
+        }
+    }
+    
+    func fetchArticlesByCategory(_ category: String) async {
+        isLoading = true
+        do {
+            let fetchedArticles = try await SupabaseService.shared.fetchArticlesByCategory(category)
+            articles = fetchedArticles
+            filteredArticles = fetchedArticles
+        } catch {
+            self.error = error
+            print("❌ 獲取分類文章失敗: \(error)")
+        }
+        isLoading = false
     }
     
     private func applyFilter() {

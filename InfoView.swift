@@ -36,7 +36,7 @@ struct InfoView: View {
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showArticleEditor) {
-            NativeRichTextEditor()
+            MediumStyleEditor()
                 .onDisappear {
                     Task {
                         await viewModel.fetchArticles()

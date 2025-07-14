@@ -4,93 +4,106 @@ import Combine
 import Foundation
 import PhotosUI
 import Supabase
+import MarkdownUI
 
 struct NativeRichTextEditor: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) var colorScheme
     
-    // 使用 ArticleDraft 模型
+    // 文章草稿狀態
     @State private var draft: ArticleDraft
-    @State private var showPreview = false
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    
-    // 富文字內容狀態
-    @State private var attributedContent = NSMutableAttributedString(string: "")
-    @State private var isEditingTitle = false
-    
-    // 控制草稿提示
-    @State private var isShowingDraftAlert = false
-    
-    // 發佈設定和表格選擇器
-    @State private var showPublishSheet = false
-    @State private var showTablePicker = false
-    
-    // 圖片上傳相關
+    @State private var isPreviewMode = false
+    @State private var showOptionsMenu = false
+    @State private var showSubtopicsSheet = false
+    @State private var showDraftsSheet = false
     @State private var showImagePicker = false
-    @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isUploadingImage = false
     @State private var uploadProgress: Double = 0.0
-
+    @State private var selectedImages: [UIImage] = []
+    @State private var showFloatingToolbar = false
+    @State private var isShowingDraftAlert = false
+    
+    // 字數統計
+    @State private var titleCharacterCount = 0
+    private let maxTitleLength = 50
+    
+    // 初始化
     init(draft: ArticleDraft = ArticleDraft()) {
         _draft = State(initialValue: draft)
-        _attributedContent = State(initialValue: NSMutableAttributedString(string: draft.bodyMD))
+        _titleCharacterCount = State(initialValue: draft.title.count)
     }
-
+    
+    // 檢查是否有未保存的更改
+    private var hasUnsavedChanges: Bool {
+        !draft.title.isEmpty || !draft.bodyMD.isEmpty || !selectedImages.isEmpty
+    }
+    
+    // 顏色配置
+    private var backgroundColor: Color {
+        colorScheme == .dark ? .gray100 : .white
+    }
+    
+    private var textColor: Color {
+        colorScheme == .dark ? .gray900 : .black
+    }
+    
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? .gray600 : .secondary
+    }
+    
     var body: some View {
-        NavigationStack {
+        ZStack {
+            backgroundColor.ignoresSafeArea()
+            
             VStack(spacing: 0) {
-                if showPreview {
-                    previewContent
-                } else {
-                    editorContent
-                }
-            }
-            .navigationTitle("文章編輯器")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button("取消") {
-                    if hasUnsavedChanges {
-                        isShowingDraftAlert = true
-                    } else {
-                        dismiss()
+                // 自定義導航欄
+                customNavigationBar
+                
+                // 主內容區域
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // 標題輸入區域
+                        titleInputSection
+                        
+                        // 內容編輯/預覽區域
+                        if isPreviewMode {
+                            previewSection
+                        } else {
+                            contentEditingSection
+                        }
+                        
+                        // 圖片管理區域
+                        imageManagementSection
+                        
+                        // 底部間距
+                        Spacer(minLength: 100)
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
                 }
             }
             
-            ToolbarItemGroup(placement: .navigationBarTrailing) {
-                Button(showPreview ? "編輯" : "預覽") {
-                    if !showPreview {
-                        updateDraftContent()
-                    }
-                    showPreview.toggle()
-                }
-                
-                Button("發佈") {
-                    updateDraftContent()
-                    showPublishSheet = true
-                }
-                .disabled(draft.title.isEmpty || attributedContent.length == 0)
+            // 浮動工具列
+            if showFloatingToolbar && !isPreviewMode {
+                floatingToolbar
+            }
+            
+            // 上傳進度覆蓋層
+            if isUploadingImage {
+                uploadProgressOverlay
             }
         }
-        .sheet(isPresented: $showPublishSheet) {
-            PublishSettingsSheet(draft: $draft) { action in
-                switch action {
-                case .publish:
-                    Task {
-                        await publishArticle(draft)
-                    }
-                case .shareDraft(let url):
-                    shareDraft(url: url)
-                }
-            }
+        .sheet(isPresented: $showSubtopicsSheet) {
+            SubtopicsSelectionView(draft: $draft)
         }
-        .sheet(isPresented: $showTablePicker) {
-            TableGridPicker { rows, columns in
-                insertTable(rows: rows, columns: columns)
-            }
+        .sheet(isPresented: $showDraftsSheet) {
+            DraftsView()
         }
+        .photosPicker(
+            isPresented: $showImagePicker,
+            selection: .constant(nil),
+            matching: .images
+        )
         .alert("未保存的更改", isPresented: $isShowingDraftAlert) {
             Button("保存草稿") {
                 saveDraft()
@@ -103,804 +116,391 @@ struct NativeRichTextEditor: View {
         } message: {
             Text("您有未保存的更改，是否要保存為草稿？")
         }
-        .alert("錯誤", isPresented: .constant(errorMessage != nil)) {
-            Button("確定") {
-                errorMessage = nil
-            }
-        } message: {
-            if let errorMessage = errorMessage {
-                Text(errorMessage)
-            }
-        }
-        .onAppear {
-            setupInitialContent()
-        }
-        .photosPicker(
-            isPresented: $showImagePicker,
-            selection: $selectedPhotoItem,
-            matching: .images,
-            photoLibrary: .shared()
-        )
-        .onChange(of: selectedPhotoItem) { _, newItem in
-            if let newItem = newItem {
-                handleImageSelection(newItem)
-            }
-        }
-        .overlay(
-            // 圖片上傳進度指示器
-            Group {
-                if isUploadingImage {
-                    VStack {
-                        ProgressView("正在上傳圖片...", value: uploadProgress, total: 1.0)
-                            .progressViewStyle(LinearProgressViewStyle())
-                            .frame(width: 200)
-                        
-                        Button("取消") {
-                            isUploadingImage = false
-                            uploadProgress = 0.0
-                        }
-                        .foregroundColor(.red)
-                        .padding(.top, 8)
-                    }
-                    .padding()
-                    .background(Color(.systemBackground))
-                    .cornerRadius(12)
-                    .shadow(radius: 8)
-                }
-            }
-        )
     }
     
-    // MARK: - Editor Content
-    private var editorContent: some View {
-        VStack(spacing: 0) {
-            // 標題編輯區
-            titleEditingArea
-            
-            // 富文字編輯器
-            RichTextView(
-                attributedText: $attributedContent,
-                showImagePicker: $showImagePicker,
-                onTextChange: { newText in
-                    // 同步更新 draft
-                    draft.bodyMD = newText.string
+    // MARK: - 自定義導航欄
+    private var customNavigationBar: some View {
+        HStack {
+            // 關閉按鈕
+            Button(action: {
+                if hasUnsavedChanges {
+                    isShowingDraftAlert = true
+                } else {
+                    dismiss()
                 }
-            )
-            .background(Color(.systemBackground))
-        }
-    }
-    
-    // MARK: - Title Editing Area
-    private var titleEditingArea: some View {
-        VStack(spacing: 16) {
-            // 標題輸入
-            if isEditingTitle {
-                TextField("文章標題", text: $draft.title)
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .textFieldStyle(.plain)
-                    .foregroundColor(.primary)
-                    .onSubmit {
-                        isEditingTitle = false
-                    }
-            } else {
-                Button(action: { isEditingTitle = true }) {
-                    HStack {
-                        Text(draft.title.isEmpty ? "文章標題" : draft.title)
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                            .foregroundColor(draft.title.isEmpty ? .secondary : .primary)
-                            .multilineTextAlignment(.leading)
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
+            }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(textColor)
             }
             
-            // 副標題輸入
-            TextField("副標題（可選）", text: $draft.subtitle)
-                .font(.title3)
-                .foregroundColor(.secondary)
-                .textFieldStyle(.plain)
+            Spacer()
+            
+            // 免費/付費切換
+            HStack(spacing: 12) {
+                Text("免費")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(draft.isFree ? .brandBlue : secondaryTextColor)
+                
+                Toggle("", isOn: Binding(
+                    get: { !draft.isFree },
+                    set: { draft.isFree = !$0 }
+                ))
+                .toggleStyle(SwitchToggleStyle(tint: .brandBlue))
+                .scaleEffect(0.8)
+                
+                Text("付費")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(!draft.isFree ? .brandBlue : secondaryTextColor)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.brandBlue.opacity(0.1))
+            .cornerRadius(20)
+            
+            Spacer()
+            
+            // 選項選單按鈕
+            Menu {
+                Button("設定子主題") {
+                    showSubtopicsSheet = true
+                }
+                Button("草稿") {
+                    showDraftsSheet = true
+                }
+                Button(isPreviewMode ? "編輯模式" : "預覽模式") {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isPreviewMode.toggle()
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(textColor)
+            }
+            
+            // 上傳按鈕
+            Button(action: uploadArticle) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(canUpload ? .brandBlue : secondaryTextColor)
+            }
+            .disabled(!canUpload)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 24)
-        .background(Color(.systemBackground))
-        .overlay(
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(Color(.separator))
-                .opacity(0.3),
-            alignment: .bottom
-        )
+        .padding(.vertical, 12)
+        .background(backgroundColor)
     }
     
-    // MARK: - Preview Content
-    private var previewContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // 標題預覽
-                if !draft.title.isEmpty {
-                    Text(draft.title)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                }
-                
-                // 副標題預覽
-                if !draft.subtitle.isEmpty {
-                    Text(draft.subtitle)
-                        .font(.title3)
-                        .foregroundColor(.secondary)
-                }
-                
-                // 標籤預覽
-                if !draft.tags.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
-                            ForEach(draft.tags, id: \.self) { tag in
-                                Text(tag)
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.blue.opacity(0.1))
-                                    .foregroundColor(.blue)
-                                    .cornerRadius(8)
-                            }
-                        }
-                        .padding(.horizontal, 20)
+    // MARK: - 標題輸入區域
+    private var titleInputSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("文章標題", text: $draft.title)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(textColor)
+                .onChange(of: draft.title) { _, newValue in
+                    if newValue.count > maxTitleLength {
+                        draft.title = String(newValue.prefix(maxTitleLength))
                     }
+                    titleCharacterCount = draft.title.count
+                }
+            
+            HStack {
+                Spacer()
+                Text("\(titleCharacterCount)/\(maxTitleLength)")
+                    .font(.caption)
+                    .foregroundColor(secondaryTextColor)
+            }
+        }
+    }
+    
+    // MARK: - 內容編輯區域
+    private var contentEditingSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // 副標題
+            TextField("副標題（可選）", text: Binding<String>(
+                get: { draft.subtitle ?? "" },
+                set: { newValue in 
+                    draft.subtitle = newValue.isEmpty ? nil : newValue 
+                }
+            ))
+            .font(.system(size: 20, weight: .medium))
+            .foregroundColor(secondaryTextColor)
+            
+            // 內容編輯器
+            ZStack(alignment: .topLeading) {
+                if draft.bodyMD.isEmpty {
+                    Text("開始寫作...")
+                        .font(.system(size: 18))
+                        .foregroundColor(secondaryTextColor.opacity(0.6))
+                        .padding(.top, 8)
                 }
                 
-                Divider()
-                
-                // 內容預覽 - 使用 AttributedString 渲染
-                AttributedTextView(attributedText: attributedContent)
-                    .padding(.horizontal, 20)
+                TextEditor(text: $draft.bodyMD)
+                    .font(.system(size: 18))
+                    .foregroundColor(textColor)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+                    .frame(minHeight: 300)
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.3)) {
+                            showFloatingToolbar = true
+                        }
+                    }
             }
-            .padding(.vertical, 20)
-        }
-        .background(Color(.systemBackground))
-    }
-    
-    // MARK: - Helper Functions
-    
-    private func setupInitialContent() {
-        if !draft.bodyMD.isEmpty {
-            attributedContent = NSMutableAttributedString(string: draft.bodyMD)
-            applyBasicStyling()
         }
     }
     
-    private func applyBasicStyling() {
-        let fullRange = NSRange(location: 0, length: attributedContent.length)
-        
-        // 設置基本字體
-        attributedContent.addAttribute(
-            .font,
-            value: UIFont.preferredFont(forTextStyle: .body),
-            range: fullRange
-        )
-        
-        // 設置文字顏色
-        attributedContent.addAttribute(
-            .foregroundColor,
-            value: UIColor.label,
-            range: fullRange
-        )
+    // MARK: - 預覽區域
+    private var previewSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // 標題預覽
+            Text(draft.title.isEmpty ? "無標題" : draft.title)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(textColor)
+            
+            // 副標題預覽
+            if let subtitle = draft.subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(secondaryTextColor)
+            }
+            
+            // Markdown 內容預覽
+            if !draft.bodyMD.isEmpty {
+                Markdown(draft.bodyMD)
+                    .markdownTextStyle {
+                        FontSize(18)
+                    }
+                    .foregroundColor(textColor)
+                    .markdownBlockStyle(\.heading1) { configuration in
+                        configuration.label
+                            .markdownTextStyle {
+                                FontWeight(.bold)
+                                FontSize(24)
+                            }
+                            .foregroundColor(textColor)
+                    }
+                    .markdownBlockStyle(\.heading2) { configuration in
+                        configuration.label
+                            .markdownTextStyle {
+                                FontWeight(.semibold)
+                                FontSize(20)
+                            }
+                            .foregroundColor(textColor)
+                    }
+            } else {
+                Text("暫無內容")
+                    .font(.system(size: 18))
+                    .foregroundColor(secondaryTextColor.opacity(0.6))
+            }
+        }
     }
     
-    private var hasUnsavedChanges: Bool {
-        return !draft.title.isEmpty || attributedContent.length > 0
+    // MARK: - 圖片管理區域
+    private var imageManagementSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !selectedImages.isEmpty {
+                Text("圖片")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(textColor)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(Array(selectedImages.enumerated()), id: \.offset) { index, image in
+                            imagePreviewCard(image: image, index: index)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+            }
+            
+            // 添加圖片按鈕
+            Button(action: { showImagePicker = true }) {
+                HStack {
+                    Image(systemName: "photo.badge.plus")
+                        .font(.system(size: 16))
+                    Text("添加圖片")
+                        .font(.system(size: 16, weight: .medium))
+                }
+                .foregroundColor(.brandBlue)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
+                .background(Color.brandBlue.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
     }
     
-    private func updateDraftContent() {
-        draft.bodyMD = attributedContent.string
+    // MARK: - 圖片預覽卡片
+    private func imagePreviewCard(image: UIImage, index: Int) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 100, height: 100)
+                .clipped()
+                .cornerRadius(8)
+            
+            Button(action: {
+                selectedImages.remove(at: index)
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white)
+                    .background(Color.black.opacity(0.6))
+                    .clipShape(Circle())
+            }
+            .padding(4)
+        }
+    }
+    
+    // MARK: - 浮動工具列
+    private var floatingToolbar: some View {
+        VStack {
+            Spacer()
+            
+            HStack(spacing: 0) {
+                // 收起按鈕
+                Button(action: {
+                    withAnimation(.spring(response: 0.3)) {
+                        showFloatingToolbar = false
+                    }
+                }) {
+                    Text("Aa")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.brandBlue)
+                        .frame(width: 40, height: 40)
+                        .background(Color.white)
+                        .cornerRadius(20)
+                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                }
+                
+                Spacer()
+                
+                // 格式化工具
+                HStack(spacing: 16) {
+                    formatButton("H1", action: { insertMarkdown("# ") })
+                    formatButton("H2", action: { insertMarkdown("## ") })
+                    formatButton("B", isBold: true, action: { insertMarkdown("**", suffix: "**") })
+                    formatButton("I", isItalic: true, action: { insertMarkdown("*", suffix: "*") })
+                    formatButton("•", action: { insertMarkdown("- ") })
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Color.white)
+                .cornerRadius(25)
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 30)
+        }
+    }
+    
+    // MARK: - 格式化按鈕
+    private func formatButton(_ text: String, isBold: Bool = false, isItalic: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(text)
+                .font(.system(size: 16, weight: isBold ? .bold : .medium))
+                .italic(isItalic)
+                .foregroundColor(.primary)
+                .frame(width: 32, height: 32)
+        }
+    }
+    
+    // MARK: - 上傳進度覆蓋層
+    private var uploadProgressOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 16) {
+                ProgressView("正在上傳圖片...", value: uploadProgress, total: 1.0)
+                    .progressViewStyle(LinearProgressViewStyle(tint: .brandBlue))
+                    .frame(width: 200)
+                
+                Button("取消") {
+                    isUploadingImage = false
+                    uploadProgress = 0.0
+                }
+                .foregroundColor(.danger)
+            }
+            .padding(24)
+            .background(backgroundColor)
+            .cornerRadius(16)
+            .shadow(radius: 20)
+        }
+    }
+    
+    // MARK: - 計算屬性
+    private var canUpload: Bool {
+        !draft.title.isEmpty && !draft.bodyMD.isEmpty
+    }
+    
+    // MARK: - 功能方法
+    private func insertMarkdown(_ prefix: String, suffix: String = "") {
+        if !suffix.isEmpty {
+            draft.bodyMD += "\(prefix)文字\(suffix)"
+        } else {
+            draft.bodyMD += prefix
+        }
     }
     
     private func saveDraft() {
-        updateDraftContent()
         // TODO: 實現草稿保存邏輯
+        print("保存草稿: \(draft.title)")
     }
     
-    private func insertTable(rows: Int, columns: Int) {
-        // 生成 Markdown 表格
-        var tableMarkdown = "\n"
-        
-        // 表頭
-        var headerRow = "|"
-        for i in 1...columns {
-            headerRow += " 標題\(i) |"
-        }
-        tableMarkdown += headerRow + "\n"
-        
-        // 分隔線
-        var separatorRow = "|"
-        for _ in 1...columns {
-            separatorRow += " --- |"
-        }
-        tableMarkdown += separatorRow + "\n"
-        
-        // 數據行
-        for rowIndex in 1...rows {
-            var dataRow = "|"
-            for colIndex in 1...columns {
-                dataRow += " 內容\(rowIndex)-\(colIndex) |"
-            }
-            tableMarkdown += dataRow + "\n"
-        }
-        
-        tableMarkdown += "\n"
-        
-        // 直接更新 draft 的 bodyMD
-        draft.bodyMD += tableMarkdown
-        
-        // 更新 attributedContent
-        let tableString = NSAttributedString(string: tableMarkdown)
-        attributedContent.append(tableString)
+    private func uploadArticle() {
+        // TODO: 實現文章上傳邏輯
+        print("上傳文章: \(draft.title)")
     }
-    
-    private func publishArticle(_ publishedDraft: ArticleDraft) async {
-        isLoading = true
-        defer { isLoading = false }
-        
-        do {
-            // TODO: 實現發佈邏輯
-            await MainActor.run {
-                dismiss()
-            }
-        } catch {
-            await MainActor.run {
-                errorMessage = "發佈失敗：\(error.localizedDescription)"
-            }
-        }
-    }
-    
-    private func shareDraft(url: URL) {
-        let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            window.rootViewController?.present(activityVC, animated: true)
-        }
-    }
+}
 
-    private func handleImageSelection(_ item: PhotosPickerItem) {
-        isUploadingImage = true
-        uploadProgress = 0.0
-        
-        Task {
-            do {
-                let data = try await item.loadTransferable(type: Data.self)
-                if let imageData = data {
-                    let fileName = "\(UUID().uuidString).jpg"
-                    let (url, error) = try await SupabaseManager.shared.uploadImage(
-                        data: imageData,
-                        fileName: fileName,
-                        onProgress: { progress in
-                            DispatchQueue.main.async {
-                                uploadProgress = progress
-                            }
-                        }
-                    )
-                    
-                    if let error = error {
-                        await MainActor.run {
-                            errorMessage = "上傳圖片失敗：\(error.localizedDescription)"
-                        }
-                    } else if let url = url {
-                        await MainActor.run {
-                            insertImagePlaceholder(url: url)
+// MARK: - 子主題選擇視圖
+struct SubtopicsSelectionView: View {
+    @Binding var draft: ArticleDraft
+    @Environment(\.dismiss) var dismiss
+    
+    private let topics = ["投資分析", "市場動態", "技術分析", "基本面分析", "風險管理", "投資心得", "新手教學", "其他"]
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("選擇分類") {
+                    Picker("分類", selection: $draft.category) {
+                        ForEach(topics, id: \.self) { topic in
+                            Text(topic).tag(topic)
                         }
                     }
-                }
-            } catch {
-                await MainActor.run {
-                    errorMessage = "選擇圖片失敗：\(error.localizedDescription)"
-                }
-            }
-            
-            await MainActor.run {
-                isUploadingImage = false
-                uploadProgress = 0.0
-            }
-        }
-    }
-
-    private func insertImagePlaceholder(url: URL) {
-        // 創建一個佔位符，顯示圖片 URL 的 Markdown 格式
-        let markdownImage = "![圖片](\(url.absoluteString))\n"
-        
-        // 直接更新 draft 的 bodyMD
-        draft.bodyMD += markdownImage
-        
-        // 更新 attributedContent
-        let imageString = NSAttributedString(string: markdownImage)
-        attributedContent.append(imageString)
-    }
-}
-
-// MARK: - RichTextView (UIViewRepresentable)
-
-struct RichTextView: UIViewRepresentable {
-    @Binding var attributedText: NSMutableAttributedString
-    @Binding var showImagePicker: Bool
-    let onTextChange: (NSAttributedString) -> Void
-    
-    func makeUIView(context: Context) -> UITextView {
-        let textView = UITextView()
-        textView.delegate = context.coordinator
-        
-        // 啟用富文字編輯
-        textView.isEditable = true
-        textView.allowsEditingTextAttributes = true
-        
-        // 外觀設置 - Medium 風格
-        textView.backgroundColor = .systemBackground
-        textView.textColor = .label
-        textView.font = UIFont.preferredFont(forTextStyle: .body)
-        
-        // 行間距設置
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineSpacing = 4
-        paragraphStyle.paragraphSpacing = 12
-        textView.typingAttributes[.paragraphStyle] = paragraphStyle
-        
-        // 內邊距 - 更符合 Medium 的寬鬆感
-        textView.textContainerInset = UIEdgeInsets(top: 24, left: 20, bottom: 100, right: 20)
-        
-        // 移除額外的邊距
-        textView.textContainer.lineFragmentPadding = 0
-        
-        // 鍵盤設置
-        textView.keyboardDismissMode = .interactive
-        textView.autocorrectionType = .yes
-        textView.spellCheckingType = .yes
-        
-        // 設置工具列
-        textView.inputAccessoryView = createToolbar(for: textView, coordinator: context.coordinator)
-        
-        // 將 textView 實例傳遞給 coordinator
-        context.coordinator.textView = textView
-        
-        return textView
-    }
-    
-    func updateUIView(_ uiView: UITextView, context: Context) {
-        if uiView.attributedText != attributedText {
-            let selectedRange = uiView.selectedRange
-            uiView.attributedText = attributedText
-            uiView.selectedRange = selectedRange
-        }
-    }
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-    
-    // MARK: - Coordinator
-    class Coordinator: NSObject, UITextViewDelegate {
-        let parent: RichTextView
-        weak var textView: UITextView?
-        
-        init(_ parent: RichTextView) {
-            self.parent = parent
-        }
-        
-        func textViewDidChange(_ textView: UITextView) {
-            parent.attributedText = NSMutableAttributedString(attributedString: textView.attributedText)
-            parent.onTextChange(textView.attributedText)
-        }
-        
-        func textViewDidChangeSelection(_ textView: UITextView) {
-            // 更新工具列按鈕狀態
-            updateToolbarButtonStates()
-        }
-        
-        private func updateToolbarButtonStates() {
-            // TODO: 根據當前選擇範圍的樣式更新工具列按鈕高亮狀態
-        }
-    }
-    
-    // MARK: - Toolbar Creation
-    private func createToolbar(for textView: UITextView, coordinator: Coordinator) -> UIToolbar {
-        let toolbar = UIToolbar()
-        toolbar.sizeToFit()
-        toolbar.backgroundColor = .systemBackground
-        toolbar.barTintColor = .systemBackground
-        
-        // 創建標題按鈕組
-        let headingMenu = UIMenu(title: "標題", children: [
-            UIAction(title: "H1", image: UIImage(systemName: "textformat.size.larger")) { _ in
-                coordinator.applyH1()
-            },
-            UIAction(title: "H2", image: UIImage(systemName: "textformat.size")) { _ in
-                coordinator.applyH2()
-            },
-            UIAction(title: "H3", image: UIImage(systemName: "textformat.size.smaller")) { _ in
-                coordinator.applyH3()
-            }
-        ])
-        
-        let headingButton = UIBarButtonItem(
-            image: UIImage(systemName: "textformat"),
-            menu: headingMenu
-        )
-        
-        let items = [
-            headingButton,
-            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
-            UIBarButtonItem(
-                image: UIImage(systemName: "bold"),
-                style: .plain,
-                target: coordinator,
-                action: #selector(Coordinator.toggleBold)
-            ),
-            UIBarButtonItem(
-                image: UIImage(systemName: "italic"),
-                style: .plain,
-                target: coordinator,
-                action: #selector(Coordinator.toggleItalic)
-            ),
-            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
-            UIBarButtonItem(
-                image: UIImage(systemName: "list.bullet"),
-                style: .plain,
-                target: coordinator,
-                action: #selector(Coordinator.insertBulletList)
-            ),
-            UIBarButtonItem(
-                image: UIImage(systemName: "list.number"),
-                style: .plain,
-                target: coordinator,
-                action: #selector(Coordinator.insertNumberedList)
-            ),
-            UIBarButtonItem(
-                image: UIImage(systemName: "quote.bubble"),
-                style: .plain,
-                target: coordinator,
-                action: #selector(Coordinator.insertQuote)
-            ),
-            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
-            UIBarButtonItem(
-                image: UIImage(systemName: "curlybraces"),
-                style: .plain,
-                target: coordinator,
-                action: #selector(Coordinator.insertCodeBlock)
-            ),
-            UIBarButtonItem(
-                image: UIImage(systemName: "link"),
-                style: .plain,
-                target: coordinator,
-                action: #selector(Coordinator.insertLink)
-            ),
-            UIBarButtonItem(
-                image: UIImage(systemName: "photo"),
-                style: .plain,
-                target: coordinator,
-                action: #selector(Coordinator.insertImage)
-            ),
-            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
-            UIBarButtonItem(
-                title: "完成",
-                style: .done,
-                target: coordinator,
-                action: #selector(Coordinator.dismissKeyboard)
-            )
-        ]
-        
-        toolbar.setItems(items, animated: false)
-        return toolbar
-    }
-}
-
-// MARK: - Coordinator Actions Extension
-extension RichTextView.Coordinator {
-    @objc func applyH1() {
-        applyHeadingStyle(level: 1)
-    }
-    
-    @objc func applyH2() {
-        applyHeadingStyle(level: 2)
-    }
-    
-    @objc func applyH3() {
-        applyHeadingStyle(level: 3)
-    }
-    
-    @objc func toggleBold() {
-        toggleTextStyle(isBold: true)
-    }
-    
-    @objc func toggleItalic() {
-        toggleTextStyle(isItalic: true)
-    }
-    
-    @objc func insertBulletList() {
-        insertList(bullet: true)
-    }
-    
-    @objc func insertNumberedList() {
-        insertList(bullet: false)
-    }
-    
-    @objc func insertQuote() {
-        insertQuotePlaceholder()
-    }
-    
-    @objc func insertCodeBlock() {
-        insertCodeBlockPlaceholder()
-    }
-    
-    @objc func insertLink() {
-        insertLinkPlaceholder()
-    }
-    
-    @objc func insertImage() {
-        // 觸發圖片選擇器
-        DispatchQueue.main.async {
-            self.parent.showImagePicker = true
-        }
-    }
-    
-    @objc func dismissKeyboard() {
-        textView?.resignFirstResponder()
-    }
-    
-    // MARK: - Helper Methods
-    
-    private func getCurrentTextView() -> UITextView? {
-        return textView
-    }
-    
-    private func applyHeadingStyle(level: Int) {
-        guard let textView = getCurrentTextView() else { return }
-        
-        let selectedRange = textView.selectedRange
-        let lineRange = (textView.text as NSString).lineRange(for: selectedRange)
-        
-        let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
-        
-        // 移除現有的標題樣式
-        mutableText.removeAttribute(.font, range: lineRange)
-        
-        // 應用新的標題樣式
-        let fontSize: CGFloat
-        let weight: UIFont.Weight
-        
-        switch level {
-        case 1:
-            fontSize = 28
-            weight = .bold
-        case 2:
-            fontSize = 22
-            weight = .bold
-        case 3:
-            fontSize = 18
-            weight = .semibold
-        default:
-            fontSize = 17
-            weight = .regular
-        }
-        
-        let font = UIFont.systemFont(ofSize: fontSize, weight: weight)
-        mutableText.addAttribute(.font, value: font, range: lineRange)
-        mutableText.addAttribute(.foregroundColor, value: UIColor.label, range: lineRange)
-        
-        // 更新文本並保持選擇範圍
-        textView.attributedText = mutableText
-        textView.selectedRange = selectedRange
-        
-        // 通知父組件更新
-        parent.attributedText = NSMutableAttributedString(attributedString: mutableText)
-        parent.onTextChange(mutableText)
-    }
-    
-    private func toggleTextStyle(isBold: Bool = false, isItalic: Bool = false) {
-        guard let textView = getCurrentTextView() else { return }
-        
-        let selectedRange = textView.selectedRange
-        let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
-        
-        if selectedRange.length == 0 {
-            // 沒有選擇文字，設置輸入屬性
-            var typingAttributes = textView.typingAttributes
-            
-            if let currentFont = typingAttributes[.font] as? UIFont {
-                var newFont = currentFont
-                
-                if isBold {
-                    newFont = currentFont.isBold ? currentFont.withoutBold() : currentFont.withBold()
+                    .pickerStyle(WheelPickerStyle())
                 }
                 
-                if isItalic {
-                    newFont = currentFont.isItalic ? currentFont.withoutItalic() : currentFont.withItalic()
+                Section("文章設定") {
+                    HStack {
+                        Text("文章類型")
+                        Spacer()
+                        Picker("", selection: $draft.isFree) {
+                            Text("免費").tag(true)
+                            Text("付費").tag(false)
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        .frame(width: 120)
+                    }
                 }
-                
-                typingAttributes[.font] = newFont
             }
-            
-            textView.typingAttributes = typingAttributes
-        } else {
-            // 有選擇文字，應用樣式到選擇範圍
-            if isBold {
-                toggleBoldInRange(mutableText, range: selectedRange)
-            }
-            
-            if isItalic {
-                toggleItalicInRange(mutableText, range: selectedRange)
-            }
-            
-            textView.attributedText = mutableText
-            textView.selectedRange = selectedRange
-            
-            parent.attributedText = NSMutableAttributedString(attributedString: mutableText)
-            parent.onTextChange(mutableText)
-        }
-    }
-    
-    private func toggleBoldInRange(_ attributedText: NSMutableAttributedString, range: NSRange) {
-        attributedText.enumerateAttribute(.font, in: range) { value, subRange, _ in
-            if let font = value as? UIFont {
-                let newFont = font.isBold ? font.withoutBold() : font.withBold()
-                attributedText.addAttribute(.font, value: newFont, range: subRange)
+            .navigationTitle("設定子主題")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                }
             }
         }
     }
-    
-    private func toggleItalicInRange(_ attributedText: NSMutableAttributedString, range: NSRange) {
-        attributedText.enumerateAttribute(.font, in: range) { value, subRange, _ in
-            if let font = value as? UIFont {
-                let newFont = font.isItalic ? font.withoutItalic() : font.withItalic()
-                attributedText.addAttribute(.font, value: newFont, range: subRange)
-            }
-        }
-    }
-    
-    private func insertList(bullet: Bool) {
-        guard let textView = getCurrentTextView() else { return }
-        
-        let bulletPoint = bullet ? "•" : "1."
-        let listItem = "\n\(bulletPoint) 列表項目\n"
-        
-        let listString = NSAttributedString(string: listItem)
-        let selectedRange = textView.selectedRange
-        insertAttributedText(listString, at: selectedRange.location)
-    }
-    
-    private func insertQuotePlaceholder() {
-        guard let textView = getCurrentTextView() else { return }
-        
-        let quoteText = "引言文字"
-        let quoteAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.systemGray,
-            .font: UIFont.preferredFont(forTextStyle: .body),
-            .paragraphStyle: NSMutableParagraphStyle().withQuote()
-        ]
-        
-        let attributedQuote = NSAttributedString(string: quoteText, attributes: quoteAttributes)
-        insertAttributedText(attributedQuote, at: textView.selectedRange.location)
-    }
-    
-    private func insertCodeBlockPlaceholder() {
-        guard let textView = getCurrentTextView() else { return }
-        
-        let codeBlock = "```\n程式碼內容\n```"
-        let codeBlockAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.systemGray,
-            .font: UIFont.preferredFont(forTextStyle: .body),
-            .paragraphStyle: NSMutableParagraphStyle().withCodeBlock()
-        ]
-        
-        let attributedCodeBlock = NSAttributedString(string: codeBlock, attributes: codeBlockAttributes)
-        insertAttributedText(attributedCodeBlock, at: textView.selectedRange.location)
-    }
-    
-    private func insertLinkPlaceholder() {
-        guard let textView = getCurrentTextView() else { return }
-        
-        let linkText = "連結文字"
-        let linkAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.systemBlue,
-            .underlineStyle: NSUnderlineStyle.single.rawValue,
-            .font: UIFont.preferredFont(forTextStyle: .body)
-        ]
-        
-        let attributedLink = NSAttributedString(string: linkText, attributes: linkAttributes)
-        insertAttributedText(attributedLink, at: textView.selectedRange.location)
-    }
-    
-    private func insertAttributedText(_ attributedText: NSAttributedString, at location: Int) {
-        guard let textView = getCurrentTextView() else { return }
-        
-        let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
-        mutableText.insert(attributedText, at: location)
-        
-        textView.attributedText = mutableText
-        textView.selectedRange = NSRange(location: location + attributedText.length, length: 0)
-        
-        parent.attributedText = NSMutableAttributedString(attributedString: mutableText)
-        parent.onTextChange(mutableText)
-    }
-}
-
-// MARK: - UIFont Extensions for Bold/Italic
-extension UIFont {
-    var isBold: Bool {
-        return fontDescriptor.symbolicTraits.contains(.traitBold)
-    }
-    
-    var isItalic: Bool {
-        return fontDescriptor.symbolicTraits.contains(.traitItalic)
-    }
-    
-    func withBold() -> UIFont {
-        var traits = fontDescriptor.symbolicTraits
-        traits.insert(.traitBold)
-        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
-        return UIFont(descriptor: descriptor, size: pointSize)
-    }
-    
-    func withoutBold() -> UIFont {
-        var traits = fontDescriptor.symbolicTraits
-        traits.remove(.traitBold)
-        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
-        return UIFont(descriptor: descriptor, size: pointSize)
-    }
-    
-    func withItalic() -> UIFont {
-        var traits = fontDescriptor.symbolicTraits
-        traits.insert(.traitItalic)
-        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
-        return UIFont(descriptor: descriptor, size: pointSize)
-    }
-    
-    func withoutItalic() -> UIFont {
-        var traits = fontDescriptor.symbolicTraits
-        traits.remove(.traitItalic)
-        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
-        return UIFont(descriptor: descriptor, size: pointSize)
-    }
-}
-
-// MARK: - AttributedTextView for Preview
-struct AttributedTextView: UIViewRepresentable {
-    let attributedText: NSAttributedString
-    
-    func makeUIView(context: Context) -> UITextView {
-        let textView = UITextView()
-        textView.isEditable = false
-        textView.isScrollEnabled = false
-        textView.backgroundColor = .clear
-        textView.textContainerInset = .zero
-        textView.textContainer.lineFragmentPadding = 0
-        return textView
-    }
-    
-    func updateUIView(_ uiView: UITextView, context: Context) {
-        uiView.attributedText = attributedText
-    }
-}
-
-// MARK: - Preview
-#Preview {
-    NativeRichTextEditor()
 } 
 
-// MARK: - NSMutableParagraphStyle Extensions
-extension NSMutableParagraphStyle {
-    func withQuote() -> NSMutableParagraphStyle {
-        self.headIndent = 20
-        self.tailIndent = -20
-        self.firstLineHeadIndent = 20
-        self.paragraphSpacing = 12
-        return self
-    }
-    
-    func withCodeBlock() -> NSMutableParagraphStyle {
-        self.headIndent = 16
-        self.tailIndent = -16
-        self.firstLineHeadIndent = 16
-        self.paragraphSpacing = 8
-        return self
-    }
-} 

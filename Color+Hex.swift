@@ -79,9 +79,9 @@ extension Color {
     
     // MARK: - Helper Initializers
     
-    /// 從 hex 字串創建顏色
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+    /// 從 hex 字串創建顏色 (自定義實現，避免與系統 API 衝突)
+    init(hexString: String) {
+        let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
         Scanner(string: hex).scanHexInt64(&int)
         let a, r, g, b: UInt64
@@ -105,14 +105,19 @@ extension Color {
         )
     }
     
+    /// 便利初始化器，保持向後兼容
+    init(hex: String) {
+        self.init(hexString: hex)
+    }
+    
     /// 支援深色模式的顏色初始化器
     init(light: String, dark: String) {
         self.init(UIColor { traitCollection in
             switch traitCollection.userInterfaceStyle {
             case .dark:
-                return UIColor(Color(hex: dark))
+                return UIColor(Color(hexString: dark))
             default:
-                return UIColor(Color(hex: light))
+                return UIColor(Color(hexString: light))
             }
         })
     }

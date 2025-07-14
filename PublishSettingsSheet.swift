@@ -22,6 +22,7 @@ struct PublishSettingsSheet: View {
     // MARK: - Local state for tag field
     @State private var newTag: String = ""
     @State private var showTagLimitAlert = false
+    @State private var showShareSuccess = false
 
     // MARK: - Share-draft link (auto-generated)
     private var draftURL: URL {
@@ -53,7 +54,12 @@ struct PublishSettingsSheet: View {
                 Section("顯示標題與副標題") {
                     TextField("文章標題", text: $draft.title)
                         .textFieldStyle(.roundedBorder)
-                    TextField("副標題（可選）", text: $draft.subtitle)
+                    TextField("副標題（可選）", text: Binding<String>(
+                        get: { draft.subtitle ?? "" },
+                        set: { newValue in 
+                            draft.subtitle = newValue.isEmpty ? nil : newValue 
+                        }
+                    ))
                         .textFieldStyle(.roundedBorder)
                 }
 
@@ -63,39 +69,34 @@ struct PublishSettingsSheet: View {
                     tagInputField
                 }
 
-                // ----- URL & visibility -----
-                Section("網址與可見性") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        TextField("自訂網址後綴", text: $draft.slug)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                        
-                        Text("最終網址：")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        + Text(draft.canonicalURL)
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                    }
-
-                    Toggle("不公開列表 (僅持有連結可見)", isOn: $draft.isUnlisted)
-                    Toggle("付費內容", isOn: $draft.isPaid)
-                }
-
                 // ----- Utilities -----
                 Section("工具") {
                     Button {
+                        // 複製連結到剪貼板
+                        UIPasteboard.general.string = draftURL.absoluteString
+                        showShareSuccess = true
+                        
+                        // 3秒後隱藏提示
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            showShareSuccess = false
+                        }
+                        
+                        // 也調用原有的 action
                         onAction(.shareDraft(draftURL))
                     } label: {
                         Label("分享草稿連結", systemImage: "link")
                     }
                     .buttonStyle(.borderless)
-
-                    Button(role: .destructive) {
-                        dismiss()
-                    } label: {
-                        Label("關閉", systemImage: "xmark")
+                    
+                    if showShareSuccess {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("連結已複製到剪貼板")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .transition(.opacity)
                     }
                 }
             }
@@ -126,20 +127,27 @@ struct PublishSettingsSheet: View {
     // MARK: - Tag subviews
 
     private var tagChips: some View {
-        FlowLayout(alignment: .leading) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 8) {
             ForEach(draft.tags, id: \.self) { tag in
-                HStack(spacing: 4) {
-                    Text(tag)
-                    Image(systemName: "xmark.circle.fill")
+                VStack(spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(tag)
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.caption2)
+                            .onTapGesture { remove(tag) }
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.1))
+                    .foregroundColor(.blue)
+                    .cornerRadius(8)
+                    
+                    // 關注人數
+                    Text("\(getFollowersCount(for: tag)) 人關注")
                         .font(.caption2)
-                        .onTapGesture { remove(tag) }
+                        .foregroundColor(.secondary)
                 }
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.blue.opacity(0.1))
-                .foregroundColor(.blue)
-                .cornerRadius(8)
             }
         }
         .padding(.vertical, 4)
@@ -171,6 +179,23 @@ struct PublishSettingsSheet: View {
 
     private func remove(_ tag: String) {
         draft.tags.removeAll { $0 == tag }
+    }
+    
+    private func getFollowersCount(for tag: String) -> Int {
+        // 模擬關注人數數據
+        let mockData: [String: Int] = [
+            "投資分析": 1234,
+            "股票": 2567,
+            "台積電": 3456,
+            "科技股": 1890,
+            "金融股": 1567,
+            "ETF": 2234,
+            "加密貨幣": 1678,
+            "房地產": 987,
+            "基金": 1345,
+            "債券": 765
+        ]
+        return mockData[tag] ?? Int.random(in: 100...2000)
     }
 }
 
