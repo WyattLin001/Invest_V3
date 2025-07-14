@@ -7,7 +7,6 @@ struct PublishSettingsView: View {
     @Binding var keywords: [String]
     let onPublish: () -> Void
     
-    @State private var keywordText: String = ""
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
     
@@ -111,66 +110,7 @@ struct PublishSettingsView: View {
     
     // MARK: - 關鍵字設定
     private var keywordsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("關鍵字")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(textColor)
-                
-                Spacer()
-                
-                Text("\(keywords.count)/5")
-                    .font(.system(size: 14))
-                    .foregroundColor(secondaryTextColor)
-            }
-            
-            Text("添加關鍵字幫助讀者發現你的文章")
-                .font(.system(size: 14))
-                .foregroundColor(secondaryTextColor)
-            
-            // 關鍵字輸入
-            HStack {
-                TextField("輸入關鍵字", text: $keywordText)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .onSubmit {
-                        addKeyword()
-                    }
-                
-                Button("添加") {
-                    addKeyword()
-                }
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.brandBlue)
-                .disabled(keywordText.isEmpty || keywords.count >= 5)
-            }
-            
-            // 已添加的關鍵字
-            if !keywords.isEmpty {
-                LazyVGrid(columns: [
-                    GridItem(.adaptive(minimum: 80))
-                ], spacing: 8) {
-                    ForEach(keywords, id: \.self) { keyword in
-                        HStack(spacing: 4) {
-                            Text(keyword)
-                                .font(.system(size: 14))
-                                .foregroundColor(textColor)
-                            
-                            Button(action: {
-                                removeKeyword(keyword)
-                            }) {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(secondaryTextColor)
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(16)
-                    }
-                }
-            }
-        }
+        TagInputView(tags: $keywords, maxTags: 5, placeholder: "輸入關鍵字...")
     }
     
     // MARK: - 付費內容設定
@@ -220,23 +160,7 @@ struct PublishSettingsView: View {
             .padding(.vertical, 16)
             .background(backgroundColor)
         }
-    }
-    
-    // MARK: - 關鍵字管理
-    private func addKeyword() {
-        let trimmedKeyword = keywordText.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard !trimmedKeyword.isEmpty,
-              !keywords.contains(trimmedKeyword),
-              keywords.count < 5 else { return }
-        
-        keywords.append(trimmedKeyword)
-        keywordText = ""
-    }
-    
-    private func removeKeyword(_ keyword: String) {
-        keywords.removeAll { $0 == keyword }
-    }
+}
 }
 
 // MARK: - 預覽

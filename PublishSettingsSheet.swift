@@ -129,25 +129,26 @@ struct PublishSettingsSheet: View {
     private var tagChips: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 8) {
             ForEach(draft.tags, id: \.self) { tag in
-                VStack(spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(tag)
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.caption2)
-                            .onTapGesture { remove(tag) }
+                HStack(spacing: 4) {
+                    Text(tag)
+                        .font(.system(size: 14, weight: .medium))
+                    Button {
+                        remove(tag)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
                     }
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.blue.opacity(0.1))
-                    .foregroundColor(.blue)
-                    .cornerRadius(8)
-                    
-                    // 關注人數
-                    Text("\(getFollowersCount(for: tag)) 人關注")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.blue.opacity(0.1))
+                .foregroundColor(.blue)
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                )
             }
         }
         .padding(.vertical, 4)

@@ -23,6 +23,7 @@ struct ArticleEditorView: View {
     @State private var isUploadingImage = false
     @State private var uploadProgress: Double = 0.0
     @State private var isShowingDraftAlert = false
+    @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
     
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
@@ -106,9 +107,13 @@ struct ArticleEditorView: View {
         }
         .photosPicker(
             isPresented: $showImagePicker,
-            selection: .constant(nil),
+            selection: $selectedPhotosPickerItems,
+            maxSelectionCount: 1,
             matching: .images
         )
+        .onChange(of: selectedPhotosPickerItems) { _, newItems in
+            loadSelectedImages(newItems)
+        }
         .alert("未保存的更改", isPresented: $isShowingDraftAlert) {
             Button("保存草稿") {
                 saveDraft()
@@ -431,6 +436,50 @@ struct ArticleEditorView: View {
         }
     }
     
+    // MARK: - 圖片處理方法
+    private func loadSelectedImages(_ items: [PhotosPickerItem]) {
+        guard let item = items.first else { return }
+        
+        // 清空選擇以防止重複處理
+        selectedPhotosPickerItems = []
+        
+        isUploadingImage = true
+        uploadProgress = 0.0
+        
+        item.loadTransferable(type: Data.self) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let data):
+                    if let data = data, let image = UIImage(data: data) {
+                        // 檢查是否已存在相同圖片，避免重複
+                        if !selectedImages.contains(where: { existingImage in
+                            existingImage.pngData() == image.pngData()
+                        }) {
+                            selectedImages.append(image)
+                            uploadProgress = 1.0
+                            
+                            // 短暫顯示完成狀態後隱藏
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                isUploadingImage = false
+                                uploadProgress = 0.0
+                            }
+                        } else {
+                            // 如果是重複圖片，直接隱藏進度
+                            isUploadingImage = false
+                            uploadProgress = 0.0
+                        }
+                    } else {
+                        isUploadingImage = false
+                        uploadProgress = 0.0
+                    }
+                case .failure(let error):
+                    print("圖片載入失敗: \(error)")
+                    isUploadingImage = false
+                    uploadProgress = 0.0
+                }
+            }
+        }
+    }
     private func saveDraft() {
         isDraft = true
         // TODO: 實現草稿保存邏輯
@@ -573,8 +622,8 @@ struct ArticlePreviewView: View {
                         Markdown(content)
                             .markdownTextStyle {
                                 FontSize(16)
+                                ForegroundColor(.primary)
                             }
-                            .foregroundColor(textColor)
                             .markdownBlockStyle(\.heading1) { configuration in
                                 configuration.label
                                     .markdownTextStyle {
@@ -591,10 +640,19 @@ struct ArticlePreviewView: View {
                                     }
                                     .foregroundColor(textColor)
                             }
+                            .markdownBlockStyle(\.table) { configuration in
+                                configuration.label
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.gray.opacity(0.1))
+                                    .cornerRadius(4)
+                            }
+                            .markdownImageProvider(.asset)
                     } else {
                         Text("暫無內容")
                             .font(.system(size: 16))
                             .foregroundColor(secondaryTextColor)
+                            .padding(.vertical, 20)
                     }
                 }
                 .padding(16)

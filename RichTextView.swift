@@ -70,9 +70,8 @@ struct RichTextView: UIViewRepresentable {
         toolbar.backgroundColor = UIColor.systemBackground
         toolbar.tintColor = UIColor.label
         
-        // 設置固定高度避免約束衝突
-        toolbar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44)
-        toolbar.autoresizingMask = [.flexibleWidth]
+        // 使用自適應高度避免約束衝突
+        toolbar.sizeToFit()
         
         // 工具列按鈕
         let h1Button = createToolbarButton(
@@ -87,19 +86,11 @@ struct RichTextView: UIViewRepresentable {
             coordinator: coordinator
         )
         
-        let h3Button = createToolbarButton(
-            systemName: "textformat.size.smaller",
-            action: #selector(coordinator.insertH3),
-            coordinator: coordinator
-        )
-        
         let boldButton = createToolbarButton(
             systemName: "bold",
             action: #selector(coordinator.toggleBold),
             coordinator: coordinator
         )
-        
-        // 移除斜體按鈕以避免約束問題
         
         let photoButton = createToolbarButton(
             systemName: "photo",
@@ -129,23 +120,12 @@ struct RichTextView: UIViewRepresentable {
             action: #selector(coordinator.dismissKeyboard)
         )
         
+        // 設置按鈕項目，減少固定間距以避免約束衝突
         toolbar.setItems([
-            h1Button, h2Button, h3Button,
-            UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil),
-            boldButton,
-            UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil),
-            photoButton, tableButton, dividerButton,
-            flexSpace,
+            h1Button, h2Button, boldButton, flexSpace,
+            photoButton, tableButton, dividerButton, flexSpace,
             doneButton
         ], animated: false)
-        
-        // 設置固定間距
-        if let fixedSpace = toolbar.items?[3] {
-            fixedSpace.width = 12
-        }
-        if let fixedSpace2 = toolbar.items?[5] {
-            fixedSpace2.width = 12
-        }
         
         return toolbar
     }
@@ -344,69 +324,50 @@ struct RichTextView: UIViewRepresentable {
             let selectedRange = textView.selectedRange
             let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
             
-            // 創建表格佔位符
-            let attachment = NSTextAttachment()
-            let placeholderSize = CGSize(width: textView.frame.width - 32, height: 44)
+            // 創建可編輯的表格 Markdown 字符串
+            let tableMarkdown = createEditableTableMarkdown(rows: rows, cols: cols)
             
-            // 創建表格佔位圖像
-            let renderer = UIGraphicsImageRenderer(size: placeholderSize)
-            let placeholderImage = renderer.image { context in
-                let cgContext = context.cgContext
-                
-                // 背景
-                cgContext.setFillColor(UIColor.systemGray6.cgColor)
-                cgContext.fill(CGRect(origin: .zero, size: placeholderSize))
-                
-                // 邊框
-                cgContext.setStrokeColor(UIColor.systemGray3.cgColor)
-                cgContext.setLineWidth(1.0)
-                let borderRect = CGRect(x: 0.5, y: 0.5, width: placeholderSize.width - 1, height: placeholderSize.height - 1)
-                cgContext.stroke(borderRect)
-                
-                // 表格圖標
-                let iconSize: CGFloat = 16
-                let iconRect = CGRect(x: 12, y: (placeholderSize.height - iconSize) / 2, 
-                                    width: iconSize, height: iconSize)
-                
-                cgContext.setStrokeColor(UIColor.systemBlue.cgColor)
-                cgContext.setLineWidth(1.0)
-                
-                // 外框
-                cgContext.stroke(CGRect(x: iconRect.minX, y: iconRect.minY, 
-                                      width: iconSize, height: iconSize))
-                // 垂直線
-                cgContext.stroke(CGRect(x: iconRect.minX + iconSize/3, y: iconRect.minY, 
-                                      width: 0, height: iconSize))
-                // 水平線
-                cgContext.stroke(CGRect(x: iconRect.minX, y: iconRect.minY + iconSize/3, 
-                                      width: iconSize, height: 0))
-                
-                // 文字
-                let text = "Tap to edit table"
-                let textAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 14),
-                    .foregroundColor: UIColor.systemGray
-                ]
-                
-                let textRect = CGRect(x: iconRect.maxX + 8, y: 0, 
-                                    width: placeholderSize.width - iconRect.maxX - 16, 
-                                    height: placeholderSize.height)
-                text.draw(in: textRect, withAttributes: textAttributes)
-            }
+            // 設置表格文本的屬性
+            let tableAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.monospacedSystemFont(ofSize: 14, weight: .regular),
+                .foregroundColor: UIColor.label,
+                .backgroundColor: UIColor.systemGray6
+            ]
             
-            attachment.image = placeholderImage
-            attachment.bounds = CGRect(origin: .zero, size: placeholderSize)
+            let tableAttributedString = NSAttributedString(string: tableMarkdown, attributes: tableAttributes)
             
-            // 插入 attachment
-            let attachmentString = NSAttributedString(attachment: attachment)
+            // 插入表格
             let newlineString = NSAttributedString(string: "\n")
             
             mutableText.insert(newlineString, at: selectedRange.location)
-            mutableText.insert(attachmentString, at: selectedRange.location + 1)
-            mutableText.insert(newlineString, at: selectedRange.location + 2)
+            mutableText.insert(tableAttributedString, at: selectedRange.location + 1)
+            mutableText.insert(newlineString, at: selectedRange.location + 1 + tableAttributedString.length)
             
             textView.attributedText = mutableText
-            textView.selectedRange = NSRange(location: selectedRange.location + 3, length: 0)
+            
+            // 將光標移到表格內第一個單元格
+            let firstCellPosition = selectedRange.location + 1 + tableMarkdown.firstIndex(of: "|")!.utf16Offset(in: tableMarkdown) + 2
+            textView.selectedRange = NSRange(location: firstCellPosition, length: 0)
+        }
+        
+        private func createEditableTableMarkdown(rows: Int, cols: Int) -> String {
+            var markdown = ""
+            
+            // 標題行
+            let headerCells = (1...cols).map { "標題\($0)" }
+            markdown += "| " + headerCells.joined(separator: " | ") + " |\n"
+            
+            // 分隔行
+            let separators = Array(repeating: "---", count: cols)
+            markdown += "| " + separators.joined(separator: " | ") + " |\n"
+            
+            // 數據行
+            for row in 1..<rows {
+                let dataCells = (1...cols).map { "  " } // 空白單元格供用戶編輯
+                markdown += "| " + dataCells.joined(separator: " | ") + " |\n"
+            }
+            
+            return markdown
         }
         
         func insertImagePlaceholder(image: UIImage) {
@@ -482,5 +443,18 @@ extension UIFont {
             return UIFont.systemFont(ofSize: pointSize)
         }
         return UIFont(descriptor: descriptor, size: pointSize)
+    }
+}
+
+// MARK: - Helper Extensions
+extension String {
+    func firstIndex(of character: Character) -> String.Index? {
+        return self.firstIndex(of: character)
+    }
+}
+
+extension String.Index {
+    func utf16Offset(in string: String) -> Int {
+        return string.utf16.distance(from: string.startIndex, to: self)
     }
 } 

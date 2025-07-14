@@ -91,7 +91,7 @@ struct MediumStyleEditor: View {
             matching: .images
         )
         .sheet(isPresented: $showTablePicker) {
-            TableGridPicker { rows, cols in
+            TableGridPickerSheet { rows, cols in
                 insertTable(rows: rows, cols: cols)
             }
         }
@@ -212,7 +212,8 @@ struct MediumStyleEditor: View {
             case .success(let data):
                 if let data = data, let image = UIImage(data: data) {
                     DispatchQueue.main.async {
-                        insertImage(image)
+                        // 檢查是否已存在相同圖片，避免重複插入
+                        self.insertImage(image)
                     }
                 }
             case .failure(let error):
@@ -346,7 +347,7 @@ struct PreviewSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // 標題
-                    Text(title)
+                    Text(title.isEmpty ? "無標題" : title)
                         .font(.system(size: 32, weight: .bold, design: .default))
                         .foregroundColor(textColor)
                         .multilineTextAlignment(.leading)
@@ -368,8 +369,15 @@ struct PreviewSheet: View {
                     }
                     
                     // 內容 - 使用富文本顯示
-                    RichTextPreviewView(content: content)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if !content.isEmpty {
+                        RichTextPreviewView(content: content)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Text("暫無內容")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                            .padding(.vertical, 20)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 20)
@@ -396,21 +404,67 @@ struct RichTextPreviewView: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.isEditable = false
-        textView.isSelectable = false
+        textView.isSelectable = true
         textView.backgroundColor = UIColor.clear
         textView.textContainerInset = UIEdgeInsets.zero
         textView.textContainer.lineFragmentPadding = 0
         textView.font = UIFont.systemFont(ofSize: 17)
         textView.textColor = UIColor.label
         
-        // 設置內容
-        textView.text = content
+        // 支援 Markdown 簡單解析
+        let attributedString = parseMarkdownToAttributedString(content)
+        textView.attributedText = attributedString
         
         return textView
     }
     
     func updateUIView(_ uiView: UITextView, context: Context) {
-        uiView.text = content
+        let attributedString = parseMarkdownToAttributedString(content)
+        uiView.attributedText = attributedString
+    }
+    
+    private func parseMarkdownToAttributedString(_ markdown: String) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString()
+        let lines = markdown.components(separatedBy: .newlines)
+        
+        for line in lines {
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            
+            if trimmedLine.hasPrefix("# ") {
+                // H1 標題
+                let title = String(trimmedLine.dropFirst(2))
+                let titleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.boldSystemFont(ofSize: 28),
+                    .foregroundColor: UIColor.label
+                ]
+                mutableString.append(NSAttributedString(string: title + "\n", attributes: titleAttributes))
+            } else if trimmedLine.hasPrefix("## ") {
+                // H2 標題
+                let title = String(trimmedLine.dropFirst(3))
+                let titleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.boldSystemFont(ofSize: 22),
+                    .foregroundColor: UIColor.label
+                ]
+                mutableString.append(NSAttributedString(string: title + "\n", attributes: titleAttributes))
+            } else if trimmedLine.hasPrefix("| ") && trimmedLine.hasSuffix(" |") {
+                // 表格行
+                let tableAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.monospacedSystemFont(ofSize: 14, weight: .regular),
+                    .foregroundColor: UIColor.label,
+                    .backgroundColor: UIColor.systemGray6
+                ]
+                mutableString.append(NSAttributedString(string: line + "\n", attributes: tableAttributes))
+            } else {
+                // 普通文本
+                let normalAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 17),
+                    .foregroundColor: UIColor.label
+                ]
+                mutableString.append(NSAttributedString(string: line + "\n", attributes: normalAttributes))
+            }
+        }
+        
+        return mutableString
     }
 }
 
