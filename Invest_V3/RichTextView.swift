@@ -303,9 +303,10 @@ struct RichTextView: UIViewRepresentable {
                 .foregroundColor: UIColor.label
             ])
             
-            mutableText.insert(tableString, at: selectedRange.location)
+            let insertionIndex = selectedRange.location + selectedRange.length
+            mutableText.insert(tableString, at: insertionIndex)
             textView.attributedText = mutableText
-            textView.selectedRange = NSRange(location: selectedRange.location + tableMarkdown.count, length: 0)
+            textView.selectedRange = NSRange(location: insertionIndex + tableMarkdown.count, length: 0)
         }
         
         func insertImagePlaceholder(image: UIImage) {
@@ -328,12 +329,14 @@ struct RichTextView: UIViewRepresentable {
             let attachmentString = NSAttributedString(attachment: attachment)
             let newlineString = NSAttributedString(string: "\n")
             
-            mutableText.insert(newlineString, at: selectedRange.location)
-            mutableText.insert(attachmentString, at: selectedRange.location + 1)
-            mutableText.insert(newlineString, at: selectedRange.location + 2)
-            
+            let insertionIndex = selectedRange.location + selectedRange.length
+
+            mutableText.insert(newlineString, at: insertionIndex)
+            mutableText.insert(attachmentString, at: insertionIndex + 1)
+            mutableText.insert(newlineString, at: insertionIndex + 2)
+
             textView.attributedText = mutableText
-            textView.selectedRange = NSRange(location: selectedRange.location + 3, length: 0)
+            textView.selectedRange = NSRange(location: insertionIndex + 3, length: 0)
         }
         
         @objc func dismissKeyboard() {
