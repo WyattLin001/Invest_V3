@@ -3,48 +3,123 @@ import Foundation
 class StockService: ObservableObject {
     static let shared = StockService()
     
-    private let baseURL = "https://www.alphavantage.co/query"
-    private let apiKey = "demo" // 實際使用時需要申請 API Key
+    private let baseURL = "https://api.tej.com.tw/v1"
+    private let apiKey = "l2PG310rhEHbRkLV9MKklcjyqneDV8"
     
     private init() {}
     
     // MARK: - 獲取單一股票報價
     func fetchStockQuote(symbol: String) async throws -> Stock {
-        let url = URL(string: "\(baseURL)?function=GLOBAL_QUOTE&symbol=\(symbol)&apikey=\(apiKey)")!
+        // 使用 TEJ API 獲取股票報價
+        let url = URL(string: "\(baseURL)/quote/\(symbol)")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let response = try JSONDecoder().decode(AlphaVantageResponse.self, from: data)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let response = try JSONDecoder().decode(TEJQuoteResponse.self, from: data)
         
-        return try convertToStock(from: response.globalQuote)
+        return try convertToStock(from: response)
     }
     
-    // MARK: - 批量獲取台股報價 (5檔熱門股票)
+    // MARK: - 批量獲取台股報價
     func fetchTaiwanStocks() async throws -> [Stock] {
         var stocks: [Stock] = []
         
-        // 由於 Alpha Vantage 免費版有速率限制，這裡使用模擬資料
-        // 實際應用中應該使用台股專用 API 或付費版 Alpha Vantage
+        // 使用 TEJ API 批量獲取台股報價
+        let url = URL(string: "\(baseURL)/stocks/quotes")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpMethod = "POST"
         
-        for symbol in TaiwanStocks.popularStocks {
-            let stock = generateMockStock(symbol: symbol)
-            stocks.append(stock)
+        let symbols = TaiwanStocks.popularStocks.map { $0.replacingOccurrences(of: ".TW", with: "") }
+        let requestBody = TEJBatchRequest(symbols: symbols)
+        request.httpBody = try JSONEncoder().encode(requestBody)
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(TEJBatchResponse.self, from: data)
             
-            // 避免 API 速率限制
-            try await Task.sleep(nanoseconds: 200_000_000) // 0.2秒延遲
+            for quoteData in response.data {
+                let stock = try convertToStock(from: quoteData)
+                stocks.append(stock)
+            }
+        } catch {
+            // 如果 API 請求失敗，使用模擬資料
+            print("TEJ API 請求失敗，使用模擬資料: \(error)")
+            for symbol in TaiwanStocks.popularStocks {
+                let stock = generateMockStock(symbol: symbol)
+                stocks.append(stock)
+            }
         }
         
         return stocks
     }
     
     // MARK: - 獲取股票歷史資料 (用於圖表)
-    func fetchStockHistory(symbol: String, interval: String = "5min") async throws -> [StockPrice] {
-        // 模擬歷史資料，實際應該調用 Alpha Vantage TIME_SERIES API
-        return generateMockHistoryData(symbol: symbol)
+    func fetchStockHistory(symbol: String, interval: String = "1d") async throws -> [StockPrice] {
+        let url = URL(string: "\(baseURL)/history/\(symbol.replacingOccurrences(of: ".TW", with: ""))")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(TEJHistoryResponse.self, from: data)
+            
+            return response.data.map { historyData in
+                StockPrice(
+                    timestamp: historyData.date,
+                    price: historyData.close
+                )
+            }
+        } catch {
+            // 如果 API 請求失敗，使用模擬資料
+            print("TEJ API 歷史資料請求失敗，使用模擬資料: \(error)")
+            return generateMockHistoryData(symbol: symbol)
+        }
     }
     
     // MARK: - 搜尋股票
     func searchStocks(query: String) async throws -> [Stock] {
-        // 模擬搜尋結果
+        let url = URL(string: "\(baseURL)/search")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpMethod = "POST"
+        
+        let searchRequest = TEJSearchRequest(query: query)
+        request.httpBody = try JSONEncoder().encode(searchRequest)
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let response = try JSONDecoder().decode(TEJSearchResponse.self, from: data)
+            
+            var results: [Stock] = []
+            for stockInfo in response.data {
+                let stock = Stock(
+                    symbol: stockInfo.symbol + ".TW",
+                    name: stockInfo.name,
+                    price: stockInfo.price ?? 0.0,
+                    change: stockInfo.change ?? 0.0,
+                    changePercent: stockInfo.changePercent ?? 0.0,
+                    volume: stockInfo.volume ?? 0,
+                    lastUpdated: Date()
+                )
+                results.append(stock)
+            }
+            
+            return results
+        } catch {
+            // 如果 API 請求失敗，使用模擬搜尋
+            print("TEJ API 搜尋請求失敗，使用模擬資料: \(error)")
+            return try await mockSearchStocks(query: query)
+        }
+    }
+    
+    // 模擬搜尋功能（備用）
+    private func mockSearchStocks(query: String) async throws -> [Stock] {
         let allSymbols = Array(TaiwanStocks.stockNames.keys)
         let filteredSymbols = allSymbols.filter { symbol in
             let name = TaiwanStocks.stockNames[symbol] ?? ""
@@ -62,25 +137,18 @@ class StockService: ObservableObject {
     
     // MARK: - 私有方法
     
-    // 將 AlphaVantageResponse 轉換為我們的 Stock 模型
-    private func convertToStock(from quote: GlobalQuote) throws -> Stock {
-        guard let price = Double(quote.price),
-              let change = Double(quote.change),
-              let changePercent = Double(quote.changePercent.replacingOccurrences(of: "%", with: "")),
-              let volume = Int64(quote.volume)
-        else {
-            throw StockServiceError.invalidData
-        }
-        
-        let name = TaiwanStocks.stockNames[quote.symbol] ?? quote.symbol
+    // 將 TEJ API 回應轉換為我們的 Stock 模型
+    private func convertToStock(from tejData: TEJQuoteData) throws -> Stock {
+        let symbol = tejData.symbol + ".TW"
+        let name = TaiwanStocks.stockNames[symbol] ?? tejData.name ?? tejData.symbol
         
         return Stock(
-            symbol: quote.symbol,
+            symbol: symbol,
             name: name,
-            price: price,
-            change: change,
-            changePercent: changePercent,
-            volume: volume,
+            price: tejData.price,
+            change: tejData.change,
+            changePercent: tejData.changePercent,
+            volume: tejData.volume,
             lastUpdated: Date()
         )
     }
@@ -146,6 +214,7 @@ enum StockServiceError: Error, LocalizedError {
     case invalidData
     case apiKeyMissing
     case rateLimitExceeded
+    case tejApiError(String)
     
     var errorDescription: String? {
         switch self {
@@ -157,11 +226,100 @@ enum StockServiceError: Error, LocalizedError {
             return "缺少 API Key"
         case .rateLimitExceeded:
             return "API 請求頻率超限"
+        case .tejApiError(let message):
+            return "TEJ API 錯誤: \(message)"
         }
     }
 }
 
-// 移除重複定義，使用 Stock.swift 中的定義
+// MARK: - TEJ API 回應模型
+struct TEJQuoteResponse: Codable {
+    let data: TEJQuoteData
+    let message: String?
+    let status: String
+}
+
+struct TEJQuoteData: Codable {
+    let symbol: String
+    let name: String?
+    let price: Double
+    let change: Double
+    let changePercent: Double
+    let volume: Int64
+    let date: String
+    
+    enum CodingKeys: String, CodingKey {
+        case symbol = "symbol"
+        case name = "name"
+        case price = "price"
+        case change = "change"
+        case changePercent = "change_percent"
+        case volume = "volume"
+        case date = "date"
+    }
+}
+
+struct TEJBatchRequest: Codable {
+    let symbols: [String]
+}
+
+struct TEJBatchResponse: Codable {
+    let data: [TEJQuoteData]
+    let message: String?
+    let status: String
+}
+
+struct TEJSearchRequest: Codable {
+    let query: String
+}
+
+struct TEJSearchResponse: Codable {
+    let data: [TEJSearchData]
+    let message: String?
+    let status: String
+}
+
+struct TEJSearchData: Codable {
+    let symbol: String
+    let name: String
+    let price: Double?
+    let change: Double?
+    let changePercent: Double?
+    let volume: Int64?
+    
+    enum CodingKeys: String, CodingKey {
+        case symbol = "symbol"
+        case name = "name"
+        case price = "price"
+        case change = "change"
+        case changePercent = "change_percent"
+        case volume = "volume"
+    }
+}
+
+struct TEJHistoryResponse: Codable {
+    let data: [TEJHistoryData]
+    let message: String?
+    let status: String
+}
+
+struct TEJHistoryData: Codable {
+    let date: Date
+    let open: Double
+    let high: Double
+    let low: Double
+    let close: Double
+    let volume: Int64
+    
+    enum CodingKeys: String, CodingKey {
+        case date = "date"
+        case open = "open"
+        case high = "high"
+        case low = "low"
+        case close = "close"
+        case volume = "volume"
+    }
+}
 
 // MARK: - 股價歷史資料點
 struct StockPrice: Identifiable, Codable {
