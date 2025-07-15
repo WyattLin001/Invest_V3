@@ -129,6 +129,41 @@ Invest_V3/
 4. **Swift Conventions**: Follow proper Swift naming and code organization
 5. **Xcode Integration**: Maintain proper project structure for Xcode
 
+### 🎨 **UI DESIGN REQUIREMENTS**
+
+#### 📱 **Apple Human Interface Guidelines (HIG) 合規性**
+- **MANDATORY**: All UI designs MUST comply with Apple HIG
+- **Navigation**: Use native iOS navigation patterns and gestures
+- **Accessibility**: Support VoiceOver, Dynamic Type, and accessibility features
+- **Visual Design**: Follow iOS visual design principles and conventions
+- **Interaction**: Use standard iOS interaction patterns and feedback
+
+#### 🍎 **Apple Design Standards**
+- **MANDATORY**: Follow Apple Design Resources and SF Symbols
+- **Typography**: Use iOS system fonts (San Francisco) with proper type scales
+- **Color**: Support both Light and Dark mode appearances
+- **Layout**: Use Auto Layout and Safe Area guidelines
+- **Animation**: Use Core Animation with iOS-standard timing curves
+
+#### 🎯 **Swift Code Standards**
+- **MANDATORY**: Follow Swift API Design Guidelines
+- **Naming**: Use clear, descriptive names following Swift conventions
+- **Structure**: Organize code using extensions and MARK comments
+- **Performance**: Follow iOS performance best practices
+- **Memory**: Use ARC properly and avoid retain cycles
+
+#### 🌈 **Invest_V3 主題配色規範**
+- **Primary Brand Green**: #1DB954 (投資成功/正面)
+- **Secondary Blue**: #0066CC (信賴/專業)
+- **Accent Orange**: #FF6B35 (警告/重要)
+- **Background Colors**:
+  - Light Mode: #FFFFFF (主背景), #F8F9FA (次要背景)
+  - Dark Mode: #000000 (主背景), #1C1C1E (次要背景)
+- **Text Colors**:
+  - Light Mode: #000000 (主文字), #666666 (次要文字)
+  - Dark Mode: #FFFFFF (主文字), #999999 (次要文字)
+- **System Colors**: 優先使用 iOS 系統顏色確保一致性
+
 ## 🐙 GITHUB SETUP & AUTO-BACKUP
 
 ### 🚀 **GITHUB REPOSITORY CREATION**
