@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 enum PublishSheetAction {
     case preview
     case publish
+    case shareDraft(URL)
 }
 
 // MARK: - PublishSettingsSheet
@@ -54,8 +55,8 @@ struct PublishSettingsSheet: View {
                     // 標題和副標題
                     titleSection
                     
-                    // 標籤管理
-                    tagsSection
+                    // 關鍵字管理
+                    keywordsSection
                     
                     // 操作按鈕
                     actionButtonsSection
@@ -85,7 +86,7 @@ struct PublishSettingsSheet: View {
                     .disabled(draft.title.isEmpty)
                 }
             }
-            .alert("標籤數量已達上限 (5)", isPresented: $showTagLimitAlert) {
+            .alert("關鍵字數量已達上限 (5)", isPresented: $showTagLimitAlert) {
                 Button("確定", role: .cancel) {}
             }
         }
@@ -208,39 +209,39 @@ struct PublishSettingsSheet: View {
         }
     }
     
-    // MARK: - 標籤管理區域
-    private var tagsSection: some View {
+    // MARK: - 關鍵字管理區域
+    private var keywordsSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
             HStack {
-                Text("標籤")
+                Text("關鍵字")
                     .font(.headline)
                     .foregroundColor(textColor)
                 
                 Spacer()
                 
-                Text("\(draft.tags.count)/\(maxTags)")
+                Text("\(draft.keywords.count)/\(maxTags)")
                     .font(.caption)
                     .foregroundColor(secondaryTextColor)
             }
             
-            // 標籤輸入
+            // 關鍵字輸入
             HStack(spacing: DesignTokens.spacingSM) {
                 HStack {
                     Image(systemName: "tag.fill")
                         .foregroundColor(.gray600)
                         .font(.system(size: 16))
                     
-                    TextField("輸入標籤", text: $newTag)
+                    TextField("輸入關鍵字", text: $newTag)
                         .onSubmit {
                             addTag()
                         }
-                        .disabled(draft.tags.count >= maxTags)
+                        .disabled(draft.keywords.count >= maxTags)
                 }
                 .padding(DesignTokens.spacingSM)
                 .background(Color.gray100)
                 .cornerRadius(DesignTokens.cornerRadiusSM)
                 
-                if !newTag.isEmpty && draft.tags.count < maxTags {
+                if !newTag.isEmpty && draft.keywords.count < maxTags {
                     Button("添加") {
                         addTag()
                     }
@@ -250,21 +251,28 @@ struct PublishSettingsSheet: View {
                 }
             }
             
-            // 標籤顯示
-            if !draft.tags.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: DesignTokens.spacingSM) {
-                        ForEach(draft.tags, id: \.self) { tag in
-                            TagBubbleView(tag: tag) {
-                                remove(tag)
+            // 關鍵字顯示
+            VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+                if !draft.keywords.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: DesignTokens.spacingSM) {
+                            ForEach(draft.keywords, id: \.self) { keyword in
+                                KeywordBubble(keyword: keyword) {
+                                    remove(keyword)
+                                }
                             }
                         }
+                        .padding(.horizontal, 4)
                     }
-                    .padding(.horizontal, 4)
+                } else {
+                    Text("尚未添加關鍵字")
+                        .font(.caption)
+                        .foregroundColor(secondaryTextColor)
+                        .padding(.vertical, DesignTokens.spacingSM)
                 }
             }
             
-            Text("最多可添加 \(maxTags) 個標籤")
+            Text("最多可添加 \(maxTags) 個關鍵字")
                 .font(.caption)
                 .foregroundColor(secondaryTextColor)
         }
@@ -307,20 +315,22 @@ struct PublishSettingsSheet: View {
     
     // MARK: - Helper Methods
     private func addTag() {
-        let tag = newTag.trimmingCharacters(in: .whitespaces)
-        guard !tag.isEmpty else { return }
-        guard draft.tags.count < maxTags else {
+        let keyword = newTag.trimmingCharacters(in: .whitespaces)
+        guard !keyword.isEmpty else { return }
+        guard draft.keywords.count < maxTags else {
             showTagLimitAlert = true
             return
         }
-        if !draft.tags.contains(tag) {
-            draft.tags.append(tag)
+        if !draft.keywords.contains(keyword) {
+            draft.keywords.append(keyword)
+            print("✅ 已添加關鍵字: \(keyword), 當前關鍵字: \(draft.keywords)")
         }
         newTag = ""
     }
 
-    private func remove(_ tag: String) {
-        draft.tags.removeAll { $0 == tag }
+    private func remove(_ keyword: String) {
+        draft.keywords.removeAll { $0 == keyword }
+        print("🗑️ 已刪除關鍵字: \(keyword), 當前關鍵字: \(draft.keywords)")
     }
     
     private func handlePublish() {
@@ -339,29 +349,28 @@ struct PublishSettingsSheet: View {
     }
 }
 
-// MARK: - 標籤氣泡視圖
-struct TagBubbleView: View {
-    let tag: String
+// MARK: - 學術風格關鍵字氣泡視圖
+private struct KeywordBubble: View {
+    let keyword: String
     let onRemove: () -> Void
     
     var body: some View {
-        HStack(spacing: DesignTokens.spacingXS) {
-            Text(tag)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(.brandGreen)
+        HStack(spacing: 4) {
+            Text(keyword)
+                .font(.caption)
+                .fontWeight(.regular)
+                .foregroundColor(.secondary)
             
             Button(action: onRemove) {
-                Image(systemName: "xmark")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.brandGreen)
+                Image(systemName: "xmark.circle.fill")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
         }
-        .padding(.horizontal, DesignTokens.spacingSM)
-        .padding(.vertical, DesignTokens.spacingXS)
-        .background(Color.brandGreen.opacity(0.1))
-        .cornerRadius(DesignTokens.cornerRadiusSM)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(4)
     }
 }
 
@@ -382,6 +391,8 @@ struct PublishSettingsSheet_Previews: PreviewProvider {
                 print("Preview article")
             case .publish:
                 print("Publish article")
+            case .shareDraft(let url):
+                print("Share draft: \(url)")
             }
         }
     }

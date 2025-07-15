@@ -9,7 +9,7 @@ struct ArticleDraft: Identifiable, Codable {
     var summary: String = ""         // 文章摘要
     var bodyMD: String = ""
     var category: String = "投資分析" // 文章分類
-    var tags: [String] = []          // ≤5 tags
+    var keywords: [String] = []      // ≤5 keywords
     var slug: String = ""            // custom URL path component
     var isPaid: Bool = false         // free vs. paid
     var isFree: Bool = true          // 兼容性屬性

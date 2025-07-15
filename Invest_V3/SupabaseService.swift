@@ -624,6 +624,7 @@ class SupabaseService: ObservableObject {
             let category: String
             let isFree: Bool
             let createdAt: Date
+            let updatedAt: Date
             
             enum CodingKeys: String, CodingKey {
                 case title
@@ -635,6 +636,7 @@ class SupabaseService: ObservableObject {
                 case category
                 case isFree = "is_free"
                 case createdAt = "created_at"
+                case updatedAt = "updated_at"
             }
         }
         
@@ -650,7 +652,8 @@ class SupabaseService: ObservableObject {
             bodyMD: bodyMD,
             category: category,
             isFree: isFree,
-            createdAt: Date()
+            createdAt: Date(),
+            updatedAt: Date()
         )
         
         let insertedArticle: Article = try await client.database
@@ -670,7 +673,7 @@ class SupabaseService: ObservableObject {
         
         let currentUser = try await getCurrentUserAsync()
         
-        struct ArticleInsertWithTags: Codable {
+        struct ArticleInsertWithoutTags: Codable {
             let title: String
             let author: String
             let authorId: String
@@ -678,7 +681,6 @@ class SupabaseService: ObservableObject {
             let fullContent: String
             let bodyMD: String
             let category: String
-            let tags: [String]
             let isFree: Bool
             let createdAt: Date
             let updatedAt: Date
@@ -691,7 +693,6 @@ class SupabaseService: ObservableObject {
                 case fullContent = "full_content"
                 case bodyMD = "body_md"
                 case category
-                case tags
                 case isFree = "is_free"
                 case createdAt = "created_at"
                 case updatedAt = "updated_at"
@@ -701,7 +702,7 @@ class SupabaseService: ObservableObject {
         // 生成文章摘要（取前200字）
         let summary = draft.summary.isEmpty ? String(draft.bodyMD.prefix(200)) : draft.summary
         
-        let articleData = ArticleInsertWithTags(
+        let articleData = ArticleInsertWithoutTags(
             title: draft.title,
             author: currentUser.displayName,
             authorId: currentUser.id.uuidString,
@@ -709,7 +710,6 @@ class SupabaseService: ObservableObject {
             fullContent: draft.bodyMD,
             bodyMD: draft.bodyMD,
             category: draft.category,
-            tags: draft.tags,
             isFree: draft.isFree,
             createdAt: draft.createdAt,
             updatedAt: Date()

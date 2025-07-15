@@ -9,6 +9,7 @@ struct MediumStyleEditor: View {
     @State private var isPaidContent: Bool = false
     @State private var selectedSubtopic: String = "投資分析"
     @State private var keywords: [String] = []
+    @State private var currentDraft: ArticleDraft = ArticleDraft()
     @State private var showSettings: Bool = false
     @State private var showPreview: Bool = false
     @State private var showPhotoPicker: Bool = false
@@ -73,14 +74,29 @@ struct MediumStyleEditor: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showSettings) {
             PublishSettingsSheet(
-                draft: .constant(createDraftFromCurrentState()),
+                draft: $currentDraft,
                 onAction: handlePublishSheetAction
             )
+        }
+        .onAppear {
+            // 初始化 draft
+            currentDraft = createDraftFromCurrentState()
+        }
+        .onChange(of: showSettings) { _, isShowing in
+            if isShowing {
+                // 打開設定頁面時，從當前狀態創建 draft
+                currentDraft = createDraftFromCurrentState()
+                print("🔄 打開設定頁面，創建 draft，關鍵字: \(currentDraft.keywords)")
+            } else {
+                // 關閉設定頁面時，同步關鍵字回編輯器
+                keywords = currentDraft.keywords
+                print("🔄 關閉設定頁面，同步關鍵字: \(currentDraft.keywords)")
+            }
         }
         .sheet(isPresented: $showPreview) {
             PreviewSheet(
                 title: title,
-                content: attributedContent.string,
+                attributedContent: attributedContent,
                 isPaid: isPaidContent
             )
         }
@@ -95,31 +111,37 @@ struct MediumStyleEditor: View {
                 insertTable(rows: rows, cols: cols)
             }
         }
-        .sheet(isPresented: $showSettings) {
-            PublishSettingsView(
-                selectedCategory: $selectedSubtopic,
-                keywords: $keywords,
-                isPaidContent: $isPaidContent,
-                onPublish: {
-                    showSettings = false
-                    publishArticle()
-                }
-            )
-        }
         .onChange(of: title) { _, newValue in
             titleCharacterCount = newValue.count
         }
-        .onChange(of: selectedPhotosPickerItems) { _, newItems in
-            guard let item = newItems.first else { return }
+        .onChange(of: selectedPhotosPickerItems) { oldItems, newItems in
+            print("📸 onChange 觸發 - 舊: \(oldItems.count), 新: \(newItems.count)")
+            
+            // 防止重複處理：如果沒有新項目或項目沒變，直接返回
+            guard !newItems.isEmpty, newItems != oldItems else { 
+                print("📸 沒有新項目，跳過處理")
+                return 
+            }
+            
+            guard let item = newItems.first else { 
+                print("📸 沒有找到第一個項目")
+                return 
+            }
+            
+            print("📸 開始處理圖片...")
+            
+            // 立即清空選擇以防止重複處理
+            selectedPhotosPickerItems.removeAll()
             
             Task {
                 if let data = try? await item.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
                     await MainActor.run {
+                        print("📸 插入圖片到編輯器")
                         insertImage(image)
-                        // 關鍵修復：立即清空選擇以防止重複處理
-                        selectedPhotosPickerItems.removeAll()
                     }
+                } else {
+                    print("📸 圖片載入失敗")
                 }
             }
         }
@@ -144,6 +166,8 @@ struct MediumStyleEditor: View {
             
             // 預覽按鈕
             Button("預覽") {
+                print("🔍 預覽按鈕點擊，attributedContent.length: \(attributedContent.length)")
+                print("🔍 標題: '\(title)'")
                 showPreview = true
             }
             .font(.system(size: 16, weight: .medium))
@@ -237,14 +261,17 @@ struct MediumStyleEditor: View {
         draft.bodyMD = attributedContent.string
         draft.isFree = !isPaidContent
         draft.category = selectedSubtopic
-        draft.tags = keywords
+        draft.keywords = keywords
         draft.createdAt = Date()
         draft.updatedAt = Date()
+        print("📝 創建草稿，初始關鍵字: \(keywords)")
         return draft
     }
     
     private func handlePublishSheetAction(_ action: PublishSheetAction) {
         switch action {
+        case .preview:
+            showPreview = true
         case .publish:
             publishArticle()
         case .shareDraft(let url):
@@ -421,7 +448,7 @@ struct MediumStyleEditor: View {
 // MARK: - 預覽 Sheet
 struct PreviewSheet: View {
     let title: String
-    let content: String
+    let attributedContent: NSAttributedString
     let isPaid: Bool
     
     @Environment(\.dismiss) private var dismiss
@@ -462,8 +489,16 @@ struct PreviewSheet: View {
                     }
                     
                     // 內容 - 使用富文本顯示
-                    RichTextPreviewView(content: content)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if attributedContent.length > 0 {
+                        RichTextPreviewView(attributedText: attributedContent)
+                            .frame(maxWidth: .infinity, minHeight: 200, alignment: .leading)
+                            .border(Color.red, width: 1) // 調試邊框
+                    } else {
+                        Text("尚無內容...")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .italic()
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 20)
@@ -502,18 +537,32 @@ struct RichTextPreviewView: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.isEditable = false
-        textView.isSelectable = false
+        textView.isSelectable = true
         textView.backgroundColor = UIColor.clear
-        textView.textContainerInset = UIEdgeInsets.zero
+        textView.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
         textView.textContainer.lineFragmentPadding = 0
+        textView.isScrollEnabled = true
+        
+        // 設置默認字體作為備選，但不覆蓋 NSAttributedString 的格式
         textView.font = UIFont.systemFont(ofSize: 17)
         textView.textColor = UIColor.label
+        
+        print("🔍 makeUIView - textView created with frame: \(textView.frame)")
         
         return textView
     }
     
     func updateUIView(_ uiView: UITextView, context: Context) {
+        print("🔍 updateUIView - attributedText.length: \(attributedText.length)")
+        print("🔍 updateUIView - attributedText.string: '\(attributedText.string.prefix(100))'")
+        
         uiView.attributedText = attributedText
+        
+        // 強制重新佈局
+        uiView.setNeedsLayout()
+        uiView.layoutIfNeeded()
+        
+        print("🔍 updateUIView - uiView.attributedText.length: \(uiView.attributedText?.length ?? 0)")
     }
 }
 
