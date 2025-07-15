@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 // MARK: - Action enum sent back to the caller
 
 enum PublishSheetAction {
-    case shareDraft(URL)
+    case preview
     case publish
 }
 
@@ -12,6 +12,7 @@ enum PublishSheetAction {
 
 struct PublishSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) var colorScheme
 
     // 2-way binding to the editor's draft
     @Binding var draft: ArticleDraft
@@ -19,103 +20,69 @@ struct PublishSettingsSheet: View {
     /// Callback for share/publish triggers
     var onAction: (PublishSheetAction) -> Void
 
-    // MARK: - Local state for tag field
+    // MARK: - Local state
     @State private var newTag: String = ""
     @State private var showTagLimitAlert = false
-    @State private var showShareSuccess = false
-
-    // MARK: - Share-draft link (auto-generated)
-    private var draftURL: URL {
-        URL(string: "https://investv3.com/draft/\(draft.id.uuidString)")!
+    @State private var coverImageURL: String?
+    @State private var showingImagePicker = false
+    
+    private let maxTags = 5
+    private let maxTitleLength = 100
+    private let maxSubtitleLength = 80
+    
+    // 顏色配置
+    private var backgroundColor: Color {
+        colorScheme == .dark ? .gray100 : .white
+    }
+    
+    private var textColor: Color {
+        colorScheme == .dark ? .gray900 : .black
+    }
+    
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? .gray600 : .secondary
     }
 
     // MARK: - Body
     var body: some View {
         NavigationStack {
-            Form {
-                // ----- Publication section -----
-                Section("發佈到") {
-                    Picker("選擇發佈平台", selection: $draft.publication) {
-                        Text("— 個人 —").tag(Publication?.none)
-                        ForEach(Publication.samplePublications) { pub in
-                            Text(pub.name).tag(Publication?.some(pub))
-                        }
-                    }
-                    .pickerStyle(.menu)
+            ScrollView {
+                VStack(alignment: .leading, spacing: DesignTokens.spacingLG) {
+                    // 封面圖片
+                    coverImageSection
                     
-                    if let publication = draft.publication {
-                        Text(publication.description ?? "")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                // ----- Display title / subtitle override -----
-                Section("顯示標題與副標題") {
-                    TextField("文章標題", text: $draft.title)
-                        .textFieldStyle(.roundedBorder)
-                    TextField("副標題（可選）", text: Binding<String>(
-                        get: { draft.subtitle ?? "" },
-                        set: { newValue in 
-                            draft.subtitle = newValue.isEmpty ? nil : newValue 
-                        }
-                    ))
-                        .textFieldStyle(.roundedBorder)
-                }
-
-                // ----- Tags (最多五個) -----
-                Section(header: Text("標籤 (最多 5 個)")) {
-                    tagChips
-                    tagInputField
-                }
-
-                // ----- Utilities -----
-                Section("工具") {
-                    Button {
-                        // 複製連結到剪貼板
-                        UIPasteboard.general.string = draftURL.absoluteString
-                        showShareSuccess = true
-                        
-                        // 3秒後隱藏提示
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                            showShareSuccess = false
-                        }
-                        
-                        // 也調用原有的 action
-                        onAction(.shareDraft(draftURL))
-                    } label: {
-                        Label("分享草稿連結", systemImage: "link")
-                    }
-                    .buttonStyle(.borderless)
+                    // 標題和副標題
+                    titleSection
                     
-                    if showShareSuccess {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("連結已複製到剪貼板")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .transition(.opacity)
-                    }
+                    // 標籤管理
+                    tagsSection
+                    
+                    // 操作按鈕
+                    actionButtonsSection
+                    
+                    Spacer(minLength: 100)
                 }
+                .padding(.horizontal, DesignTokens.spacingMD)
+                .padding(.top, DesignTokens.spacingMD)
             }
-            .navigationTitle("發佈設定")
+            .background(backgroundColor.ignoresSafeArea())
+            .navigationTitle("發布設定")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("關閉") {
                         dismiss()
                     }
+                    .foregroundColor(textColor)
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("發佈") {
-                        onAction(.publish)
-                        dismiss()
+                    Button("發布") {
+                        handlePublish()
                     }
-                    .disabled(!draft.isReadyToPublish)
+                    .foregroundColor(.brandGreen)
                     .fontWeight(.semibold)
+                    .disabled(draft.title.isEmpty)
                 }
             }
             .alert("標籤數量已達上限 (5)", isPresented: $showTagLimitAlert) {
@@ -124,50 +91,225 @@ struct PublishSettingsSheet: View {
         }
     }
 
-    // MARK: - Tag subviews
-
-    private var tagChips: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 8) {
-            ForEach(draft.tags, id: \.self) { tag in
-                VStack(spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(tag)
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.caption2)
-                            .onTapGesture { remove(tag) }
+    // MARK: - 封面圖片區域
+    private var coverImageSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("封面圖片")
+                .font(.headline)
+                .foregroundColor(textColor)
+            
+            if let coverImageURL = coverImageURL {
+                AsyncImage(url: URL(string: coverImageURL)) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
+                        .fill(Color.gray200)
+                        .overlay(
+                            ProgressView()
+                                .tint(.brandGreen)
+                        )
+                }
+                .frame(height: 200)
+                .clipped()
+                .cornerRadius(DesignTokens.cornerRadius)
+                .overlay(
+                    Button("更換") {
+                        showingImagePicker = true
                     }
                     .font(.caption)
-                    .padding(.horizontal, 8)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, DesignTokens.spacingSM)
                     .padding(.vertical, 4)
-                    .background(Color.blue.opacity(0.1))
-                    .foregroundColor(.blue)
-                    .cornerRadius(8)
-                    
-                    // 關注人數
-                    Text("\(getFollowersCount(for: tag)) 人關注")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    .background(Color.black.opacity(0.7))
+                    .cornerRadius(DesignTokens.cornerRadiusSM)
+                    .padding(DesignTokens.spacingSM),
+                    alignment: .topTrailing
+                )
+            } else {
+                Button(action: { 
+                    // 模擬圖片選擇
+                    coverImageURL = "https://images.pexels.com/photos/261763/pexels-photo-261763.jpeg?auto=compress&cs=tinysrgb&w=800"
+                }) {
+                    VStack(spacing: DesignTokens.spacingSM) {
+                        Image(systemName: "camera.fill")
+                            .font(.title2)
+                            .foregroundColor(.gray600)
+                        
+                        Text("添加封面圖片")
+                            .font(.subheadline)
+                            .foregroundColor(.gray600)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 150)
+                    .background(Color.gray100)
+                    .cornerRadius(DesignTokens.cornerRadius)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
+                            .stroke(Color.gray300, style: StrokeStyle(lineWidth: 2, dash: [8]))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+    }
+    
+    // MARK: - 標題和副標題區域
+    private var titleSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("標題與副標題")
+                .font(.headline)
+                .foregroundColor(textColor)
+            
+            VStack(alignment: .leading, spacing: DesignTokens.spacingXS) {
+                TextField("文章標題 (必填)", text: $draft.title)
+                    .font(.title3)
+                    .foregroundColor(textColor)
+                    .padding(.vertical, DesignTokens.spacingSM)
+                    .padding(.horizontal, DesignTokens.spacingSM)
+                    .background(Color.gray100)
+                    .cornerRadius(DesignTokens.cornerRadiusSM)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DesignTokens.cornerRadiusSM)
+                            .stroke(draft.title.isEmpty ? Color.danger : Color.clear, lineWidth: 1)
+                    )
+                
+                HStack {
+                    Spacer()
+                    Text("\(draft.title.count)/\(maxTitleLength)")
+                        .font(.caption)
+                        .foregroundColor(draft.title.count > maxTitleLength ? .danger : secondaryTextColor)
+                }
+            }
+            
+            VStack(alignment: .leading, spacing: DesignTokens.spacingXS) {
+                TextField("副標題 (選填)", text: Binding<String>(
+                    get: { draft.subtitle ?? "" },
+                    set: { newValue in 
+                        draft.subtitle = newValue.isEmpty ? nil : newValue 
+                    }
+                ), axis: .vertical)
+                    .font(.subheadline)
+                    .foregroundColor(textColor)
+                    .lineLimit(2...4)
+                    .padding(DesignTokens.spacingSM)
+                    .background(Color.gray100)
+                    .cornerRadius(DesignTokens.cornerRadiusSM)
+                
+                HStack {
+                    Spacer()
+                    Text("\((draft.subtitle ?? "").count)/\(maxSubtitleLength)")
+                        .font(.caption)
+                        .foregroundColor((draft.subtitle ?? "").count > maxSubtitleLength ? .danger : secondaryTextColor)
                 }
             }
         }
-        .padding(.vertical, 4)
     }
-
-    private var tagInputField: some View {
-        HStack {
-            TextField("新增標籤…", text: $newTag)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(addTag)
-            Button("添加") { addTag() }
-                .disabled(newTag.trimmingCharacters(in: .whitespaces).isEmpty || draft.tags.count >= 5)
-                .buttonStyle(.bordered)
+    
+    // MARK: - 標籤管理區域
+    private var tagsSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            HStack {
+                Text("標籤")
+                    .font(.headline)
+                    .foregroundColor(textColor)
+                
+                Spacer()
+                
+                Text("\(draft.tags.count)/\(maxTags)")
+                    .font(.caption)
+                    .foregroundColor(secondaryTextColor)
+            }
+            
+            // 標籤輸入
+            HStack(spacing: DesignTokens.spacingSM) {
+                HStack {
+                    Image(systemName: "tag.fill")
+                        .foregroundColor(.gray600)
+                        .font(.system(size: 16))
+                    
+                    TextField("輸入標籤", text: $newTag)
+                        .onSubmit {
+                            addTag()
+                        }
+                        .disabled(draft.tags.count >= maxTags)
+                }
+                .padding(DesignTokens.spacingSM)
+                .background(Color.gray100)
+                .cornerRadius(DesignTokens.cornerRadiusSM)
+                
+                if !newTag.isEmpty && draft.tags.count < maxTags {
+                    Button("添加") {
+                        addTag()
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.brandGreen)
+                }
+            }
+            
+            // 標籤顯示
+            if !draft.tags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: DesignTokens.spacingSM) {
+                        ForEach(draft.tags, id: \.self) { tag in
+                            TagBubbleView(tag: tag) {
+                                remove(tag)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+            }
+            
+            Text("最多可添加 \(maxTags) 個標籤")
+                .font(.caption)
+                .foregroundColor(secondaryTextColor)
         }
     }
-
+    
+    // MARK: - 操作按鈕區域
+    private var actionButtonsSection: some View {
+        VStack(spacing: DesignTokens.spacingSM) {
+            // 預覽按鈕
+            Button(action: { 
+                onAction(.preview)
+            }) {
+                HStack {
+                    Image(systemName: "eye.fill")
+                        .font(.system(size: 16))
+                    Text("預覽文章")
+                        .fontWeight(.medium)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DesignTokens.spacingSM)
+                .foregroundColor(.brandGreen)
+                .background(Color.brandGreen.opacity(0.1))
+                .cornerRadius(DesignTokens.cornerRadius)
+            }
+            .disabled(draft.title.isEmpty)
+            
+            // 發布按鈕
+            Button(action: handlePublish) {
+                Text("發布文章")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, DesignTokens.spacingSM)
+                    .foregroundColor(.white)
+                    .background(draft.title.isEmpty ? Color.gray400 : Color.brandGreen)
+                    .cornerRadius(DesignTokens.cornerRadius)
+            }
+            .disabled(draft.title.isEmpty)
+        }
+    }
+    
+    // MARK: - Helper Methods
     private func addTag() {
         let tag = newTag.trimmingCharacters(in: .whitespaces)
         guard !tag.isEmpty else { return }
-        guard draft.tags.count < 5 else {
+        guard draft.tags.count < maxTags else {
             showTagLimitAlert = true
             return
         }
@@ -181,70 +323,45 @@ struct PublishSettingsSheet: View {
         draft.tags.removeAll { $0 == tag }
     }
     
-    private func getFollowersCount(for tag: String) -> Int {
-        // 模擬關注人數數據
-        let mockData: [String: Int] = [
-            "投資分析": 1234,
-            "股票": 2567,
-            "台積電": 3456,
-            "科技股": 1890,
-            "金融股": 1567,
-            "ETF": 2234,
-            "加密貨幣": 1678,
-            "房地產": 987,
-            "基金": 1345,
-            "債券": 765
-        ]
-        return mockData[tag] ?? Int.random(in: 100...2000)
+    private func handlePublish() {
+        guard !draft.title.isEmpty else { return }
+        
+        if draft.title.count > maxTitleLength {
+            return
+        }
+        
+        if (draft.subtitle ?? "").count > maxSubtitleLength {
+            return
+        }
+        
+        onAction(.publish)
+        dismiss()
     }
 }
 
-// MARK: - A simple flow layout for tag chips
-
-struct FlowLayout<Content: View>: View {
-    let alignment: HorizontalAlignment
-    let spacing: CGFloat
-    let content: Content
-
-    init(alignment: HorizontalAlignment = .leading, spacing: CGFloat = 8, @ViewBuilder _ content: () -> Content) {
-        self.alignment = alignment
-        self.spacing = spacing
-        self.content = content()
-    }
-
-    var body: some View {
-        GeometryReader { geo in
-            self.generateContent(in: geo)
-        }
-        .frame(height: calculateHeight(in: 350)) // Estimate height
-    }
-
-    private func generateContent(in g: GeometryProxy) -> some View {
-        var width: CGFloat = 0
-        var height: CGFloat = 0
-
-        return ZStack(alignment: Alignment(horizontal: alignment, vertical: .top)) {
-            content
-                .alignmentGuide(.leading) { d in
-                    if abs(width - d.width) > g.size.width {
-                        width = 0
-                        height -= d.height + spacing
-                    }
-                    let result = width
-                    if content is EmptyView { 
-                        width = 0 
-                    } else { 
-                        width -= d.width + spacing 
-                    }
-                    return result
-                }
-                .alignmentGuide(.top) { _ in height }
-        }
-    }
+// MARK: - 標籤氣泡視圖
+struct TagBubbleView: View {
+    let tag: String
+    let onRemove: () -> Void
     
-    private func calculateHeight(in width: CGFloat) -> CGFloat {
-        // Simple height calculation - can be improved
-        return 60
+    var body: some View {
+        HStack(spacing: DesignTokens.spacingXS) {
+            Text(tag)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.brandGreen)
+            
+            Button(action: onRemove) {
+                Image(systemName: "xmark")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.brandGreen)
+            }
+        }
+        .padding(.horizontal, DesignTokens.spacingSM)
+        .padding(.vertical, DesignTokens.spacingXS)
+        .background(Color.brandGreen.opacity(0.1))
+        .cornerRadius(DesignTokens.cornerRadiusSM)
     }
 }
 
@@ -261,8 +378,8 @@ struct PublishSettingsSheet_Previews: PreviewProvider {
     static var previews: some View {
         PublishSettingsSheet(draft: $draft) { action in
             switch action {
-            case .shareDraft(let url):
-                print("Share draft: \(url)")
+            case .preview:
+                print("Preview article")
             case .publish:
                 print("Publish article")
             }
