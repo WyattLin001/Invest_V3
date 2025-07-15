@@ -36,30 +36,6 @@ struct RichTextView: UIViewRepresentable {
     
     func makeCoordinator() -> Coordinator {
         let coordinator = Coordinator(self)
-        
-        // 添加通知監聽器
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("InsertImage"),
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let image = notification.object as? UIImage {
-                coordinator.insertImagePlaceholder(image: image)
-            }
-        }
-        
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("InsertTable"),
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let tableInfo = notification.object as? [String: Int],
-               let rows = tableInfo["rows"],
-               let cols = tableInfo["cols"] {
-                coordinator.insertTablePlaceholder(rows: rows, cols: cols)
-            }
-        }
-        
         return coordinator
     }
     
