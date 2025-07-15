@@ -10,8 +10,14 @@ import SwiftUI
 @main
 struct Invest_V3App: App {
     init() {
-        Task {
-            await SupabaseManager.shared.initialize()
+        // 在 app 啟動時初始化 Supabase
+        Task { @MainActor in
+            do {
+                try await SupabaseManager.shared.initialize()
+                print("✅ App 啟動：Supabase 初始化完成")
+            } catch {
+                print("❌ App 啟動：Supabase 初始化失敗 - \(error.localizedDescription)")
+            }
         }
     }
 

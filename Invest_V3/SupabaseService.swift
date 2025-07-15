@@ -39,7 +39,7 @@ class SupabaseService: ObservableObject {
     // 獲取當前用戶的異步版本
     public func getCurrentUserAsync() async throws -> UserProfile {
         // 確保 Supabase 已初始化
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 首先嘗試從 UserDefaults 獲取用戶資料
         if let data = UserDefaults.standard.data(forKey: "current_user"),
@@ -67,7 +67,7 @@ class SupabaseService: ObservableObject {
                 .value
             
             guard let profile = profiles.first else {
-                throw NSError(domain: "SupabaseService", code: 404, userInfo: [NSLocalizedDescriptionKey: "User profile not found"])
+                throw SupabaseError.userNotFound
             }
             
             // 將用戶資料保存到 UserDefaults 以便後續使用
@@ -78,13 +78,13 @@ class SupabaseService: ObservableObject {
             return profile
         } catch {
             // 如果所有方法都失敗，拋出認證錯誤
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated. Please sign in again."])
+            throw SupabaseError.notAuthenticated
         }
     }
     
     // MARK: - Investment Groups
     func fetchInvestmentGroups() async throws -> [InvestmentGroup] {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let response: [InvestmentGroup] = try await client.database
             .from("investment_groups")
@@ -95,7 +95,7 @@ class SupabaseService: ObservableObject {
     }
     
     func fetchInvestmentGroup(id: UUID) async throws -> InvestmentGroup {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let response: [InvestmentGroup] = try await client.database
             .from("investment_groups")
@@ -105,17 +105,17 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let group = response.first else {
-            throw NSError(domain: "SupabaseService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Group not found"])
+            throw SupabaseError.dataNotFound
         }
         
         return group
     }
     
     func createInvestmentGroup(name: String, description: String, category: String, isPrivate: Bool, maxMembers: Int) async throws -> InvestmentGroup {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = getCurrentUser() else {
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let inviteCode = isPrivate ? UUID().uuidString : nil
@@ -161,7 +161,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let group = response.first else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Failed to create group"])
+            throw SupabaseError.unknown("Failed to create group")
         }
         
         // 創建主持人的投資組合
@@ -172,7 +172,7 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Chat Messages
     func fetchChatMessages(groupId: UUID) async throws -> [ChatMessage] {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let response: [ChatMessage] = try await client.database
             .from("chat_messages")
@@ -223,10 +223,10 @@ class SupabaseService: ObservableObject {
     }
     
     func sendChatMessage(groupId: UUID, content: String, isCommand: Bool = false) async throws -> ChatMessage {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = getCurrentUser() else {
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         // 首先檢查用戶是否已經是群組成員，如果不是則自動加入
@@ -270,7 +270,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let message = response.first else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Failed to send message"])
+            throw SupabaseError.unknown("Failed to send message")
         }
         
         // 創建包含用戶角色的 ChatMessage
@@ -290,11 +290,11 @@ class SupabaseService: ObservableObject {
     
     // MARK: - 簡化的發送訊息方法 (供 ChatViewModel 使用)
     func sendMessage(groupId: UUID, content: String, isCommand: Bool = false) async throws -> ChatMessage {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 1. 獲取當前認證的用戶
         guard let authUser = try? await client.auth.user() else {
-            throw NSError(domain: "SupabaseService.sendMessage", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         let userId = authUser.id
 
@@ -369,7 +369,7 @@ class SupabaseService: ObservableObject {
             .value
 
         guard var message = response.first else {
-            throw NSError(domain: "SupabaseService.sendMessage", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to send message or decode response."])
+            throw SupabaseError.serverError(500)
         }
         
         // 7. 將角色賦予返回的訊息對象
@@ -410,14 +410,14 @@ class SupabaseService: ObservableObject {
     
     /// 簡化的加入群組方法 (使用當前登入用戶)
     func joinGroup(_ groupId: UUID) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 獲取當前用戶
         let authUser: User
         do {
             authUser = try await client.auth.user()
         } catch {
-            throw NSError(domain: "SupabaseService.joinGroup", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         let userId = authUser.id
         
@@ -472,14 +472,14 @@ class SupabaseService: ObservableObject {
     
     /// 獲取用戶已加入的群組列表
     func fetchUserJoinedGroups() async throws -> [InvestmentGroup] {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 獲取當前用戶
         let authUser: User
         do {
             authUser = try await client.auth.user()
         } catch {
-            throw NSError(domain: "SupabaseService.fetchUserJoinedGroups", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         let userId = authUser.id
         
@@ -518,14 +518,14 @@ class SupabaseService: ObservableObject {
     
     /// 退出群組
     func leaveGroup(groupId: UUID) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 獲取當前用戶
         let authUser: User
         do {
             authUser = try await client.auth.user()
         } catch {
-            throw NSError(domain: "SupabaseService.leaveGroup", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         let userId = authUser.id
         
@@ -534,7 +534,7 @@ class SupabaseService: ObservableObject {
         let currentUser = try await getCurrentUserAsync()
         
         if group.host == currentUser.displayName {
-            throw NSError(domain: "SupabaseService.leaveGroup", code: 403, userInfo: [NSLocalizedDescriptionKey: "群組主持人無法退出群組"])
+            throw SupabaseError.accessDenied
         }
         
         // 從群組成員表中刪除用戶記錄
@@ -564,7 +564,7 @@ class SupabaseService: ObservableObject {
     }
     
     func joinGroup(groupId: UUID, userId: UUID) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         struct GroupMemberInsert: Codable {
             let groupId: String
@@ -597,7 +597,7 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Articles (保留原有功能但簡化)
     func fetchArticles() async throws -> [Article] {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let response: [Article] = try await client.database
             .from("articles")
@@ -610,7 +610,7 @@ class SupabaseService: ObservableObject {
     
     // 支持 Markdown 的文章創建函數
     public func createArticle(title: String, content: String, category: String, bodyMD: String, isFree: Bool = true) async throws -> Article {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let currentUser = try await getCurrentUserAsync()
         
@@ -666,7 +666,7 @@ class SupabaseService: ObservableObject {
     
     // 支持關鍵字和圖片的文章創建函數
     public func publishArticle(from draft: ArticleDraft) async throws -> Article {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let currentUser = try await getCurrentUserAsync()
         
@@ -728,7 +728,7 @@ class SupabaseService: ObservableObject {
     
     // 上傳圖片到 Supabase Storage
     public func uploadArticleImage(_ imageData: Data, fileName: String) async throws -> String {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let path = "article_images/\(fileName)"
         
@@ -746,7 +746,7 @@ class SupabaseService: ObservableObject {
     
     // 根據分類獲取文章
     public func fetchArticlesByCategory(_ category: String) async throws -> [Article] {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         if category == "全部" {
             return try await fetchArticles()
@@ -764,7 +764,7 @@ class SupabaseService: ObservableObject {
     }
     
     func deleteArticle(id: UUID) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         try await client.database
             .from("articles")
@@ -777,7 +777,7 @@ class SupabaseService: ObservableObject {
 
     // MARK: - Group Management
     func createPortfolio(groupId: UUID, userId: UUID) async throws -> Portfolio {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         struct PortfolioInsert: Codable {
             let groupId: String
@@ -814,14 +814,14 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let portfolio = response.first else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Failed to create portfolio"])
+            throw SupabaseError.unknown("Failed to create portfolio")
         }
         
         return portfolio
     }
     
     func updatePortfolio(groupId: UUID, userId: UUID, totalValue: Double, cashBalance: Double, returnRate: Double) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         struct PortfolioUpdate: Codable {
             let totalValue: Double
@@ -878,10 +878,10 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Group Invitations
     func createInvitation(groupId: UUID, inviteeEmail: String) async throws -> GroupInvitation {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = getCurrentUser() else {
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let expiresAt = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
@@ -924,14 +924,14 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let invitation = response.first else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Failed to create invitation"])
+            throw SupabaseError.unknown("Failed to create invitation")
         }
         
         return invitation
     }
     
     func respondToInvitation(invitationId: UUID, accept: Bool) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let status = accept ? InvitationStatus.accepted.rawValue : InvitationStatus.rejected.rawValue
         
@@ -961,7 +961,7 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Portfolio Management
     func fetchPortfolioWithPositions(groupId: UUID, userId: UUID) async throws -> PortfolioWithPositions {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let portfolios: [Portfolio] = try await client.database
             .from("portfolios")
@@ -972,7 +972,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let portfolio = portfolios.first else {
-            throw NSError(domain: "SupabaseService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Portfolio not found"])
+            throw SupabaseError.dataNotFound
         }
         
         let positions: [Position] = try await client.database
@@ -986,7 +986,7 @@ class SupabaseService: ObservableObject {
     }
     
     func updatePosition(position: Position) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         struct PositionUpdate: Codable {
             let shares: Double
@@ -1020,7 +1020,7 @@ class SupabaseService: ObservableObject {
     }
     
     func createPosition(portfolioId: UUID, symbol: String, shares: Double, price: Double) async throws -> Position {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         struct PositionInsert: Codable {
             let portfolioId: String
@@ -1062,18 +1062,18 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let position = response.first else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Failed to create position"])
+            throw SupabaseError.unknown("Failed to create position")
         }
         
         return position
     }
     
     func updatePortfolioAndPositions(portfolioWithPositions: PortfolioWithPositions) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 安全地解開 groupId
         guard let groupId = portfolioWithPositions.portfolio.groupId else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Portfolio is not associated with a group."])
+            throw SupabaseError.unknown("Portfolio is not associated with a group")
         }
         
         // 更新投資組合
@@ -1098,7 +1098,7 @@ class SupabaseService: ObservableObject {
     // 舊版方法：基於 wallet_transactions 表計算餘額
     // 現在使用 user_balances 表的新方法
     private func fetchWalletBalanceLegacy() async throws -> Double {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 使用異步方法獲取當前用戶
         let currentUser = try await getCurrentUserAsync()
@@ -1123,7 +1123,7 @@ class SupabaseService: ObservableObject {
     
     /// 清除指定群組的聊天記錄
     func clearChatHistory(for groupId: UUID) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let currentUser = try await getCurrentUserAsync()
         
@@ -1140,7 +1140,7 @@ class SupabaseService: ObservableObject {
     }
     
     func createTipTransaction(recipientId: UUID, amount: Double, groupId: UUID) async throws -> WalletTransaction {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 使用異步方法獲取當前用戶
         let currentUser = try await getCurrentUserAsync()
@@ -1148,7 +1148,7 @@ class SupabaseService: ObservableObject {
         // 檢查餘額是否足夠
         let currentBalance = try await fetchWalletBalance()
         guard Double(currentBalance) >= amount else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Insufficient balance"])
+            throw SupabaseError.unknown("Insufficient balance")
         }
         
         struct TipTransactionInsert: Codable {
@@ -1198,7 +1198,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let transaction = response.first else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Failed to create tip transaction"])
+            throw SupabaseError.unknown("Failed to create tip transaction")
         }
         
         print("✅ [SupabaseService] 抖內交易創建成功: \(amount) 代幣")
@@ -1207,7 +1207,7 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Group Details and Members
     func fetchGroupDetails(groupId: UUID) async throws -> (group: InvestmentGroup, hostInfo: UserProfile?) {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let group = try await fetchInvestmentGroup(id: groupId)
         
@@ -1225,7 +1225,7 @@ class SupabaseService: ObservableObject {
     }
     
     func fetchUserProfileByDisplayName(_ displayName: String) async throws -> UserProfile {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let response: [UserProfile] = try await client.database
             .from("user_profiles")
@@ -1236,7 +1236,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let userProfile = response.first else {
-            throw NSError(domain: "SupabaseService", code: 404, userInfo: [NSLocalizedDescriptionKey: "User profile not found"])
+            throw SupabaseError.userNotFound
         }
         
         return userProfile
@@ -1249,7 +1249,7 @@ class SupabaseService: ObservableObject {
     /// 檢查資料庫連線狀態
     func checkDatabaseConnection() async -> (isConnected: Bool, message: String) {
         do {
-            await SupabaseManager.shared.initialize()
+            try SupabaseManager.shared.ensureInitialized()
             
             // 使用最簡單的方法 - 只檢查認證狀態和 session
             guard let session = client.auth.currentSession else {
@@ -1289,7 +1289,7 @@ class SupabaseService: ObservableObject {
     /// 檢查指定用戶的訊息記錄
     func checkUserMessages(userEmail: String) async -> (hasMessages: Bool, messageCount: Int, latestMessage: String?) {
         do {
-            await SupabaseManager.shared.initialize()
+            try SupabaseManager.shared.ensureInitialized()
             
             // 根據 email 查找用戶
             let userProfiles: [UserProfile] = try await client.database
@@ -1328,7 +1328,7 @@ class SupabaseService: ObservableObject {
     /// 檢查用戶是否為群組成員
     func isUserInGroup(userId: UUID, groupId: UUID) async -> Bool {
         do {
-            await SupabaseManager.shared.initialize()
+            try SupabaseManager.shared.ensureInitialized()
             
             let members: [GroupMemberResponse] = try await client.database
                 .from("group_members")
@@ -1350,11 +1350,11 @@ class SupabaseService: ObservableObject {
     
     /// 新增訊息發送函數，確保 group_id 和 sender_id 正確
     func sendMessage(groupId: UUID, content: String) async throws -> ChatMessage {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 檢查當前用戶認證狀態
         guard let session = client.auth.currentSession else {
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "用戶未登入，請先登入"])
+            throw SupabaseError.notAuthenticated
         }
         
         let currentUser = try await getCurrentUserAsync()
@@ -1362,12 +1362,12 @@ class SupabaseService: ObservableObject {
         // 檢查用戶是否為群組成員
         let isMember = await isUserInGroup(userId: currentUser.id, groupId: groupId)
         guard isMember else {
-            throw NSError(domain: "SupabaseService", code: 403, userInfo: [NSLocalizedDescriptionKey: "用戶不是群組成員，無法發送訊息"])
+            throw SupabaseError.accessDenied
         }
         
         // 確保 sender_id 與認證用戶一致（RLS 政策要求）
         guard currentUser.id.uuidString == session.user.id.uuidString else {
-            throw NSError(domain: "SupabaseService", code: 403, userInfo: [NSLocalizedDescriptionKey: "用戶ID不匹配，無法發送訊息"])
+            throw SupabaseError.accessDenied
         }
         
         struct ChatMessageInsert: Encodable {
@@ -1406,7 +1406,7 @@ class SupabaseService: ObservableObject {
                 .value
             
             guard let message = response.first else {
-                throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Failed to send message"])
+                throw SupabaseError.unknown("Failed to send message")
             }
             
             logError(message: "✅ [訊息發送] 訊息發送成功: \(content)")
@@ -1417,7 +1417,7 @@ class SupabaseService: ObservableObject {
             if error.localizedDescription.contains("row-level security policy") {
                 logError(message: "❌ [RLS錯誤] 用戶 \(session.user.id) 嘗試發送訊息到群組 \(groupId) 失敗")
                 logError(message: "❌ [RLS錯誤] 檢查用戶是否為群組成員: \(isMember)")
-                throw NSError(domain: "SupabaseService", code: 403, userInfo: [NSLocalizedDescriptionKey: "權限不足：無法發送訊息。請確認您已加入此群組並已正確登入。"])
+                throw SupabaseError.accessDenied
             }
             throw error
         }
@@ -1504,7 +1504,7 @@ class SupabaseService: ObservableObject {
     
     /// 測試用：模擬加入群組
     func simulateJoinGroup(userId: UUID, groupId: UUID, username: String, displayName: String) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         struct GroupMemberInsert: Codable {
             let groupId: String
@@ -1534,7 +1534,7 @@ class SupabaseService: ObservableObject {
     
     /// 獲取用戶在群組中的角色
     func fetchUserRole(userId: UUID, groupId: UUID) async throws -> String {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 使用簡單的結構來只獲取需要的欄位
         struct GroupHostInfo: Codable {
@@ -1601,7 +1601,7 @@ class SupabaseService: ObservableObject {
     
     /// 獲取群組實際成員數
     func fetchGroupMemberCount(groupId: UUID) async throws -> Int {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         struct GroupMemberCount: Codable {
             let userId: String
@@ -1623,7 +1623,7 @@ class SupabaseService: ObservableObject {
     
     /// 創建測試用戶和群組
     func createTestEnvironment() async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 創建測試群組「價值投資學院」
         let testGroupId = TestConstants.testGroupId
@@ -1685,7 +1685,7 @@ class SupabaseService: ObservableObject {
     
     /// 創建測試用戶
     func createTestUsers() async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 創建主持人用戶
         let hostUserId = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
@@ -1769,7 +1769,7 @@ class SupabaseService: ObservableObject {
     
     /// 模擬切換用戶（用於測試）
     func simulateUserSwitch(toEmail: String) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 根據 email 獲取用戶資料
         let userResponse: [UserProfile] = try await client.database
@@ -1780,7 +1780,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let user = userResponse.first else {
-            throw NSError(domain: "SupabaseService", code: 404, userInfo: [NSLocalizedDescriptionKey: "User not found: \(toEmail)"])
+            throw SupabaseError.userNotFound
         }
         
         // 將用戶資料保存到 UserDefaults
@@ -1805,7 +1805,7 @@ class SupabaseService: ObservableObject {
     
     /// 專門用於將 yuka 用戶加入測試群組
     func addYukaToTestGroup() async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 獲取 yuka 用戶的信息
         let yukaUsers: [UserProfile] = try await client.database
@@ -1890,10 +1890,10 @@ class SupabaseService: ObservableObject {
     
     /// 創建群組邀請 (通過 Email)
     func createInvitation(groupId: UUID, email: String) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = try? await getCurrentUserAsync() else {
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         struct InvitationInsert: Codable {
@@ -1930,7 +1930,7 @@ class SupabaseService: ObservableObject {
     
     /// 接受群組邀請
     func acceptInvitation(invitationId: UUID) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 更新邀請狀態為已接受
         struct InvitationUpdate: Codable {
@@ -1954,7 +1954,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let invitation = invitations.first else {
-            throw NSError(domain: "SupabaseService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Invitation not found"])
+            throw SupabaseError.dataNotFound
         }
         
         // 加入群組
@@ -1965,7 +1965,7 @@ class SupabaseService: ObservableObject {
     
     /// 獲取待處理的邀請 (支援 Email 和 user_id 兩種方式)
     func fetchPendingInvites() async throws -> [GroupInvitation] {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = try? await getCurrentUserAsync() else {
             return []
@@ -1987,7 +1987,7 @@ class SupabaseService: ObservableObject {
     
     /// 獲取好友列表
     func fetchFriendList() async throws -> [UserProfile] {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let current = try? await getCurrentUserAsync() else { 
             return [] 
@@ -2023,10 +2023,10 @@ class SupabaseService: ObservableObject {
 
     /// 通過用戶 ID 創建邀請
     func createInvitationByUserId(groupId: UUID, inviteeId: UUID) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let current = try? await getCurrentUserAsync() else { 
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
 
         struct InvitationInsertById: Codable {
@@ -2065,10 +2065,10 @@ class SupabaseService: ObservableObject {
     
     /// 獲取用戶錢包餘額
     func fetchWalletBalance() async throws -> Double {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let authUser = try? await client.auth.user() else {
-            throw NSError(domain: "SupabaseService.fetchWalletBalance", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let userId = authUser.id
@@ -2104,10 +2104,10 @@ class SupabaseService: ObservableObject {
     
     /// 更新用戶錢包餘額
     func updateWalletBalance(delta: Int) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let authUser = try? await client.auth.user() else {
-            throw NSError(domain: "SupabaseService.updateWalletBalance", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let userId = authUser.id
@@ -2118,7 +2118,7 @@ class SupabaseService: ObservableObject {
         
         // 確保餘額不會變成負數
         guard newBalance >= 0 else {
-            throw NSError(domain: "SupabaseService.updateWalletBalance", code: 400, userInfo: [NSLocalizedDescriptionKey: "餘額不足"])
+            throw SupabaseError.unknown("餘額不足")
         }
         
         // 更新餘額
@@ -2150,7 +2150,7 @@ class SupabaseService: ObservableObject {
     
     /// 檢查用戶是否已訂閱某作者
     func isUserSubscribed(authorId: UUID) async throws -> Bool {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let authUser = try? await client.auth.user() else {
             return false
@@ -2174,10 +2174,10 @@ class SupabaseService: ObservableObject {
     
     /// 訂閱作者
     func subscribeToAuthor(authorId: UUID) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let authUser = try? await client.auth.user() else {
-            throw NSError(domain: "SupabaseService.subscribeToAuthor", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let userId = authUser.id
@@ -2186,13 +2186,13 @@ class SupabaseService: ObservableObject {
         // 檢查餘額是否足夠
         let currentBalance = try await fetchWalletBalance()
         guard currentBalance >= subscriptionFee else {
-            throw NSError(domain: "SupabaseService.subscribeToAuthor", code: 400, userInfo: [NSLocalizedDescriptionKey: "餘額不足，需要 \(subscriptionFee) 代幣"])
+            throw SupabaseError.unknown("餘額不足，需要 \(subscriptionFee) 代幣")
         }
         
         // 檢查是否已經訂閱
         let isAlreadySubscribed = try await isUserSubscribed(authorId: authorId)
         guard !isAlreadySubscribed else {
-            throw NSError(domain: "SupabaseService.subscribeToAuthor", code: 400, userInfo: [NSLocalizedDescriptionKey: "您已經訂閱了此作者"])
+            throw SupabaseError.unknown("您已經訂閱了此作者")
         }
         
         // 扣除餘額
@@ -2244,10 +2244,10 @@ class SupabaseService: ObservableObject {
     
     /// 記錄付費文章閱讀
     func recordPaidView(articleId: UUID, readingTimeSeconds: Int = 0) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let authUser = try? await client.auth.user() else {
-            throw NSError(domain: "SupabaseService.recordPaidView", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let userId = authUser.id
@@ -2302,7 +2302,7 @@ class SupabaseService: ObservableObject {
     
     /// 檢查今日免費文章閱讀數量
     func getTodayFreeArticleReadCount() async throws -> Int {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let authUser = try? await client.auth.user() else {
             return 0
@@ -2328,10 +2328,10 @@ class SupabaseService: ObservableObject {
     
     /// 記錄免費文章閱讀
     func recordFreeView(articleId: UUID, readingTimeSeconds: Int = 0) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let authUser = try? await client.auth.user() else {
-            throw NSError(domain: "SupabaseService.recordFreeView", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let userId = authUser.id
@@ -2394,7 +2394,7 @@ class SupabaseService: ObservableObject {
     
     /// 獲取有付費文章的作者列表
     func getAuthorsWithPaidArticles() async throws -> [(UUID, String)] {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 查詢有付費文章的作者
         struct AuthorInfo: Codable {
@@ -2432,10 +2432,10 @@ class SupabaseService: ObservableObject {
     
     /// 檢查用戶是否為平台會員
     func isPlatformMember() async throws -> Bool {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = getCurrentUser() else {
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let subscriptions: [PlatformSubscription] = try await client.database
@@ -2452,10 +2452,10 @@ class SupabaseService: ObservableObject {
     
     /// 獲取用戶的平台會員信息
     func getPlatformSubscription() async throws -> PlatformSubscription? {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = getCurrentUser() else {
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let subscriptions: [PlatformSubscription] = try await client.database
@@ -2474,15 +2474,15 @@ class SupabaseService: ObservableObject {
     
     /// 訂閱平台會員
     func subscribeToPlatform(subscriptionType: String = "monthly") async throws -> PlatformSubscription {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = getCurrentUser() else {
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         // 檢查是否已經是會員
         if try await isPlatformMember() {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "用戶已經是平台會員"])
+            throw SupabaseError.unknown("用戶已經是平台會員")
         }
         
         // 計算訂閱費用和期限
@@ -2498,13 +2498,13 @@ class SupabaseService: ObservableObject {
             amount = 5000.0 // 年費 5000 代幣（相當於 10 個月的價格）
             endDate = calendar.date(byAdding: .year, value: 1, to: Date()) ?? Date()
         default:
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "無效的訂閱類型"])
+            throw SupabaseError.unknown("無效的訂閱類型")
         }
         
         // 檢查餘額是否足夠
         let currentBalance = try await fetchWalletBalance()
         guard currentBalance >= amount else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "餘額不足，需要 \(amount) 代幣"])
+            throw SupabaseError.unknown("餘額不足，需要 \(amount) 代幣")
         }
         
         // 扣除餘額
@@ -2557,7 +2557,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let subscription = insertedSubscriptions.first else {
-            throw NSError(domain: "SupabaseService", code: 400, userInfo: [NSLocalizedDescriptionKey: "創建訂閱失敗"])
+            throw SupabaseError.unknown("創建訂閱失敗")
         }
         
         // 創建錢包交易記錄
@@ -2576,10 +2576,10 @@ class SupabaseService: ObservableObject {
     
     /// 記錄平台會員的文章閱讀（用於分潤計算）
     func recordPlatformMemberRead(articleId: UUID, authorId: UUID, readingTimeSeconds: Int = 60) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = getCurrentUser() else {
-            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         // 檢查是否為文章作者 - 作者看自己的文章不計入付費閱讀
@@ -2590,7 +2590,7 @@ class SupabaseService: ObservableObject {
         
         // 檢查是否為平台會員
         guard let subscription = try await getPlatformSubscription() else {
-            throw NSError(domain: "SupabaseService", code: 403, userInfo: [NSLocalizedDescriptionKey: "非平台會員無法記錄閱讀"])
+            throw SupabaseError.accessDenied
         }
         
         // 檢查是否已經記錄過（同一用戶同一文章每天只記錄一次）
@@ -2663,10 +2663,10 @@ class SupabaseService: ObservableObject {
         description: String,
         paymentMethod: String
     ) async throws {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         guard let authUser = try? await client.auth.user() else {
-            throw NSError(domain: "SupabaseService.createWalletTransaction", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+            throw SupabaseError.notAuthenticated
         }
         
         let userId = authUser.id
@@ -2711,7 +2711,7 @@ class SupabaseService: ObservableObject {
     
     /// 驗證作者是否存在於數據庫中
     func validateAuthorExists(authorId: UUID) async throws -> Bool {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 先打印調試信息
         let uuidString = authorId.uuidString.lowercased()

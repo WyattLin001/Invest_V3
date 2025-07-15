@@ -23,14 +23,19 @@ class AuthenticationService: ObservableObject {
 
     init() {
         Task {
-            await SupabaseManager.shared.initialize()
-            for await state in self.client.auth.authStateChanges {
-                self.session = state.session
-                if let user = state.session?.user {
-                    await self.fetchUserProfile(for: user)
-                } else {
-                    self.currentUserProfile = nil
+            do {
+                try await SupabaseManager.shared.initialize()
+                for await state in self.client.auth.authStateChanges {
+                    self.session = state.session
+                    if let user = state.session?.user {
+                        await self.fetchUserProfile(for: user)
+                    } else {
+                        self.currentUserProfile = nil
+                    }
                 }
+            } catch {
+                print("❌ AuthenticationService 初始化失敗: \(error.localizedDescription)")
+                self.error = SupabaseError.from(error).localizedDescription
             }
         }
     }
@@ -38,9 +43,13 @@ class AuthenticationService: ObservableObject {
     // MARK: - 標準用戶註冊
     func registerUser(email: String, password: String, username: String, displayName: String) async throws {
         guard !email.isEmpty, !password.isEmpty, !username.isEmpty else {
-            self.error = "請填寫所有必填欄位。"
-            throw AuthError.invalidInput
+            let error = SupabaseError.invalidInput("所有必填欄位")
+            self.error = error.localizedDescription
+            throw error
         }
+        
+        // 確保 Supabase 已初始化
+        try SupabaseManager.shared.ensureInitialized()
         
         isLoading = true
         defer { isLoading = false }
@@ -82,17 +91,22 @@ class AuthenticationService: ObservableObject {
             
         } catch {
             print("❌ 註冊失敗: \(error.localizedDescription)")
-            self.error = "註冊失敗：\(error.localizedDescription)"
-            throw error
+            let supabaseError = SupabaseError.from(error)
+            self.error = supabaseError.localizedDescription
+            throw supabaseError
         }
     }
 
     // MARK: - 標準用戶登入
     func signIn(email: String, password: String) async throws {
         guard !email.isEmpty, !password.isEmpty else {
-            self.error = "Email 和密碼不能為空。"
-            throw AuthError.invalidInput
+            let error = SupabaseError.invalidInput("Email 和密碼")
+            self.error = error.localizedDescription
+            throw error
         }
+        
+        // 確保 Supabase 已初始化
+        try SupabaseManager.shared.ensureInitialized()
         
         isLoading = true
         defer { isLoading = false }
@@ -103,8 +117,9 @@ class AuthenticationService: ObservableObject {
             print("✅ 登入成功: \(email)")
         } catch {
             print("❌ 登入失敗: \(error.localizedDescription)")
-            self.error = "登入失敗：Email 或密碼錯誤。"
-            throw error
+            let supabaseError = SupabaseError.from(error)
+            self.error = supabaseError.localizedDescription
+            throw supabaseError
         }
     }
 
@@ -115,6 +130,9 @@ class AuthenticationService: ObservableObject {
         error = nil
         
         do {
+            // 確保 Supabase 已初始化
+            try SupabaseManager.shared.ensureInitialized()
+            
             try await client.auth.signOut()
             
             // 清除本地用戶資料
@@ -124,7 +142,8 @@ class AuthenticationService: ObservableObject {
             print("✅ 用戶登出")
         } catch {
             print("❌ 登出失敗: \(error.localizedDescription)")
-            self.error = "登出時發生錯誤。"
+            let supabaseError = SupabaseError.from(error)
+            self.error = supabaseError.localizedDescription
         }
     }
     
@@ -206,23 +225,5 @@ class AuthenticationService: ObservableObject {
     }
 }
 
-// MARK: - 錯誤類型
-enum AuthError: Error, LocalizedError {
-    case invalidInput
-    case userCreationError
-    case userNotFound
-    case notAuthenticated
-    
-    var errorDescription: String? {
-        switch self {
-        case .invalidInput:
-            return "請輸入有效的資料"
-        case .userCreationError:
-            return "無法在認證系統中建立使用者"
-        case .userNotFound:
-            return "用戶不存在或密碼錯誤"
-        case .notAuthenticated:
-            return "需要認證才能執行此操作"
-        }
-    }
-}
+// MARK: - Legacy AuthError 已移除
+// 現在統一使用 SupabaseError 進行錯誤處理
