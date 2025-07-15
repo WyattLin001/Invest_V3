@@ -15,7 +15,7 @@ class UserProfileService: ObservableObject {
     
     /// 創建用戶資料
     func createUserProfile(email: String, username: String, displayName: String, avatarUrl: String? = nil) async throws -> UserProfile {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         struct UserProfileInsert: Codable {
             let email: String
@@ -62,7 +62,7 @@ class UserProfileService: ObservableObject {
     
     /// 獲取用戶資料
     func getUserProfile(id: UUID) async throws -> UserProfile {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let response: [UserProfile] = try await client.database
             .from("user_profiles")
@@ -80,7 +80,7 @@ class UserProfileService: ObservableObject {
     
     /// 根據 email 獲取用戶資料
     func getUserProfile(email: String) async throws -> UserProfile {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let response: [UserProfile] = try await client.database
             .from("user_profiles")
@@ -98,7 +98,7 @@ class UserProfileService: ObservableObject {
     
     /// 更新用戶資料
     func updateUserProfile(id: UUID, username: String? = nil, displayName: String? = nil, avatarUrl: String? = nil) async throws -> UserProfile {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         struct UserProfileUpdate: Codable {
             let username: String?
@@ -141,7 +141,7 @@ class UserProfileService: ObservableObject {
     
     /// 檢查用戶名是否可用
     func isUsernameAvailable(_ username: String) async throws -> Bool {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let response: [UserProfile] = try await client.database
             .from("user_profiles")
@@ -155,7 +155,7 @@ class UserProfileService: ObservableObject {
     
     /// 檢查 email 是否已註冊
     func isEmailRegistered(_ email: String) async throws -> Bool {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         let response: [UserProfile] = try await client.database
             .from("user_profiles")
@@ -194,7 +194,7 @@ class UserProfileService: ObservableObject {
     
     /// 獲取用戶統計資料
     func getUserStatistics(userId: UUID) async throws -> UserStatistics {
-        await SupabaseManager.shared.initialize()
+        try SupabaseManager.shared.ensureInitialized()
         
         // 獲取用戶加入的群組數量
         struct GroupMemberCount: Codable {

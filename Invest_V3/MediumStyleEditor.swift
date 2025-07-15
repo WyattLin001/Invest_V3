@@ -289,7 +289,7 @@ struct MediumStyleEditor: View {
         Task {
             do {
                 let draft = createDraftFromCurrentState()
-                await articleViewModel.publishArticle(from: draft)
+                let _ = try await articleViewModel.publishArticle(from: draft)
                 
                 await MainActor.run {
                     isPublishing = false

@@ -193,12 +193,12 @@ class AuthenticationService: ObservableObject {
         do {
             // 1. 從 Supabase Auth 獲取當前登入的 User
             guard let user = try? await client.auth.user() else {
-                throw AuthError.notAuthenticated
+                throw SupabaseError.notAuthenticated
             }
             
             // 2. 獲取對應的 UserProfile
             guard var profileToUpdate = currentUserProfile, profileToUpdate.id == user.id else {
-                throw AuthError.userNotFound
+                throw SupabaseError.userNotFound
             }
 
             // 3. 更新本地 profile 物件

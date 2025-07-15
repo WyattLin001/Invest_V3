@@ -70,6 +70,21 @@ class ArticleViewModel: ObservableObject {
     func getRemainingFreeArticles() -> Int {
         return max(0, maxFreeArticlesPerDay - freeArticlesReadToday)
     }
+    
+    // MARK: - Article Publishing
+    func publishArticle(from draft: ArticleDraft) async throws -> Article {
+        isLoading = true
+        do {
+            let article = try await SupabaseService.shared.publishArticle(from: draft)
+            // 發布成功後，重新獲取文章列表
+            await fetchArticles()
+            error = nil
+            return article
+        } catch {
+            self.error = error
+            throw error
+        }
+    }
 }
 
 struct ArticleData: Identifiable, Decodable {
