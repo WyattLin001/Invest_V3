@@ -18,12 +18,12 @@ struct RichTextView: UIViewRepresentable {
         textView.allowsEditingTextAttributes = true
         textView.isScrollEnabled = true
         textView.textContainerInset = UIEdgeInsets(top: 20, left: 16, bottom: 20, right: 16)
-        
-        // 設置工具列
-        textView.inputAccessoryView = createToolbar(for: textView, coordinator: context.coordinator)
-        
-        // 支援 Dynamic Type
         textView.adjustsFontForContentSizeCategory = true
+        
+        // 關鍵修復：延遲設置工具列
+        DispatchQueue.main.async {
+            textView.inputAccessoryView = self.createToolbar(for: textView, coordinator: context.coordinator)
+        }
         
         return textView
     }
@@ -66,87 +66,33 @@ struct RichTextView: UIViewRepresentable {
     // MARK: - Apple-like 工具列
     private func createToolbar(for textView: UITextView, coordinator: Coordinator) -> UIToolbar {
         let toolbar = UIToolbar()
-        toolbar.translatesAutoresizingMaskIntoConstraints = false
+        
+        // 關鍵修復：讓系統自動處理約束，避免手動設置
+        toolbar.sizeToFit()
+        toolbar.isTranslucent = true
         toolbar.backgroundColor = UIColor.systemBackground
         toolbar.tintColor = UIColor.label
         
-        // 設置固定高度避免約束衝突
-        toolbar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44)
-        toolbar.autoresizingMask = [.flexibleWidth]
+        // 工具列按鈕 - 使用 flexibleSpace 進行均勻分布
+        let buttons = [
+            createToolbarButton(systemName: "textformat.size.larger", action: #selector(coordinator.insertH1), coordinator: coordinator),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            createToolbarButton(systemName: "textformat.size", action: #selector(coordinator.insertH2), coordinator: coordinator),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            createToolbarButton(systemName: "textformat.size.smaller", action: #selector(coordinator.insertH3), coordinator: coordinator),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            createToolbarButton(systemName: "bold", action: #selector(coordinator.toggleBold), coordinator: coordinator),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            createToolbarButton(systemName: "photo", action: #selector(coordinator.insertPhoto), coordinator: coordinator),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            createToolbarButton(systemName: "tablecells", action: #selector(coordinator.insertTable), coordinator: coordinator),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            createToolbarButton(systemName: "minus", action: #selector(coordinator.insertDivider), coordinator: coordinator),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            UIBarButtonItem(barButtonSystemItem: .done, target: coordinator, action: #selector(coordinator.dismissKeyboard))
+        ]
         
-        // 工具列按鈕
-        let h1Button = createToolbarButton(
-            systemName: "textformat.size.larger",
-            action: #selector(coordinator.insertH1),
-            coordinator: coordinator
-        )
-        
-        let h2Button = createToolbarButton(
-            systemName: "textformat.size",
-            action: #selector(coordinator.insertH2),
-            coordinator: coordinator
-        )
-        
-        let h3Button = createToolbarButton(
-            systemName: "textformat.size.smaller",
-            action: #selector(coordinator.insertH3),
-            coordinator: coordinator
-        )
-        
-        let boldButton = createToolbarButton(
-            systemName: "bold",
-            action: #selector(coordinator.toggleBold),
-            coordinator: coordinator
-        )
-        
-        // 移除斜體按鈕以避免約束問題
-        
-        let photoButton = createToolbarButton(
-            systemName: "photo",
-            action: #selector(coordinator.insertPhoto),
-            coordinator: coordinator
-        )
-        
-        let tableButton = createToolbarButton(
-            systemName: "tablecells",
-            action: #selector(coordinator.insertTable),
-            coordinator: coordinator
-        )
-        
-        let dividerButton = createToolbarButton(
-            systemName: "minus",
-            action: #selector(coordinator.insertDivider),
-            coordinator: coordinator
-        )
-        
-        // 彈性空間
-        let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
-        
-        // 完成按鈕（靠右對齊）
-        let doneButton = UIBarButtonItem(
-            barButtonSystemItem: .done,
-            target: coordinator,
-            action: #selector(coordinator.dismissKeyboard)
-        )
-        
-        toolbar.setItems([
-            h1Button, h2Button, h3Button,
-            UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil),
-            boldButton,
-            UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil),
-            photoButton, tableButton, dividerButton,
-            flexSpace,
-            doneButton
-        ], animated: false)
-        
-        // 設置固定間距
-        if let fixedSpace = toolbar.items?[3] {
-            fixedSpace.width = 12
-        }
-        if let fixedSpace2 = toolbar.items?[5] {
-            fixedSpace2.width = 12
-        }
-        
+        toolbar.setItems(buttons, animated: false)
         return toolbar
     }
     
@@ -206,7 +152,11 @@ struct RichTextView: UIViewRepresentable {
         
         func textViewDidChange(_ textView: UITextView) {
             self.textView = textView
-            parent.attributedText = textView.attributedText
+            
+            // 防抖動更新
+            DispatchQueue.main.async {
+                self.parent.attributedText = textView.attributedText
+            }
         }
         
         // MARK: - 標題樣式
@@ -344,69 +294,42 @@ struct RichTextView: UIViewRepresentable {
             let selectedRange = textView.selectedRange
             let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
             
-            // 創建表格佔位符
-            let attachment = NSTextAttachment()
-            let placeholderSize = CGSize(width: textView.frame.width - 32, height: 44)
+            // 創建可編輯的表格 Markdown
+            var tableMarkdown = "\n\n"
             
-            // 創建表格佔位圖像
-            let renderer = UIGraphicsImageRenderer(size: placeholderSize)
-            let placeholderImage = renderer.image { context in
-                let cgContext = context.cgContext
-                
-                // 背景
-                cgContext.setFillColor(UIColor.systemGray6.cgColor)
-                cgContext.fill(CGRect(origin: .zero, size: placeholderSize))
-                
-                // 邊框
-                cgContext.setStrokeColor(UIColor.systemGray3.cgColor)
-                cgContext.setLineWidth(1.0)
-                let borderRect = CGRect(x: 0.5, y: 0.5, width: placeholderSize.width - 1, height: placeholderSize.height - 1)
-                cgContext.stroke(borderRect)
-                
-                // 表格圖標
-                let iconSize: CGFloat = 16
-                let iconRect = CGRect(x: 12, y: (placeholderSize.height - iconSize) / 2, 
-                                    width: iconSize, height: iconSize)
-                
-                cgContext.setStrokeColor(UIColor.systemBlue.cgColor)
-                cgContext.setLineWidth(1.0)
-                
-                // 外框
-                cgContext.stroke(CGRect(x: iconRect.minX, y: iconRect.minY, 
-                                      width: iconSize, height: iconSize))
-                // 垂直線
-                cgContext.stroke(CGRect(x: iconRect.minX + iconSize/3, y: iconRect.minY, 
-                                      width: 0, height: iconSize))
-                // 水平線
-                cgContext.stroke(CGRect(x: iconRect.minX, y: iconRect.minY + iconSize/3, 
-                                      width: iconSize, height: 0))
-                
-                // 文字
-                let text = "Tap to edit table"
-                let textAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 14),
-                    .foregroundColor: UIColor.systemGray
-                ]
-                
-                let textRect = CGRect(x: iconRect.maxX + 8, y: 0, 
-                                    width: placeholderSize.width - iconRect.maxX - 16, 
-                                    height: placeholderSize.height)
-                text.draw(in: textRect, withAttributes: textAttributes)
+            // 表格標題行
+            tableMarkdown += "| "
+            for col in 1...cols {
+                tableMarkdown += "欄位 \(col) | "
+            }
+            tableMarkdown += "\n"
+            
+            // 分隔線
+            tableMarkdown += "| "
+            for _ in 1...cols {
+                tableMarkdown += "--- | "
+            }
+            tableMarkdown += "\n"
+            
+            // 內容行
+            for row in 1...rows {
+                tableMarkdown += "| "
+                for col in 1...cols {
+                    tableMarkdown += "  | "
+                }
+                tableMarkdown += "\n"
             }
             
-            attachment.image = placeholderImage
-            attachment.bounds = CGRect(origin: .zero, size: placeholderSize)
+            tableMarkdown += "\n"
             
-            // 插入 attachment
-            let attachmentString = NSAttributedString(attachment: attachment)
-            let newlineString = NSAttributedString(string: "\n")
+            let tableString = NSAttributedString(string: tableMarkdown, attributes: [
+                .font: UIFont.systemFont(ofSize: 16),
+                .foregroundColor: UIColor.label
+            ])
             
-            mutableText.insert(newlineString, at: selectedRange.location)
-            mutableText.insert(attachmentString, at: selectedRange.location + 1)
-            mutableText.insert(newlineString, at: selectedRange.location + 2)
-            
+            mutableText.insert(tableString, at: selectedRange.location)
             textView.attributedText = mutableText
-            textView.selectedRange = NSRange(location: selectedRange.location + 3, length: 0)
+            textView.selectedRange = NSRange(location: selectedRange.location + tableMarkdown.count, length: 0)
         }
         
         func insertImagePlaceholder(image: UIImage) {
@@ -449,10 +372,6 @@ extension UIFont {
         return fontDescriptor.symbolicTraits.contains(.traitBold)
     }
     
-    var isItalic: Bool {
-        return fontDescriptor.symbolicTraits.contains(.traitItalic)
-    }
-    
     func addingBold() -> UIFont {
         let traits = fontDescriptor.symbolicTraits.union(.traitBold)
         guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
@@ -462,25 +381,6 @@ extension UIFont {
     func removingBold() -> UIFont {
         let traits = fontDescriptor.symbolicTraits.subtracting(.traitBold)
         guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
-        return UIFont(descriptor: descriptor, size: pointSize)
-    }
-    
-    func addingItalic() -> UIFont {
-        let traits = fontDescriptor.symbolicTraits.union(.traitItalic)
-        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { 
-            // 如果系統字體不支援斜體，使用 Georgia 或其他支援斜體的字體
-            return UIFont(name: "Georgia-Italic", size: pointSize) ?? 
-                   UIFont.italicSystemFont(ofSize: pointSize)
-        }
-        return UIFont(descriptor: descriptor, size: pointSize)
-    }
-    
-    func removingItalic() -> UIFont {
-        let traits = fontDescriptor.symbolicTraits.subtracting(.traitItalic)
-        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { 
-            // 返回普通字體
-            return UIFont.systemFont(ofSize: pointSize)
-        }
         return UIFont(descriptor: descriptor, size: pointSize)
     }
 } 

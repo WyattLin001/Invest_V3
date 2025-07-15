@@ -13,7 +13,7 @@ struct MediumStyleEditor: View {
     @State private var showPreview: Bool = false
     @State private var showPhotoPicker: Bool = false
     @State private var showTablePicker: Bool = false
-    @State private var selectedImages: [PhotosPickerItem] = []
+    @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
     @State private var titleCharacterCount: Int = 0
     @State private var isPublishing: Bool = false
     
@@ -86,7 +86,7 @@ struct MediumStyleEditor: View {
         }
         .photosPicker(
             isPresented: $showPhotoPicker,
-            selection: $selectedImages,
+            selection: $selectedPhotosPickerItems,
             maxSelectionCount: 1,
             matching: .images
         )
@@ -97,9 +97,9 @@ struct MediumStyleEditor: View {
         }
         .sheet(isPresented: $showSettings) {
             PublishSettingsView(
-                isPaidContent: $isPaidContent,
                 selectedCategory: $selectedSubtopic,
                 keywords: $keywords,
+                isPaidContent: $isPaidContent,
                 onPublish: {
                     showSettings = false
                     publishArticle()
@@ -109,8 +109,19 @@ struct MediumStyleEditor: View {
         .onChange(of: title) { _, newValue in
             titleCharacterCount = newValue.count
         }
-        .onChange(of: selectedImages) { _, newImages in
-            loadSelectedImages(newImages)
+        .onChange(of: selectedPhotosPickerItems) { _, newItems in
+            guard let item = newItems.first else { return }
+            
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await MainActor.run {
+                        insertImage(image)
+                        // 關鍵修復：立即清空選擇以防止重複處理
+                        selectedPhotosPickerItems.removeAll()
+                    }
+                }
+            }
         }
     }
     
@@ -201,26 +212,6 @@ struct MediumStyleEditor: View {
     }
     
     // MARK: - 圖片處理
-    private func loadSelectedImages(_ items: [PhotosPickerItem]) {
-        guard let item = items.first else { return }
-        
-        item.loadTransferable(type: Data.self) { result in
-            switch result {
-            case .success(let data):
-                if let data = data, let image = UIImage(data: data) {
-                    DispatchQueue.main.async {
-                        insertImage(image)
-                    }
-                }
-            case .failure(let error):
-                print("圖片載入失敗: \(error)")
-            }
-        }
-        
-        // 清空選擇
-        selectedImages = []
-    }
-    
     private func insertImage(_ image: UIImage) {
         // 通知 RichTextView 插入圖片
         NotificationCenter.default.post(
@@ -247,6 +238,8 @@ struct MediumStyleEditor: View {
         draft.isFree = !isPaidContent
         draft.category = selectedSubtopic
         draft.tags = keywords
+        draft.createdAt = Date()
+        draft.updatedAt = Date()
         return draft
     }
     
@@ -281,14 +274,37 @@ struct MediumStyleEditor: View {
     }
     
     private func publishArticle() {
+        guard !title.isEmpty else {
+            print("❌ 標題不能為空")
+            return
+        }
+        
+        guard attributedContent.length > 0 else {
+            print("❌ 內容不能為空")
+            return
+        }
+        
         isPublishing = true
+        
         Task {
-            let draft = createDraftFromCurrentState()
-            await articleViewModel.publishArticle(from: draft)
-            
-            DispatchQueue.main.async {
-                isPublishing = false
-                dismiss() // 發布成功後關閉編輯器
+            do {
+                let draft = createDraftFromCurrentState()
+                await articleViewModel.publishArticle(from: draft)
+                
+                await MainActor.run {
+                    isPublishing = false
+                    // 通知 InfoView 刷新
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ArticlePublished"),
+                        object: nil
+                    )
+                    dismiss() // 發布成功後關閉編輯器
+                }
+            } catch {
+                await MainActor.run {
+                    isPublishing = false
+                    print("❌ 發布失敗: \(error)")
+                }
             }
         }
     }
@@ -322,6 +338,84 @@ struct MediumStyleEditor: View {
             rootViewController.present(activityVC, animated: true)
         }
     }
+
+    // MARK: - 預覽視圖
+    private var previewView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // 標題預覽
+                if !title.isEmpty {
+                    Text(title)
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(textColor)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text("請輸入標題")
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(secondaryTextColor.opacity(0.6))
+                        .italic()
+                }
+                
+                // 分類和付費標記
+                HStack {
+                    Text(selectedSubtopic)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.brandBlue)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.brandBlue.opacity(0.1))
+                        .cornerRadius(12)
+                    
+                    if isPaidContent {
+                        HStack {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 12))
+                            Text("付費內容")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(.brandOrange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.brandOrange.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                }
+                
+                // 關鍵字預覽
+                if !keywords.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(keywords, id: \.self) { keyword in
+                                Text(keyword)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.brandGreen)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.brandGreen.opacity(0.1))
+                                    .cornerRadius(8)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                }
+                
+                // 內容預覽
+                if attributedContent.length > 0 {
+                    RichTextPreviewView(attributedText: attributedContent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text("開始寫作...")
+                        .font(.system(size: 18))
+                        .foregroundColor(secondaryTextColor.opacity(0.6))
+                        .italic()
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        }
+        .background(backgroundColor)
+    }
 }
 
 // MARK: - 預覽 Sheet
@@ -331,19 +425,34 @@ struct PreviewSheet: View {
     let isPaid: Bool
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) var colorScheme
+    
+    private var backgroundColor: Color {
+        colorScheme == .dark ? .gray100 : .white
+    }
+    
+    private var textColor: Color {
+        colorScheme == .dark ? .gray900 : .black
+    }
     
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 20) {
+                    // 標題
                     Text(title)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                        .font(.system(size: 32, weight: .bold, design: .default))
+                        .foregroundColor(textColor)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     
+                    // 付費標記
                     if isPaid {
                         HStack {
                             Image(systemName: "lock.fill")
+                                .font(.system(size: 12))
                             Text("付費內容")
+                                .font(.system(size: 14, weight: .medium))
                         }
                         .foregroundColor(.brandOrange)
                         .padding(.horizontal, 12)
@@ -352,12 +461,14 @@ struct PreviewSheet: View {
                         .cornerRadius(12)
                     }
                     
-                    Text(content)
-                        .font(.body)
-                        .lineSpacing(4)
+                    // 內容 - 使用富文本顯示
+                    RichTextPreviewView(content: content)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
             }
+            .background(backgroundColor.ignoresSafeArea())
             .navigationTitle("預覽")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -365,9 +476,44 @@ struct PreviewSheet: View {
                     Button("完成") {
                         dismiss()
                     }
+                    .foregroundColor(textColor)
                 }
             }
         }
+    }
+}
+
+// MARK: - 富文本預覽視圖
+struct RichTextPreviewView: UIViewRepresentable {
+    let attributedText: NSAttributedString
+    
+    init(attributedText: NSAttributedString) {
+        self.attributedText = attributedText
+    }
+    
+    // 兼容舊版本的字符串初始化器
+    init(content: String) {
+        self.attributedText = NSAttributedString(string: content, attributes: [
+            .font: UIFont.systemFont(ofSize: 17),
+            .foregroundColor: UIColor.label
+        ])
+    }
+    
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.isEditable = false
+        textView.isSelectable = false
+        textView.backgroundColor = UIColor.clear
+        textView.textContainerInset = UIEdgeInsets.zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.font = UIFont.systemFont(ofSize: 17)
+        textView.textColor = UIColor.label
+        
+        return textView
+    }
+    
+    func updateUIView(_ uiView: UITextView, context: Context) {
+        uiView.attributedText = attributedText
     }
 }
 

@@ -12,7 +12,8 @@ struct ArticleEditorView: View {
     @State private var title: String = ""
     @State private var content: String = ""
     @State private var isPaidContent: Bool = false
-    @State private var selectedSubtopic: String = "投資分析"
+    @State private var selectedCategory: String = "投資分析"
+    @State private var keywords: [String] = []
     @State private var isDraft: Bool = true
     @State private var showSettings: Bool = false
     @State private var showPreview: Bool = false
@@ -25,6 +26,9 @@ struct ArticleEditorView: View {
     
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
+    
+    // 從 InfoView 獲取分類選項
+    private let categories = ["全部", "投資分析", "市場趨勢", "個股研究", "加密貨幣"]
     
     // 字數統計
     private let maxTitleLength = 50
@@ -88,7 +92,7 @@ struct ArticleEditorView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showSettings) {
             ArticleSettingsView(
-                subtopic: $selectedSubtopic,
+                subtopic: $selectedCategory,
                 isPaidContent: $isPaidContent,
                 isDraft: $isDraft
             )
@@ -440,7 +444,7 @@ struct ArticleEditorView: View {
             try await SupabaseService.shared.createArticle(
                 title: title,
                 content: content,
-                category: selectedSubtopic,
+                category: selectedCategory,
                 bodyMD: content,
                 isFree: !isPaidContent
             )

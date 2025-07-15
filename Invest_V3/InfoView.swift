@@ -53,6 +53,11 @@ struct InfoView: View {
                 await viewModel.fetchArticles()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ArticlePublished"))) { _ in
+            Task {
+                await viewModel.fetchArticles()
+            }
+        }
     }
     
     // MARK: - 頂部導航欄
