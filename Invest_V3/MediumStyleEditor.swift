@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import PhotosUI
+import Supabase
 
 // MARK: - Medium 風格編輯器
 struct MediumStyleEditor: View {
@@ -117,21 +118,18 @@ struct MediumStyleEditor: View {
         .onChange(of: selectedPhotosPickerItems) { oldItems, newItems in
             print("📸 onChange 觸發 - 舊: \(oldItems.count), 新: \(newItems.count)")
             
-            // 防止重複處理：如果沒有新項目或項目沒變，直接返回
-            guard !newItems.isEmpty, newItems != oldItems else { 
+            // 只處理新增的項目
+            guard !newItems.isEmpty, newItems.count > oldItems.count else { 
                 print("📸 沒有新項目，跳過處理")
                 return 
             }
             
-            guard let item = newItems.first else { 
-                print("📸 沒有找到第一個項目")
+            guard let item = newItems.last else { 
+                print("📸 沒有找到最新項目")
                 return 
             }
             
             print("📸 開始處理圖片...")
-            
-            // 立即清空選擇以防止重複處理
-            selectedPhotosPickerItems.removeAll()
             
             Task {
                 if let data = try? await item.loadTransferable(type: Data.self),
@@ -139,6 +137,8 @@ struct MediumStyleEditor: View {
                     await MainActor.run {
                         print("📸 插入圖片到編輯器")
                         insertImage(image)
+                        // 處理完成後清空選擇
+                        selectedPhotosPickerItems.removeAll()
                     }
                 } else {
                     print("📸 圖片載入失敗")
@@ -252,6 +252,34 @@ struct MediumStyleEditor: View {
             object: ["rows": rows, "cols": cols]
         )
     }
+
+    /// 將帶有圖片附件的富文本轉換為 Markdown，並將圖片上傳至 Supabase
+    private func convertAttributedContentToMarkdown() async -> String {
+        var markdown = ""
+
+        // 收集所有區段及對應圖片
+        var segments: [(text: String, attachment: NSTextAttachment?)] = []
+        attributedContent.enumerateAttributes(in: NSRange(location: 0, length: attributedContent.length)) { attrs, range, _ in
+            let text = attributedContent.attributedSubstring(from: range).string
+            let attachment = attrs[.attachment] as? NSTextAttachment
+            segments.append((text, attachment))
+        }
+
+        for segment in segments {
+            if let attachment = segment.attachment,
+               let image = attachment.image ?? attachment.image(forBounds: attachment.bounds, textContainer: nil, characterIndex: 0),
+               let data = image.jpegData(compressionQuality: 0.8) {
+                let fileName = UUID().uuidString + ".jpg"
+                if let url = try? await SupabaseService.shared.uploadArticleImage(data, fileName: fileName) {
+                    markdown += "![](\(url))"
+                }
+            } else {
+                markdown += segment.text
+            }
+        }
+
+        return markdown
+    }
     
     // MARK: - 草稿創建
     private func createDraftFromCurrentState() -> ArticleDraft {
@@ -295,7 +323,10 @@ struct MediumStyleEditor: View {
     // MARK: - 業務邏輯
     private func saveDraft() {
         // 保存草稿到本地或 Supabase
-        let draft = createDraftFromCurrentState()
+        var draft = createDraftFromCurrentState()
+        Task {
+            draft.bodyMD = await convertAttributedContentToMarkdown()
+        }
         // TODO: 實現草稿保存邏輯
         print("保存草稿: \(draft.title)")
     }
@@ -312,10 +343,11 @@ struct MediumStyleEditor: View {
         }
         
         isPublishing = true
-        
+
         Task {
             do {
-                let draft = createDraftFromCurrentState()
+                var draft = createDraftFromCurrentState()
+                draft.bodyMD = await convertAttributedContentToMarkdown()
                 let _ = try await articleViewModel.publishArticle(from: draft)
                 
                 await MainActor.run {

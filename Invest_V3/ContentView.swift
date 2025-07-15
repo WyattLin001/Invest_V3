@@ -40,13 +40,21 @@ struct ContentView: View {
             
             
             
+            // 收益 - 創作者收益儀表板
+            AuthorEarningsView()
+                .tabItem {
+                    Image(systemName: selectedTab == 4 ? "dollarsign.circle.fill" : "dollarsign.circle")
+                    Text("收益")
+                }
+                .tag(4)
+            
             // 設定 - 個人設定和帳戶管理
             SettingsView()
                 .tabItem {
-                    Image(systemName: selectedTab == 4 ? "gearshape.fill" : "gearshape")
+                    Image(systemName: selectedTab == 5 ? "gearshape.fill" : "gearshape")
                     Text("設定")
                 }
-                .tag(4)
+                .tag(5)
         }
         .accentColor(.brandGreen)
         .onAppear {
