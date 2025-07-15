@@ -282,7 +282,8 @@ struct PublishSettingsSheet: View {
     private var actionButtonsSection: some View {
         VStack(spacing: DesignTokens.spacingSM) {
             // 預覽按鈕
-            Button(action: { 
+            Button(action: {
+                dismiss()
                 onAction(.preview)
             }) {
                 HStack {
