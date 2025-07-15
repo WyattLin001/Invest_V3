@@ -14,13 +14,21 @@ struct ContentView: View {
                 }
                 .tag(0)
             
+            // 競賽 - 投資競賽
+            CompetitionListView()
+                .tabItem {
+                    Image(systemName: selectedTab == 1 ? "trophy.fill" : "trophy")
+                    Text("競賽")
+                }
+                .tag(1)
+            
             // 聊天 - 投資群組討論
             ChatView()
                 .tabItem {
-                    Image(systemName: selectedTab == 1 ? "message.fill" : "message")
+                    Image(systemName: selectedTab == 2 ? "message.fill" : "message")
                     Text("聊天")
                 }
-                .tag(1)
+                .tag(2)
             
             // 資訊 - 文章和新聞
             InfoView()
@@ -33,28 +41,26 @@ struct ContentView: View {
             // 錢包 - 資產管理
             WalletView()
                 .tabItem {
-                    Image(systemName: selectedTab == 2 ? "creditcard.fill" : "creditcard")
+                    Image(systemName: selectedTab == 4 ? "creditcard.fill" : "creditcard")
                     Text("錢包")
                 }
-                .tag(2)
-            
-            
+                .tag(4)
             
             // 收益 - 創作者收益儀表板
             AuthorEarningsView()
                 .tabItem {
-                    Image(systemName: selectedTab == 4 ? "dollarsign.circle.fill" : "dollarsign.circle")
+                    Image(systemName: selectedTab == 5 ? "dollarsign.circle.fill" : "dollarsign.circle")
                     Text("收益")
                 }
-                .tag(4)
+                .tag(5)
             
             // 設定 - 個人設定和帳戶管理
             SettingsView()
                 .tabItem {
-                    Image(systemName: selectedTab == 5 ? "gearshape.fill" : "gearshape")
+                    Image(systemName: selectedTab == 6 ? "gearshape.fill" : "gearshape")
                     Text("設定")
                 }
-                .tag(5)
+                .tag(6)
         }
         .accentColor(.brandGreen)
         .onAppear {
