@@ -45,7 +45,12 @@ struct TaiwanStocks {
         "2317.TW", // 鴻海
         "2454.TW", // 聯發科
         "2881.TW", // 富邦金
-        "6505.TW"  // 台塑化
+        "6505.TW", // 台塑化
+        "2382.TW", // 廣達
+        "2412.TW", // 中華電
+        "2303.TW", // 聯電
+        "2886.TW", // 兆豐金
+        "2357.TW"  // 華碩
     ]
     
     static let stockNames: [String: String] = [
@@ -53,33 +58,13 @@ struct TaiwanStocks {
         "2317.TW": "鴻海",
         "2454.TW": "聯發科",
         "2881.TW": "富邦金",
-        "6505.TW": "台塑化"
+        "6505.TW": "台塑化",
+        "2382.TW": "廣達",
+        "2412.TW": "中華電",
+        "2303.TW": "聯電",
+        "2886.TW": "兆豐金",
+        "2357.TW": "華碩"
     ]
-}
-
-// MARK: - Alpha Vantage API 回應模型
-struct AlphaVantageResponse: Codable {
-    let globalQuote: GlobalQuote
-    
-    enum CodingKeys: String, CodingKey {
-        case globalQuote = "Global Quote"
-    }
-}
-
-struct GlobalQuote: Codable {
-    let symbol: String
-    let price: String
-    let change: String
-    let changePercent: String
-    let volume: String
-    
-    enum CodingKeys: String, CodingKey {
-        case symbol = "01. symbol"
-        case price = "05. price"
-        case change = "09. change"
-        case changePercent = "10. change percent"
-        case volume = "06. volume"
-    }
 }
 
 // MARK: - 投資組合持股
