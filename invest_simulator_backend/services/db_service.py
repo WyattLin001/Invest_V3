@@ -64,7 +64,7 @@ class DatabaseService:
                 'updated_at': datetime.now().isoformat()
             }
             
-            result = self.supabase.table('users').insert(user_data).execute()
+            result = self.supabase.table('trading_users').insert(user_data).execute()
             
             if result.data:
                 # Create initial performance snapshot
@@ -89,7 +89,7 @@ class DatabaseService:
     def get_user_by_phone(self, phone: str) -> Optional[Dict]:
         """Get user by phone number"""
         try:
-            result = self.supabase.table('users').select('*').eq('phone', phone).execute()
+            result = self.supabase.table('trading_users').select('*').eq('phone', phone).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             logger.error(f"Error getting user by phone: {e}")
@@ -98,7 +98,7 @@ class DatabaseService:
     def get_user_profile(self, user_id: str) -> Dict:
         """Get user profile with calculated totals"""
         try:
-            user = self.supabase.table('users').select('*').eq('id', user_id).execute()
+            user = self.supabase.table('trading_users').select('*').eq('id', user_id).execute()
             if not user.data:
                 return {'error': 'User not found'}
             
@@ -112,7 +112,7 @@ class DatabaseService:
             return_rate = ((total_assets - self.initial_capital) / self.initial_capital) * 100
             
             # Update user record with current totals
-            self.supabase.table('users').update({
+            self.supabase.table('trading_users').update({
                 'total_assets': total_assets,
                 'cumulative_return': return_rate,
                 'updated_at': datetime.now().isoformat()
@@ -137,7 +137,7 @@ class DatabaseService:
     def update_user_balance(self, user_id: str, amount: float) -> bool:
         """Update user cash balance"""
         try:
-            result = self.supabase.table('users').update({
+            result = self.supabase.table('trading_users').update({
                 'cash_balance': amount,
                 'updated_at': datetime.now().isoformat()
             }).eq('id', user_id).execute()
@@ -151,7 +151,7 @@ class DatabaseService:
         """Get user's current portfolio"""
         try:
             # Get all positions
-            positions = self.supabase.table('positions').select('*').eq('user_id', user_id).execute()
+            positions = self.supabase.table('trading_positions').select('*').eq('user_id', user_id).execute()
             
             if not positions.data:
                 return {
@@ -219,7 +219,7 @@ class DatabaseService:
                 'updated_at': datetime.now().isoformat()
             }
             
-            result = self.supabase.table('positions').insert(position_data).execute()
+            result = self.supabase.table('trading_positions').insert(position_data).execute()
             return bool(result.data)
             
         except Exception as e:
@@ -230,7 +230,7 @@ class DatabaseService:
         """Update existing position with new purchase"""
         try:
             # Get current position
-            current = self.supabase.table('positions').select('*').eq('user_id', user_id).eq('symbol', symbol).execute()
+            current = self.supabase.table('trading_positions').select('*').eq('user_id', user_id).eq('symbol', symbol).execute()
             
             if not current.data:
                 return False
@@ -245,7 +245,7 @@ class DatabaseService:
             new_average_cost = ((old_cost * old_quantity) + (price * quantity)) / new_quantity
             
             # Update position
-            result = self.supabase.table('positions').update({
+            result = self.supabase.table('trading_positions').update({
                 'quantity': new_quantity,
                 'average_cost': new_average_cost,
                 'updated_at': datetime.now().isoformat()
@@ -261,7 +261,7 @@ class DatabaseService:
         """Reduce position quantity (for selling)"""
         try:
             # Get current position
-            current = self.supabase.table('positions').select('*').eq('user_id', user_id).eq('symbol', symbol).execute()
+            current = self.supabase.table('trading_positions').select('*').eq('user_id', user_id).eq('symbol', symbol).execute()
             
             if not current.data:
                 return False
@@ -271,10 +271,10 @@ class DatabaseService:
             
             if new_quantity <= 0:
                 # Remove position entirely
-                result = self.supabase.table('positions').delete().eq('user_id', user_id).eq('symbol', symbol).execute()
+                result = self.supabase.table('trading_positions').delete().eq('user_id', user_id).eq('symbol', symbol).execute()
             else:
                 # Update quantity
-                result = self.supabase.table('positions').update({
+                result = self.supabase.table('trading_positions').update({
                     'quantity': new_quantity,
                     'updated_at': datetime.now().isoformat()
                 }).eq('user_id', user_id).eq('symbol', symbol).execute()
@@ -301,7 +301,7 @@ class DatabaseService:
                 'transaction_time': datetime.now().isoformat()
             }
             
-            result = self.supabase.table('transactions').insert(transaction_data).execute()
+            result = self.supabase.table('trading_transactions').insert(transaction_data).execute()
             return bool(result.data)
             
         except Exception as e:
@@ -311,7 +311,7 @@ class DatabaseService:
     def get_user_transactions(self, user_id: str, limit: int = 50, offset: int = 0) -> List[Dict]:
         """Get user's transaction history"""
         try:
-            result = self.supabase.table('transactions').select('*').eq('user_id', user_id).order('transaction_time', desc=True).limit(limit).offset(offset).execute()
+            result = self.supabase.table('trading_transactions').select('*').eq('user_id', user_id).order('transaction_time', desc=True).limit(limit).offset(offset).execute()
             return result.data
         except Exception as e:
             logger.error(f"Error getting transactions: {e}")
@@ -335,7 +335,7 @@ class DatabaseService:
         """Process referral during registration"""
         try:
             # Find inviter
-            inviter = self.supabase.table('users').select('*').eq('invite_code', invite_code).execute()
+            inviter = self.supabase.table('trading_users').select('*').eq('invite_code', invite_code).execute()
             
             if not inviter.data:
                 return {'success': False, 'error': 'Invalid invite code'}
@@ -350,7 +350,7 @@ class DatabaseService:
         """Award referral bonus to inviter"""
         try:
             # Get inviter
-            inviter = self.supabase.table('users').select('*').eq('invite_code', invite_code).execute()
+            inviter = self.supabase.table('trading_users').select('*').eq('invite_code', invite_code).execute()
             
             if not inviter.data:
                 return False
@@ -359,7 +359,7 @@ class DatabaseService:
             
             # Update inviter's balance
             new_balance = inviter_data['cash_balance'] + self.referral_bonus
-            self.supabase.table('users').update({
+            self.supabase.table('trading_users').update({
                 'cash_balance': new_balance,
                 'updated_at': datetime.now().isoformat()
             }).eq('id', inviter_data['id']).execute()
@@ -383,7 +383,7 @@ class DatabaseService:
                 'created_at': datetime.now().isoformat()
             }
             
-            self.supabase.table('referrals').insert(referral_data).execute()
+            self.supabase.table('trading_referrals').insert(referral_data).execute()
             
             return True
             
@@ -402,7 +402,7 @@ class DatabaseService:
                 'created_at': datetime.now().isoformat()
             }
             
-            result = self.supabase.table('performance_snapshots').insert(snapshot_data).execute()
+            result = self.supabase.table('trading_performance_snapshots').insert(snapshot_data).execute()
             return bool(result.data)
             
         except Exception as e:
@@ -414,7 +414,7 @@ class DatabaseService:
         try:
             # For now, return cumulative rankings
             # TODO: Implement proper period-based rankings
-            result = self.supabase.table('users').select('name, cumulative_return, total_assets').order('cumulative_return', desc=True).limit(limit).execute()
+            result = self.supabase.table('trading_users').select('name, cumulative_return, total_assets').order('cumulative_return', desc=True).limit(limit).execute()
             
             rankings = []
             for i, user in enumerate(result.data):
@@ -462,7 +462,7 @@ class DatabaseService:
         """Process referral code submission"""
         try:
             # Check if user already used a referral code
-            existing = self.supabase.table('referrals').select('*').eq('invitee_id', user_id).execute()
+            existing = self.supabase.table('trading_referrals').select('*').eq('invitee_id', user_id).execute()
             
             if existing.data:
                 return {'success': False, 'error': 'You have already used a referral code'}
@@ -475,7 +475,7 @@ class DatabaseService:
                 self._award_referral_bonus(invite_code, user_id)
                 
                 # Update user's balance
-                user = self.supabase.table('users').select('*').eq('id', user_id).execute()
+                user = self.supabase.table('trading_users').select('*').eq('id', user_id).execute()
                 if user.data:
                     new_balance = user.data[0]['cash_balance'] + self.referral_bonus
                     self.update_user_balance(user_id, new_balance)

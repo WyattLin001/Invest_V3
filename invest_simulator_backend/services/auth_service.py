@@ -210,7 +210,7 @@ class AuthService:
         """Validate invite code"""
         try:
             # Check if invite code exists
-            result = self.db_service.supabase.table('users').select('id, name').eq('invite_code', invite_code).execute()
+            result = self.db_service.supabase.table('trading_users').select('id, name').eq('invite_code', invite_code).execute()
             
             if result.data:
                 return {
@@ -300,7 +300,7 @@ class AuthService:
             update_data['updated_at'] = datetime.now().isoformat()
             
             # Update user
-            result = self.db_service.supabase.table('users').update(update_data).eq('id', user_id).execute()
+            result = self.db_service.supabase.table('trading_users').update(update_data).eq('id', user_id).execute()
             
             if result.data:
                 return {
@@ -325,20 +325,20 @@ class AuthService:
         """Delete user account"""
         try:
             # Delete user's positions
-            self.db_service.supabase.table('positions').delete().eq('user_id', user_id).execute()
+            self.db_service.supabase.table('trading_positions').delete().eq('user_id', user_id).execute()
             
             # Delete user's transactions
-            self.db_service.supabase.table('transactions').delete().eq('user_id', user_id).execute()
+            self.db_service.supabase.table('trading_transactions').delete().eq('user_id', user_id).execute()
             
             # Delete user's performance snapshots
-            self.db_service.supabase.table('performance_snapshots').delete().eq('user_id', user_id).execute()
+            self.db_service.supabase.table('trading_performance_snapshots').delete().eq('user_id', user_id).execute()
             
             # Delete user's referrals
-            self.db_service.supabase.table('referrals').delete().eq('inviter_id', user_id).execute()
-            self.db_service.supabase.table('referrals').delete().eq('invitee_id', user_id).execute()
+            self.db_service.supabase.table('trading_referrals').delete().eq('inviter_id', user_id).execute()
+            self.db_service.supabase.table('trading_referrals').delete().eq('invitee_id', user_id).execute()
             
             # Delete user
-            result = self.db_service.supabase.table('users').delete().eq('id', user_id).execute()
+            result = self.db_service.supabase.table('trading_users').delete().eq('id', user_id).execute()
             
             return {
                 'success': True,
