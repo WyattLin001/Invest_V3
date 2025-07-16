@@ -283,8 +283,8 @@ struct PublishSettingsSheet: View {
         VStack(spacing: DesignTokens.spacingSM) {
             // 預覽按鈕
             Button(action: {
-                dismiss()
                 onAction(.preview)
+                dismiss()
             }) {
                 HStack {
                     Image(systemName: "eye.fill")

@@ -524,7 +524,6 @@ struct PreviewSheet: View {
                     if attributedContent.length > 0 {
                         RichTextPreviewView(attributedText: attributedContent)
                             .frame(maxWidth: .infinity, minHeight: 200, alignment: .leading)
-                            .border(Color.red, width: 1) // 調試邊框
                     } else {
                         Text("尚無內容...")
                             .font(.body)
