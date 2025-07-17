@@ -23,6 +23,8 @@ struct ArticleEditorView: View {
     @State private var isUploadingImage = false
     @State private var uploadProgress: Double = 0.0
     @State private var isShowingDraftAlert = false
+    @State private var showTableEditor = false
+    @State private var currentTable = GridTable(rows: 3, columns: 3)
     
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
@@ -121,6 +123,32 @@ struct ArticleEditorView: View {
             Button("取消", role: .cancel) { }
         } message: {
             Text("您有未保存的更改，是否要保存為草稿？")
+        }
+        .sheet(isPresented: $showTableEditor) {
+            NavigationView {
+                VStack {
+                    GridTableEditorView(table: $currentTable)
+                        .padding()
+                    
+                    Spacer()
+                }
+                .navigationTitle("編輯表格")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("取消") {
+                            showTableEditor = false
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("插入") {
+                            insertTable(currentTable)
+                            showTableEditor = false
+                        }
+                        .fontWeight(.semibold)
+                    }
+                }
+            }
         }
     }
     
@@ -356,6 +384,17 @@ struct ArticleEditorView: View {
                     // 圖片上傳按鈕
                     Button(action: { showImagePicker = true }) {
                         Image(systemName: "photo")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.primary)
+                            .frame(width: 32, height: 32)
+                    }
+                    
+                    // 表格按鈕
+                    Button(action: { 
+                        currentTable = GridTable(rows: 3, columns: 3)
+                        showTableEditor = true 
+                    }) {
+                        Image(systemName: "tablecells")
                             .font(.system(size: 18, weight: .medium))
                             .foregroundColor(.primary)
                             .frame(width: 32, height: 32)

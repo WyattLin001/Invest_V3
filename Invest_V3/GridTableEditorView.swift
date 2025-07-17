@@ -1,9 +1,14 @@
 import SwiftUI
 
 // MARK: - Apple-style Grid Table Editor
+struct CellPosition: Equatable {
+    let row: Int
+    let column: Int
+}
+
 struct GridTableEditorView: View {
     @Binding var table: GridTable
-    @State private var editingCell: (row: Int, column: Int)? = nil
+    @State private var editingCell: CellPosition? = nil
 
     var body: some View {
         VStack(spacing: 1) {
@@ -42,7 +47,7 @@ struct GridTableEditorView: View {
                 Rectangle()
                     .stroke(editingCell?.row == row && editingCell?.column == column ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
             )
-            .onTapGesture { editingCell = (row, column) }
+            .onTapGesture { editingCell = CellPosition(row: row, column: column) }
             .contextMenu {
                 Button(action: { table.removeRow(at: row) }) {
                     Label("刪除此行", systemImage: "trash")
