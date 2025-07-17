@@ -1192,7 +1192,7 @@ extension ChatView {
                         ForEach(viewModel.portfolioManager.holdings) { holding in
                             HStack {
                                 Circle()
-                                    .fill(holding.displayColor)
+                                    .fill(colorForSymbol(holding.symbol))
                                     .frame(width: 12, height: 12)
                                 Text(holding.symbol)
                                     .font(.caption)
@@ -1324,8 +1324,8 @@ extension ChatView {
         } else {
             // 賣出驗證
             if let holding = viewModel.portfolioManager.holdings.first(where: { $0.symbol == viewModel.stockSymbol.uppercased() }) {
-                if amount > holding.shares {
-                    return (false, "持股不足，目前持有：\(Int(holding.shares)) 股")
+                if amount > Double(holding.quantity) {
+                    return (false, "持股不足，目前持有：\(holding.quantity) 股")
                 }
             } else {
                 return (false, "未持有此股票")
@@ -1342,6 +1342,17 @@ extension ChatView {
         }
         
         return validateTrade().isValid
+    }
+    
+    private func colorForSymbol(_ symbol: String) -> Color {
+        switch symbol {
+        case "AAPL": return .blue
+        case "TSLA": return .orange
+        case "NVDA": return .green
+        case "GOOGL": return .red
+        case "MSFT": return .purple
+        default: return .blue
+        }
     }
 }
 

@@ -71,7 +71,7 @@ class ChatViewModel: ObservableObject {
     @Published var tradeAction = "buy"
     @Published var showTradeSuccess = false
     @Published var tradeSuccessMessage = ""
-    @Published var portfolioManager = PortfolioManager()
+    @Published var portfolioManager = ChatPortfolioManager()
     
     // Invitation
     @Published var inviteEmail = ""

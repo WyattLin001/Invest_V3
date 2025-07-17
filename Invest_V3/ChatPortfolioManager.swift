@@ -1,32 +1,8 @@
 import Foundation
 import SwiftUI
 
-// MARK: - Portfolio Holding Model
-struct PortfolioHolding: Identifiable, Codable {
-    let id = UUID()
-    let symbol: String
-    var shares: Double
-    var averagePrice: Double
-    let color: String // 儲存顏色的字串表示
-    
-    var totalValue: Double {
-        return shares * averagePrice
-    }
-    
-    var displayColor: Color {
-        switch color {
-        case "blue": return .blue
-        case "orange": return .orange
-        case "green": return .green
-        case "red": return .red
-        case "purple": return .purple
-        default: return .blue
-        }
-    }
-}
-
-// MARK: - Portfolio Manager
-class PortfolioManager: ObservableObject {
+// MARK: - Chat Portfolio Manager
+class ChatPortfolioManager: ObservableObject {
     @Published var holdings: [PortfolioHolding] = []
     @Published var virtualBalance: Double = 1_000_000 // 每月100萬虛擬幣
     @Published var totalInvested: Double = 0
@@ -54,7 +30,19 @@ class PortfolioManager: ObservableObject {
         
         return holdings.map { holding in
             let percentage = holding.totalValue / total
-            return (holding.symbol, percentage, holding.displayColor)
+            let color = colorForSymbol(holding.symbol)
+            return (holding.symbol, percentage, color)
+        }
+    }
+    
+    private func colorForSymbol(_ symbol: String) -> Color {
+        switch symbol {
+        case "AAPL": return .blue
+        case "TSLA": return .orange
+        case "NVDA": return .green
+        case "GOOGL": return .red
+        case "MSFT": return .purple
+        default: return .blue
         }
     }
     
@@ -68,7 +56,7 @@ class PortfolioManager: ObservableObject {
         guard let holding = holdings.first(where: { $0.symbol == symbol }) else {
             return false
         }
-        return shares <= holding.shares
+        return shares <= Double(holding.quantity)
     }
     
     func buyStock(symbol: String, shares: Double, price: Double) -> Bool {
@@ -78,25 +66,33 @@ class PortfolioManager: ObservableObject {
             return false
         }
         
+        let currentUser = getCurrentUser()
+        
         if let index = holdings.firstIndex(where: { $0.symbol == symbol }) {
             // 更新現有持股
             let existingHolding = holdings[index]
-            let newShares = existingHolding.shares + shares
-            let newAveragePrice = ((existingHolding.shares * existingHolding.averagePrice) + (shares * price)) / newShares
+            let newQuantity = existingHolding.quantity + Int(shares)
+            let newAveragePrice = ((Double(existingHolding.quantity) * existingHolding.averagePrice) + (shares * price)) / Double(newQuantity)
             
             holdings[index] = PortfolioHolding(
+                id: existingHolding.id,
+                userId: currentUser,
                 symbol: symbol,
-                shares: newShares,
+                quantity: newQuantity,
                 averagePrice: newAveragePrice,
-                color: existingHolding.color
+                currentPrice: price,
+                lastUpdated: Date()
             )
         } else {
             // 新增持股
             let newHolding = PortfolioHolding(
+                id: UUID(),
+                userId: currentUser,
                 symbol: symbol,
-                shares: shares,
+                quantity: Int(shares),
                 averagePrice: price,
-                color: getNextColor()
+                currentPrice: price,
+                lastUpdated: Date()
             )
             holdings.append(newHolding)
         }
@@ -119,16 +115,20 @@ class PortfolioManager: ObservableObject {
         let saleValue = shares * price
         let costBasis = shares * holding.averagePrice
         
-        if holding.shares == shares {
+        if Double(holding.quantity) == shares {
             // 全部賣出
             holdings.remove(at: index)
         } else {
             // 部分賣出
+            let newQuantity = holding.quantity - Int(shares)
             holdings[index] = PortfolioHolding(
+                id: holding.id,
+                userId: holding.userId,
                 symbol: symbol,
-                shares: holding.shares - shares,
+                quantity: newQuantity,
                 averagePrice: holding.averagePrice,
-                color: holding.color
+                currentPrice: price,
+                lastUpdated: Date()
             )
         }
         
@@ -139,30 +139,33 @@ class PortfolioManager: ObservableObject {
     
     // MARK: - Utility Methods
     
-    private func getNextColor() -> String {
-        let color = colors[colorIndex % colors.count]
-        colorIndex += 1
-        return color
+    private func getCurrentUser() -> UUID {
+        // 從 UserDefaults 獲取當前用戶 ID
+        if let data = UserDefaults.standard.data(forKey: "current_user"),
+           let user = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            return user.id
+        }
+        return UUID() // 如果沒有當前用戶，返回新的 UUID
     }
     
     private func savePortfolio() {
         // 儲存到 UserDefaults (後續可以改為 Supabase)
         if let encoded = try? JSONEncoder().encode(holdings) {
-            UserDefaults.standard.set(encoded, forKey: "portfolio_holdings")
+            UserDefaults.standard.set(encoded, forKey: "chat_portfolio_holdings")
         }
-        UserDefaults.standard.set(totalInvested, forKey: "total_invested")
-        UserDefaults.standard.set(virtualBalance, forKey: "virtual_balance")
+        UserDefaults.standard.set(totalInvested, forKey: "chat_total_invested")
+        UserDefaults.standard.set(virtualBalance, forKey: "chat_virtual_balance")
     }
     
     private func loadPortfolio() {
         // 從 UserDefaults 載入 (後續可以改為 Supabase)
-        if let data = UserDefaults.standard.data(forKey: "portfolio_holdings"),
+        if let data = UserDefaults.standard.data(forKey: "chat_portfolio_holdings"),
            let decodedHoldings = try? JSONDecoder().decode([PortfolioHolding].self, from: data) {
             holdings = decodedHoldings
         }
         
-        totalInvested = UserDefaults.standard.double(forKey: "total_invested")
-        virtualBalance = UserDefaults.standard.double(forKey: "virtual_balance")
+        totalInvested = UserDefaults.standard.double(forKey: "chat_total_invested")
+        virtualBalance = UserDefaults.standard.double(forKey: "chat_virtual_balance")
         
         // 如果是第一次使用，設置初始餘額
         if virtualBalance == 0 {
