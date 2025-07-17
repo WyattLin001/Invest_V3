@@ -44,4 +44,18 @@ struct GridTable: Identifiable {
         }
         columns -= 1
     }
+    
+    mutating func insertRow(at index: Int) {
+        guard index >= 0 && index <= rows else { return }
+        cells.insert(Array(repeating: "", count: columns), at: index)
+        rows += 1
+    }
+    
+    mutating func insertColumn(at index: Int) {
+        guard index >= 0 && index <= columns else { return }
+        for i in 0..<rows {
+            cells[i].insert("", at: index)
+        }
+        columns += 1
+    }
 }

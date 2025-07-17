@@ -101,7 +101,8 @@ struct ArticleEditorView: View {
             ArticlePreviewView(
                 title: title,
                 content: content,
-                isPaidContent: isPaidContent
+                isPaidContent: isPaidContent,
+                selectedImages: selectedImages
             )
         }
         .photosPicker(
@@ -440,20 +441,66 @@ struct ArticleEditorView: View {
     private func uploadToSupabase() async {
         guard !title.isEmpty && !content.isEmpty else { return }
         
+        await MainActor.run {
+            isUploadingImage = true
+            uploadProgress = 0.0
+        }
+        
         do {
+            var finalContent = content
+            
+            // 如果有圖片，先上傳圖片
+            if !selectedImages.isEmpty {
+                var imageUrls: [String] = []
+                
+                for (index, image) in selectedImages.enumerated() {
+                    await MainActor.run {
+                        uploadProgress = Double(index) / Double(selectedImages.count) * 0.8
+                    }
+                    
+                    guard let imageData = image.jpegData(compressionQuality: 0.8) else { continue }
+                    let fileName = "article_image_\(UUID().uuidString).jpg"
+                    
+                    let imageUrl = try await SupabaseService.shared.uploadImage(
+                        data: imageData,
+                        fileName: fileName
+                    )
+                    
+                    imageUrls.append(imageUrl.absoluteString)
+                }
+                
+                // 將圖片 URL 加入到文章內容中
+                if !imageUrls.isEmpty {
+                    var imageMarkdown = "\n\n"
+                    for url in imageUrls {
+                        imageMarkdown += "![圖片](\(url))\n\n"
+                    }
+                    finalContent += imageMarkdown
+                }
+            }
+            
+            await MainActor.run {
+                uploadProgress = 0.9
+            }
+            
             try await SupabaseService.shared.createArticle(
                 title: title,
-                content: content,
+                content: finalContent,
                 category: selectedCategory,
-                bodyMD: content,
+                bodyMD: finalContent,
                 isFree: !isPaidContent
             )
             
-            // 上傳成功後關閉編輯器
             await MainActor.run {
+                uploadProgress = 1.0
+                isUploadingImage = false
                 dismiss()
             }
         } catch {
+            await MainActor.run {
+                isUploadingImage = false
+                uploadProgress = 0.0
+            }
             print("上傳失敗: \(error)")
         }
     }
@@ -529,6 +576,7 @@ struct ArticlePreviewView: View {
     let title: String
     let content: String
     let isPaidContent: Bool
+    let selectedImages: [UIImage]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
     
@@ -595,6 +643,21 @@ struct ArticlePreviewView: View {
                         Text("暫無內容")
                             .font(.system(size: 16))
                             .foregroundColor(secondaryTextColor)
+                    }
+                    
+                    // 圖片預覽
+                    if !selectedImages.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(Array(selectedImages.enumerated()), id: \.offset) { index, image in
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxWidth: .infinity)
+                                    .cornerRadius(8)
+                                    .shadow(color: .gray.opacity(0.3), radius: 4, x: 0, y: 2)
+                            }
+                        }
+                        .padding(.top, 8)
                     }
                 }
                 .padding(16)

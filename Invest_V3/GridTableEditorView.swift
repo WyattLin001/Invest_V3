@@ -40,34 +40,102 @@ struct GridTableEditorView: View {
             .background(Color.white)
             .overlay(
                 Rectangle()
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    .stroke(editingCell?.row == row && editingCell?.column == column ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
             )
             .onTapGesture { editingCell = (row, column) }
+            .contextMenu {
+                Button(action: { table.removeRow(at: row) }) {
+                    Label("刪除此行", systemImage: "trash")
+                }
+                .disabled(table.rows <= 1)
+                
+                Button(action: { table.removeColumn(at: column) }) {
+                    Label("刪除此列", systemImage: "trash")
+                }
+                .disabled(table.columns <= 1)
+                
+                Button(action: { table.insertRow(at: row) }) {
+                    Label("在此行上方插入行", systemImage: "plus")
+                }
+                
+                Button(action: { table.insertColumn(at: column) }) {
+                    Label("在此列左方插入列", systemImage: "plus")
+                }
+            }
     }
 
     // MARK: - Control Panel
     private var controlPanel: some View {
-        HStack {
-            Button(action: { table.addRow() }) {
-                Label("新增行", systemImage: "plus")
+        VStack(spacing: 12) {
+            // 新增按鈕
+            HStack(spacing: 16) {
+                Button(action: { table.addRow() }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("新增行")
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.blue)
+                    .cornerRadius(8)
+                }
+                
+                Button(action: { table.addColumn() }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("新增列")
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.blue)
+                    .cornerRadius(8)
+                }
+                
+                Spacer()
             }
-            Button(action: { table.addColumn() }) {
-                Label("新增列", systemImage: "plus")
+            
+            // 刪除按鈕 (只有選中儲存格時才顯示)
+            if editingCell != nil {
+                HStack(spacing: 16) {
+                    Button(action: removeRow) {
+                        HStack {
+                            Image(systemName: "trash.fill")
+                            Text("刪除行")
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.red)
+                        .cornerRadius(8)
+                    }
+                    .disabled(table.rows <= 1)
+                    
+                    Button(action: removeColumn) {
+                        HStack {
+                            Image(systemName: "trash.fill")
+                            Text("刪除列")
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.red)
+                        .cornerRadius(8)
+                    }
+                    .disabled(table.columns <= 1)
+                    
+                    Spacer()
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            Spacer()
-            Button(action: removeRow) {
-                Text("刪除行")
-                    .foregroundColor(.red)
-            }
-            .disabled(editingCell == nil || table.rows <= 1)
-            Button(action: removeColumn) {
-                Text("刪除欄")
-                    .foregroundColor(.red)
-            }
-            .disabled(editingCell == nil || table.columns <= 1)
         }
-        .font(.footnote)
-        .padding(.top, 8)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: editingCell)
+        .padding(.top, 12)
     }
 
     private func removeRow() {
