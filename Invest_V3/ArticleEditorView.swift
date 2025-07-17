@@ -142,7 +142,8 @@ struct ArticleEditorView: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("插入") {
-                            insertTable(currentTable)
+                            // TODO: 實現 insertTable 函數 (未來版本)
+                            // insertTable(currentTable)
                             showTableEditor = false
                         }
                         .fontWeight(.semibold)
