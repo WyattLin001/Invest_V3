@@ -26,6 +26,7 @@ from services.db_service import DatabaseService
 from services.market_data_service import MarketDataService
 from services.auth_service import AuthService
 from services.trading_service import TradingService
+from services.scheduler_service import scheduler_service
 
 # Initialize services
 db_service = DatabaseService()
@@ -226,5 +227,66 @@ def invalid_token_callback(error):
 def missing_token_callback(error):
     return jsonify({'error': 'Authorization token is required'}), 401
 
+# Scheduler management routes
+@app.route('/admin/scheduler/status', methods=['GET'])
+def get_scheduler_status():
+    """獲取調度器狀態"""
+    try:
+        status = scheduler_service.get_status()
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Error getting scheduler status: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/admin/scheduler/start', methods=['POST'])
+def start_scheduler():
+    """啟動調度器"""
+    try:
+        scheduler_service.start()
+        return jsonify({'message': 'Scheduler started successfully'})
+    except Exception as e:
+        logger.error(f"Error starting scheduler: {e}")
+        return jsonify({'error': 'Failed to start scheduler'}), 500
+
+@app.route('/admin/scheduler/stop', methods=['POST'])
+def stop_scheduler():
+    """停止調度器"""
+    try:
+        scheduler_service.stop()
+        return jsonify({'message': 'Scheduler stopped successfully'})
+    except Exception as e:
+        logger.error(f"Error stopping scheduler: {e}")
+        return jsonify({'error': 'Failed to stop scheduler'}), 500
+
+@app.route('/admin/scheduler/force_update', methods=['POST'])
+def force_update_all():
+    """強制執行所有更新任務"""
+    try:
+        scheduler_service.force_update_all()
+        return jsonify({'message': 'Force update completed'})
+    except Exception as e:
+        logger.error(f"Error in force update: {e}")
+        return jsonify({'error': 'Force update failed'}), 500
+
+# Graceful shutdown
+import signal
+import sys
+
+def signal_handler(sig, frame):
+    logger.info('Gracefully shutting down...')
+    scheduler_service.stop()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # 啟動調度器
+    scheduler_service.start()
+    logger.info("Starting Flask application with scheduler...")
+    
+    try:
+        app.run(debug=True, host='0.0.0.0', port=5001)
+    finally:
+        # 確保調度器在應用關閉時停止
+        scheduler_service.stop()

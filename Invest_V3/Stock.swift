@@ -82,6 +82,18 @@ struct GlobalQuote: Codable {
     }
 }
 
+// MARK: - 股票歷史價格點
+struct StockHistoryPoint: Identifiable, Codable {
+    let id = UUID()
+    let timestamp: Date
+    let price: Double
+    let volume: Int64
+    
+    enum CodingKeys: String, CodingKey {
+        case timestamp, price, volume
+    }
+}
+
 // MARK: - 投資組合持股
 struct PortfolioHolding: Identifiable, Codable {
     let id: UUID

@@ -58,11 +58,19 @@ class ChatViewModel: ObservableObject {
     // Modals & Alerts
     @Published var showInfoModal = false
     @Published var showInviteSheet = false
+    @Published var showInvestmentPanel = false
     @Published var groupDetails: (group: InvestmentGroup, hostInfo: UserProfile?)?
     @Published var errorMessage: String?
     @Published var showError = false
     @Published var showClearChatAlert = false
     @Published var showLeaveGroupAlert = false
+    
+    // Investment Panel
+    @Published var stockSymbol = ""
+    @Published var tradeAmount = ""
+    @Published var tradeAction = "buy"
+    @Published var showTradeSuccess = false
+    @Published var tradeSuccessMessage = ""
     
     // Invitation
     @Published var inviteEmail = ""
@@ -630,6 +638,79 @@ class ChatViewModel: ObservableObject {
                 await MainActor.run {
                     handleError(error, context: "退出群組失敗")
                 }
+            }
+        }
+    }
+    
+    // MARK: - Investment Trading Methods
+    
+    /// 執行股票交易
+    func executeTrade() {
+        guard !stockSymbol.isEmpty,
+              !tradeAmount.isEmpty,
+              let amount = Double(tradeAmount) else {
+            return
+        }
+        
+        Task {
+            do {
+                // 這裡應該調用實際的交易服務
+                // 暫時使用模擬交易
+                try await simulateTrade(symbol: stockSymbol, amount: amount, action: tradeAction)
+                
+                await MainActor.run {
+                    // 設置成功訊息
+                    let actionText = tradeAction == "buy" ? "買入" : "賣出"
+                    tradeSuccessMessage = "已\(actionText) \(stockSymbol) $\(Int(amount))"
+                    
+                    // 清空輸入欄位
+                    stockSymbol = ""
+                    tradeAmount = ""
+                    
+                    // 顯示成功提示
+                    showTradeSuccess = true
+                    
+                    // 在聊天中發送交易通知
+                    sendTradeAnnouncement(symbol: stockSymbol, amount: amount, action: tradeAction)
+                }
+                
+            } catch {
+                await MainActor.run {
+                    handleError(error, context: "交易執行失敗")
+                }
+            }
+        }
+    }
+    
+    /// 模擬交易
+    private func simulateTrade(symbol: String, amount: Double, action: String) async throws {
+        // 模擬網路延遲
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 秒
+        
+        // 這裡可以添加實際的 Supabase 交易記錄邏輯
+        print("🔄 執行\(action == "buy" ? "買入" : "賣出")交易: \(symbol) $\(amount)")
+    }
+    
+    /// 在聊天中發送交易通知
+    private func sendTradeAnnouncement(symbol: String, amount: Double, action: String) {
+        guard let groupId = selectedGroupId else { return }
+        
+        let actionText = action == "buy" ? "買入" : "賣出"
+        let announcementText = "📈 我剛剛\(actionText)了 \(symbol) $\(Int(amount))"
+        
+        Task {
+            do {
+                try await supabaseService.sendMessage(
+                    groupId: groupId,
+                    content: announcementText,
+                    isCommand: true
+                )
+                
+                // 重新載入訊息以顯示新的交易通知
+                loadChatMessages(for: groupId)
+                
+            } catch {
+                print("❌ 發送交易通知失敗: \(error)")
             }
         }
     }

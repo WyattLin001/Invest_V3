@@ -37,7 +37,7 @@ class StockService: ObservableObject {
     }
     
     // MARK: - 獲取股票歷史資料 (用於圖表)
-    func fetchStockHistory(symbol: String, interval: String = "5min") async throws -> [StockPrice] {
+    func fetchStockHistory(symbol: String, interval: String = "5min") async throws -> [StockHistoryPoint] {
         // 模擬歷史資料，實際應該調用 Alpha Vantage TIME_SERIES API
         return generateMockHistoryData(symbol: symbol)
     }
@@ -117,8 +117,8 @@ class StockService: ObservableObject {
         )
     }
     
-    private func generateMockHistoryData(symbol: String) -> [StockPrice] {
-        var prices: [StockPrice] = []
+    private func generateMockHistoryData(symbol: String) -> [StockHistoryPoint] {
+        var prices: [StockHistoryPoint] = []
         let basePrice = 100.0
         var currentPrice = basePrice
         
@@ -130,9 +130,10 @@ class StockService: ObservableObject {
             let change = Double.random(in: -0.5...0.5)
             currentPrice += change
             
-            prices.append(StockPrice(
+            prices.append(StockHistoryPoint(
                 timestamp: timestamp,
-                price: currentPrice
+                price: currentPrice,
+                volume: Int64.random(in: 100000...1000000)
             ))
         }
         
@@ -163,9 +164,6 @@ enum StockServiceError: Error, LocalizedError {
 
 // 移除重複定義，使用 Stock.swift 中的定義
 
-// MARK: - 股價歷史資料點
-struct StockPrice: Identifiable, Codable {
-    let id = UUID()
-    let timestamp: Date
-    let price: Double
-} 
+// StockPrice 已在 TradingModels.swift 中定義
+
+// AlphaVantageResponse, GlobalQuote, and TaiwanStocks are defined in Stock.swift 

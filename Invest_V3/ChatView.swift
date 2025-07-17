@@ -64,6 +64,7 @@ struct ChatView: View {
         .sheet(isPresented: $viewModel.showGiftModal) { giftModalView }
         .sheet(isPresented: $viewModel.showInfoModal) { infoModalView }
         .sheet(isPresented: $viewModel.showInviteSheet) { inviteSheetView }
+        .sheet(isPresented: $viewModel.showInvestmentPanel) { investmentPanelView }
     }
     
     // MARK: - Subviews (now read from viewModel)
@@ -359,6 +360,17 @@ struct ChatView: View {
             Divider()
             
             HStack(spacing: 12) {
+                // 投資面板按鈕
+                Button(action: { viewModel.showInvestmentPanel = true }) {
+                    Image(systemName: "chart.xyaxis.line")
+                        .font(.system(size: 20))
+                        .foregroundColor(.accentColor)
+                        .frame(width: 32, height: 32)
+                        .background(Color.clear)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                
                 // 文字輸入框
                 HStack {
                     TextField("輸入訊息...", text: $viewModel.messageText, axis: .vertical)
@@ -489,6 +501,115 @@ struct ChatView: View {
                             .padding()
                             .background(Color(.systemGray6))
                             .cornerRadius(8)
+                    }
+                    
+                    Divider()
+                    
+                    // 投資績效圖表
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("投資績效")
+                            .font(.headline)
+                            .foregroundColor(.gray900)
+                        
+                        // 績效圖表
+                        VStack(spacing: 16) {
+                            // 總績效顯示
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text("總績效")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("+12.5%")
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.green)
+                                }
+                                
+                                Spacer()
+                                
+                                VStack(alignment: .trailing) {
+                                    Text("當前投資")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("$56,250")
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.label)
+                                }
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            
+                            // 績效線圖 (簡化版本)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("30 天績效趨勢")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.gray900)
+                                
+                                ZStack {
+                                    // 背景網格
+                                    Rectangle()
+                                        .fill(Color(.systemGray6))
+                                        .frame(height: 120)
+                                        .cornerRadius(8)
+                                    
+                                    // 模擬績效線
+                                    GeometryReader { geometry in
+                                        Path { path in
+                                            let width = geometry.size.width
+                                            let height = geometry.size.height
+                                            
+                                            // 模擬數據點 (代表上升趨勢)
+                                            let points: [(Double, Double)] = [
+                                                (0.0, 0.7), (0.1, 0.65), (0.2, 0.6), (0.3, 0.55),
+                                                (0.4, 0.5), (0.5, 0.45), (0.6, 0.4), (0.7, 0.35),
+                                                (0.8, 0.3), (0.9, 0.25), (1.0, 0.2)
+                                            ]
+                                            
+                                            for (index, point) in points.enumerated() {
+                                                let x = point.0 * width
+                                                let y = point.1 * height
+                                                
+                                                if index == 0 {
+                                                    path.move(to: CGPoint(x: x, y: y))
+                                                } else {
+                                                    path.addLine(to: CGPoint(x: x, y: y))
+                                                }
+                                            }
+                                        }
+                                        .stroke(Color.green, lineWidth: 3)
+                                        
+                                        // 數據點
+                                        ForEach(0..<11, id: \.self) { index in
+                                            let x = Double(index) * 0.1 * geometry.size.width
+                                            let y = (0.7 - Double(index) * 0.05) * geometry.size.height
+                                            
+                                            Circle()
+                                                .fill(Color.green)
+                                                .frame(width: 6, height: 6)
+                                                .position(x: x, y: y)
+                                        }
+                                    }
+                                    .frame(height: 120)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                }
+                                
+                                // 時間軸標籤
+                                HStack {
+                                    Text("30天前")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    Text("今天")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.horizontal, 12)
+                            }
+                        }
                     }
                     
                     Spacer()
@@ -1010,6 +1131,182 @@ struct InfoRow: View {
                 .foregroundColor(.gray900)
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 投資面板視圖
+extension ChatView {
+    private var investmentPanelView: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // 投資組合標題
+                VStack(spacing: 8) {
+                    Text("投資組合")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.label)
+                    
+                    Divider()
+                        .background(Color.separator)
+                }
+                .padding(.top, 20)
+                
+                // 投資組合圓形圖表
+                VStack(spacing: 16) {
+                    ZStack {
+                        // 背景圓圈
+                        Circle()
+                            .stroke(Color.systemGray6, lineWidth: 8)
+                            .frame(width: 120, height: 120)
+                        
+                        // 投資比例圓圈 - 簡化版本，實際應該用真實數據
+                        Circle()
+                            .trim(from: 0, to: 0.4) // AAPL 40%
+                            .stroke(Color.blue, lineWidth: 8)
+                            .frame(width: 120, height: 120)
+                            .rotationEffect(.degrees(-90))
+                        
+                        Circle()
+                            .trim(from: 0.4, to: 0.7) // TSLA 30%
+                            .stroke(Color.orange, lineWidth: 8)
+                            .frame(width: 120, height: 120)
+                            .rotationEffect(.degrees(-90))
+                        
+                        Circle()
+                            .trim(from: 0.7, to: 1.0) // NVDA 30%
+                            .stroke(Color.green, lineWidth: 8)
+                            .frame(width: 120, height: 120)
+                            .rotationEffect(.degrees(-90))
+                        
+                        // 中心總金額
+                        VStack(spacing: 2) {
+                            Text("總投資")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("$50,000")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.label)
+                        }
+                    }
+                    
+                    // 圖例
+                    VStack(spacing: 8) {
+                        HStack {
+                            HStack {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 12, height: 12)
+                                Text("AAPL")
+                                    .font(.caption)
+                                Spacer()
+                                Text("$20,000")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        
+                        HStack {
+                            HStack {
+                                Circle()
+                                    .fill(Color.orange)
+                                    .frame(width: 12, height: 12)
+                                Text("TSLA")
+                                    .font(.caption)
+                                Spacer()
+                                Text("$15,000")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        
+                        HStack {
+                            HStack {
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 12, height: 12)
+                                Text("NVDA")
+                                    .font(.caption)
+                                Spacer()
+                                Text("$15,000")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+                
+                // 股票交易區域
+                VStack(spacing: 16) {
+                    Text("股票交易")
+                        .font(.headline)
+                        .foregroundColor(.label)
+                    
+                    // 輸入欄位
+                    HStack(spacing: 12) {
+                        // 股票代號
+                        TextField("股票代號", text: $viewModel.stockSymbol)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 90)
+                            .autocapitalization(.allCharacters)
+                        
+                        // 金額
+                        TextField("金額", text: $viewModel.tradeAmount)
+                            .textFieldStyle(.roundedBorder)
+                            .keyboardType(.numberPad)
+                        
+                        // 買入/賣出選擇器
+                        Picker("操作", selection: $viewModel.tradeAction) {
+                            Text("買入").tag("buy")
+                            Text("賣出").tag("sell")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 120)
+                    }
+                    
+                    // 執行交易按鈕
+                    Button(action: {
+                        viewModel.executeTrade()
+                    }) {
+                        HStack {
+                            Image(systemName: viewModel.tradeAction == "buy" ? "plus.circle.fill" : "minus.circle.fill")
+                            Text(viewModel.tradeAction == "buy" ? "買入" : "賣出")
+                        }
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(viewModel.tradeAction == "buy" ? Color.green : Color.red)
+                        .cornerRadius(12)
+                    }
+                    .disabled(viewModel.stockSymbol.isEmpty || viewModel.tradeAmount.isEmpty)
+                }
+                .padding(.horizontal, 20)
+                
+                Spacer()
+            }
+            .navigationTitle("投資面板")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("關閉") {
+                        viewModel.showInvestmentPanel = false
+                    }
+                }
+            }
+        }
+        .alert("交易成功！", isPresented: $viewModel.showTradeSuccess) {
+            Button("確認") {
+                viewModel.showTradeSuccess = false
+                viewModel.showInvestmentPanel = false
+            }
+        } message: {
+            Text(viewModel.tradeSuccessMessage)
+        }
     }
 }
 
