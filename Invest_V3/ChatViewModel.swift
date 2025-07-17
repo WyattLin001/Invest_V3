@@ -71,6 +71,7 @@ class ChatViewModel: ObservableObject {
     @Published var tradeAction = "buy"
     @Published var showTradeSuccess = false
     @Published var tradeSuccessMessage = ""
+    @Published var portfolioManager = PortfolioManager()
     
     // Invitation
     @Published var inviteEmail = ""
@@ -654,24 +655,46 @@ class ChatViewModel: ObservableObject {
         
         Task {
             do {
-                // 這裡應該調用實際的交易服務
-                // 暫時使用模擬交易
-                try await simulateTrade(symbol: stockSymbol, amount: amount, action: tradeAction)
+                // 獲取模擬股價
+                let stockPrice = try await getStockPrice(symbol: stockSymbol)
                 
                 await MainActor.run {
-                    // 設置成功訊息
-                    let actionText = tradeAction == "buy" ? "買入" : "賣出"
-                    tradeSuccessMessage = "已\(actionText) \(stockSymbol) $\(Int(amount))"
+                    let success: Bool
+                    let errorMessage: String?
                     
-                    // 清空輸入欄位
-                    stockSymbol = ""
-                    tradeAmount = ""
+                    if tradeAction == "buy" {
+                        let shares = amount / stockPrice
+                        success = portfolioManager.buyStock(symbol: stockSymbol, shares: shares, price: stockPrice)
+                        errorMessage = success ? nil : "餘額不足或交易失敗"
+                    } else {
+                        // 賣出時，amount 是股數而不是金額
+                        let shares = amount
+                        success = portfolioManager.sellStock(symbol: stockSymbol, shares: shares, price: stockPrice)
+                        errorMessage = success ? nil : "持股不足或交易失敗"
+                    }
                     
-                    // 顯示成功提示
-                    showTradeSuccess = true
-                    
-                    // 在聊天中發送交易通知
-                    sendTradeAnnouncement(symbol: stockSymbol, amount: amount, action: tradeAction)
+                    if success {
+                        // 設置成功訊息
+                        let actionText = tradeAction == "buy" ? "買入" : "賣出"
+                        if tradeAction == "buy" {
+                            tradeSuccessMessage = "已\(actionText) \(stockSymbol) $\(Int(amount))"
+                        } else {
+                            tradeSuccessMessage = "已\(actionText) \(stockSymbol) \(Int(amount)) 股"
+                        }
+                        
+                        // 清空輸入欄位
+                        let symbolToAnnounce = stockSymbol
+                        stockSymbol = ""
+                        tradeAmount = ""
+                        
+                        // 顯示成功提示
+                        showTradeSuccess = true
+                        
+                        // 在聊天中發送交易通知
+                        sendTradeAnnouncement(symbol: symbolToAnnounce, amount: amount, action: tradeAction)
+                    } else {
+                        handleError(NSError(domain: "TradeError", code: 1, userInfo: [NSLocalizedDescriptionKey: errorMessage ?? "交易失敗"]), context: "交易執行失敗")
+                    }
                 }
                 
             } catch {
@@ -682,13 +705,22 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    /// 模擬交易
-    private func simulateTrade(symbol: String, amount: Double, action: String) async throws {
+    /// 獲取股票價格 (模擬)
+    private func getStockPrice(symbol: String) async throws -> Double {
         // 模擬網路延遲
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 秒
+        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 秒
         
-        // 這裡可以添加實際的 Supabase 交易記錄邏輯
-        print("🔄 執行\(action == "buy" ? "買入" : "賣出")交易: \(symbol) $\(amount)")
+        // 模擬股價 (後續可以接真實 API)
+        let mockPrices: [String: Double] = [
+            "AAPL": 150.0,
+            "TSLA": 200.0,
+            "NVDA": 400.0,
+            "GOOGL": 120.0,
+            "MSFT": 300.0,
+            "AMZN": 130.0
+        ]
+        
+        return mockPrices[symbol.uppercased()] ?? 100.0
     }
     
     /// 在聊天中發送交易通知

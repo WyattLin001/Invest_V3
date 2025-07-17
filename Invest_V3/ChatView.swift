@@ -534,7 +534,7 @@ struct ChatView: View {
                                     Text("$56,250")
                                         .font(.title2)
                                         .fontWeight(.bold)
-                                        .foregroundColor(.label)
+                                        .foregroundColor(.primary)
                                 }
                             }
                             .padding()
@@ -1144,7 +1144,8 @@ extension ChatView {
                     Text("投資組合")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.label)
+                        .foregroundColor(.primary)
+    
                     
                     Divider()
                         .background(Color(.separator))
@@ -1159,82 +1160,62 @@ extension ChatView {
                             .stroke(Color(.systemGray6), lineWidth: 8)
                             .frame(width: 120, height: 120)
                         
-                        // 投資比例圓圈 - 簡化版本，實際應該用真實數據
-                        Circle()
-                            .trim(from: 0, to: 0.4) // AAPL 40%
-                            .stroke(Color.blue, lineWidth: 8)
-                            .frame(width: 120, height: 120)
-                            .rotationEffect(.degrees(-90))
-                        
-                        Circle()
-                            .trim(from: 0.4, to: 0.7) // TSLA 30%
-                            .stroke(Color.orange, lineWidth: 8)
-                            .frame(width: 120, height: 120)
-                            .rotationEffect(.degrees(-90))
-                        
-                        Circle()
-                            .trim(from: 0.7, to: 1.0) // NVDA 30%
-                            .stroke(Color.green, lineWidth: 8)
-                            .frame(width: 120, height: 120)
-                            .rotationEffect(.degrees(-90))
+                        // 動態投資比例圓圈
+                        if !viewModel.portfolioManager.holdings.isEmpty {
+                            ForEach(Array(viewModel.portfolioManager.portfolioPercentages.enumerated()), id: \.offset) { index, item in
+                                let (symbol, percentage, color) = item
+                                let startAngle = viewModel.portfolioManager.portfolioPercentages.prefix(index).reduce(0) { $0 + $1.1 }
+                                let endAngle = startAngle + percentage
+                                
+                                Circle()
+                                    .trim(from: startAngle, to: endAngle)
+                                    .stroke(color, lineWidth: 8)
+                                    .frame(width: 120, height: 120)
+                                    .rotationEffect(.degrees(-90))
+                            }
+                        }
                         
                         // 中心總金額
                         VStack(spacing: 2) {
                             Text("總投資")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            Text("$50,000")
+                            Text("$\(Int(viewModel.portfolioManager.totalPortfolioValue))")
                                 .font(.headline)
                                 .fontWeight(.bold)
-                                .foregroundColor(.label)
+                                .foregroundColor(.primary)
                         }
                     }
                     
-                    // 圖例
+                    // 動態圖例
                     VStack(spacing: 8) {
-                        HStack {
+                        ForEach(viewModel.portfolioManager.holdings) { holding in
                             HStack {
                                 Circle()
-                                    .fill(Color.blue)
+                                    .fill(holding.displayColor)
                                     .frame(width: 12, height: 12)
-                                Text("AAPL")
+                                Text(holding.symbol)
                                     .font(.caption)
                                 Spacer()
-                                Text("$20,000")
+                                Text("$\(Int(holding.totalValue))")
                                     .font(.caption)
                                     .fontWeight(.medium)
                             }
-                            .frame(maxWidth: .infinity)
                         }
                         
+                        // 顯示可用餘額
                         HStack {
-                            HStack {
-                                Circle()
-                                    .fill(Color.orange)
-                                    .frame(width: 12, height: 12)
-                                Text("TSLA")
-                                    .font(.caption)
-                                Spacer()
-                                Text("$15,000")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        
-                        HStack {
-                            HStack {
-                                Circle()
-                                    .fill(Color.green)
-                                    .frame(width: 12, height: 12)
-                                Text("NVDA")
-                                    .font(.caption)
-                                Spacer()
-                                Text("$15,000")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                            }
-                            .frame(maxWidth: .infinity)
+                            Circle()
+                                .fill(Color.gray)
+                                .frame(width: 12, height: 12)
+                            Text("可用餘額")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("$\(Int(viewModel.portfolioManager.availableBalance))")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
                         }
                     }
                     .padding(.horizontal, 20)
@@ -1244,7 +1225,7 @@ extension ChatView {
                 VStack(spacing: 16) {
                     Text("股票交易")
                         .font(.headline)
-                        .foregroundColor(.label)
+                        .foregroundColor(.primary)
                     
                     // 輸入欄位
                     HStack(spacing: 12) {
@@ -1254,8 +1235,8 @@ extension ChatView {
                             .frame(width: 90)
                             .autocapitalization(.allCharacters)
                         
-                        // 金額
-                        TextField("金額", text: $viewModel.tradeAmount)
+                        // 金額或股數
+                        TextField(viewModel.tradeAction == "buy" ? "金額" : "股數", text: $viewModel.tradeAmount)
                             .textFieldStyle(.roundedBorder)
                             .keyboardType(.numberPad)
                         
@@ -1266,6 +1247,24 @@ extension ChatView {
                         }
                         .pickerStyle(.segmented)
                         .frame(width: 120)
+                    }
+                    
+                    // 交易驗證提示
+                    if !viewModel.stockSymbol.isEmpty && !viewModel.tradeAmount.isEmpty {
+                        let canTrade = validateTrade()
+                        if !canTrade.isValid {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text(canTrade.message)
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(8)
+                        }
                     }
                     
                     // 執行交易按鈕
@@ -1280,10 +1279,10 @@ extension ChatView {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(viewModel.tradeAction == "buy" ? Color.green : Color.red)
+                        .background(canTradeNow() ? (viewModel.tradeAction == "buy" ? Color.green : Color.red) : Color.gray)
                         .cornerRadius(12)
                     }
-                    .disabled(viewModel.stockSymbol.isEmpty || viewModel.tradeAmount.isEmpty)
+                    .disabled(!canTradeNow())
                 }
                 .padding(.horizontal, 20)
                 
@@ -1307,6 +1306,42 @@ extension ChatView {
         } message: {
             Text(viewModel.tradeSuccessMessage)
         }
+    }
+    
+    // MARK: - Trade Validation Functions
+    
+    private func validateTrade() -> (isValid: Bool, message: String) {
+        guard !viewModel.stockSymbol.isEmpty,
+              !viewModel.tradeAmount.isEmpty,
+              let amount = Double(viewModel.tradeAmount) else {
+            return (false, "請輸入有效的股票代號和金額")
+        }
+        
+        if viewModel.tradeAction == "buy" {
+            if amount > viewModel.portfolioManager.availableBalance {
+                return (false, "餘額不足，可用餘額：$\(Int(viewModel.portfolioManager.availableBalance))")
+            }
+        } else {
+            // 賣出驗證
+            if let holding = viewModel.portfolioManager.holdings.first(where: { $0.symbol == viewModel.stockSymbol.uppercased() }) {
+                if amount > holding.shares {
+                    return (false, "持股不足，目前持有：\(Int(holding.shares)) 股")
+                }
+            } else {
+                return (false, "未持有此股票")
+            }
+        }
+        
+        return (true, "")
+    }
+    
+    private func canTradeNow() -> Bool {
+        guard !viewModel.stockSymbol.isEmpty,
+              !viewModel.tradeAmount.isEmpty else {
+            return false
+        }
+        
+        return validateTrade().isValid
     }
 }
 
