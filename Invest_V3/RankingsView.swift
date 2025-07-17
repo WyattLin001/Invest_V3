@@ -65,6 +65,9 @@ struct RankingsView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
+                        // 我的排名
+                        MyRankingCard()
+                        
                         // 前三名特殊顯示
                         topThreeSection
                         
@@ -147,46 +150,49 @@ struct TopRankerCard: View {
     let crownColor: Color
     
     var body: some View {
-        VStack(spacing: 8) {
-            // 排名圖標
-            Image(systemName: crownIcon)
-                .font(.title2)
-                .foregroundColor(crownColor)
-            
-            // 用戶資訊
-            VStack(spacing: 4) {
-                Text(ranking.name)
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .lineLimit(1)
+        NavigationLink(destination: ExpertProfileView(expert: ranking)) {
+            VStack(spacing: 8) {
+                // 排名圖標
+                Image(systemName: crownIcon)
+                    .font(.title2)
+                    .foregroundColor(crownColor)
                 
-                Text(TradingService.shared.formatPercentage(ranking.returnRate))
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(ranking.returnRate >= 0 ? .green : .red)
-                
-                Text(TradingService.shared.formatCurrency(ranking.totalAssets))
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            
-            // 台座
-            Rectangle()
-                .fill(LinearGradient(
-                    gradient: Gradient(colors: [Color.brandGreen.opacity(0.3), Color.brandGreen.opacity(0.1)]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-                .frame(height: podiumHeight)
-                .cornerRadius(8)
-                .overlay(
-                    Text("#\(ranking.rank)")
-                        .font(.title2)
+                // 用戶資訊
+                VStack(spacing: 4) {
+                    Text(ranking.name)
+                        .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundColor(Color.brandGreen)
-                )
+                        .lineLimit(1)
+                    
+                    Text(TradingService.shared.formatPercentage(ranking.returnRate))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(ranking.returnRate >= 0 ? .green : .red)
+                    
+                    Text(TradingService.shared.formatCurrency(ranking.totalAssets))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                
+                // 台座
+                Rectangle()
+                    .fill(LinearGradient(
+                        gradient: Gradient(colors: [Color.brandGreen.opacity(0.3), Color.brandGreen.opacity(0.1)]),
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ))
+                    .frame(height: podiumHeight)
+                    .cornerRadius(8)
+                    .overlay(
+                        Text("#\(ranking.rank)")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(Color.brandGreen)
+                    )
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
@@ -195,52 +201,60 @@ struct RankingRow: View {
     let ranking: UserRanking
     
     var body: some View {
-        HStack {
-            // 排名徽章
-            ZStack {
-                Circle()
-                    .fill(rankingColor.opacity(0.2))
-                    .frame(width: 40, height: 40)
+        NavigationLink(destination: ExpertProfileView(expert: ranking)) {
+            HStack {
+                // 排名徽章
+                ZStack {
+                    Circle()
+                        .fill(rankingColor.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    
+                    Text("#\(ranking.rank)")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(rankingColor)
+                }
                 
-                Text("#\(ranking.rank)")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(rankingColor)
-            }
-            
-            // 用戶資訊
-            VStack(alignment: .leading, spacing: 4) {
-                Text(ranking.name)
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                // 用戶資訊
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(ranking.name)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    Text("總資產: \(TradingService.shared.formatCurrency(ranking.totalAssets))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 
-                Text("總資產: \(TradingService.shared.formatCurrency(ranking.totalAssets))")
+                Spacer()
+                
+                // 報酬率
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(TradingService.shared.formatPercentage(ranking.returnRate))
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(ranking.returnRate >= 0 ? .green : .red)
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: ranking.returnRate >= 0 ? "triangle.fill" : "triangle.fill")
+                            .font(.caption2)
+                            .foregroundColor(ranking.returnRate >= 0 ? .green : .red)
+                            .rotationEffect(ranking.returnRate >= 0 ? .degrees(0) : .degrees(180))
+                        
+                        Text(ranking.returnRate >= 0 ? "獲利" : "虧損")
+                            .font(.caption2)
+                            .foregroundColor(ranking.returnRate >= 0 ? .green : .red)
+                    }
+                }
+                
+                // 添加箭頭指示器
+                Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            
-            Spacer()
-            
-            // 報酬率
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(TradingService.shared.formatPercentage(ranking.returnRate))
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(ranking.returnRate >= 0 ? .green : .red)
-                
-                HStack(spacing: 4) {
-                    Image(systemName: ranking.returnRate >= 0 ? "triangle.fill" : "triangle.fill")
-                        .font(.caption2)
-                        .foregroundColor(ranking.returnRate >= 0 ? .green : .red)
-                        .rotationEffect(ranking.returnRate >= 0 ? .degrees(0) : .degrees(180))
-                    
-                    Text(ranking.returnRate >= 0 ? "獲利" : "虧損")
-                        .font(.caption2)
-                        .foregroundColor(ranking.returnRate >= 0 ? .green : .red)
-                }
-            }
+            .padding()
         }
-        .padding()
+        .buttonStyle(PlainButtonStyle())
     }
     
     private var rankingColor: Color {

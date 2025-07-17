@@ -228,37 +228,34 @@ struct AnalysisRow: View {
 
 // MARK: - 資產分配卡片
 struct AssetAllocationCard: View {
+    @ObservedObject private var tradingService = TradingService.shared
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("資產分配")
                 .font(.headline)
                 .fontWeight(.bold)
             
-            // 模擬圓餅圖
-            HStack {
-                Circle()
-                    .fill(Color.brandGreen)
-                    .frame(width: 120, height: 120)
-                    .overlay(
-                        VStack {
-                            Text("現金")
-                                .font(.caption)
-                                .foregroundColor(.white)
-                            Text("65%")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                        }
-                    )
-                
-                Spacer()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    LegendItem(color: Color.brandGreen, title: "現金", percentage: 65)
-                    LegendItem(color: .blue, title: "科技股", percentage: 20)
-                    LegendItem(color: .orange, title: "金融股", percentage: 10)
-                    LegendItem(color: .purple, title: "其他", percentage: 5)
+            // 動態圓餅圖
+            let allocationData = AssetAllocationCalculator.calculateAllocation(from: tradingService.portfolio)
+            
+            if allocationData.isEmpty {
+                // 空狀態
+                HStack {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Image(systemName: "chart.pie")
+                            .font(.system(size: 32))
+                            .foregroundColor(.secondary)
+                        Text("暫無資產分配資料")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
                 }
+                .frame(height: 120)
+            } else {
+                DynamicPieChart(data: allocationData, size: 120)
             }
         }
         .padding()
@@ -296,27 +293,73 @@ struct LegendItem: View {
 
 // MARK: - 績效圖表卡片
 struct PerformanceChartCard: View {
+    @ObservedObject private var tradingService = TradingService.shared
+    @State private var selectedTimeRange: PerformanceTimeRange = .month
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("績效走勢")
-                .font(.headline)
-                .fontWeight(.bold)
-            
-            // 模擬圖表
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
-                .frame(height: 150)
-                .overlay(
-                    VStack {
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.system(size: 32))
-                            .foregroundColor(.secondary)
-                        
-                        Text("績效圖表開發中")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+            // 標題和時間選擇器
+            HStack {
+                Text("績效走勢")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                // 時間範圍選擇器
+                Menu {
+                    ForEach(PerformanceTimeRange.allCases, id: \.self) { range in
+                        Button(range.rawValue) {
+                            selectedTimeRange = range
+                        }
                     }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(selectedTimeRange.rawValue)
+                            .font(.caption)
+                            .foregroundColor(.brandGreen)
+                        
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                            .foregroundColor(.brandGreen)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.brandGreen.opacity(0.1))
+                    .cornerRadius(8)
+                }
+            }
+            
+            // 績效圖表
+            let performanceData = PerformanceDataGenerator.generateData(
+                for: selectedTimeRange,
+                portfolio: tradingService.portfolio
+            )
+            
+            if performanceData.isEmpty {
+                // 空狀態
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray6))
+                    .frame(height: 150)
+                    .overlay(
+                        VStack {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .font(.system(size: 32))
+                                .foregroundColor(.secondary)
+                            
+                            Text("暫無績效數據")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    )
+            } else {
+                PerformanceChart(
+                    data: performanceData,
+                    timeRange: selectedTimeRange,
+                    width: UIScreen.main.bounds.width - 64, // 考慮 padding
+                    height: 150
                 )
+            }
         }
         .padding()
         .background(Color(.systemBackground))
