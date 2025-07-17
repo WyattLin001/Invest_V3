@@ -78,12 +78,15 @@ struct HomeView: View {
                 if isLoadingBalance {
                     ProgressView()
                         .scaleEffect(0.8)
+                        .accessibilityLabel("載入餘額中")
                 } else {
                     HStack(spacing: 8) {
                         Text(TokenSystem.formatTokens(walletBalance))
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(.gray900)
+                            .monospacedDigit()
+                            .accessibilityLabel("目前餘額 \(Int(walletBalance)) 代幣")
                         
                         // 假充值按鈕
                         Button(action: { 
@@ -95,6 +98,8 @@ struct HomeView: View {
                                 .font(.title3)
                                 .foregroundColor(.brandGreen)
                         }
+                        .accessibilityLabel("充值")
+                        .accessibilityHint("點擊增加 100 代幣到帳戶")
                     }
                 }
             }
@@ -116,6 +121,8 @@ struct HomeView: View {
                             .offset(x: 8, y: -8)
                     }
                 }
+                .accessibilityLabel("通知")
+                .accessibilityHint("查看最新通知和消息")
                 
                 // 搜尋按鈕
                 Button(action: { showSearch = true }) {
@@ -123,6 +130,8 @@ struct HomeView: View {
                         .font(.title3)
                         .foregroundColor(.gray600)
                 }
+                .accessibilityLabel("搜尋")
+                .accessibilityHint("搜尋投資群組和內容")
             }
         }
         .padding(.horizontal, 16)
@@ -151,29 +160,33 @@ struct HomeView: View {
                             .foregroundColor(viewModel.selectedPeriod == period ? .white : .gray600)
                             .cornerRadius(20)
                     }
+                    .accessibilityLabel(viewModel.selectedPeriod == period ? "目前選擇：\(period.rawValue)" : "切換至\(period.rawValue)")
+                    .accessibilityHint("查看\(period.rawValue)排行榜")
                 }
                 
                 Spacer()
             }
             .padding(.horizontal, 16)
             
-            // 排行榜卡片 - 使用 GeometryReader 確保等寬
-            GeometryReader { geometry in
-                HStack(spacing: 8) {
-                    ForEach(Array(viewModel.currentRankings.prefix(3).enumerated()), id: \.element.id) { index, user in
-                        Button(action: {
-                            selectedRankingUser = user
-                            showJoinGroupSheet = true
-                        }) {
-                            RankingCard(user: user, selectedPeriod: viewModel.selectedPeriod)
-                                .frame(width: (geometry.size.width - 24) / 3) // 確保等寬
-                        }
-                        .buttonStyle(PlainButtonStyle())
+            // 排行榜卡片 - 使用 TabView 實現輪播
+            TabView {
+                ForEach(Array(viewModel.currentRankings.prefix(3).enumerated()), id: \.element.id) { index, user in
+                    Button(action: {
+                        selectedRankingUser = user
+                        showJoinGroupSheet = true
+                    }) {
+                        RankingCard(user: user, selectedPeriod: viewModel.selectedPeriod)
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(PlainButtonStyle())
+                    .accessibilityLabel("\(viewModel.selectedPeriod.rawValue) 第 \(user.rank) 名，\(user.name)，回報率 \(user.formattedReturnRate)")
+                    .accessibilityHint("點擊查看詳細資料並申請加入群組")
+                    .tag(index)
                 }
-                .padding(.horizontal, 16)
             }
-            .frame(height: 190) // 增加高度以配合卡片
+            .tabViewStyle(.page(indexDisplayMode: .automatic))
+            .frame(height: 190)
+            .padding(.horizontal, 16)
         }
         .padding(.vertical, 16)
         .background(Color.white)
@@ -195,6 +208,9 @@ struct HomeView: View {
             }
             .padding(.horizontal, 16)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("分類篩選")
+        .accessibilityHint("橫向滑動瀏覽不同投資分類")
         .padding(.vertical, 12)
         .background(Color.white)
         .overlay(
@@ -222,6 +238,11 @@ struct HomeView: View {
                             name: NSNotification.Name("SwitchToChatTab"),
                             object: group.id
                         )
+                        // 無障礙聲明
+                        await MainActor.run {
+                            UIAccessibility.post(notification: .announcement, 
+                                               argument: "成功加入 \(group.name) 群組")
+                        }
                     }
                 }
             }
@@ -417,6 +438,8 @@ struct GroupCard: View {
                         .cornerRadius(20)
                 }
                 .disabled(isJoined)
+                .accessibilityLabel(isJoined ? "已加入群組" : "加入群組")
+                .accessibilityHint(isJoined ? "您已經是這個群組的成員" : "點擊加入 \(group.name) 群組，\(entryFeeText)")
             }
             
             // 下半部：詳細資訊
@@ -463,6 +486,9 @@ struct GroupCard: View {
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("投資群組 \(group.name)，主持人 \(group.host)，\(group.memberCount) 名成員，回報率 \(group.returnRate, specifier: "%.1f")%，入場費 \(entryFeeText)")
+        .accessibilityHint("雙擊查看群組詳細資訊")
     }
 }
 
@@ -539,12 +565,16 @@ struct JoinGroupRequestView: View {
                             .background(Color.brandGreen)
                             .cornerRadius(12)
                     }
+                    .accessibilityLabel("發送加入請求")
+                    .accessibilityHint("向 \(user.name) 發送加入群組請求，需要支付 10 代幣")
                     
                     Button(action: { dismiss() }) {
                         Text("取消")
                             .font(.subheadline)
                             .foregroundColor(.gray600)
                     }
+                    .accessibilityLabel("取消")
+                    .accessibilityHint("關閉加入群組請求視窗")
                 }
             }
             .padding(24)
@@ -601,6 +631,8 @@ struct CategoryChip: View {
         }
         // 移除固定寬度限制，讓文字自然顯示
         .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel(isSelected ? "目前篩選：\(title)" : "篩選：\(title)")
+        .accessibilityHint("切換到\(title)分類的投資群組")
     }
 }
 
