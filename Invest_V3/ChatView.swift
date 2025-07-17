@@ -1147,7 +1147,7 @@ extension ChatView {
                         .foregroundColor(.label)
                     
                     Divider()
-                        .background(Color.separator)
+                        .background(Color(.separator))
                 }
                 .padding(.top, 20)
                 
@@ -1156,7 +1156,7 @@ extension ChatView {
                     ZStack {
                         // 背景圓圈
                         Circle()
-                            .stroke(Color.systemGray6, lineWidth: 8)
+                            .stroke(Color(.systemGray6), lineWidth: 8)
                             .frame(width: 120, height: 120)
                         
                         // 投資比例圓圈 - 簡化版本，實際應該用真實數據
