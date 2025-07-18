@@ -400,13 +400,10 @@ struct TagView: View {
 #Preview {
     NavigationView {
         ExpertProfileView(expert: UserRanking(
-            id: UUID(),
             rank: 1,
             name: "投資大師",
-            totalAssets: 1250000,
             returnRate: 25.8,
-            email: "expert@example.com",
-            createdAt: Date()
+            totalAssets: 1250000
         ))
     }
 }
