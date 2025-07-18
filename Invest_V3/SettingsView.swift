@@ -10,6 +10,7 @@
 
 import SwiftUI
 import UIKit
+import PhotosUI
 
 struct SettingsView: View {
     @EnvironmentObject private var authService: AuthenticationService
@@ -18,6 +19,8 @@ struct SettingsView: View {
     @State private var showImagePicker = false
     @State private var showQRCodeFullScreen = false
     @State private var showLoginSheet = false // 用於顯示登入畫面
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var showLogoutAlert = false
 
     var body: some View {
         NavigationView {
@@ -96,9 +99,13 @@ struct SettingsView: View {
             AuthenticationView()
                 .environmentObject(authService)
         }
-        .sheet(isPresented: $showImagePicker) {
-            // 暫時移除 ImagePickerView，因為還沒有實現
-            Text("圖片選擇器")
+        .photosPicker(isPresented: $showImagePicker, selection: $selectedPhotoItem, matching: .images)
+        .onChange(of: selectedPhotoItem) { newItem in
+            if let newItem = newItem {
+                Task {
+                    await viewModel.loadAndProcessImage(from: newItem)
+                }
+            }
         }
         .sheet(isPresented: $showQRCodeFullScreen) {
             if let qrImage = viewModel.qrCodeImage {
@@ -144,30 +151,47 @@ struct SettingsView: View {
         VStack(spacing: DesignTokens.spacingMD) {
             // 頭像
             Button(action: { showImagePicker = true }) {
-                if let image = viewModel.profileImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 80, height: 80)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.gray300, lineWidth: 2))
-                } else {
+                ZStack {
+                    if let image = viewModel.profileImage {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 80, height: 80)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(Color.gray300, lineWidth: 2))
+                    } else {
+                        Circle()
+                            .fill(Color.brandGreen)
+                            .frame(width: 80, height: 80)
+                            .overlay(
+                                Text("投")
+                                    .font(.title)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                            )
+                    }
+                    
+                    // 編輯指示器
                     Circle()
                         .fill(Color.brandGreen)
-                        .frame(width: 80, height: 80)
+                        .frame(width: 24, height: 24)
                         .overlay(
-                            Text("投")
-                                .font(.title)
-                                .fontWeight(.bold)
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 12))
                                 .foregroundColor(.white)
                         )
+                        .offset(x: 25, y: 25)
                 }
             }
+            .accessibilityLabel("修改頭像")
+            .accessibilityHint("點擊選擇新的頭像圖片")
             
             // 暱稱
             TextField("顯示名稱", text: $viewModel.nickname)
                 .textFieldStyle(.roundedBorder)
                 .font(.bodyText) // 使用自定義字體
+                .accessibilityLabel("用戶顯示名稱")
+                .accessibilityHint("輸入您想要顯示的暱稱")
             
             // ID 和 QR code
             HStack {
@@ -202,6 +226,8 @@ struct SettingsView: View {
                             .cornerRadius(DesignTokens.cornerRadiusSM)
                     }
                 }
+                .accessibilityLabel("用戶 QR Code")
+                .accessibilityHint("點擊查看完整 QR Code，其他用戶可掃描此碼添加您為好友")
             }
         }
         .brandCardStyle()
@@ -393,9 +419,7 @@ struct SettingsView: View {
     
     private var logoutButton: some View {
         Button(action: {
-            Task {
-                await authService.signOut()
-            }
+            showLogoutAlert = true
         }) {
             Text("登出")
                 .fontWeight(.semibold)
@@ -406,6 +430,18 @@ struct SettingsView: View {
                 .cornerRadius(DesignTokens.cornerRadius)
         }
         .padding(.top)
+        .alert("確定要登出？", isPresented: $showLogoutAlert) {
+            Button("確定", role: .destructive) {
+                Task {
+                    await authService.signOut()
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("登出後您需要重新登入才能使用完整功能。")
+        }
+        .accessibilityLabel("登出按鈕")
+        .accessibilityHint("點擊後會要求確認是否登出帳戶")
     }
     
     // MARK: - 輔助方法
@@ -415,6 +451,8 @@ struct SettingsView: View {
             .foregroundColor(.gray900)
             .toggleStyle(.switch)
             .tint(.brandGreen)
+            .accessibilityLabel("\(title)設定")
+            .accessibilityHint(isOn.wrappedValue ? "\(title)目前已開啟，點擊可關閉" : "\(title)目前已關閉，點擊可開啟")
     }
     
     private func aboutRow(title: String, value: String, hasChevron: Bool = false) -> some View {
@@ -443,6 +481,8 @@ struct SettingsView: View {
                 // 處理點擊事件
             }
         }
+        .accessibilityLabel(hasChevron ? "\(title)，點擊查看詳情" : "\(title): \(value)")
+        .accessibilityHint(hasChevron ? "點擊查看\(title)的詳細資訊" : "")
     }
 }
 

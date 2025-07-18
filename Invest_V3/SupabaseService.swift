@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import UIKit
 
 @MainActor
 class SupabaseService: ObservableObject {
@@ -198,7 +199,7 @@ class SupabaseService: ObservableObject {
         try await createPortfolio(groupId: groupId, userId: currentUser.id)
         
         // 將主持人添加到群組成員表
-        try await joinGroup(groupId, userId: currentUser.id)
+        try await joinGroup(groupId: groupId, userId: currentUser.id)
         
         print("✅ 成功創建群組: \(name), 入會費: \(entryFee) 代幣")
         return group
@@ -208,7 +209,7 @@ class SupabaseService: ObservableObject {
     private func uploadGroupAvatar(groupId: UUID, image: UIImage) async throws -> String {
         // 壓縮圖片
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-            throw SupabaseError.other("無法處理圖片數據")
+            throw SupabaseError.unknown("無法處理圖片數據")
         }
         
         // 生成檔案名稱
@@ -462,91 +463,6 @@ class SupabaseService: ObservableObject {
     // MARK: - Group Members
     
     /// 簡化的加入群組方法 (使用當前登入用戶) - 包含代幣扣除
-    func joinGroup(_ groupId: UUID) async throws {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        // 獲取當前用戶
-        let authUser: User
-        do {
-            authUser = try await client.auth.user()
-        } catch {
-            throw SupabaseError.notAuthenticated
-        }
-        let userId = authUser.id
-        
-        // 檢查是否已經是成員
-        struct GroupMemberCheck: Codable {
-            let groupId: String
-            
-            enum CodingKeys: String, CodingKey {
-                case groupId = "group_id"
-            }
-        }
-        
-        let existingMembers: [GroupMemberCheck] = try await client
-            .from("group_members")
-            .select("group_id")
-            .eq("group_id", value: groupId.uuidString)
-            .eq("user_id", value: userId.uuidString)
-            .execute()
-            .value
-        
-        if !existingMembers.isEmpty {
-            print("✅ 用戶已經是群組成員")
-            return
-        }
-        
-        // 獲取群組資訊以取得代幣費用
-        let groups: [InvestmentGroup] = try await client
-            .from("investment_groups")
-            .select()
-            .eq("id", value: groupId.uuidString)
-            .limit(1)
-            .execute()
-            .value
-        
-        guard let group = groups.first else {
-            throw SupabaseError.dataNotFound
-        }
-        
-        let tokensRequired = group.tokenCost
-        
-        // 檢查用戶代幣餘額
-        let currentBalance = try await getUserBalance(userId: userId)
-        if currentBalance < Double(tokensRequired) {
-            throw SupabaseError.insufficientBalance
-        }
-        
-        // 扣除代幣
-        try await deductTokens(userId: userId, amount: tokensRequired, description: "加入群組: \(group.name)")
-        print("✅ 已扣除 \(tokensRequired) 代幣")
-        
-        // 加入群組
-        struct GroupMemberInsert: Codable {
-            let groupId: String
-            let userId: String
-            let joinedAt: Date
-            
-            enum CodingKeys: String, CodingKey {
-                case groupId = "group_id"
-                case userId = "user_id"
-                case joinedAt = "joined_at"
-            }
-        }
-        
-        let memberData = GroupMemberInsert(
-            groupId: groupId.uuidString,
-            userId: userId.uuidString,
-            joinedAt: Date()
-        )
-        
-        try await client
-            .from("group_members")
-            .insert(memberData)
-            .execute()
-        
-        print("✅ 成功加入群組: \(groupId)")
-    }
     
     /// 獲取用戶已加入的群組列表
     func fetchUserJoinedGroups() async throws -> [InvestmentGroup] {

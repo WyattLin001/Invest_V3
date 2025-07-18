@@ -29,6 +29,10 @@ enum SupabaseError: Error, LocalizedError {
     case accessDenied
     case insufficientPermissions
     
+    // 代幣相關錯誤
+    case insufficientBalance
+    case invalidTokenAmount
+    
     // 一般錯誤
     case unknown(String)
     
@@ -78,6 +82,12 @@ enum SupabaseError: Error, LocalizedError {
         case .insufficientPermissions:
             return "權限不足，請聯絡管理員"
             
+        // 代幣錯誤
+        case .insufficientBalance:
+            return "代幣餘額不足，請先儲值"
+        case .invalidTokenAmount:
+            return "代幣數量無效"
+            
         // 一般錯誤
         case .unknown(let message):
             return "未知錯誤：\(message)"
@@ -98,6 +108,8 @@ enum SupabaseError: Error, LocalizedError {
             return "密碼須包含至少 8 個字元"
         case .serverError:
             return "請稍後再試，若問題持續請聯絡客服"
+        case .insufficientBalance:
+            return "請前往錢包頁面儲值代幣"
         default:
             return "請重新嘗試，若問題持續請聯絡客服"
         }

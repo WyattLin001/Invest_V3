@@ -181,6 +181,30 @@ struct InfoView: View {
     }
 }
 
+// MARK: - 類別標籤
+struct CategoryChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.medium)
+                .padding(.horizontal, 12) // 增加水平內距
+                .padding(.vertical, 8) // 增加垂直內距
+                .background(isSelected ? Color.brandGreen : Color.gray200)
+                .foregroundColor(isSelected ? .white : .gray600)
+                .cornerRadius(16) // 增加圓角半徑
+        }
+        // 移除固定寬度限制，讓文字自然顯示
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel(isSelected ? "目前篩選：\(title)" : "篩選：\(title)")
+        .accessibilityHint("切換到\(title)分類的投資群組")
+    }
+}
+
 #Preview {
     InfoView()
 }

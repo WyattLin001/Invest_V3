@@ -11,6 +11,12 @@ import UIKit
 extension Color {
     // MARK: - Brand Colors (根據 target.txt Design Tokens)
     
+    /// 主要品牌色 #1DB954 - 用於主要 CTA 和品牌識別
+    static let brandPrimary = Color(hex: "#1DB954")
+    
+    /// 次要品牌色 #0066CC - 用於次要 CTA 和強調
+    static let brandSecondary = Color(hex: "#0066CC")
+    
     /// 主要品牌綠色 #00B900 - 用於主要 CTA / Toggle ON
     static let brandGreen = Color(hex: "#00B900")
     
@@ -39,6 +45,17 @@ extension Color {
     
     /// 分隔線
     static let gray300 = Color(light: "#DEE2E6", dark: "#424242")
+    
+    // MARK: - Text Colors (語義化文字顏色)
+    
+    /// 主要文字顏色 - 支援深色模式
+    static let textPrimary = Color(light: "#000000", dark: "#FFFFFF")
+    
+    /// 次要文字顏色 - 支援深色模式
+    static let textSecondary = Color(light: "#666666", dark: "#999999")
+    
+    /// 第三級文字顏色 - 支援深色模式
+    static let textTertiary = Color(light: "#999999", dark: "#666666")
     
     /// 灰色400
     static let gray400 = Color(hex: "#CED4DA")

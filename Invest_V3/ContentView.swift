@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selectedTab = 0
+    @State private var selectedGroupId: UUID?
     @EnvironmentObject var authService: AuthenticationService
     
     var body: some View {
@@ -76,6 +77,15 @@ struct ContentView: View {
             
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToChatTab"))) { notification in
+            // 切換到聊天 Tab
+            selectedTab = 1
+            
+            // 如果有群組 ID，設定選中的群組
+            if let groupId = notification.object as? UUID {
+                selectedGroupId = groupId
+            }
         }
     }
 }

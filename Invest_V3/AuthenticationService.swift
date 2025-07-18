@@ -3,6 +3,8 @@ import Supabase
 
 @MainActor
 class AuthenticationService: ObservableObject {
+    static let shared = AuthenticationService()
+    
     @Published var session: Session?
     @Published var currentUserProfile: UserProfile?
     @Published var isLoading = false
@@ -79,7 +81,7 @@ class AuthenticationService: ObservableObject {
             )
             
             // 3. 將 Profile 插入資料庫
-            try await client.database
+            try await client
                 .from("user_profiles")
                 .insert(profile)
                 .execute()
@@ -153,7 +155,7 @@ class AuthenticationService: ObservableObject {
         defer { isLoading = false }
         
         do {
-            let profiles: [UserProfile] = try await client.database
+            let profiles: [UserProfile] = try await client
                 .from("user_profiles")
                 .select()
                 .eq("id", value: user.id)
@@ -207,7 +209,7 @@ class AuthenticationService: ObservableObject {
             profileToUpdate.updatedAt = Date()
             
             // 4. 將更新後的 profile 寫回資料庫
-            try await client.database
+            try await client
                 .from("user_profiles")
                 .update(profileToUpdate)
                 .eq("id", value: user.id)

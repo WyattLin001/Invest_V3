@@ -31,8 +31,11 @@ struct MainAppView: View {
     private func checkSupabaseConnection() {
         Task {
             do {
+                // 確保 Supabase 已初始化
+                try await SupabaseManager.shared.initialize()
+                
                 // 嘗試一個簡單的 health check 查詢
-                _ = try await SupabaseService.shared.client.database.from("user_profiles").select().limit(1).execute()
+                _ = try await SupabaseService.shared.client.from("user_profiles").select().limit(1).execute()
                 
                 // 連線成功
                 await MainActor.run {

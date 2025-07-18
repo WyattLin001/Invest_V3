@@ -3,6 +3,10 @@ import SwiftUI
 struct NotificationView: View {
     @StateObject private var viewModel = NotificationViewModel()
     @Environment(\.dismiss) private var dismiss
+    @State private var showGroupInvite = false
+    @State private var showTradingDetail = false
+    @State private var showRankingDetail = false
+    @State private var selectedNotification: AppNotification?
     
     var body: some View {
         NavigationView {
@@ -14,6 +18,8 @@ struct NotificationView: View {
                             .font(.title2)
                             .foregroundColor(.gray600)
                     }
+                    .accessibilityLabel("關閉通知頁面")
+                    .accessibilityHint("點擊關閉通知頁面並返回上一頁")
                     
                     Spacer()
                     
@@ -30,6 +36,8 @@ struct NotificationView: View {
                             .foregroundColor(.brandGreen)
                     }
                     .opacity(viewModel.hasUnreadNotifications ? 1 : 0)
+                    .accessibilityLabel("標記所有通知為已讀")
+                    .accessibilityHint("點擊將所有未讀通知標記為已讀狀態")
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -73,7 +81,7 @@ struct NotificationView: View {
                         LazyVStack(spacing: 0) {
                             ForEach(viewModel.notifications) { notification in
                                 NotificationRowView(notification: notification) {
-                                    viewModel.markAsRead(notification.id)
+                                    handleNotificationTap(notification)
                                 }
                                 
                                 if notification.id != viewModel.notifications.last?.id {
@@ -88,10 +96,47 @@ struct NotificationView: View {
             }
             .background(Color.gray100)
         }
+        .sheet(isPresented: $showGroupInvite) {
+            if let notification = selectedNotification {
+                GroupInviteDetailView(notification: notification)
+            }
+        }
+        .sheet(isPresented: $showTradingDetail) {
+            if let notification = selectedNotification {
+                TradingAlertDetailView(notification: notification)
+            }
+        }
+        .sheet(isPresented: $showRankingDetail) {
+            if let notification = selectedNotification {
+                RankingUpdateDetailView(notification: notification)
+            }
+        }
         .onAppear {
             Task {
                 await viewModel.loadNotifications()
             }
+        }
+    }
+    
+    // MARK: - Navigation Handler
+    private func handleNotificationTap(_ notification: AppNotification) {
+        // 標記為已讀
+        viewModel.markAsRead(notification.id)
+        
+        // 設定選中的通知
+        selectedNotification = notification
+        
+        // 根據通知類型跳轉到相應頁面
+        switch notification.type {
+        case .groupInvite:
+            showGroupInvite = true
+        case .tradingAlert:
+            showTradingDetail = true
+        case .rankingUpdate:
+            showRankingDetail = true
+        case .systemMessage:
+            // 系統訊息通常只需要顯示，不需要特殊跳轉
+            break
         }
     }
 }
@@ -114,6 +159,7 @@ struct NotificationRowView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.white)
                 }
+                .accessibilityLabel("\(notification.type.rawValue)通知圖標")
                 
                 // 通知內容
                 VStack(alignment: .leading, spacing: 4) {
@@ -150,6 +196,9 @@ struct NotificationRowView: View {
             .background(notification.isRead ? Color.clear : Color.brandGreen.opacity(0.05))
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel("\(notification.title), \(notification.message)")
+        .accessibilityHint(notification.isRead ? "已讀通知，點擊查看詳細內容" : "未讀通知，點擊查看詳細內容並標記為已讀")
+        .accessibilityValue(notification.isRead ? "已讀" : "未讀")
     }
     
     private func timeAgoString(from date: Date) -> String {
@@ -237,6 +286,187 @@ class NotificationViewModel: ObservableObject {
                 isRead: true,
                 createdAt: notification.createdAt
             )
+        }
+    }
+}
+
+// MARK: - Detail Views for Notifications
+
+struct GroupInviteDetailView: View {
+    let notification: AppNotification
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // 群組邀請詳情
+                VStack(spacing: 16) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(.brandGreen)
+                    
+                    Text("群組邀請")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text(notification.message)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                
+                Spacer()
+                
+                // 操作按鈕
+                VStack(spacing: 12) {
+                    Button("接受邀請") {
+                        // 處理接受邀請邏輯
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.brandGreen)
+                    .accessibilityLabel("接受群組邀請")
+                    .accessibilityHint("點擊接受邀請並加入群組")
+                    
+                    Button("拒絕") {
+                        dismiss()
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel("拒絕群組邀請")
+                    .accessibilityHint("點擊拒絕邀請並關閉此頁面")
+                }
+                .padding(.horizontal)
+            }
+            .padding()
+            .navigationTitle("群組邀請")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("關閉") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct TradingAlertDetailView: View {
+    let notification: AppNotification
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // 交易提醒詳情
+                VStack(spacing: 16) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 60))
+                        .foregroundColor(.brandOrange)
+                    
+                    Text("交易提醒")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text(notification.message)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                
+                Spacer()
+                
+                // 操作按鈕
+                VStack(spacing: 12) {
+                    Button("查看詳細資訊") {
+                        // 跳轉到股票詳情頁面
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.brandOrange)
+                    .accessibilityLabel("查看股票詳細資訊")
+                    .accessibilityHint("點擊查看相關股票的詳細資訊和價格走勢")
+                    
+                    Button("設定新提醒") {
+                        // 打開提醒設定
+                        dismiss()
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel("設定新的價格提醒")
+                    .accessibilityHint("點擊為此股票設定新的價格提醒條件")
+                }
+                .padding(.horizontal)
+            }
+            .padding()
+            .navigationTitle("交易提醒")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("關閉") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct RankingUpdateDetailView: View {
+    let notification: AppNotification
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // 排名更新詳情
+                VStack(spacing: 16) {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(Color(hex: "#FFD700"))
+                    
+                    Text("排名更新")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text(notification.message)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                
+                Spacer()
+                
+                // 操作按鈕
+                VStack(spacing: 12) {
+                    Button("查看完整排行榜") {
+                        // 跳轉到排行榜頁面
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(hex: "#FFD700"))
+                    .accessibilityLabel("查看完整投資排行榜")
+                    .accessibilityHint("點擊查看所有投資者的完整排名列表")
+                    
+                    Button("查看我的表現") {
+                        // 跳轉到個人表現頁面
+                        dismiss()
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel("查看個人投資表現")
+                    .accessibilityHint("點擊查看自己的詳細投資表現和統計數據")
+                }
+                .padding(.horizontal)
+            }
+            .padding()
+            .navigationTitle("排名更新")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("關閉") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }

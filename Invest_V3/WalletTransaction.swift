@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // MARK: - 錢包交易模型
 struct WalletTransaction: Identifiable, Codable {
@@ -60,6 +61,39 @@ enum TransactionType: String, Codable, CaseIterable {
         case .withdrawal, .giftPurchase, .subscription, .tip: return false
         }
     }
+    
+    var iconName: String {
+        switch self {
+        case .deposit: return "plus.circle.fill"
+        case .withdrawal: return "minus.circle.fill"
+        case .giftPurchase: return "gift.fill"
+        case .subscription: return "crown.fill"
+        case .tip: return "heart.fill"
+        case .bonus: return "star.fill"
+        }
+    }
+    
+    var backgroundColor: Color {
+        switch self {
+        case .deposit: return Color.brandGreen.opacity(0.1)
+        case .withdrawal: return Color.brandOrange.opacity(0.1)
+        case .giftPurchase: return Color.purple.opacity(0.1)
+        case .subscription: return Color.blue.opacity(0.1)
+        case .tip: return Color.pink.opacity(0.1)
+        case .bonus: return Color.yellow.opacity(0.1)
+        }
+    }
+    
+    var iconColor: Color {
+        switch self {
+        case .deposit: return .brandGreen
+        case .withdrawal: return .brandOrange
+        case .giftPurchase: return .purple
+        case .subscription: return .blue
+        case .tip: return .pink
+        case .bonus: return .orange
+        }
+    }
 }
 
 // MARK: - 交易狀態
@@ -84,6 +118,15 @@ enum TransactionStatus: String, Codable, CaseIterable {
         case .confirmed: return "#28A745"  // 綠色
         case .failed: return "#DC3545"     // 紅色
         case .cancelled: return "#6C757D"  // 灰色
+        }
+    }
+    
+    var statusColor: Color {
+        switch self {
+        case .pending: return .orange
+        case .confirmed: return .brandGreen
+        case .failed: return .red
+        case .cancelled: return .gray
         }
     }
 }

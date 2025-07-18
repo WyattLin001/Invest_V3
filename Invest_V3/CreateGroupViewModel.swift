@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UIKit
 
 @MainActor
 class CreateGroupViewModel: ObservableObject {
@@ -157,7 +158,7 @@ class CreateGroupViewModel: ObservableObject {
             switch supabaseError {
             case .notAuthenticated:
                 message = "請先登入再創建群組"
-            case .other(let description):
+            case .unknown(let description):
                 message = description
             default:
                 message = "創建群組失敗，請稍後再試"

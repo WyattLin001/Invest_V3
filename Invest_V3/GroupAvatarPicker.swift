@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UIKit
 
 struct GroupAvatarPicker: View {
     @Binding var selectedImage: UIImage?
@@ -145,25 +146,8 @@ struct GroupAvatarPicker: View {
     private var predefinedAvatarSheet: some View {
         NavigationView {
             ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
-                    ForEach(predefinedAvatars, id: \.self) { iconName in
-                        Button(action: {
-                            selectPredefinedAvatar(iconName: iconName)
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.brandPrimary.opacity(0.1))
-                                    .frame(width: 80, height: 80)
-                                
-                                Image(systemName: iconName)
-                                    .font(.system(size: 32))
-                                    .foregroundColor(.brandPrimary)
-                            }
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-                .padding()
+                predefinedAvatarGrid
+                    .padding()
             }
             .navigationTitle("選擇預設圖示")
             .navigationBarTitleDisplayMode(.inline)
@@ -173,6 +157,33 @@ struct GroupAvatarPicker: View {
                 }
             )
         }
+    }
+    
+    private var predefinedAvatarGrid: some View {
+        let columns = Array(repeating: GridItem(.flexible()), count: 4)
+        
+        return LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(predefinedAvatars, id: \.self) { iconName in
+                predefinedAvatarButton(iconName: iconName)
+            }
+        }
+    }
+    
+    private func predefinedAvatarButton(iconName: String) -> some View {
+        Button(action: {
+            selectPredefinedAvatar(iconName: iconName)
+        }) {
+            ZStack {
+                Circle()
+                    .fill(Color.brandPrimary.opacity(0.1))
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: iconName)
+                    .font(.system(size: 32))
+                    .foregroundColor(.brandPrimary)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
     }
     
     // MARK: - Helper Methods

@@ -43,7 +43,7 @@ class UserProfileService: ObservableObject {
             updatedAt: Date()
         )
         
-        let response: [UserProfile] = try await client.database
+        let response: [UserProfile] = try await client
             .from("user_profiles")
             .insert(profileData)
             .select()
@@ -64,7 +64,7 @@ class UserProfileService: ObservableObject {
     func getUserProfile(id: UUID) async throws -> UserProfile {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [UserProfile] = try await client.database
+        let response: [UserProfile] = try await client
             .from("user_profiles")
             .select()
             .eq("id", value: id)
@@ -82,7 +82,7 @@ class UserProfileService: ObservableObject {
     func getUserProfile(email: String) async throws -> UserProfile {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [UserProfile] = try await client.database
+        let response: [UserProfile] = try await client
             .from("user_profiles")
             .select()
             .eq("email", value: email)
@@ -121,7 +121,7 @@ class UserProfileService: ObservableObject {
             updatedAt: Date()
         )
         
-        let response: [UserProfile] = try await client.database
+        let response: [UserProfile] = try await client
             .from("user_profiles")
             .update(updateData)
             .eq("id", value: id)
@@ -143,7 +143,7 @@ class UserProfileService: ObservableObject {
     func isUsernameAvailable(_ username: String) async throws -> Bool {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [UserProfile] = try await client.database
+        let response: [UserProfile] = try await client
             .from("user_profiles")
             .select("id")
             .eq("username", value: username)
@@ -157,7 +157,7 @@ class UserProfileService: ObservableObject {
     func isEmailRegistered(_ email: String) async throws -> Bool {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [UserProfile] = try await client.database
+        let response: [UserProfile] = try await client
             .from("user_profiles")
             .select("id")
             .eq("email", value: email)
@@ -205,7 +205,7 @@ class UserProfileService: ObservableObject {
             }
         }
         
-        let groupsResponse: [GroupMemberCount] = try await client.database
+        let groupsResponse: [GroupMemberCount] = try await client
             .from("group_members")
             .select("group_id")
             .eq("user_id", value: userId)
@@ -213,7 +213,7 @@ class UserProfileService: ObservableObject {
             .value
         
         // 獲取用戶發表的文章數量
-        let articlesResponse: [Article] = try await client.database
+        let articlesResponse: [Article] = try await client
             .from("articles")
             .select("id")
             .eq("author_id", value: userId)
@@ -221,7 +221,7 @@ class UserProfileService: ObservableObject {
             .value
         
         // 獲取用戶錢包餘額
-        let balanceResponse: [UserBalance] = try await client.database
+        let balanceResponse: [UserBalance] = try await client
             .from("user_balances")
             .select()
             .eq("user_id", value: userId)

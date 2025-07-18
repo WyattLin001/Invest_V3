@@ -3,18 +3,45 @@ import SwiftUI
 // MARK: - 支付選項視圖
 struct PaymentOptionsView: View {
     @Environment(\.dismiss) var dismiss
+    @State private var selectedPackage: TokenPackage?
+    @State private var showPaymentMethod = false
     
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                Text("選擇支付方式")
+                Text("選擇代幣包")
                     .font(.title2)
                     .fontWeight(.bold)
                 
-                VStack(spacing: 16) {
-                    PaymentOptionRow(title: "街口支付", icon: "creditcard")
-                    PaymentOptionRow(title: "LINE Pay", icon: "creditcard.fill")
-                    PaymentOptionRow(title: "Apple Pay", icon: "applelogo")
+                // 代幣包選項
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
+                    ForEach(TokenPackage.allPackages) { package in
+                        TokenPackageCard(
+                            package: package,
+                            isSelected: selectedPackage?.id == package.id
+                        ) {
+                            selectedPackage = package
+                        }
+                    }
+                }
+                
+                if let selectedPackage = selectedPackage {
+                    Button(action: {
+                        showPaymentMethod = true
+                    }) {
+                        HStack {
+                            Text("購買 \(selectedPackage.tokenAmount) 代幣")
+                            Spacer()
+                            Text("NT$\(selectedPackage.price)")
+                        }
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.brandGreen)
+                        .cornerRadius(12)
+                    }
+                    .padding(.top, 20)
                 }
                 
                 Spacer()
@@ -27,6 +54,121 @@ struct PaymentOptionsView: View {
                     Button("關閉") { dismiss() }
                 }
             }
+            .sheet(isPresented: $showPaymentMethod) {
+                if let package = selectedPackage {
+                    PaymentMethodView(package: package)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 支付方式視圖
+struct PaymentMethodView: View {
+    @Environment(\.dismiss) var dismiss
+    let package: TokenPackage
+    @State private var showSuccessAnimation = false
+    @State private var isProcessing = false
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // 購買摘要
+                VStack(spacing: 16) {
+                    Text("購買摘要")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("代幣數量")
+                            Spacer()
+                            Text("\(package.tokenAmount) 🪙")
+                                .fontWeight(.semibold)
+                        }
+                        
+                        HStack {
+                            Text("優惠")
+                            Spacer()
+                            Text(package.discount > 0 ? "-\(Int(package.discount * 100))%" : "無")
+                                .foregroundColor(.brandGreen)
+                                .fontWeight(.semibold)
+                        }
+                        
+                        Divider()
+                        
+                        HStack {
+                            Text("總價")
+                                .font(.headline)
+                            Spacer()
+                            Text("NT$\(package.price)")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.brandGreen)
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                }
+                
+                Text("選擇支付方式")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                VStack(spacing: 16) {
+                    PaymentOptionRow(title: "街口支付", icon: "creditcard") {
+                        processPayment(method: "jkopay")
+                    }
+                    PaymentOptionRow(title: "LINE Pay", icon: "creditcard.fill") {
+                        processPayment(method: "linepay")
+                    }
+                    PaymentOptionRow(title: "Apple Pay", icon: "applelogo") {
+                        processPayment(method: "applepay")
+                    }
+                }
+                
+                Spacer()
+                
+                if isProcessing {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("處理付款中...")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+            }
+            .padding()
+            .navigationTitle("儲值")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("關閉") { dismiss() }
+                }
+            }
+        }
+        .overlay(
+            // 成功動畫覆蓋
+            Group {
+                if showSuccessAnimation {
+                    SuccessAnimationView {
+                        dismiss()
+                    }
+                }
+            }
+        )
+    }
+    
+    private func processPayment(method: String) {
+        isProcessing = true
+        
+        // 模擬支付處理
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            isProcessing = false
+            showSuccessAnimation = true
         }
     }
 }
@@ -34,25 +176,193 @@ struct PaymentOptionsView: View {
 struct PaymentOptionRow: View {
     let title: String
     let icon: String
+    let action: (() -> Void)?
+    
+    init(title: String, icon: String, action: (() -> Void)? = nil) {
+        self.title = title
+        self.icon = icon
+        self.action = action
+    }
     
     var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(.brandGreen)
-            
-            Text(title)
-                .font(.headline)
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
+        Button(action: {
+            action?()
+        }) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(.brandGreen)
+                
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.gray)
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .shadow(radius: 2)
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(radius: 2)
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - 代幣包模型
+struct TokenPackage: Identifiable {
+    let id = UUID()
+    let tokenAmount: Int
+    let price: Int
+    let discount: Double
+    let isPopular: Bool
+    
+    var savings: Int {
+        let originalPrice = tokenAmount * 1 // 假設原價 1 NTD = 1 代幣
+        return originalPrice - price
+    }
+    
+    static let allPackages = [
+        TokenPackage(tokenAmount: 100, price: 99, discount: 0.01, isPopular: false),
+        TokenPackage(tokenAmount: 500, price: 450, discount: 0.10, isPopular: false),
+        TokenPackage(tokenAmount: 1000, price: 850, discount: 0.15, isPopular: true),
+        TokenPackage(tokenAmount: 2000, price: 1600, discount: 0.20, isPopular: false),
+        TokenPackage(tokenAmount: 5000, price: 3750, discount: 0.25, isPopular: false),
+        TokenPackage(tokenAmount: 10000, price: 7000, discount: 0.30, isPopular: false)
+    ]
+}
+
+// MARK: - 代幣包卡片
+struct TokenPackageCard: View {
+    let package: TokenPackage
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 12) {
+                // 熱門標籤
+                if package.isPopular {
+                    Text("最受歡迎")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.brandOrange)
+                        .cornerRadius(8)
+                }
+                
+                // 代幣數量
+                VStack(spacing: 4) {
+                    Text("\(package.tokenAmount)")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.brandGreen)
+                    
+                    Text("🪙 代幣")
+                        .font(.subheadline)
+                        .foregroundColor(.gray600)
+                }
+                
+                // 價格
+                VStack(spacing: 4) {
+                    Text("NT$\(package.price)")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    if package.discount > 0 {
+                        Text("省 NT$\(package.savings)")
+                            .font(.caption)
+                            .foregroundColor(.brandGreen)
+                            .fontWeight(.medium)
+                    }
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .frame(height: 140)
+            .background(isSelected ? Color.brandGreen.opacity(0.1) : Color(.systemBackground))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.brandGreen : Color.gray300, lineWidth: isSelected ? 2 : 1)
+            )
+            .shadow(radius: isSelected ? 4 : 2)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - 成功動畫視圖
+struct SuccessAnimationView: View {
+    let onComplete: () -> Void
+    @State private var showCheckmark = false
+    @State private var showText = false
+    @State private var scale: CGFloat = 0.1
+    
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 24) {
+                // 成功圖標動畫
+                ZStack {
+                    Circle()
+                        .fill(Color.brandGreen)
+                        .frame(width: 80, height: 80)
+                        .scaleEffect(scale)
+                    
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundColor(.white)
+                        .opacity(showCheckmark ? 1 : 0)
+                        .scaleEffect(showCheckmark ? 1 : 0.1)
+                }
+                
+                // 成功文字
+                VStack(spacing: 8) {
+                    Text("充值成功！")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .opacity(showText ? 1 : 0)
+                    
+                    Text("代幣已添加到您的帳戶")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.8))
+                        .opacity(showText ? 1 : 0)
+                }
+                .offset(y: showText ? 0 : 20)
+            }
+        }
+        .onAppear {
+            // 動畫序列
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                scale = 1.0
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showCheckmark = true
+                }
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showText = true
+                }
+            }
+            
+            // 自動關閉
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                onComplete()
+            }
+        }
     }
 }
 

@@ -19,7 +19,9 @@ class WalletViewModel: ObservableObject {
     @Published var showWithdrawalSheet = false
     @Published var showSubscriptionSheet = false
     @Published var isSubscribed = false
-    @Published var isCreator = false
+    @Published var subscriptionExpiryDate: Date?
+    @Published var subscriptionPlan: String = "monthly"
+    @Published var isCreator = true // 設定為 true 以便測試創作者功能
     @Published var withdrawableAmount: Double = 0.0 {
         didSet {
             // 確保 withdrawableAmount 始終是有效數值
@@ -237,8 +239,8 @@ class WalletViewModel: ObservableObject {
     }
     
     // MARK: - 訂閱
-    func subscribe() async {
-        let subscriptionFee: Double = 300
+    func subscribe(plan: String = "monthly") async {
+        let subscriptionFee: Double = plan == "monthly" ? 300 : 3000 // 年費
         
         guard balance >= subscriptionFee else {
             errorMessage = "餘額不足"
@@ -247,13 +249,23 @@ class WalletViewModel: ObservableObject {
         
         do {
             balance -= subscriptionFee
+            isSubscribed = true
+            subscriptionPlan = plan
+            
+            // 設定到期日
+            let calendar = Calendar.current
+            if plan == "monthly" {
+                subscriptionExpiryDate = calendar.date(byAdding: .month, value: 1, to: Date())
+            } else {
+                subscriptionExpiryDate = calendar.date(byAdding: .year, value: 1, to: Date())
+            }
             
             let transaction = WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
                 transactionType: TransactionType.subscription.rawValue,
                 amount: Int(subscriptionFee),
-                description: "月費訂閱",
+                description: plan == "monthly" ? "月費訂閱" : "年費訂閱",
                 status: TransactionStatus.confirmed.rawValue,
                 paymentMethod: "wallet",
                 blockchainId: nil,
@@ -262,10 +274,24 @@ class WalletViewModel: ObservableObject {
             
             transactions.insert(transaction, at: 0)
             
-            print("訂閱成功")
+            print("✅ [WalletViewModel] 訂閱成功: \(plan)")
             
         } catch {
             errorMessage = "訂閱失敗: \(error.localizedDescription)"
+        }
+    }
+    
+    // MARK: - 取消訂閱
+    func cancelSubscription() async {
+        do {
+            isSubscribed = false
+            subscriptionExpiryDate = nil
+            subscriptionPlan = ""
+            
+            print("✅ [WalletViewModel] 訂閱已取消")
+            
+        } catch {
+            errorMessage = "取消訂閱失敗: \(error.localizedDescription)"
         }
     }
     
