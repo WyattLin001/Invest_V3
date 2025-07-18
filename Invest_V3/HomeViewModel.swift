@@ -127,11 +127,11 @@ class HomeViewModel: ObservableObject {
         }
     }
     
-    // MARK: - 初始化測試數據
+    // MARK: - 清理假資料和載入真實數據
     func initializeTestData() async {
         do {
-            // 創建真實的群組數據
-            try await SupabaseService.shared.createRealTestGroups()
+            // 清理所有假資料群組
+            try await SupabaseService.shared.clearAllDummyGroups()
             
             // 清空聊天內容
             try await SupabaseService.shared.clearAllChatMessages()
@@ -140,12 +140,12 @@ class HomeViewModel: ObservableObject {
             await loadData()
             
             await MainActor.run {
-                self.successMessage = "測試數據初始化完成！"
+                self.successMessage = "資料清理完成！現在可以創建真實群組"
             }
             
         } catch {
             await MainActor.run {
-                self.errorMessage = "初始化測試數據失敗: \(error.localizedDescription)"
+                self.errorMessage = "資料清理失敗: \(error.localizedDescription)"
             }
         }
     }

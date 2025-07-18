@@ -7,7 +7,10 @@ class SupabaseService: ObservableObject {
 
     // 直接從 SupabaseManager 取得 client（移除 private(set) 因為計算屬性已經是只讀的）
     var client: SupabaseClient {
-        SupabaseManager.shared.client
+        guard let client = SupabaseManager.shared.client else {
+            fatalError("Supabase client is not initialized. Call SupabaseManager.shared.initialize() first.")
+        }
+        return client
     }
 
     private init() { }
@@ -58,8 +61,8 @@ class SupabaseService: ObservableObject {
             let userId = currentUser.id
             
             // 從資料庫獲取完整的用戶資料
-            let profiles: [UserProfile] = try await client.database
-                .from("user_profiles")
+            let profiles: [UserProfile] = try await client
+            .from("user_profiles")
                 .select()
                 .eq("id", value: userId)
                 .limit(1)
@@ -86,7 +89,7 @@ class SupabaseService: ObservableObject {
     func fetchInvestmentGroups() async throws -> [InvestmentGroup] {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [InvestmentGroup] = try await client.database
+        let response: [InvestmentGroup] = try await client
             .from("investment_groups")
             .select()
             .execute()
@@ -97,7 +100,7 @@ class SupabaseService: ObservableObject {
     func fetchInvestmentGroup(id: UUID) async throws -> InvestmentGroup {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [InvestmentGroup] = try await client.database
+        let response: [InvestmentGroup] = try await client
             .from("investment_groups")
             .select()
             .eq("id", value: id)
@@ -111,16 +114,30 @@ class SupabaseService: ObservableObject {
         return group
     }
     
-    func createInvestmentGroup(name: String, description: String, category: String, isPrivate: Bool, maxMembers: Int) async throws -> InvestmentGroup {
-        try SupabaseManager.shared.ensureInitialized()
+    func createInvestmentGroup(
+        name: String, 
+        rules: String, 
+        entryFee: Int, 
+        category: String = "一般投資",
+        avatarImage: UIImage? = nil
+    ) async throws -> InvestmentGroup {
+        try await SupabaseManager.shared.ensureInitialized()
         
         guard let currentUser = getCurrentUser() else {
             throw SupabaseError.notAuthenticated
         }
         
-        let inviteCode = isPrivate ? UUID().uuidString : nil
+        let groupId = UUID()
+        var avatarURL: String? = nil
         
-        struct GroupInsert: Codable {
+        // 上傳群組頭像（如果有提供）
+        if let avatarImage = avatarImage {
+            avatarURL = try await uploadGroupAvatar(groupId: groupId, image: avatarImage)
+        }
+        
+        // Use the same DatabaseGroup structure as in createRealTestGroups
+        struct DatabaseGroup: Codable {
+            let id: UUID
             let name: String
             let host: String
             let returnRate: Double
@@ -131,6 +148,7 @@ class SupabaseService: ObservableObject {
             let updatedAt: Date
             
             enum CodingKeys: String, CodingKey {
+                case id
                 case name
                 case host
                 case returnRate = "return_rate"
@@ -142,39 +160,74 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        let groupData = GroupInsert(
+        let entryFeeString = entryFee > 0 ? "\(entryFee) 代幣" : nil
+        let dbGroup = DatabaseGroup(
+            id: groupId,
             name: name,
             host: currentUser.displayName,
             returnRate: 0.0,
-                            entryFee: "10 代幣",
+            entryFee: entryFeeString,
             memberCount: 1,
             category: category,
             createdAt: Date(),
             updatedAt: Date()
         )
         
-        let response: [InvestmentGroup] = try await client.database
+        // Insert into database
+        try await self.client
             .from("investment_groups")
-            .insert(groupData)
-            .select()
+            .insert(dbGroup)
             .execute()
-            .value
         
-        guard let group = response.first else {
-            throw SupabaseError.unknown("Failed to create group")
-        }
+        // Create the InvestmentGroup object to return
+        let group = InvestmentGroup(
+            id: groupId,
+            name: name,
+            host: currentUser.displayName,
+            returnRate: 0.0,
+            entryFee: entryFeeString,
+            memberCount: 1,
+            category: category,
+            rules: rules,
+            tokenCost: entryFee,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
         
         // 創建主持人的投資組合
-        try await createPortfolio(groupId: group.id, userId: currentUser.id)
+        try await createPortfolio(groupId: groupId, userId: currentUser.id)
         
+        // 將主持人添加到群組成員表
+        try await joinGroup(groupId, userId: currentUser.id)
+        
+        print("✅ 成功創建群組: \(name), 入會費: \(entryFee) 代幣")
         return group
+    }
+    
+    /// 上傳群組頭像到 Supabase Storage
+    private func uploadGroupAvatar(groupId: UUID, image: UIImage) async throws -> String {
+        // 壓縮圖片
+        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+            throw SupabaseError.other("無法處理圖片數據")
+        }
+        
+        // 生成檔案名稱
+        let fileName = "group-avatar-\(groupId.uuidString).jpg"
+        
+        // 使用現有的圖片上傳功能
+        let url = try await SupabaseManager.shared.uploadImage(
+            data: imageData,
+            fileName: fileName
+        )
+        
+        return url.absoluteString
     }
     
     // MARK: - Chat Messages
     func fetchChatMessages(groupId: UUID) async throws -> [ChatMessage] {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [ChatMessage] = try await client.database
+        let response: [ChatMessage] = try await client
             .from("chat_messages")
             .select()
             .eq("group_id", value: groupId.uuidString)
@@ -191,7 +244,7 @@ class SupabaseService: ObservableObject {
             let host: String
         }
         
-        let groupInfo: [GroupHostInfo] = try await client.database
+        let groupInfo: [GroupHostInfo] = try await client
             .from("investment_groups")
             .select("host")
             .eq("id", value: groupId.uuidString)
@@ -262,7 +315,7 @@ class SupabaseService: ObservableObject {
             createdAt: Date()
         )
         
-        let response: [ChatMessage] = try await client.database
+        let response: [ChatMessage] = try await client
             .from("chat_messages")
             .insert(messageToInsert)
             .select()
@@ -309,8 +362,8 @@ class SupabaseService: ObservableObject {
                 }
             }
             
-            let profiles: [UserDisplayName] = try await client.database
-                .from("user_profiles")
+            let profiles: [UserDisplayName] = try await client
+            .from("user_profiles")
                 .select("display_name")
                 .eq("id", value: userId)
                 .limit(1)
@@ -361,7 +414,7 @@ class SupabaseService: ObservableObject {
         )
 
         // 6. 插入訊息並取回插入的記錄
-        let response: [ChatMessage] = try await client.database
+        let response: [ChatMessage] = try await client
             .from("chat_messages")
             .insert(messageToInsert, returning: .representation)
             .select()
@@ -390,7 +443,7 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        let existingMembers: [MembershipCheck] = try await client.database
+        let existingMembers: [MembershipCheck] = try await client
             .from("group_members")
             .select("user_id")
             .eq("group_id", value: groupId.uuidString)
@@ -408,7 +461,7 @@ class SupabaseService: ObservableObject {
     
     // MARK: - Group Members
     
-    /// 簡化的加入群組方法 (使用當前登入用戶)
+    /// 簡化的加入群組方法 (使用當前登入用戶) - 包含代幣扣除
     func joinGroup(_ groupId: UUID) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
@@ -430,7 +483,7 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        let existingMembers: [GroupMemberCheck] = try await client.database
+        let existingMembers: [GroupMemberCheck] = try await client
             .from("group_members")
             .select("group_id")
             .eq("group_id", value: groupId.uuidString)
@@ -442,6 +495,31 @@ class SupabaseService: ObservableObject {
             print("✅ 用戶已經是群組成員")
             return
         }
+        
+        // 獲取群組資訊以取得代幣費用
+        let groups: [InvestmentGroup] = try await client
+            .from("investment_groups")
+            .select()
+            .eq("id", value: groupId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+        
+        guard let group = groups.first else {
+            throw SupabaseError.dataNotFound
+        }
+        
+        let tokensRequired = group.tokenCost
+        
+        // 檢查用戶代幣餘額
+        let currentBalance = try await getUserBalance(userId: userId)
+        if currentBalance < Double(tokensRequired) {
+            throw SupabaseError.insufficientBalance
+        }
+        
+        // 扣除代幣
+        try await deductTokens(userId: userId, amount: tokensRequired, description: "加入群組: \(group.name)")
+        print("✅ 已扣除 \(tokensRequired) 代幣")
         
         // 加入群組
         struct GroupMemberInsert: Codable {
@@ -462,7 +540,7 @@ class SupabaseService: ObservableObject {
             joinedAt: Date()
         )
         
-        try await client.database
+        try await client
             .from("group_members")
             .insert(memberData)
             .execute()
@@ -492,7 +570,7 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        let memberRecords: [GroupMemberBasic] = try await client.database
+        let memberRecords: [GroupMemberBasic] = try await client
             .from("group_members")
             .select("group_id")
             .eq("user_id", value: userId.uuidString)
@@ -506,7 +584,7 @@ class SupabaseService: ObservableObject {
         }
         
         // 獲取群組詳細信息
-        let groups: [InvestmentGroup] = try await client.database
+        let groups: [InvestmentGroup] = try await client
             .from("investment_groups")
             .select()
             .in("id", values: groupIds.map { $0.uuidString })
@@ -518,12 +596,12 @@ class SupabaseService: ObservableObject {
     
     /// 退出群組
     func leaveGroup(groupId: UUID) async throws {
-        try SupabaseManager.shared.ensureInitialized()
+        try await SupabaseManager.shared.ensureInitialized()
         
         // 獲取當前用戶
         let authUser: User
         do {
-            authUser = try await client.auth.user()
+            authUser = try await self.client.auth.user()
         } catch {
             throw SupabaseError.notAuthenticated
         }
@@ -538,7 +616,7 @@ class SupabaseService: ObservableObject {
         }
         
         // 從群組成員表中刪除用戶記錄
-        try await client.database
+        try await self.client
             .from("group_members")
             .delete()
             .eq("group_id", value: groupId.uuidString)
@@ -546,7 +624,7 @@ class SupabaseService: ObservableObject {
             .execute()
         
         // 刪除用戶在該群組的投資組合
-        try await client.database
+        try await self.client
             .from("user_portfolios")
             .delete()
             .eq("group_id", value: groupId.uuidString)
@@ -554,9 +632,20 @@ class SupabaseService: ObservableObject {
             .execute()
         
         // 更新群組成員數量
-        try await client.database
+        struct MemberCountUpdate: Codable {
+            let memberCount: Int
+            
+            enum CodingKeys: String, CodingKey {
+                case memberCount = "member_count"
+            }
+        }
+        
+        let newMemberCount = max(0, group.memberCount - 1)
+        let update = MemberCountUpdate(memberCount: newMemberCount)
+        
+        try await self.client
             .from("investment_groups")
-            .update(["member_count": group.memberCount - 1])
+            .update(update)
             .eq("id", value: groupId.uuidString)
             .execute()
         
@@ -564,7 +653,7 @@ class SupabaseService: ObservableObject {
     }
     
     func joinGroup(groupId: UUID, userId: UUID) async throws {
-        try SupabaseManager.shared.ensureInitialized()
+        try await SupabaseManager.shared.ensureInitialized()
         
         struct GroupMemberInsert: Codable {
             let groupId: String
@@ -584,13 +673,57 @@ class SupabaseService: ObservableObject {
             joinedAt: Date()
         )
         
-        try await client.database
+        try await self.client
             .from("group_members")
             .insert(memberData)
             .execute()
         
-        // 使用 RPC 函數來安全地更新成員計數
-        try await client.database.rpc("increment_member_count", params: ["group_id_param": groupId]).execute()
+        // 獲取當前群組並更新成員計數
+        let currentGroup = try await fetchInvestmentGroup(id: groupId)
+        let newMemberCount = currentGroup.memberCount + 1
+        
+        struct MemberCountUpdate: Codable {
+            let memberCount: Int
+            
+            enum CodingKeys: String, CodingKey {
+                case memberCount = "member_count"
+            }
+        }
+        
+        let update = MemberCountUpdate(memberCount: newMemberCount)
+        try await self.client
+            .from("investment_groups")
+            .update(update)
+            .eq("id", value: groupId.uuidString)
+            .execute()
+        
+        print("✅ 成功加入群組: \(groupId)")
+    }
+    
+    /// 加入群組（從 HomeViewModel 調用）
+    func joinGroup(_ groupId: UUID) async throws {
+        try await SupabaseManager.shared.ensureInitialized()
+        
+        guard let currentUser = getCurrentUser() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        // 獲取群組資訊以檢查 tokenCost
+        let group = try await fetchInvestmentGroup(id: groupId)
+        let tokenCost = group.tokenCost
+        
+        // 檢查並扣除代幣
+        if tokenCost > 0 {
+            try await deductTokens(userId: currentUser.id, amount: tokenCost, description: "加入群組：\(group.name)")
+        }
+        
+        // 調用原有的 joinGroup 函數
+        try await joinGroup(groupId: groupId, userId: currentUser.id)
+        
+        // 創建投資組合
+        let _ = try await createPortfolio(groupId: groupId, userId: currentUser.id)
+        
+        print("✅ 成功加入群組並扣除 \(tokenCost) 代幣")
     }
     
 
@@ -599,7 +732,7 @@ class SupabaseService: ObservableObject {
     func fetchArticles() async throws -> [Article] {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [Article] = try await client.database
+        let response: [Article] = try await client
             .from("articles")
             .select()
             .order("created_at", ascending: false)
@@ -656,7 +789,7 @@ class SupabaseService: ObservableObject {
             updatedAt: Date()
         )
         
-        let insertedArticle: Article = try await client.database
+        let insertedArticle: Article = try await client
             .from("articles")
             .insert(articleData)
             .select()
@@ -715,7 +848,7 @@ class SupabaseService: ObservableObject {
             updatedAt: Date()
         )
         
-        let insertedArticle: Article = try await client.database
+        let insertedArticle: Article = try await client
             .from("articles")
             .insert(articleData)
             .select()
@@ -752,7 +885,7 @@ class SupabaseService: ObservableObject {
             return try await fetchArticles()
         }
         
-        let articles: [Article] = try await client.database
+        let articles: [Article] = try await client
             .from("articles")
             .select()
             .eq("category", value: category)
@@ -766,7 +899,7 @@ class SupabaseService: ObservableObject {
     func deleteArticle(id: UUID) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
-        try await client.database
+        try await client
             .from("articles")
             .delete()
             .eq("id", value: id)
@@ -777,7 +910,7 @@ class SupabaseService: ObservableObject {
 
     // MARK: - Group Management
     func createPortfolio(groupId: UUID, userId: UUID) async throws -> Portfolio {
-        try SupabaseManager.shared.ensureInitialized()
+        try await SupabaseManager.shared.ensureInitialized()
         
         struct PortfolioInsert: Codable {
             let groupId: String
@@ -806,7 +939,7 @@ class SupabaseService: ObservableObject {
             lastUpdated: Date()
         )
         
-        let response: [Portfolio] = try await client.database
+        let response: [Portfolio] = try await self.client
             .from("portfolios")
             .insert(portfolioData)
             .select()
@@ -844,7 +977,7 @@ class SupabaseService: ObservableObject {
             lastUpdated: Date()
         )
         
-        try await client.database
+        try await client
             .from("portfolios")
             .update(updateData)
             .eq("group_id", value: groupId)
@@ -857,7 +990,7 @@ class SupabaseService: ObservableObject {
     
     private func updateGroupRankings(groupId: UUID) async throws {
         // 獲取群組內所有投資組合並按回報率排序
-        let response: [Portfolio] = try await client.database
+        let response: [Portfolio] = try await client
             .from("portfolios")
             .select()
             .eq("group_id", value: groupId)
@@ -867,8 +1000,8 @@ class SupabaseService: ObservableObject {
         
         // 更新每個成員的排名
         for (index, portfolio) in response.enumerated() {
-            try await client.database
-                .from("group_members")
+            try await client
+            .from("group_members")
                 .update(["ranking_position": index + 1])
                 .eq("group_id", value: groupId)
                 .eq("user_id", value: portfolio.userId)
@@ -916,7 +1049,7 @@ class SupabaseService: ObservableObject {
             createdAt: Date()
         )
         
-        let response: [GroupInvitation] = try await client.database
+        let response: [GroupInvitation] = try await client
             .from("group_invitations")
             .insert(invitationData)
             .select()
@@ -935,15 +1068,15 @@ class SupabaseService: ObservableObject {
         
         let status = accept ? InvitationStatus.accepted.rawValue : InvitationStatus.rejected.rawValue
         
-        try await client.database
+        try await client
             .from("group_invitations")
             .update(["status": status])
             .eq("id", value: invitationId)
             .execute()
         
         if accept {
-            let response: [GroupInvitation] = try await client.database
-                .from("group_invitations")
+            let response: [GroupInvitation] = try await client
+            .from("group_invitations")
                 .select()
                 .eq("id", value: invitationId)
                 .execute()
@@ -963,7 +1096,7 @@ class SupabaseService: ObservableObject {
     func fetchPortfolioWithPositions(groupId: UUID, userId: UUID) async throws -> PortfolioWithPositions {
         try SupabaseManager.shared.ensureInitialized()
         
-        let portfolios: [Portfolio] = try await client.database
+        let portfolios: [Portfolio] = try await client
             .from("portfolios")
             .select()
             .eq("group_id", value: groupId)
@@ -975,7 +1108,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.dataNotFound
         }
         
-        let positions: [Position] = try await client.database
+        let positions: [Position] = try await client
             .from("positions")
             .select()
             .eq("portfolio_id", value: portfolio.id)
@@ -1012,7 +1145,7 @@ class SupabaseService: ObservableObject {
             lastUpdated: Date()
         )
         
-        try await client.database
+        try await client
             .from("positions")
             .update(updateData)
             .eq("id", value: position.id)
@@ -1054,7 +1187,7 @@ class SupabaseService: ObservableObject {
             lastUpdated: Date()
         )
         
-        let response: [Position] = try await client.database
+        let response: [Position] = try await client
             .from("positions")
             .insert(positionData)
             .select()
@@ -1103,7 +1236,7 @@ class SupabaseService: ObservableObject {
         // 使用異步方法獲取當前用戶
         let currentUser = try await getCurrentUserAsync()
         
-        let response: [WalletTransaction] = try await client.database
+        let response: [WalletTransaction] = try await client
             .from("wallet_transactions")
             .select()
             .eq("user_id", value: currentUser.id.uuidString)
@@ -1130,7 +1263,7 @@ class SupabaseService: ObservableObject {
         // TODO: 這裡應該要加上權限檢查，只有群組主持人才可以刪除
         // For now, we allow the user to delete their own group's messages
         
-        try await client.database
+        try await client
             .from("chat_messages")
             .delete()
             .eq("group_id", value: groupId)
@@ -1190,7 +1323,7 @@ class SupabaseService: ObservableObject {
             createdAt: Date()
         )
         
-        let response: [WalletTransaction] = try await client.database
+        let response: [WalletTransaction] = try await client
             .from("wallet_transactions")
             .insert(transactionData)
             .select()
@@ -1227,7 +1360,7 @@ class SupabaseService: ObservableObject {
     func fetchUserProfileByDisplayName(_ displayName: String) async throws -> UserProfile {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [UserProfile] = try await client.database
+        let response: [UserProfile] = try await client
             .from("user_profiles")
             .select()
             .eq("display_name", value: displayName)
@@ -1257,8 +1390,8 @@ class SupabaseService: ObservableObject {
             }
             
             // 嘗試執行一個簡單的 RPC 呼叫來測試連線
-            let _: PostgrestResponse<Void> = try await client.database
-                .rpc("check_connection")
+            let _: PostgrestResponse<Void> = try await client
+            .rpc("check_connection")
                 .execute()
             
             logError(message: "✅ [連線檢查] 資料庫連線成功")
@@ -1268,8 +1401,8 @@ class SupabaseService: ObservableObject {
             // 如果 RPC 不存在，嘗試一個更基本的查詢
             do {
                 // 只查詢 id 欄位，並使用基本的字典解碼
-                let response = try await client.database
-                    .from("user_profiles")
+                let response = try await client
+            .from("user_profiles")
                     .select("id")
                     .limit(1)
                     .execute()
@@ -1292,8 +1425,8 @@ class SupabaseService: ObservableObject {
             try SupabaseManager.shared.ensureInitialized()
             
             // 根據 email 查找用戶
-            let userProfiles: [UserProfile] = try await client.database
-                .from("user_profiles")
+            let userProfiles: [UserProfile] = try await client
+            .from("user_profiles")
                 .select()
                 .eq("email", value: userEmail)
                 .limit(1)
@@ -1306,8 +1439,8 @@ class SupabaseService: ObservableObject {
             }
             
             // 查找該用戶的所有訊息
-            let messages: [ChatMessage] = try await client.database
-                .from("chat_messages")
+            let messages: [ChatMessage] = try await client
+            .from("chat_messages")
                 .select()
                 .eq("sender_id", value: userProfile.id.uuidString)
                 .order("created_at", ascending: false)
@@ -1330,8 +1463,8 @@ class SupabaseService: ObservableObject {
         do {
             try SupabaseManager.shared.ensureInitialized()
             
-            let members: [GroupMemberResponse] = try await client.database
-                .from("group_members")
+            let members: [GroupMemberResponse] = try await client
+            .from("group_members")
                 .select("group_id")
                 .eq("user_id", value: userId.uuidString)
                 .eq("group_id", value: groupId.uuidString)
@@ -1398,8 +1531,8 @@ class SupabaseService: ObservableObject {
         )
         
         do {
-            let response: [ChatMessage] = try await client.database
-                .from("chat_messages")
+            let response: [ChatMessage] = try await client
+            .from("chat_messages")
                 .insert(messageToInsert)
                 .select()
                 .execute()
@@ -1524,7 +1657,7 @@ class SupabaseService: ObservableObject {
             joinedAt: Date()
         )
         
-        try await client.database
+        try await client
             .from("group_members")
             .insert(memberData)
             .execute()
@@ -1543,7 +1676,7 @@ class SupabaseService: ObservableObject {
         }
         
         // 首先檢查用戶是否為群組主持人
-        let groupResponse: [GroupHostInfo] = try await client.database
+        let groupResponse: [GroupHostInfo] = try await client
             .from("investment_groups")
             .select("id, host")
             .eq("id", value: groupId.uuidString)
@@ -1560,8 +1693,8 @@ class SupabaseService: ObservableObject {
                 }
             }
             
-            let userProfiles: [UserDisplayName] = try await client.database
-                .from("user_profiles")
+            let userProfiles: [UserDisplayName] = try await client
+            .from("user_profiles")
                 .select("display_name")
                 .eq("id", value: userId.uuidString)
                 .execute()
@@ -1584,7 +1717,7 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        let memberResponse: [GroupMemberCheck] = try await client.database
+        let memberResponse: [GroupMemberCheck] = try await client
             .from("group_members")
             .select("group_id, user_id")
             .eq("group_id", value: groupId.uuidString)
@@ -1611,7 +1744,7 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        let memberResponse: [GroupMemberCount] = try await client.database
+        let memberResponse: [GroupMemberCount] = try await client
             .from("group_members")
             .select("user_id")
             .eq("group_id", value: groupId.uuidString)
@@ -1629,7 +1762,7 @@ class SupabaseService: ObservableObject {
         let testGroupId = TestConstants.testGroupId
         
         // 檢查群組是否已存在
-        let existingGroups: [InvestmentGroup] = try await client.database
+        let existingGroups: [InvestmentGroup] = try await client
             .from("investment_groups")
             .select()
             .eq("id", value: testGroupId.uuidString)
@@ -1674,8 +1807,8 @@ class SupabaseService: ObservableObject {
                 updatedAt: Date()
             )
             
-            try await client.database
-                .from("investment_groups")
+            try await client
+            .from("investment_groups")
                 .insert(groupData)
                 .execute()
             
@@ -1730,7 +1863,7 @@ class SupabaseService: ObservableObject {
         )
         
         // 檢查用戶是否已存在，如果不存在則創建
-        let existingHostUsers: [UserProfile] = try await client.database
+        let existingHostUsers: [UserProfile] = try await client
             .from("user_profiles")
             .select()
             .eq("email", value: TestConstants.testUserEmail)
@@ -1738,15 +1871,15 @@ class SupabaseService: ObservableObject {
             .value
         
         if existingHostUsers.isEmpty {
-            try await client.database
-                .from("user_profiles")
+            try await client
+            .from("user_profiles")
                 .insert(hostUser)
                 .execute()
             
             logError(message: "✅ [測試環境] 創建主持人用戶成功: \(TestConstants.testUserEmail)")
         }
         
-        let existingMemberUsers: [UserProfile] = try await client.database
+        let existingMemberUsers: [UserProfile] = try await client
             .from("user_profiles")
             .select()
             .eq("email", value: TestConstants.yukaUserEmail)
@@ -1754,8 +1887,8 @@ class SupabaseService: ObservableObject {
             .value
         
         if existingMemberUsers.isEmpty {
-            try await client.database
-                .from("user_profiles")
+            try await client
+            .from("user_profiles")
                 .insert(memberUser)
                 .execute()
             
@@ -1772,7 +1905,7 @@ class SupabaseService: ObservableObject {
         try SupabaseManager.shared.ensureInitialized()
         
         // 根據 email 獲取用戶資料
-        let userResponse: [UserProfile] = try await client.database
+        let userResponse: [UserProfile] = try await client
             .from("user_profiles")
             .select()
             .eq("email", value: toEmail)
@@ -1808,7 +1941,7 @@ class SupabaseService: ObservableObject {
         try SupabaseManager.shared.ensureInitialized()
         
         // 獲取 yuka 用戶的信息
-        let yukaUsers: [UserProfile] = try await client.database
+        let yukaUsers: [UserProfile] = try await client
             .from("user_profiles")
             .select()
             .eq("email", value: TestConstants.yukaUserEmail)
@@ -1847,8 +1980,8 @@ class SupabaseService: ObservableObject {
                 updatedAt: Date()
             )
             
-            try await client.database
-                .from("user_profiles")
+            try await client
+            .from("user_profiles")
                 .insert(yukaUserData)
                 .execute()
             
@@ -1869,7 +2002,7 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        let existingMembers: [GroupMemberExistCheck] = try await client.database
+        let existingMembers: [GroupMemberExistCheck] = try await client
             .from("group_members")
             .select("group_id")
             .eq("group_id", value: TestConstants.testGroupId.uuidString)
@@ -1920,7 +2053,7 @@ class SupabaseService: ObservableObject {
             expiresAt: Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
         )
         
-        try await client.database
+        try await client
             .from("group_invitations")
             .insert(invitation)
             .execute()
@@ -1939,14 +2072,14 @@ class SupabaseService: ObservableObject {
         
         let update = InvitationUpdate(status: "accepted")
         
-        try await client.database
+        try await client
             .from("group_invitations")
             .update(update)
             .eq("id", value: invitationId.uuidString)
             .execute()
         
         // 獲取邀請詳情以便加入群組
-        let invitations: [GroupInvitation] = try await client.database
+        let invitations: [GroupInvitation] = try await client
             .from("group_invitations")
             .select()
             .eq("id", value: invitationId.uuidString)
@@ -1972,7 +2105,7 @@ class SupabaseService: ObservableObject {
         }
         
         // 查詢通過 Email 或 user_id 的邀請
-        let invitations: [GroupInvitation] = try await client.database
+        let invitations: [GroupInvitation] = try await client
             .from("group_invitations")
             .select()
             .or("invitee_email.eq.\(currentUser.email),invitee_id.eq.\(currentUser.id.uuidString)")
@@ -2001,7 +2134,7 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        let rows: [FriendRow] = try await client.database
+        let rows: [FriendRow] = try await client
             .from("user_friends")
             .select("friend_id")
             .eq("user_id", value: current.id.uuidString)
@@ -2011,7 +2144,7 @@ class SupabaseService: ObservableObject {
         let ids = rows.map(\.friendId)
         if ids.isEmpty { return [] }
 
-        let friends: [UserProfile] = try await client.database
+        let friends: [UserProfile] = try await client
             .from("user_profiles")
             .select()
             .in("id", values: ids)
@@ -2053,7 +2186,7 @@ class SupabaseService: ObservableObject {
             expiresAt: Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
         )
         
-        try await client.database
+        try await client
             .from("group_invitations")
             .insert(invitation)
             .execute()
@@ -2074,7 +2207,7 @@ class SupabaseService: ObservableObject {
         let userId = authUser.id
         
         // 嘗試獲取現有餘額
-        let balanceResponse: [UserBalance] = try await client.database
+        let balanceResponse: [UserBalance] = try await client
             .from("user_balances")
             .select()
             .eq("user_id", value: userId)
@@ -2093,8 +2226,8 @@ class SupabaseService: ObservableObject {
                 updatedAt: Date()
             )
             
-            try await client.database
-                .from("user_balances")
+            try await client
+            .from("user_balances")
                 .insert(newBalance)
                 .execute()
             
@@ -2137,13 +2270,89 @@ class SupabaseService: ObservableObject {
             updatedAt: Date()
         )
         
-        try await client.database
+        try await client
             .from("user_balances")
             .update(updateData)
             .eq("user_id", value: userId)
             .execute()
         
         print("✅ 錢包餘額更新成功: \(currentBalance) → \(newBalance) (變化: \(delta))")
+    }
+    
+    /// 獲取指定用戶的代幣餘額
+    func getUserBalance(userId: UUID) async throws -> Double {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        // 嘗試獲取現有餘額
+        let balanceResponse: [UserBalance] = try await client
+            .from("user_balances")
+            .select()
+            .eq("user_id", value: userId)
+            .execute()
+            .value
+        
+        if let userBalance = balanceResponse.first {
+            return Double(userBalance.balance)
+        } else {
+            // 如果沒有記錄，回傳 0 (不自動創建記錄)
+            return 0.0
+        }
+    }
+    
+    /// 扣除用戶代幣並記錄交易
+    func deductTokens(userId: UUID, amount: Int, description: String) async throws {
+        try await SupabaseManager.shared.ensureInitialized()
+        
+        // 獲取當前餘額
+        let currentBalance = try await getUserBalance(userId: userId)
+        let newBalance = currentBalance - Double(amount)
+        
+        // 確保餘額不會變成負數
+        guard newBalance >= 0 else {
+            throw SupabaseError.insufficientBalance
+        }
+        
+        // 更新餘額
+        struct UserBalanceUpdate: Codable {
+            let balance: Int
+            let updatedAt: Date
+            
+            enum CodingKeys: String, CodingKey {
+                case balance
+                case updatedAt = "updated_at"
+            }
+        }
+        
+        let updateData = UserBalanceUpdate(
+            balance: Int(newBalance),
+            updatedAt: Date()
+        )
+        
+        try await self.client
+            .from("user_balances")
+            .update(updateData)
+            .eq("user_id", value: userId)
+            .execute()
+        
+        // 記錄交易
+        let transaction = WalletTransaction(
+            id: UUID(),
+            userId: userId,
+            transactionType: "deduction",
+            amount: -amount, // 負數表示扣除
+            description: description,
+            status: "completed",
+            paymentMethod: "system",
+            blockchainId: nil,
+            createdAt: Date()
+        )
+        
+        try await self.client
+            .from("wallet_transactions")
+            .insert(transaction)
+            .execute()
+        
+        print("✅ 成功扣除 \(amount) 代幣，餘額: \(currentBalance) → \(newBalance)")
     }
     
     // MARK: - Subscription Management
@@ -2159,7 +2368,7 @@ class SupabaseService: ObservableObject {
         let userId = authUser.id
         
         // 查詢是否有有效的訂閱記錄
-        let subscriptions: [Subscription] = try await client.database
+        let subscriptions: [Subscription] = try await client
             .from("subscriptions")
             .select()
             .eq("user_id", value: userId)
@@ -2234,7 +2443,7 @@ class SupabaseService: ObservableObject {
             amountPaid: Int(subscriptionFee)
         )
         
-        try await client.database
+        try await client
             .from("subscriptions")
             .insert(subscriptionData)
             .execute()
@@ -2253,7 +2462,7 @@ class SupabaseService: ObservableObject {
         let userId = authUser.id
         
         // 檢查是否已經記錄過這篇文章的閱讀（同一用戶/文章只記錄一次）
-        let existingViews: [ArticleView] = try await client.database
+        let existingViews: [ArticleView] = try await client
             .from("article_views")
             .select()
             .eq("article_id", value: articleId.uuidString)
@@ -2292,7 +2501,7 @@ class SupabaseService: ObservableObject {
             readingTimeSeconds: readingTimeSeconds
         )
         
-        try await client.database
+        try await client
             .from("article_views")
             .insert(viewRecord)
             .execute()
@@ -2313,7 +2522,7 @@ class SupabaseService: ObservableObject {
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? Date()
         
         // 查詢今日免費文章閱讀記錄
-        let todayViews: [ArticleView] = try await client.database
+        let todayViews: [ArticleView] = try await client
             .from("article_views")
             .select()
             .eq("user_id", value: userId)
@@ -2337,7 +2546,7 @@ class SupabaseService: ObservableObject {
         let userId = authUser.id
         
         // 檢查是否已經記錄過這篇文章的閱讀
-        let existingViews: [ArticleView] = try await client.database
+        let existingViews: [ArticleView] = try await client
             .from("article_views")
             .select()
             .eq("article_id", value: articleId.uuidString)
@@ -2376,7 +2585,7 @@ class SupabaseService: ObservableObject {
             readingTimeSeconds: readingTimeSeconds
         )
         
-        try await client.database
+        try await client
             .from("article_views")
             .insert(viewRecord)
             .execute()
@@ -2407,7 +2616,7 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        let authors: [AuthorInfo] = try await client.database
+        let authors: [AuthorInfo] = try await client
             .from("articles")
             .select("author_id, author")
             .eq("is_free", value: false)
@@ -2438,7 +2647,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.notAuthenticated
         }
         
-        let subscriptions: [PlatformSubscription] = try await client.database
+        let subscriptions: [PlatformSubscription] = try await client
             .from("platform_subscriptions")
             .select("*")
             .eq("user_id", value: currentUser.id.uuidString)
@@ -2458,7 +2667,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.notAuthenticated
         }
         
-        let subscriptions: [PlatformSubscription] = try await client.database
+        let subscriptions: [PlatformSubscription] = try await client
             .from("platform_subscriptions")
             .select("*")
             .eq("user_id", value: currentUser.id.uuidString)
@@ -2549,7 +2758,7 @@ class SupabaseService: ObservableObject {
             updatedAt: formatter.string(from: now)
         )
         
-        let insertedSubscriptions: [PlatformSubscription] = try await client.database
+        let insertedSubscriptions: [PlatformSubscription] = try await client
             .from("platform_subscriptions")
             .insert(subscriptionToInsert)
             .select()
@@ -2597,7 +2806,7 @@ class SupabaseService: ObservableObject {
         let today = Calendar.current.startOfDay(for: Date())
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? Date()
         
-        let existingReads: [ArticleReadRecord] = try await client.database
+        let existingReads: [ArticleReadRecord] = try await client
             .from("article_read_records")
             .select("id")
             .eq("user_id", value: currentUser.id.uuidString)
@@ -2646,7 +2855,7 @@ class SupabaseService: ObservableObject {
             createdAt: formatter.string(from: now)
         )
         
-        let _: [ArticleReadRecord] = try await client.database
+        let _: [ArticleReadRecord] = try await client
             .from("article_read_records")
             .insert(readRecord)
             .select()
@@ -2701,7 +2910,7 @@ class SupabaseService: ObservableObject {
             createdAt: DateFormatter.iso8601.string(from: Date())
         )
         
-        let _ = try await client.database
+        let _ = try await client
             .from("wallet_transactions")
             .insert(transactionData)
             .execute()
@@ -2724,8 +2933,8 @@ class SupabaseService: ObservableObject {
             }
             
             // 直接使用 rpc 調用來檢查
-            let result: [SimpleResult] = try await client.database
-                .rpc("check_user_exists", params: ["user_id": uuidString])
+            let result: [SimpleResult] = try await client
+            .rpc("check_user_exists", params: ["user_id": uuidString])
                 .execute()
                 .value
             
@@ -2743,8 +2952,8 @@ class SupabaseService: ObservableObject {
                     let username: String?
                 }
                 
-                let users: [UserProfile] = try await client.database
-                    .from("user_profiles")
+                let users: [UserProfile] = try await client
+            .from("user_profiles")
                     .select("id, username")
                     .eq("id", value: uuidString)
                     .limit(1)
@@ -2782,6 +2991,123 @@ class SupabaseService: ObservableObject {
             
         return urlResponse
     }
+    
+    // MARK: - 測試群組管理
+    
+    /// 創建真實的測試群組數據
+    func createRealTestGroups() async throws {
+        try await SupabaseManager.shared.ensureInitialized()
+        
+        // 定義五個群組
+        let groupsData = [
+            ("林老師的投資群組", "專業股票分析，適合新手投資者", 1),
+            ("黃老師的投資群組", "中階投資策略分享", 10),
+            ("張老師的投資群組", "高階投資技術分析", 100),
+            ("徐老師的投資群組", "專業期貨與選擇權討論", 150),
+            ("王老師的投資群組", "頂級投資組合管理", 500)
+        ]
+        
+        // 先刪除現有的測試群組
+        try await self.client
+            .from("investment_groups")
+            .delete()
+            .like("name", value: "%老師的投資群組%")
+            .execute()
+        
+        // 創建新的群組
+        for (name, description, tokenCost) in groupsData {
+            // Create a database-compatible struct that only includes existing columns
+            struct DatabaseGroup: Codable {
+                let id: UUID
+                let name: String
+                let host: String
+                let returnRate: Double
+                let entryFee: String?
+                let memberCount: Int
+                let category: String?
+                let createdAt: Date
+                let updatedAt: Date
+                
+                enum CodingKeys: String, CodingKey {
+                    case id
+                    case name
+                    case host
+                    case returnRate = "return_rate"
+                    case entryFee = "entry_fee"
+                    case memberCount = "member_count"
+                    case category
+                    case createdAt = "created_at"
+                    case updatedAt = "updated_at"
+                }
+            }
+            
+            let dbGroup = DatabaseGroup(
+                id: UUID(),
+                name: name,
+                host: name.replacingOccurrences(of: "的投資群組", with: ""),
+                returnRate: Double.random(in: 5.0...25.0),
+                entryFee: tokenCost > 0 ? "\(tokenCost) 代幣" : nil,
+                memberCount: 0,
+                category: "投資群組",
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            
+            try await self.client
+                .from("investment_groups")
+                .insert(dbGroup)
+                .execute()
+            
+            print("✅ 創建群組: \(name) - \(tokenCost) 代幣")
+        }
+        
+        print("✅ 所有測試群組創建完成")
+    }
+    
+    /// 清空所有聊天內容
+    func clearAllChatMessages() async throws {
+        try await SupabaseManager.shared.ensureInitialized()
+        
+        // 刪除所有聊天訊息
+        try await self.client
+            .from("chat_messages")
+            .delete()
+            .neq("id", value: "00000000-0000-0000-0000-000000000000") // 刪除所有記錄
+            .execute()
+        
+        print("✅ 已清空所有聊天內容")
+    }
+    
+    /// 清理所有測試和假資料群組
+    func clearAllDummyGroups() async throws {
+        try await SupabaseManager.shared.ensureInitialized()
+        
+        do {
+            // 刪除所有包含測試關鍵字的群組
+            let testKeywords = [
+                "%老師的投資群組%",
+                "%科技股投資俱樂部%", 
+                "%價值投資學院%",
+                "%AI科技前瞻%", 
+                "%加密貨幣先鋒%", 
+                "%綠能投資團%"
+            ]
+            
+            for keyword in testKeywords {
+                try await client
+                    .from("investment_groups")
+                    .delete()
+                    .like("name", value: keyword)
+                    .execute()
+            }
+            
+            print("✅ [SupabaseService] 所有測試群組已清理")
+            
+        } catch {
+            print("❌ [SupabaseService] 清理測試群組失敗: \(error)")
+            throw SupabaseError.from(error)
+        }
+    }
 }
 
 // MARK: - 輔助資料結構
@@ -2801,6 +3127,7 @@ struct GroupMemberResponse: Codable {
     }
 }
 
+// MARK: - Supporting Structures
 struct WalletTransactionQuery: Codable {
     let amount: Double
     let transactionType: String

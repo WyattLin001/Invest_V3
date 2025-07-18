@@ -20,32 +20,38 @@ struct HomeView: View {
     @State private var showSuccessAlert = false
     @State private var showInsufficientBalanceAlert = false
     @State private var showWalletView = false
+    @State private var showCreateGroupView = false
     
 
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 0) {
-                    // 頂部餘額列 (Safe-area top 54 pt)
-                    balanceHeader
-                    
-                    // 邀請 Banner (B線功能)
-                    invitationBanner
-                    
-                    // 排行榜區塊 (替換原來的冠軍輪播)
-                    rankingSection
-                    
-                    // 群組列表
-                    groupsList
+            ZStack {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // 頂部餘額列 (Safe-area top 54 pt)
+                        balanceHeader
+                        
+                        // 邀請 Banner (B線功能)
+                        invitationBanner
+                        
+                        // 排行榜區塊 (替換原來的冠軍輪播)
+                        rankingSection
+                        
+                        // 群組列表
+                        groupsList
+                    }
                 }
+                .background(Color.gray100)
+                .navigationBarHidden(true)
+                .ignoresSafeArea(.container, edges: .top) // 忽略頂部安全區域
+                .refreshable {
+                    await viewModel.loadData()
+                    await loadWalletBalance()
+                }
+                
+                // 創建群組浮動按鈕
+                createGroupFloatingButton
             }
-            .background(Color.gray100)
-            .navigationBarHidden(true)
-            .ignoresSafeArea(.container, edges: .top) // 忽略頂部安全區域
-                    .refreshable {
-            await viewModel.loadData()
-            await loadWalletBalance()
-        }
             .sheet(isPresented: $showNotifications) {
                 NotificationView()
             }
@@ -56,6 +62,9 @@ struct HomeView: View {
                 if let user = selectedRankingUser {
                     JoinGroupRequestView(user: user)
                 }
+            }
+            .sheet(isPresented: $showCreateGroupView) {
+                CreateGroupView()
             }
         }
         .alert("錯誤", isPresented: $showErrorAlert) {
@@ -104,6 +113,11 @@ struct HomeView: View {
                 // 第一次載入時初始化測試數據
                 await viewModel.initializeTestData()
                 await loadWalletBalance()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshGroupsList"))) { _ in
+            Task {
+                await viewModel.loadData()
             }
         }
     }
@@ -377,6 +391,42 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
         .padding(.horizontal, 32)
+    }
+    
+    // MARK: - Create Group Floating Button
+    private var createGroupFloatingButton: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                
+                Button(action: {
+                    showCreateGroupView = true
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 18, weight: .semibold))
+                        
+                        Text("創建群組")
+                            .font(.body.weight(.semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.brandPrimary, Color.brandPrimary.opacity(0.8)]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(25)
+                    .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 100) // 避免與底部 Tab Bar 重疊
+            }
+        }
     }
 }
 
