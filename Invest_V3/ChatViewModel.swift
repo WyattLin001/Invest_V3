@@ -104,6 +104,17 @@ class ChatViewModel: ObservableObject {
             .compactMap { $0 }
             .sink { [weak self] groupId in self?.onGroupSelected(groupId) }
             .store(in: &cancellables)
+        
+        // 監聽群組切換通知
+        NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToChatTab"))
+            .sink { [weak self] notification in
+                if let groupId = notification.object as? UUID {
+                    Task { @MainActor in
+                        await self?.handleGroupSwitchNotification(groupId: groupId)
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
     
     deinit {
@@ -261,16 +272,18 @@ class ChatViewModel: ObservableObject {
         Task {
             do {
                 let groups = try await supabaseService.fetchUserJoinedGroups()
-                if groups.isEmpty {
-                    self.joinedGroups = createMockGroups()
-                } else {
-                    self.joinedGroups = groups
-                }
+                self.joinedGroups = groups
                 self.filterGroups()
                 self.isLoadingGroups = false
+                
+                if groups.isEmpty {
+                    print("ℹ️ 用戶尚未加入任何群組")
+                } else {
+                    print("✅ 載入了 \(groups.count) 個已加入的群組")
+                }
             } catch {
                 handleError(error, context: "載入群組失敗")
-                self.joinedGroups = createMockGroups() // Fallback
+                self.joinedGroups = [] // 改為空陣列，不使用假資料
                 self.filterGroups()
                 self.isLoadingGroups = false
             }
@@ -429,6 +442,22 @@ class ChatViewModel: ObservableObject {
 
     // MARK: - UI Logic
     
+    /// 處理從 HomeView 來的群組切換通知
+    func handleGroupSwitchNotification(groupId: UUID) async {
+        // 先載入用戶的群組列表
+        loadJoinedGroups(forceReload: true)
+        
+        // 尋找對應的群組
+        if let group = joinedGroups.first(where: { $0.id == groupId }) {
+            // 切換到該群組
+            selectGroup(group)
+            
+            print("✅ 已切換到群組: \(group.name)")
+        } else {
+            print("⚠️ 找不到群組 ID: \(groupId)")
+        }
+    }
+    
     func selectGroup(_ group: InvestmentGroup) {
         self.selectedGroup = group
         self.selectedGroupId = group.id
@@ -536,9 +565,9 @@ class ChatViewModel: ObservableObject {
     
     private func createMockGroups() -> [InvestmentGroup] {
         return [
-            InvestmentGroup(id: UUID(), name: "科技股投資俱樂部", host: "張投資", returnRate: 15.5, entryFee: "10 代幣", memberCount: 25, category: "科技股", rules: "專注於台灣科技股，禁止投機短線操作，每日最多交易3次", createdAt: Date(), updatedAt: Date()),
-            InvestmentGroup(id: UUID(), name: "價值投資學院", host: "李分析師", returnRate: 12.3, entryFee: "20 代幣", memberCount: 18, category: "價值投資", rules: "長期持有策略，最少持股期間30天，重視基本面分析", createdAt: Date(), updatedAt: Date()),
-            InvestmentGroup(id: UUID(), name: "AI科技前瞻", host: "林未來", returnRate: 22.1, entryFee: "50 代幣", memberCount: 8, category: "科技股", rules: "專注AI、半導體相關股票，需定期分享投資心得", createdAt: Date(), updatedAt: Date())
+            InvestmentGroup(id: UUID(), name: "科技股投資俱樂部", host: "張投資", returnRate: 15.5, entryFee: "10 代幣", memberCount: 25, category: "科技股", rules: "專注於台灣科技股，禁止投機短線操作，每日最多交易3次", tokenCost: 10, createdAt: Date(), updatedAt: Date()),
+            InvestmentGroup(id: UUID(), name: "價值投資學院", host: "李分析師", returnRate: 12.3, entryFee: "20 代幣", memberCount: 18, category: "價值投資", rules: "長期持有策略，最少持股期間30天，重視基本面分析", tokenCost: 20, createdAt: Date(), updatedAt: Date()),
+            InvestmentGroup(id: UUID(), name: "AI科技前瞻", host: "林未來", returnRate: 22.1, entryFee: "50 代幣", memberCount: 8, category: "科技股", rules: "專注AI、半導體相關股票，需定期分享投資心得", tokenCost: 50, createdAt: Date(), updatedAt: Date())
         ]
     }
     

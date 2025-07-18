@@ -9,8 +9,56 @@ struct InvestmentGroup: Codable, Identifiable {
     let memberCount: Int
     let category: String?
     let rules: String?  // 新增群組規定欄位
+    let tokenCost: Int  // 加入群組需要的代幣數量
     let createdAt: Date
     let updatedAt: Date
+    
+    // Custom initializer for decoding with default values
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        host = try container.decode(String.self, forKey: .host)
+        returnRate = try container.decode(Double.self, forKey: .returnRate)
+        entryFee = try container.decodeIfPresent(String.self, forKey: .entryFee)
+        memberCount = try container.decode(Int.self, forKey: .memberCount)
+        category = try container.decodeIfPresent(String.self, forKey: .category)
+        
+        // Handle missing columns with default values  
+        rules = try container.decodeIfPresent(String.self, forKey: .rules) ?? "投資群組規則"
+        
+        // Parse token cost from entryFee string (e.g., "10 代幣" -> 10)
+        // Since tokenCost column doesn't exist in DB, always parse from entryFee
+        tokenCost = Self.parseTokenCost(from: entryFee)
+        
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    }
+    
+    // Helper method to parse token cost from entryFee string
+    private static func parseTokenCost(from entryFee: String?) -> Int {
+        guard let fee = entryFee else { return 0 }
+        
+        // Extract numbers from strings like "10 代幣", "100 代幣", etc.
+        let numbers = fee.components(separatedBy: CharacterSet.decimalDigits.inverted).compactMap { Int($0) }
+        return numbers.first ?? 0
+    }
+    
+    // Regular initializer for creating new instances
+    init(id: UUID, name: String, host: String, returnRate: Double, entryFee: String?, memberCount: Int, category: String?, rules: String?, tokenCost: Int, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.name = name
+        self.host = host
+        self.returnRate = returnRate
+        self.entryFee = entryFee
+        self.memberCount = memberCount
+        self.category = category
+        self.rules = rules
+        self.tokenCost = tokenCost
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
     
     // 為了向後兼容，提供預設值
     var description: String { "投資群組" }

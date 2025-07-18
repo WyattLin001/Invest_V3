@@ -11,7 +11,6 @@ enum RankingPeriod: String, CaseIterable {
 @MainActor
 class HomeViewModel: ObservableObject {
     @Published var investmentGroups: [InvestmentGroup] = []
-    @Published var filteredGroups: [InvestmentGroup] = []
     @Published var joinedIds: Set<UUID> = []
     @Published var weeklyRankings: [RankingUser] = []
     @Published var quarterlyRankings: [RankingUser] = []
@@ -19,6 +18,7 @@ class HomeViewModel: ObservableObject {
     @Published var selectedPeriod: RankingPeriod = .weekly
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var successMessage: String?
     
     // B線邀請功能
     @Published var pendingInvitations: [GroupInvitation] = []
@@ -65,94 +65,20 @@ class HomeViewModel: ObservableObject {
     
     // MARK: - 載入投資群組
     private func loadInvestmentGroups() async throws {
-        // 由於目前沒有真實資料，使用模擬資料
-        let mockGroups = [
-            InvestmentGroup(
-                id: UUID(),
-                name: "科技股投資俱樂部",
-                host: "張投資",
-                returnRate: 15.5,
-                entryFee: "10 代幣",
-                memberCount: 25,
-                category: "科技股",
-                rules: "專注於台灣科技股，禁止投機短線操作，每日最多交易3次",
-                createdAt: Date(),
-                updatedAt: Date()
-            ),
-            InvestmentGroup(
-                id: UUID(),
-                name: "價值投資學院",
-                host: "李分析師",
-                returnRate: 12.3,
-                entryFee: "20 代幣",
-                memberCount: 18,
-                category: "價值投資",
-                rules: "長期持有策略，最少持股期間30天，重視基本面分析",
-                createdAt: Date(),
-                updatedAt: Date()
-            ),
-            InvestmentGroup(
-                id: UUID(),
-                name: "加密貨幣先鋒",
-                host: "王區塊",
-                returnRate: 28.7,
-                entryFee: "30 代幣",
-                memberCount: 12,
-                category: "短期投機",
-                rules: "高風險高報酬，允許槓桿交易，需有相關經驗",
-                createdAt: Date(),
-                updatedAt: Date()
-            ),
-            InvestmentGroup(
-                id: UUID(),
-                name: "綠能投資團",
-                host: "陳環保",
-                returnRate: 8.9,
-                entryFee: nil,
-                memberCount: 35,
-                category: "綠能",
-                rules: "僅投資ESG相關綠能股票，追求永續發展理念",
-                createdAt: Date(),
-                updatedAt: Date()
-            ),
-            InvestmentGroup(
-                id: UUID(),
-                name: "AI科技前瞻",
-                host: "林未來",
-                returnRate: 22.1,
-                entryFee: "50 代幣",
-                memberCount: 8,
-                category: "科技股",
-                rules: "專注AI、半導體相關股票，需定期分享投資心得",
-                createdAt: Date(),
-                updatedAt: Date()
-            )
-        ]
-        
-        self.investmentGroups = mockGroups
-        self.filteredGroups = mockGroups
+        // 從 Supabase 載入真實的投資群組資料
+        let groups = try await supabaseService.fetchInvestmentGroups()
+        self.investmentGroups = groups
+        print("✅ 已載入 \(groups.count) 個投資群組")
     }
     
     // MARK: - 載入所有排行榜
     private func loadAllRankings() async throws {
-        // 模擬資料，實際應該從 Supabase 獲取不同時間週期的排行榜
-        self.weeklyRankings = [
-            RankingUser(name: "投資大師Tom", returnRate: 18.5, rank: 1),
-            RankingUser(name: "環保投資者Lisa", returnRate: 12.3, rank: 2),
-            RankingUser(name: "快手Kevin", returnRate: 25.7, rank: 3)
-        ]
+        // 排行榜功能暫時返回空陣列，等待後端實作
+        self.weeklyRankings = []
+        self.quarterlyRankings = []
+        self.yearlyRankings = []
         
-        self.quarterlyRankings = [
-            RankingUser(name: "穩健投資王", returnRate: 45.2, rank: 1),
-            RankingUser(name: "科技股女王", returnRate: 38.9, rank: 2),
-            RankingUser(name: "價值投資者", returnRate: 32.1, rank: 3)
-        ]
-        
-        self.yearlyRankings = [
-            RankingUser(name: "年度投資王", returnRate: 125.8, rank: 1),
-            RankingUser(name: "長期持有者", returnRate: 98.4, rank: 2),
-            RankingUser(name: "分散投資專家", returnRate: 87.3, rank: 3)
-        ]
+        print("ℹ️ 排行榜功能暫未實作，顯示空資料")
     }
     
     // MARK: - 切換排行榜週期
@@ -160,29 +86,67 @@ class HomeViewModel: ObservableObject {
         selectedPeriod = period
     }
     
-    // MARK: - 篩選群組
-    func filterGroups(by category: String) {
-        if category == "全部" {
-            filteredGroups = investmentGroups
-        } else {
-            filteredGroups = investmentGroups.filter { group in
-                group.category?.contains(category) == true
-            }
-        }
-    }
     
     // MARK: - 加入群組
     func joinGroup(_ groupId: UUID) async {
         do {
+            // 先獲取群組資訊以顯示正確的代幣費用
+            let group = investmentGroups.first(where: { $0.id == groupId })
+            let groupName = group?.name ?? "群組"
+            let tokenCost = group?.tokenCost ?? 0
+            
             try await SupabaseService.shared.joinGroup(groupId)
             print("✅ Joined group: \(groupId)")
             
             // 重新載入已加入群組列表
             await refreshJoinedGroups()
             
+            // 設定成功訊息
+            await MainActor.run {
+                self.successMessage = "成功加入\(groupName)！已扣除 \(tokenCost) 代幣"
+            }
+            
+            // 發送通知切換到聊天 Tab 並直接進入該群組
+            NotificationCenter.default.post(
+                name: NSNotification.Name("SwitchToChatTab"), 
+                object: groupId
+            )
+            
         } catch {
-            errorMessage = "加入群組失敗: \(error.localizedDescription)"
+            let errorMsg: String
+            if let supabaseError = error as? SupabaseError {
+                errorMsg = supabaseError.localizedDescription
+            } else {
+                errorMsg = "加入群組失敗: \(error.localizedDescription)"
+            }
+            
+            await MainActor.run {
+                self.errorMessage = errorMsg
+            }
             print("❌ Join failed: \(error)")
+        }
+    }
+    
+    // MARK: - 初始化測試數據
+    func initializeTestData() async {
+        do {
+            // 創建真實的群組數據
+            try await SupabaseService.shared.createRealTestGroups()
+            
+            // 清空聊天內容
+            try await SupabaseService.shared.clearAllChatMessages()
+            
+            // 重新載入群組數據
+            await loadData()
+            
+            await MainActor.run {
+                self.successMessage = "測試數據初始化完成！"
+            }
+            
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "初始化測試數據失敗: \(error.localizedDescription)"
+            }
         }
     }
     
@@ -250,7 +214,7 @@ class HomeViewModel: ObservableObject {
             
             let update = InvitationUpdate(status: "declined")
             
-            try await supabaseService.client.database
+            try await supabaseService.client
                 .from("group_invitations")
                 .update(update)
                 .eq("id", value: invitation.id.uuidString)

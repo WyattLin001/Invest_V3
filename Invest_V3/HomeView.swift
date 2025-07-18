@@ -9,7 +9,6 @@ import SwiftUI
 struct HomeView: View {
     @StateObject var viewModel = HomeViewModel()
     @StateObject private var supabaseService = SupabaseService.shared
-    @State var selectedCategory = "全部"
     @State private var showNotifications = false // 通知彈窗狀態
     @State private var showSearch = false // 搜尋彈窗狀態
     @State private var showJoinGroupSheet = false
@@ -17,8 +16,11 @@ struct HomeView: View {
     @State private var selectedGroup: InvestmentGroup?
     @State private var walletBalance: Double = 0.0
     @State private var isLoadingBalance = false
+    @State private var showErrorAlert = false
+    @State private var showSuccessAlert = false
+    @State private var showInsufficientBalanceAlert = false
+    @State private var showWalletView = false
     
-    let categories = ["全部", "科技股", "綠能", "短期投機", "價值投資"]
 
     var body: some View {
         NavigationView {
@@ -32,9 +34,6 @@ struct HomeView: View {
                     
                     // 排行榜區塊 (替換原來的冠軍輪播)
                     rankingSection
-                    
-                    // 類別篩選 (46×32 pt items)
-                    categoryFilter
                     
                     // 群組列表
                     groupsList
@@ -59,9 +58,51 @@ struct HomeView: View {
                 }
             }
         }
+        .alert("錯誤", isPresented: $showErrorAlert) {
+            Button("確定", role: .cancel) {
+                viewModel.errorMessage = nil
+            }
+        } message: {
+            Text(viewModel.errorMessage ?? "發生未知錯誤")
+        }
+        .alert("成功", isPresented: $showSuccessAlert) {
+            Button("確定", role: .cancel) {
+                viewModel.successMessage = nil
+            }
+        } message: {
+            Text(viewModel.successMessage ?? "操作成功")
+        }
+        .alert("餘額不足", isPresented: $showInsufficientBalanceAlert) {
+            Button("去加值", role: .none) {
+                showWalletView = true
+                viewModel.errorMessage = nil
+            }
+            Button("取消", role: .cancel) {
+                viewModel.errorMessage = nil
+            }
+        } message: {
+            Text("您的代幣餘額不足以加入此群組。是否前往加值？")
+        }
+        .sheet(isPresented: $showWalletView) {
+            WalletView()
+        }
+        .onReceive(viewModel.$errorMessage) { errorMessage in
+            if let errorMessage = errorMessage {
+                // 檢查是否為餘額不足錯誤
+                if errorMessage.contains("餘額不足") {
+                    showInsufficientBalanceAlert = true
+                } else {
+                    showErrorAlert = true
+                }
+            }
+        }
+        .onReceive(viewModel.$successMessage) { successMessage in
+            showSuccessAlert = successMessage != nil
+        }
         .onAppear {
             Task {
-                await viewModel.loadData()
+                // 第一次載入時初始化測試數據
+                await viewModel.initializeTestData()
                 await loadWalletBalance()
             }
         }
@@ -192,56 +233,37 @@ struct HomeView: View {
         .background(Color.white)
     }
     
-    // MARK: - 類別篩選
-    var categoryFilter: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(categories, id: \.self) { category in
-                    CategoryChip(
-                        title: category,
-                        isSelected: selectedCategory == category
-                    ) {
-                        selectedCategory = category
-                        viewModel.filterGroups(by: category)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("分類篩選")
-        .accessibilityHint("橫向滑動瀏覽不同投資分類")
-        .padding(.vertical, 12)
-        .background(Color.white)
-        .overlay(
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(.gray300),
-            alignment: .bottom
-        )
-    }
     
     // MARK: - 群組列表
     var groupsList: some View {
         LazyVStack(spacing: 16) { // 增加群組間距
-            ForEach(viewModel.filteredGroups) { group in
-                GroupCard(
-                    group: group,
-                    isJoined: viewModel.joinedIds.contains(group.id)
-                ) {
-                    // 加入群組動作
-                    selectedGroup = group
-                    Task {
-                        await viewModel.joinGroup(group.id)
-                        // 成功加入後自動跳轉到聊天室
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("SwitchToChatTab"),
-                            object: group.id
-                        )
-                        // 無障礙聲明
-                        await MainActor.run {
-                            UIAccessibility.post(notification: .announcement, 
-                                               argument: "成功加入 \(group.name) 群組")
+            if viewModel.isLoading {
+                // 載入中狀態
+                loadingStateView
+            } else if viewModel.investmentGroups.isEmpty {
+                // 空狀態
+                emptyStateView
+            } else {
+                // 正常顯示群組列表
+                ForEach(viewModel.investmentGroups) { group in
+                    GroupCard(
+                        group: group,
+                        isJoined: viewModel.joinedIds.contains(group.id)
+                    ) {
+                        // 加入群組動作
+                        selectedGroup = group
+                        Task {
+                            await viewModel.joinGroup(group.id)
+                            // 成功加入後自動跳轉到聊天室
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("SwitchToChatTab"),
+                                object: group.id
+                            )
+                            // 無障礙聲明
+                            await MainActor.run {
+                                UIAccessibility.post(notification: .announcement, 
+                                                   argument: "成功加入 \(group.name) 群組")
+                            }
                         }
                     }
                 }
@@ -300,6 +322,61 @@ struct HomeView: View {
                 print("❌ [HomeView] 假充值失敗: \(error.localizedDescription)")
             }
         }
+    }
+    
+    // MARK: - Empty & Loading States
+    
+    var loadingStateView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.2)
+                .tint(.brandPrimary)
+            
+            Text("載入投資群組中...")
+                .font(.headline)
+                .foregroundColor(.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
+    
+    var emptyStateView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "person.2.circle")
+                .font(.system(size: 60))
+                .foregroundColor(.gray400)
+            
+            VStack(spacing: 8) {
+                Text("目前沒有可加入的投資群組")
+                    .font(.headline)
+                    .foregroundColor(.textPrimary)
+                
+                Text("請稍後再來看看，或邀請朋友一起創建群組！")
+                    .font(.body)
+                    .foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Button(action: {
+                Task {
+                    await viewModel.loadData()
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("重新載入")
+                }
+                .font(.body.weight(.medium))
+                .foregroundColor(.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(Color.brandPrimary)
+                .cornerRadius(8)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+        .padding(.horizontal, 32)
     }
 }
 
@@ -612,29 +689,6 @@ struct JoinGroupRequestView: View {
     }
 }
 
-// MARK: - 類別標籤
-struct CategoryChip: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .padding(.horizontal, 12) // 增加水平內距
-                .padding(.vertical, 8) // 增加垂直內距
-                .background(isSelected ? Color.brandGreen : Color.gray200)
-                .foregroundColor(isSelected ? .white : .gray600)
-                .cornerRadius(16) // 增加圓角半徑
-        }
-        // 移除固定寬度限制，讓文字自然顯示
-        .fixedSize(horizontal: true, vertical: false)
-        .accessibilityLabel(isSelected ? "目前篩選：\(title)" : "篩選：\(title)")
-        .accessibilityHint("切換到\(title)分類的投資群組")
-    }
-}
 
 // MARK: - HomeView 擴展
 extension HomeView {
