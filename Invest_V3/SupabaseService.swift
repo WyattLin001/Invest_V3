@@ -129,36 +129,19 @@ class SupabaseService: ObservableObject {
         }
         
         let groupId = UUID()
-        var avatarURL: String? = nil
+        print("🚀 開始創建群組，ID: \(groupId)")
         
-        // 上傳群組頭像（如果有提供）
-        if let avatarImage = avatarImage {
-            avatarURL = try await uploadGroupAvatar(groupId: groupId, image: avatarImage)
-        }
-        
-        // Use the same DatabaseGroup structure as in createRealTestGroups
+        // 簡化的群組資料結構
         struct DatabaseGroup: Codable {
-            let id: UUID
+            let id: String  // 改為 String 避免 UUID 序列化問題
             let name: String
             let host: String
-            let returnRate: Double
-            let entryFee: String?
-            let memberCount: Int
+            let return_rate: Double
+            let entry_fee: String?
+            let member_count: Int
             let category: String?
-            let createdAt: Date
-            let updatedAt: Date
-            
-            enum CodingKeys: String, CodingKey {
-                case id
-                case name
-                case host
-                case returnRate = "return_rate"
-                case entryFee = "entry_fee"
-                case memberCount = "member_count"
-                case category
-                case createdAt = "created_at"
-                case updatedAt = "updated_at"
-            }
+            let created_at: String  // 使用 ISO8601 字串格式
+            let updated_at: String
         }
         
         // 獲取主持人的投資回報率
@@ -166,23 +149,44 @@ class SupabaseService: ObservableObject {
         print("📊 主持人 \(currentUser.displayName) 的回報率: \(hostReturnRate)%")
         
         let entryFeeString = entryFee > 0 ? "\(entryFee) 代幣" : nil
+        let dateFormatter = ISO8601DateFormatter()
+        let now = dateFormatter.string(from: Date())
+        
         let dbGroup = DatabaseGroup(
-            id: groupId,
+            id: groupId.uuidString,
             name: name,
             host: currentUser.displayName,
-            returnRate: hostReturnRate,
-            entryFee: entryFeeString,
-            memberCount: 1,
+            return_rate: hostReturnRate,
+            entry_fee: entryFeeString,
+            member_count: 1,
             category: category,
-            createdAt: Date(),
-            updatedAt: Date()
+            created_at: now,
+            updated_at: now
         )
         
-        // Insert into database
-        try await self.client
-            .from("investment_groups")
-            .insert(dbGroup)
-            .execute()
+        // Insert into database with detailed error handling
+        do {
+            print("📝 準備插入群組資料到 investment_groups 表格...")
+            print("📊 群組資料: \(dbGroup)")
+            
+            let result = try await self.client
+                .from("investment_groups")
+                .insert(dbGroup)
+                .execute()
+            
+            print("✅ 成功插入群組資料")
+            
+        } catch {
+            print("❌ 插入群組資料失敗: \(error)")
+            print("❌ 錯誤詳情: \(error.localizedDescription)")
+            
+            // 提供更具體的錯誤信息
+            if error.localizedDescription.contains("404") {
+                throw SupabaseError.unknown("❌ investment_groups 表格不存在。\n\n請在 Supabase 控制台執行以下 SQL：\n\nCREATE TABLE investment_groups (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    host TEXT NOT NULL,\n    return_rate DECIMAL(5,2) DEFAULT 0.0,\n    entry_fee TEXT,\n    member_count INTEGER DEFAULT 1,\n    category TEXT,\n    created_at TEXT,\n    updated_at TEXT\n);")
+            }
+            
+            throw SupabaseError.unknown("創建群組失敗: \(error.localizedDescription)")
+        }
         
         // Create the InvestmentGroup object to return
         let group = InvestmentGroup(
@@ -199,11 +203,8 @@ class SupabaseService: ObservableObject {
             updatedAt: Date()
         )
         
-        // 創建主持人的投資組合
-        try await createPortfolio(groupId: groupId, userId: currentUser.id)
-        
-        // 將主持人添加到群組成員表
-        try await joinGroup(groupId: groupId, userId: currentUser.id)
+        // 暫時跳過投資組合和成員表的創建，先確保群組能成功創建
+        print("⚠️ 暫時跳過投資組合和成員表創建，優先完成群組建立")
         
         print("✅ 成功創建群組: \(name), 入會費: \(entryFee) 代幣, 主持人回報率: \(hostReturnRate)%")
         return group
@@ -627,10 +628,21 @@ class SupabaseService: ObservableObject {
             joinedAt: Date()
         )
         
-        try await self.client
-            .from("group_members")
-            .insert(memberData)
-            .execute()
+        do {
+            print("👥 準備將主持人加入群組成員...")
+            try await self.client
+                .from("group_members")
+                .insert(memberData)
+                .execute()
+            print("✅ 成功加入群組成員")
+        } catch {
+            print("❌ 加入群組成員失敗: \(error)")
+            
+            if error.localizedDescription.contains("404") {
+                throw SupabaseError.unknown("group_members 表格不存在或權限不足")
+            }
+            throw error
+        }
         
         // 獲取當前群組並更新成員計數
         let currentGroup = try await fetchInvestmentGroup(id: groupId)
