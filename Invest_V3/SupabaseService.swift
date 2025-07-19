@@ -3043,6 +3043,7 @@ struct GroupMemberResponse: Codable {
     }
 }
 
+extension SupabaseService {
     // MARK: - Trading Rankings
     
     /// 獲取投資排行榜資料
@@ -3069,7 +3070,7 @@ struct GroupMemberResponse: Codable {
             }
         }
         
-        let tradingUsers: [TradingUserData] = try await client
+        let tradingUsers: [TradingUserData] = try await self.client
             .from("trading_users")
             .select("id, name, cumulative_return, total_assets, total_profit, avatar_url, created_at")
             .eq("is_active", value: true)
@@ -3119,7 +3120,7 @@ struct GroupMemberResponse: Codable {
             }
         }
         
-        let users: [TradingUserData] = try await client
+        let users: [TradingUserData] = try await self.client
             .from("trading_users")
             .select("id, name, cumulative_return, total_assets, total_profit, cash_balance, avatar_url")
             .eq("id", value: userId)
@@ -3132,7 +3133,7 @@ struct GroupMemberResponse: Codable {
         }
         
         // 獲取用戶排名
-        let allUsers: [TradingUserData] = try await client
+        let allUsers: [TradingUserData] = try await self.client
             .from("trading_users")
             .select("cumulative_return")
             .eq("is_active", value: true)
@@ -3172,7 +3173,7 @@ struct GroupMemberResponse: Codable {
         ]
         
         for tableName in tablesToClear {
-            try await client
+            try await self.client
                 .from(tableName)
                 .delete()
                 .neq("id", value: "00000000-0000-0000-0000-000000000000")
@@ -3252,7 +3253,7 @@ struct GroupMemberResponse: Codable {
                 updatedAt: ISO8601DateFormatter().string(from: Date())
             )
             
-            try await client
+            try await self.client
                 .from("trading_users")
                 .insert(userRecord)
                 .execute()
@@ -3301,7 +3302,7 @@ struct GroupMemberResponse: Codable {
         }
         
         if !snapshots.isEmpty {
-            try await client
+            try await self.client
                 .from("trading_performance_snapshots")
                 .insert(snapshots)
                 .execute()
@@ -3325,6 +3326,7 @@ struct GroupMemberResponse: Codable {
         
         print("✅ 排名系統測試資料初始化完成！")
     }
+}
 
 // MARK: - Supporting Structures for Trading Rankings
 

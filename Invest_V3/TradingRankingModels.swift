@@ -144,8 +144,8 @@ enum RankingPeriod: String, CaseIterable {
     }
 }
 
-/// 排行榜回應資料
-struct RankingsResponse: Codable {
+/// 投資排行榜回應資料
+struct TradingRankingsResponse: Codable {
     let success: Bool
     let rankings: [TradingUserRanking]
     let period: String

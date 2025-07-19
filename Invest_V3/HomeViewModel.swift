@@ -80,7 +80,7 @@ class HomeViewModel: ObservableObject {
         
         // 重新載入排行榜資料
         Task {
-            await loadTradingRankings()
+            try? await loadTradingRankings()
         }
     }
     
