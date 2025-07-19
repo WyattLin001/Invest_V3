@@ -418,67 +418,20 @@ class DatabaseService:
             ).eq('is_active', True).order('cumulative_return', desc=True).limit(limit).execute()
             
             if not result.data:
-                # 如果沒有資料，返回預設的測試資料
-                rankings = [
-                    {
-                        'rank': 1,
-                        'userId': 'test1',
-                        'name': 'test王',
-                        'returnRate': 25.8,
-                        'totalAssets': 1258000,
-                        'totalProfit': 258000,
-                        'avatarUrl': None,
-                        'period': period
-                    },
-                    {
-                        'rank': 2,
-                        'userId': 'test2', 
-                        'name': 'test徐',
-                        'returnRate': 22.3,
-                        'totalAssets': 1223000,
-                        'totalProfit': 223000,
-                        'avatarUrl': None,
-                        'period': period
-                    },
-                    {
-                        'rank': 3,
-                        'userId': 'test3',
-                        'name': 'test張',
-                        'returnRate': 19.7,
-                        'totalAssets': 1197000,
-                        'totalProfit': 197000,
-                        'avatarUrl': None,
-                        'period': period
-                    },
-                    {
-                        'rank': 4,
-                        'userId': 'test4',
-                        'name': 'test林',
-                        'returnRate': 17.2,
-                        'totalAssets': 1172000,
-                        'totalProfit': 172000,
-                        'avatarUrl': None,
-                        'period': period
-                    },
-                    {
-                        'rank': 5,
-                        'userId': 'test5',
-                        'name': 'test黃',
-                        'returnRate': 15.6,
-                        'totalAssets': 1156000,
-                        'totalProfit': 156000,
-                        'avatarUrl': None,
+                # 如果沒有資料，自動初始化測試資料
+                init_result = self.initialize_test_trading_data()
+                if init_result['success']:
+                    # 重新查詢資料
+                    result = self.supabase.table('trading_users').select(
+                        'id, name, cumulative_return, total_assets, total_profit, avatar_url, created_at'
+                    ).eq('is_active', True).order('cumulative_return', desc=True).limit(limit).execute()
+                else:
+                    return {
+                        'success': False,
+                        'error': '無法初始化測試資料',
+                        'rankings': [],
                         'period': period
                     }
-                ]
-                
-                return {
-                    'success': True,
-                    'period': period,
-                    'rankings': rankings,
-                    'totalUsers': len(rankings),
-                    'message': 'Using default test data'
-                }
             
             # 轉換資料格式
             rankings = []
@@ -567,4 +520,170 @@ class DatabaseService:
             
         except Exception as e:
             logger.error(f"Error processing referral: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def clear_all_trading_test_data(self) -> Dict:
+        """清除所有交易測試資料"""
+        try:
+            # 清除 trading_performance_snapshots
+            self.supabase.table('trading_performance_snapshots').delete().neq('id', '00000000-0000-0000-0000-000000000000').execute()
+            
+            # 清除 trading_leaderboard  
+            self.supabase.table('trading_leaderboard').delete().neq('id', '00000000-0000-0000-0000-000000000000').execute()
+            
+            # 清除 trading_users (除了有真實用戶 ID 的)
+            self.supabase.table('trading_users').delete().like('id', 'test%').execute()
+            
+            logger.info("✅ 已清除所有交易測試資料")
+            return {'success': True, 'message': '成功清除所有測試資料'}
+            
+        except Exception as e:
+            logger.error(f"❌ 清除測試資料失敗: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def create_test_trading_users(self) -> Dict:
+        """創建標準化的測試交易用戶"""
+        try:
+            test_users = [
+                {
+                    'id': 'test_user_001',
+                    'name': 'test王',
+                    'phone': '+886900000001', 
+                    'email': 'test.wang@example.com',
+                    'cumulative_return': 25.8,
+                    'total_assets': 1258000,
+                    'total_profit': 258000,
+                    'cash_balance': 300000,
+                    'is_active': True,
+                    'created_at': datetime.now().isoformat()
+                },
+                {
+                    'id': 'test_user_002',
+                    'name': 'test徐',
+                    'phone': '+886900000002',
+                    'email': 'test.xu@example.com', 
+                    'cumulative_return': 22.3,
+                    'total_assets': 1223000,
+                    'total_profit': 223000,
+                    'cash_balance': 280000,
+                    'is_active': True,
+                    'created_at': datetime.now().isoformat()
+                },
+                {
+                    'id': 'test_user_003',
+                    'name': 'test張',
+                    'phone': '+886900000003',
+                    'email': 'test.zhang@example.com',
+                    'cumulative_return': 19.7,
+                    'total_assets': 1197000,
+                    'total_profit': 197000,
+                    'cash_balance': 250000,
+                    'is_active': True,
+                    'created_at': datetime.now().isoformat()
+                },
+                {
+                    'id': 'test_user_004',
+                    'name': 'test林',
+                    'phone': '+886900000004',
+                    'email': 'test.lin@example.com',
+                    'cumulative_return': 17.2,
+                    'total_assets': 1172000,
+                    'total_profit': 172000,
+                    'cash_balance': 220000,
+                    'is_active': True,
+                    'created_at': datetime.now().isoformat()
+                },
+                {
+                    'id': 'test_user_005',
+                    'name': 'test黃',
+                    'phone': '+886900000005',
+                    'email': 'test.huang@example.com',
+                    'cumulative_return': 15.6,
+                    'total_assets': 1156000,
+                    'total_profit': 156000,
+                    'cash_balance': 200000,
+                    'is_active': True,
+                    'created_at': datetime.now().isoformat()
+                }
+            ]
+            
+            # 插入測試用戶
+            result = self.supabase.table('trading_users').upsert(test_users).execute()
+            
+            # 為每個用戶創建績效快照
+            for user in test_users:
+                self._create_performance_snapshots(user)
+            
+            logger.info(f"✅ 成功創建 {len(test_users)} 個測試交易用戶")
+            return {
+                'success': True, 
+                'message': f'成功創建 {len(test_users)} 個測試用戶',
+                'users_created': len(test_users)
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ 創建測試用戶失敗: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _create_performance_snapshots(self, user_data: Dict):
+        """為用戶創建30天的績效快照資料"""
+        try:
+            snapshots = []
+            base_return = user_data['cumulative_return']
+            
+            # 創建過去30天的資料
+            for i in range(30, 0, -1):
+                snapshot_date = (datetime.now() - timedelta(days=i)).date()
+                
+                # 模擬漸進式的回報率增長
+                daily_return = base_return * (30 - i + 1) / 30
+                daily_assets = 1000000 + (daily_return / 100 * 1000000)
+                daily_profit = daily_assets - 1000000
+                
+                snapshots.append({
+                    'user_id': user_data['id'],
+                    'snapshot_date': snapshot_date.isoformat(),
+                    'total_assets': daily_assets,
+                    'total_profit': daily_profit,
+                    'cumulative_return': daily_return,
+                    'cash_balance': user_data['cash_balance'],
+                    'created_at': datetime.now().isoformat()
+                })
+            
+            # 插入績效快照
+            self.supabase.table('trading_performance_snapshots').upsert(snapshots).execute()
+            logger.info(f"✅ 為用戶 {user_data['name']} 創建了 {len(snapshots)} 天的績效資料")
+            
+        except Exception as e:
+            logger.error(f"❌ 創建績效快照失敗: {e}")
+    
+    def initialize_test_trading_data(self) -> Dict:
+        """完整初始化測試交易資料 - 清除舊資料並創建新資料"""
+        try:
+            # 1. 清除所有舊的測試資料
+            clear_result = self.clear_all_trading_test_data()
+            if not clear_result['success']:
+                return clear_result
+            
+            # 2. 創建新的測試用戶
+            create_result = self.create_test_trading_users()
+            if not create_result['success']:
+                return create_result
+            
+            logger.info("🎉 排名系統測試資料初始化完成！")
+            return {
+                'success': True,
+                'message': '排名系統測試資料初始化完成！已創建5個標準測試用戶',
+                'details': {
+                    'users_created': 5,
+                    'snapshots_created': 150,  # 5 users × 30 days
+                    'test_users': [
+                        'test王 (25.8%)', 'test徐 (22.3%)', 'test張 (19.7%)', 
+                        'test林 (17.2%)', 'test黃 (15.6%)'
+                    ]
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ 初始化測試資料失敗: {e}")
             return {'success': False, 'error': str(e)}

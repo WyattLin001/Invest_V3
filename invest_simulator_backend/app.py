@@ -177,6 +177,30 @@ def get_rankings():
         logger.error(f"Error getting rankings: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/api/rankings/initialize', methods=['POST'])
+@jwt_required()
+def initialize_ranking_data():
+    """初始化排名系統測試資料"""
+    try:
+        result = db_service.initialize_test_trading_data()
+        logger.info(f"排名資料初始化結果: {result}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error initializing ranking data: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/rankings/clear', methods=['POST'])
+@jwt_required()
+def clear_test_data():
+    """清除測試資料"""
+    try:
+        result = db_service.clear_all_trading_test_data()
+        logger.info(f"測試資料清除結果: {result}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error clearing test data: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/performance', methods=['GET'])
 @jwt_required()
 def get_performance():
