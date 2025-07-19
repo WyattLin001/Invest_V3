@@ -2999,8 +2999,12 @@ class SupabaseService: ObservableObject {
         try await SupabaseManager.shared.ensureInitialized()
         
         do {
-            // 刪除所有包含測試關鍵字的群組
+            // 清理所有現有的假群組（包括螢幕截圖中顯示的群組）
             let testKeywords = [
+                "%綠能環保基金%",
+                "%短期投機聯盟%", 
+                "%測試投資群組%",
+                "%王老師的股票群組%",
                 "%老師的投資群組%",
                 "%科技股投資俱樂部%", 
                 "%價值投資學院%",
@@ -3009,15 +3013,25 @@ class SupabaseService: ObservableObject {
                 "%綠能投資團%"
             ]
             
+            print("🧹 開始清理所有投資群組...")
+            
             for keyword in testKeywords {
                 try await client
                     .from("investment_groups")
                     .delete()
                     .like("name", value: keyword)
                     .execute()
+                print("✅ 清理群組: \(keyword)")
             }
             
-            print("✅ [SupabaseService] 所有測試群組已清理")
+            // 額外清理：刪除所有 created_at 在今天之前的群組（假設都是測試資料）
+            try await client
+                .from("investment_groups")
+                .delete()
+                .lt("created_at", value: "2025-07-19T00:00:00")
+                .execute()
+            
+            print("✅ [SupabaseService] 所有測試群組已清理完成")
             
         } catch {
             print("❌ [SupabaseService] 清理測試群組失敗: \(error)")

@@ -201,6 +201,30 @@ def clear_test_data():
         logger.error(f"Error clearing test data: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/groups/clear', methods=['POST'])
+@jwt_required()
+def clear_all_groups():
+    """清除所有投資群組"""
+    try:
+        result = db_service.clear_all_investment_groups()
+        logger.info(f"群組清除結果: {result}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error clearing groups: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/groups/reset', methods=['POST'])
+@jwt_required()
+def reset_groups_system():
+    """完全重置群組系統"""
+    try:
+        result = db_service.initialize_clean_groups_system()
+        logger.info(f"群組系統重置結果: {result}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error resetting groups system: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/performance', methods=['GET'])
 @jwt_required()
 def get_performance():

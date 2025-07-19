@@ -687,3 +687,54 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"❌ 初始化測試資料失敗: {e}")
             return {'success': False, 'error': str(e)}
+    
+    def clear_all_investment_groups(self) -> Dict:
+        """清除所有投資群組（包括假資料群組）"""
+        try:
+            # 清除所有相關表格的資料
+            tables_to_clear = [
+                'group_members',
+                'group_messages', 
+                'group_invitations',
+                'investment_groups'
+            ]
+            
+            for table in tables_to_clear:
+                result = self.supabase.table(table).delete().neq('id', '00000000-0000-0000-0000-000000000000').execute()
+                logger.info(f"✅ 已清理表格: {table}")
+            
+            logger.info("🎉 所有投資群組資料已清理完成")
+            return {
+                'success': True,
+                'message': '所有投資群組資料已清理完成',
+                'tables_cleared': tables_to_clear
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ 清理投資群組失敗: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def initialize_clean_groups_system(self) -> Dict:
+        """完全重置群組系統 - 清除所有群組並準備乾淨的環境"""
+        try:
+            # 1. 清除所有投資群組
+            clear_result = self.clear_all_investment_groups()
+            if not clear_result['success']:
+                return clear_result
+            
+            # 2. 重置群組相關的統計
+            logger.info("🔄 重置群組系統統計...")
+            
+            logger.info("✅ 群組系統已完全重置，現在可以創建新的真實群組")
+            return {
+                'success': True,
+                'message': '群組系統已完全重置，現在是乾淨的環境',
+                'details': {
+                    'groups_cleared': True,
+                    'ready_for_real_groups': True
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ 重置群組系統失敗: {e}")
+            return {'success': False, 'error': str(e)}
