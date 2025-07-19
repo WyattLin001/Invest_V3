@@ -87,11 +87,23 @@ class CreateGroupViewModel: ObservableObject {
     
     // MARK: - Group Creation
     func createGroup() async {
-        guard isFormValid else { return }
+        guard isFormValid else { 
+            await showErrorMessage("請完整填寫所有必填欄位")
+            return 
+        }
         
         isCreating = true
         
         do {
+            // 檢查用戶登入狀態
+            guard let currentUser = supabaseService.getCurrentUser() else {
+                await showErrorMessage("請先登入後再創建群組")
+                isCreating = false
+                return
+            }
+            
+            print("📝 開始創建群組: \(groupName), 主持人: \(currentUser.displayName)")
+            
             // 檢查群組名稱是否重複
             if try await isGroupNameTaken(groupName) {
                 await showErrorMessage("群組名稱已存在，請選擇其他名稱")
@@ -108,15 +120,13 @@ class CreateGroupViewModel: ObservableObject {
                 avatarImage: selectedAvatarImage
             )
             
-            print("✅ 群組創建成功: \(group.name)")
+            print("✅ 群組創建成功: \(group.name), ID: \(group.id)")
             
-            // 清理數據庫中的假資料
-            try await supabaseService.clearAllDummyGroups()
-            
-            // 成功處理
+            // 成功處理 - 直接進入聊天畫面
             await handleCreationSuccess(groupId: group.id)
             
         } catch {
+            print("❌ 創建群組失敗: \(error)")
             await handleCreationError(error)
         }
         
@@ -131,12 +141,10 @@ class CreateGroupViewModel: ObservableObject {
     }
     
     private func handleCreationSuccess(groupId: UUID) async {
+        print("🎉 準備進入新創建的群組聊天畫面: \(groupId)")
+        
         // 顯示成功動畫
         showSuccessAnimation = true
-        
-        // 短暫延遲後顯示成功對話框
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 秒
-        showSuccess = true
         
         // 發送通知切換到聊天 Tab 並進入新群組
         NotificationCenter.default.post(
@@ -149,6 +157,10 @@ class CreateGroupViewModel: ObservableObject {
             name: NSNotification.Name("RefreshGroupsList"),
             object: nil
         )
+        
+        // 短暫延遲後關閉創建群組畫面
+        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 秒
+        showSuccess = true // 這會觸發關閉
     }
     
     private func handleCreationError(_ error: Error) async {

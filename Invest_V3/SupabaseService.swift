@@ -161,12 +161,16 @@ class SupabaseService: ObservableObject {
             }
         }
         
+        // 獲取主持人的投資回報率
+        let hostReturnRate = await getHostReturnRate(userId: currentUser.id)
+        print("📊 主持人 \(currentUser.displayName) 的回報率: \(hostReturnRate)%")
+        
         let entryFeeString = entryFee > 0 ? "\(entryFee) 代幣" : nil
         let dbGroup = DatabaseGroup(
             id: groupId,
             name: name,
             host: currentUser.displayName,
-            returnRate: 0.0,
+            returnRate: hostReturnRate,
             entryFee: entryFeeString,
             memberCount: 1,
             category: category,
@@ -185,7 +189,7 @@ class SupabaseService: ObservableObject {
             id: groupId,
             name: name,
             host: currentUser.displayName,
-            returnRate: 0.0,
+            returnRate: hostReturnRate,
             entryFee: entryFeeString,
             memberCount: 1,
             category: category,
@@ -201,8 +205,42 @@ class SupabaseService: ObservableObject {
         // 將主持人添加到群組成員表
         try await joinGroup(groupId: groupId, userId: currentUser.id)
         
-        print("✅ 成功創建群組: \(name), 入會費: \(entryFee) 代幣")
+        print("✅ 成功創建群組: \(name), 入會費: \(entryFee) 代幣, 主持人回報率: \(hostReturnRate)%")
         return group
+    }
+    
+    /// 獲取主持人的投資回報率
+    private func getHostReturnRate(userId: UUID) async -> Double {
+        do {
+            // 嘗試從 trading_users 表格獲取用戶的投資回報率
+            struct TradingUserData: Codable {
+                let cumulativeReturn: Double
+                
+                enum CodingKeys: String, CodingKey {
+                    case cumulativeReturn = "cumulative_return"
+                }
+            }
+            
+            let tradingUsers: [TradingUserData] = try await self.client
+                .from("trading_users")
+                .select("cumulative_return")
+                .eq("id", value: userId.uuidString)
+                .limit(1)
+                .execute()
+                .value
+            
+            if let tradingUser = tradingUsers.first {
+                print("📈 找到主持人交易績效: \(tradingUser.cumulativeReturn)%")
+                return tradingUser.cumulativeReturn
+            }
+            
+            print("⚠️ 未找到主持人交易記錄，使用預設回報率")
+            return 0.0
+            
+        } catch {
+            print("❌ 獲取主持人回報率失敗: \(error), 使用預設值")
+            return 0.0
+        }
     }
     
     /// 上傳群組頭像到 Supabase Storage
