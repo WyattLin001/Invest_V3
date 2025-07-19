@@ -641,7 +641,7 @@ struct GroupCard: View {
 
 // MARK: - 加入群組請求視圖
 struct JoinGroupRequestView: View {
-    let user: RankingUser
+    let user: TradingUserRanking
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {

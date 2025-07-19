@@ -15,6 +15,10 @@ struct TradingUserRanking: Identifiable, Codable {
     let avatarUrl: String?
     let period: String // 排名週期: weekly, monthly, all
     
+    enum CodingKeys: String, CodingKey {
+        case id, rank, userId, name, returnRate, totalAssets, totalProfit, avatarUrl, period
+    }
+    
     // 格式化的回報率字串
     var formattedReturnRate: String {
         return String(format: "%.1f%%", returnRate)
