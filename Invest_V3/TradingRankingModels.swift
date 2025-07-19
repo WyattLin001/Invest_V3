@@ -1,10 +1,11 @@
 import Foundation
+import SwiftUI
 
 // MARK: - Trading Ranking Data Models
 
 /// 投資排行榜用戶資料
 struct TradingUserRanking: Identifiable, Codable {
-    let id = UUID()
+    var id = UUID()
     let rank: Int
     let userId: String
     let name: String
@@ -66,11 +67,31 @@ struct TradingUserRanking: Identifiable, Codable {
         default: return "brandPrimary"
         }
     }
+    
+    // 徽章顏色 (SwiftUI Color)
+    var badgeColor: Color {
+        switch rank {
+        case 1: return Color(hex: "#FFD700") // 金色
+        case 2: return Color(hex: "#C0C0C0") // 銀色
+        case 3: return Color(hex: "#CD7F32") // 銅色
+        default: return .gray400
+        }
+    }
+    
+    // 邊框顏色 (SwiftUI Color)
+    var borderColor: Color {
+        switch rank {
+        case 1: return Color(hex: "#FFD700") // 金色
+        case 2: return Color(hex: "#C0C0C0") // 銀色
+        case 3: return Color(hex: "#CD7F32") // 銅色
+        default: return .gray300
+        }
+    }
 }
 
 /// 用戶投資績效資料
 struct TradingUserPerformance: Identifiable, Codable {
-    let id = UUID()
+    var id = UUID()
     let userId: String
     let name: String
     let rank: Int
@@ -128,13 +149,17 @@ struct TradingUserPerformance: Identifiable, Codable {
 /// 排行榜期間枚舉
 enum RankingPeriod: String, CaseIterable {
     case weekly = "週榜"
-    case monthly = "月榜" 
+    case monthly = "月榜"
+    case quarterly = "季榜"
+    case yearly = "年榜"
     case all = "總榜"
     
     var apiValue: String {
         switch self {
         case .weekly: return "weekly"
         case .monthly: return "monthly"
+        case .quarterly: return "quarterly"
+        case .yearly: return "yearly"
         case .all: return "all"
         }
     }

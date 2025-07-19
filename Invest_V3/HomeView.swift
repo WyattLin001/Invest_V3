@@ -12,7 +12,7 @@ struct HomeView: View {
     @State private var showNotifications = false // 通知彈窗狀態
     @State private var showSearch = false // 搜尋彈窗狀態
     @State private var showJoinGroupSheet = false
-    @State private var selectedRankingUser: RankingUser?
+    @State private var selectedRankingUser: TradingUserRanking?
     @State private var selectedGroup: InvestmentGroup?
     @State private var walletBalance: Double = 0.0
     @State private var isLoadingBalance = false
@@ -199,30 +199,49 @@ struct HomeView: View {
     var rankingSection: some View {
         VStack(spacing: 16) {
             // 時間週期選擇按鈕
-            HStack(spacing: 12) {
-                ForEach(RankingPeriod.allCases, id: \.self) { period in
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            viewModel.switchPeriod(to: period)
-                        }
-                    }) {
-                        Text(period.rawValue)
-                            .font(.footnote)
-                            .fontWeight(.medium)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(viewModel.selectedPeriod == period ? Color.brandGreen : Color.gray200)
-                            .foregroundColor(viewModel.selectedPeriod == period ? .white : .gray600)
-                            .cornerRadius(20)
-                    }
-                    .accessibilityLabel(viewModel.selectedPeriod == period ? "目前選擇：\(period.rawValue)" : "切換至\(period.rawValue)")
-                    .accessibilityHint("查看\(period.rawValue)排行榜")
-                }
-                
-                Spacer()
-            }
-            .padding(.horizontal, 16)
+            periodSelectionButtons
             
+            // 排行榜內容區域
+            rankingContentView
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+    }
+    
+    private var periodSelectionButtons: some View {
+        HStack(spacing: 12) {
+            ForEach(RankingPeriod.allCases, id: \.self) { period in
+                periodButton(for: period)
+            }
+        }
+    }
+    
+    private func periodButton(for period: RankingPeriod) -> some View {
+        let isSelected = viewModel.selectedPeriod == period
+        
+        return Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                viewModel.switchPeriod(to: period)
+            }
+        }) {
+            Text(period.rawValue)
+                .font(.footnote)
+                .fontWeight(.medium)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(isSelected ? Color.brandGreen : Color.gray200)
+                .foregroundColor(isSelected ? .white : .gray600)
+                .cornerRadius(20)
+        }
+        .accessibilityLabel(isSelected ? "目前選擇：\(period.rawValue)" : "切換至\(period.rawValue)")
+        .accessibilityHint("查看\(period.rawValue)排行榜")
+    }
+    
+    private var rankingContentView: some View {
+        VStack {
             // 排行榜卡片 - 使用 TabView 實現輪播
             TabView {
                 ForEach(Array(viewModel.currentRankings.prefix(3).enumerated()), id: \.element.id) { index, user in
@@ -230,7 +249,7 @@ struct HomeView: View {
                         selectedRankingUser = user
                         showJoinGroupSheet = true
                     }) {
-                        RankingCard(user: user, selectedPeriod: viewModel.selectedPeriod)
+                        TradingRankingCard(user: user, selectedPeriod: viewModel.selectedPeriod)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -241,10 +260,7 @@ struct HomeView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .automatic))
             .frame(height: 190)
-            .padding(.horizontal, 16)
         }
-        .padding(.vertical, 16)
-        .background(Color.white)
     }
     
     
@@ -430,19 +446,23 @@ struct HomeView: View {
     }
 }
 
-// MARK: - 排行榜卡片
-struct RankingCard: View {
-    let user: RankingUser
+// MARK: - 排行榜卡片  
+struct TradingRankingCard: View {
+    let user: TradingUserRanking
     let selectedPeriod: RankingPeriod
     
     var periodText: String {
         switch selectedPeriod {
         case .weekly:
             return "本週冠軍"
+        case .monthly:
+            return "本月冠軍"
         case .quarterly:
             return "本季冠軍"
         case .yearly:
             return "本年冠軍"
+        case .all:
+            return "總榜冠軍"
         }
     }
     

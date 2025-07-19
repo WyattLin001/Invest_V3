@@ -1,0 +1,2626 @@
+{
+  "project_info": {
+    "name": "Invest_V3",
+    "analysis_date": "2025-07-19 11:34:32.033340",
+    "project_path": "."
+  },
+  "files": {
+    "Invest_V3Tests": {
+      "name": "Invest_V3Tests",
+      "path": "Invest_V3Tests/Invest_V3Tests.swift",
+      "imports": [
+        "Testing"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "Invest_V3Tests"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "Testing"
+      ],
+      "complexity_score": 1,
+      "lines_of_code": 6
+    },
+    "Invest_V3UITestsLaunchTests": {
+      "name": "Invest_V3UITestsLaunchTests",
+      "path": "Invest_V3UITests/Invest_V3UITestsLaunchTests.swift",
+      "imports": [
+        "XCTest"
+      ],
+      "classes": [
+        "Invest_V3UITestsLaunchTests",
+        "var"
+      ],
+      "protocols": [],
+      "structs": [],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "XCTest",
+        "Invest_V3UITests"
+      ],
+      "complexity_score": 1,
+      "lines_of_code": 18
+    },
+    "Invest_V3UITests": {
+      "name": "Invest_V3UITests",
+      "path": "Invest_V3UITests/Invest_V3UITests.swift",
+      "imports": [
+        "XCTest"
+      ],
+      "classes": [
+        "Invest_V3UITests"
+      ],
+      "protocols": [],
+      "structs": [],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "XCTest"
+      ],
+      "complexity_score": 2,
+      "lines_of_code": 19
+    },
+    "TradingMainView": {
+      "name": "TradingMainView",
+      "path": "Invest_V3/TradingMainView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TradingMainView",
+        "TradingHomeView",
+        "UserInfoCard",
+        "PortfolioSummaryCard",
+        "HotStocksSection",
+        "StockCard",
+        "RecentTransactionsSection",
+        "TransactionRow"
+      ],
+      "enums": [],
+      "extensions": [
+        "已在"
+      ],
+      "dependencies": [
+        "Stock",
+        "HomeView",
+        "Portfolio"
+      ],
+      "complexity_score": 7,
+      "lines_of_code": 332
+    },
+    "StockMarketView": {
+      "name": "StockMarketView",
+      "path": "Invest_V3/StockMarketView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "StockMarketView",
+        "SearchBar",
+        "StockListRow",
+        "StockDetailView",
+        "EmptyStateView"
+      ],
+      "enums": [
+        "TradeAction"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Stock"
+      ],
+      "complexity_score": 20,
+      "lines_of_code": 371
+    },
+    "DynamicPieChart": {
+      "name": "DynamicPieChart",
+      "path": "Invest_V3/DynamicPieChart.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "PieChartData",
+        "DynamicPieChart",
+        "DynamicLegendItem",
+        "AssetAllocationCalculator"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "PortfolioView"
+      ],
+      "complexity_score": 18,
+      "lines_of_code": 188
+    },
+    "TradeOrderView": {
+      "name": "TradeOrderView",
+      "path": "Invest_V3/TradeOrderView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TradeOrderView"
+      ],
+      "enums": [
+        "OrderType"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 32,
+      "lines_of_code": 326
+    },
+    "Invest_V3App": {
+      "name": "Invest_V3App",
+      "path": "Invest_V3/Invest_V3App.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "Invest_V3App"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 2,
+      "lines_of_code": 23
+    },
+    "TableEditorView": {
+      "name": "TableEditorView",
+      "path": "Invest_V3/TableEditorView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TableEditorView",
+        "TablePlaceholder"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 2,
+      "lines_of_code": 135
+    },
+    "ChatPortfolioManager": {
+      "name": "ChatPortfolioManager",
+      "path": "Invest_V3/ChatPortfolioManager.swift",
+      "imports": [
+        "Foundation",
+        "SwiftUI"
+      ],
+      "classes": [
+        "ChatPortfolioManager"
+      ],
+      "protocols": [],
+      "structs": [],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "Portfolio"
+      ],
+      "complexity_score": 25,
+      "lines_of_code": 138
+    },
+    "Friend": {
+      "name": "Friend",
+      "path": "Invest_V3/Friend.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "Friend"
+      ],
+      "enums": [
+        "CodingKeys",
+        "FriendStatus"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 9,
+      "lines_of_code": 20
+    },
+    "PublishSettingsSheet": {
+      "name": "PublishSettingsSheet",
+      "path": "Invest_V3/PublishSettingsSheet.swift",
+      "imports": [
+        "SwiftUI",
+        "UniformTypeIdentifiers"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "PublishSettingsSheet",
+        "KeywordBubble",
+        "PublishSettingsSheet_Previews"
+      ],
+      "enums": [
+        "sent",
+        "PublishSheetAction"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "UniformTypeIdentifiers"
+      ],
+      "complexity_score": 24,
+      "lines_of_code": 331
+    },
+    "MediumStyleEditor": {
+      "name": "MediumStyleEditor",
+      "path": "Invest_V3/MediumStyleEditor.swift",
+      "imports": [
+        "SwiftUI",
+        "UIKit",
+        "PhotosUI",
+        "Supabase"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "MediumStyleEditor",
+        "PreviewSheet",
+        "RichTextPreviewView"
+      ],
+      "enums": [
+        "PublishAction"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Supabase",
+        "PublishSettingsView",
+        "PhotosUI"
+      ],
+      "complexity_score": 45,
+      "lines_of_code": 489
+    },
+    "ArticleEditorView": {
+      "name": "ArticleEditorView",
+      "path": "Invest_V3/ArticleEditorView.swift",
+      "imports": [
+        "SwiftUI",
+        "UIKit",
+        "Combine",
+        "Foundation",
+        "PhotosUI",
+        "MarkdownUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ArticleEditorView",
+        "ArticleSettingsView",
+        "ArticlePreviewView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "Article",
+        "SettingsView",
+        "PublishSettingsView",
+        "PhotosUI",
+        "MarkdownUI"
+      ],
+      "complexity_score": 24,
+      "lines_of_code": 578
+    },
+    "SettingsView": {
+      "name": "SettingsView",
+      "path": "Invest_V3/SettingsView.swift",
+      "imports": [
+        "SwiftUI",
+        "UIKit",
+        "PhotosUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "SettingsView",
+        "SettingsView_Previews"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "PhotosUI"
+      ],
+      "complexity_score": 16,
+      "lines_of_code": 409
+    },
+    "SearchView": {
+      "name": "SearchView",
+      "path": "Invest_V3/SearchView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [
+        "SearchViewModel"
+      ],
+      "protocols": [],
+      "structs": [
+        "SearchView",
+        "SearchResultRowView",
+        "SearchResult"
+      ],
+      "enums": [
+        "SearchScope",
+        "SearchResultType"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 41,
+      "lines_of_code": 306
+    },
+    "SimpleMarkdownView": {
+      "name": "SimpleMarkdownView",
+      "path": "Invest_V3/SimpleMarkdownView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "SimpleMarkdownView",
+        "MarkdownElement"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 16,
+      "lines_of_code": 117
+    },
+    "TradingModels": {
+      "name": "TradingModels",
+      "path": "Invest_V3/TradingModels.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TradingUser",
+        "TradingStock",
+        "StockPrice",
+        "TradingPortfolio",
+        "PortfolioPosition",
+        "TradingTransaction",
+        "UserRanking",
+        "OTPResponse",
+        "AuthResponse",
+        "PortfolioResponse",
+        "StocksResponse",
+        "StockPriceResponse",
+        "TransactionsResponse",
+        "TradeResponse",
+        "TransactionDetail",
+        "RankingsResponse",
+        "TradingConstants"
+      ],
+      "enums": [
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Stock",
+        "TradingRankingModels",
+        "Portfolio"
+      ],
+      "complexity_score": 56,
+      "lines_of_code": 251
+    },
+    "GridTableEditorView": {
+      "name": "GridTableEditorView",
+      "path": "Invest_V3/GridTableEditorView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "CellPosition",
+        "GridTableEditorView",
+        "GridTableEditorView_Previews"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "TableEditorView",
+        "Portfolio",
+        "GridTable"
+      ],
+      "complexity_score": 5,
+      "lines_of_code": 148
+    },
+    "UserProfileService": {
+      "name": "UserProfileService",
+      "path": "Invest_V3/UserProfileService.swift",
+      "imports": [
+        "Foundation",
+        "Supabase"
+      ],
+      "classes": [
+        "UserProfileService"
+      ],
+      "protocols": [],
+      "structs": [
+        "UserProfileInsert",
+        "UserProfileUpdate",
+        "GroupMemberCount",
+        "UserStatistics"
+      ],
+      "enums": [
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "SupabaseService",
+        "UserProfile",
+        "Supabase",
+        "InvestmentGroup"
+      ],
+      "complexity_score": 22,
+      "lines_of_code": 182
+    },
+    "ChatMessage": {
+      "name": "ChatMessage",
+      "path": "Invest_V3/ChatMessage.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ChatMessage"
+      ],
+      "enums": [
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 8,
+      "lines_of_code": 33
+    },
+    "TradingRankingModels": {
+      "name": "TradingRankingModels",
+      "path": "Invest_V3/TradingRankingModels.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TradingUserRanking",
+        "TradingUserPerformance",
+        "RankingsResponse"
+      ],
+      "enums": [
+        "RankingPeriod"
+      ],
+      "extensions": [
+        "TradingUserRanking",
+        "TradingUserPerformance"
+      ],
+      "dependencies": [
+        "TradingModels"
+      ],
+      "complexity_score": 37,
+      "lines_of_code": 188
+    },
+    "ArticleView": {
+      "name": "ArticleView",
+      "path": "Invest_V3/ArticleView.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ArticleView"
+      ],
+      "enums": [
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Article"
+      ],
+      "complexity_score": 7,
+      "lines_of_code": 25
+    },
+    "HomeViewModel": {
+      "name": "HomeViewModel",
+      "path": "Invest_V3/HomeViewModel.swift",
+      "imports": [
+        "SwiftUI",
+        "Foundation"
+      ],
+      "classes": [
+        "HomeViewModel"
+      ],
+      "protocols": [],
+      "structs": [
+        "InvitationUpdate",
+        "RankingUser",
+        "WeeklyRanking"
+      ],
+      "enums": [
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "SupabaseService",
+        "HomeView"
+      ],
+      "complexity_score": 29,
+      "lines_of_code": 204
+    },
+    "InfoView": {
+      "name": "InfoView",
+      "path": "Invest_V3/InfoView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "InfoView",
+        "CategoryChip"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 7,
+      "lines_of_code": 173
+    },
+    "ChatViewModel": {
+      "name": "ChatViewModel",
+      "path": "Invest_V3/ChatViewModel.swift",
+      "imports": [
+        "SwiftUI",
+        "Combine",
+        "Supabase"
+      ],
+      "classes": [
+        "ChatViewModel"
+      ],
+      "protocols": [],
+      "structs": [
+        "TestConstants"
+      ],
+      "enums": [
+        "InviteMode"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Supabase",
+        "ChatView"
+      ],
+      "complexity_score": 94,
+      "lines_of_code": 565
+    },
+    "TradingAuthView": {
+      "name": "TradingAuthView",
+      "path": "Invest_V3/TradingAuthView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TradingAuthView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 15,
+      "lines_of_code": 228
+    },
+    "SettingsViewModel": {
+      "name": "SettingsViewModel",
+      "path": "Invest_V3/SettingsViewModel.swift",
+      "imports": [
+        "SwiftUI",
+        "Foundation",
+        "PhotosUI"
+      ],
+      "classes": [
+        "SettingsViewModel"
+      ],
+      "protocols": [],
+      "structs": [
+        "LanguageOption"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "SettingsView",
+        "PhotosUI"
+      ],
+      "complexity_score": 36,
+      "lines_of_code": 262
+    },
+    "Color+Hex": {
+      "name": "Color+Hex",
+      "path": "Invest_V3/Color+Hex.swift",
+      "imports": [
+        "SwiftUI",
+        "UIKit"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "DesignTokens",
+        "RoundedCorner"
+      ],
+      "enums": [],
+      "extensions": [
+        "Color",
+        "View"
+      ],
+      "dependencies": [],
+      "complexity_score": 7,
+      "lines_of_code": 129
+    },
+    "StockService": {
+      "name": "StockService",
+      "path": "Invest_V3/StockService.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [
+        "StockService"
+      ],
+      "protocols": [],
+      "structs": [],
+      "enums": [
+        "StockServiceError"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Stock"
+      ],
+      "complexity_score": 21,
+      "lines_of_code": 115
+    },
+    "PlatformSubscription": {
+      "name": "PlatformSubscription",
+      "path": "Invest_V3/PlatformSubscription.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "PlatformSubscription",
+        "ArticleReadRecord",
+        "AuthorRevenue"
+      ],
+      "enums": [
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Article",
+        "Subscription"
+      ],
+      "complexity_score": 27,
+      "lines_of_code": 73
+    },
+    "MainAppView": {
+      "name": "MainAppView",
+      "path": "Invest_V3/MainAppView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "MainAppView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 4,
+      "lines_of_code": 40
+    },
+    "PublishSettingsView": {
+      "name": "PublishSettingsView",
+      "path": "Invest_V3/PublishSettingsView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "PublishSettingsView",
+        "CategoryButton",
+        "TagBubbleView",
+        "PreviewView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "SettingsView"
+      ],
+      "complexity_score": 14,
+      "lines_of_code": 478
+    },
+    "ToastView": {
+      "name": "ToastView",
+      "path": "Invest_V3/ToastView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ToastView"
+      ],
+      "enums": [],
+      "extensions": [
+        "View"
+      ],
+      "dependencies": [],
+      "complexity_score": 2,
+      "lines_of_code": 44
+    },
+    "TableGridPicker": {
+      "name": "TableGridPicker",
+      "path": "Invest_V3/TableGridPicker.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TableGridPicker",
+        "TableGridPickerSheet",
+        "TableGridPicker_Previews"
+      ],
+      "enums": [],
+      "extensions": [
+        "String"
+      ],
+      "dependencies": [],
+      "complexity_score": 11,
+      "lines_of_code": 196
+    },
+    "GroupAvatarPicker": {
+      "name": "GroupAvatarPicker",
+      "path": "Invest_V3/GroupAvatarPicker.swift",
+      "imports": [
+        "SwiftUI",
+        "PhotosUI",
+        "UIKit"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "GroupAvatarPicker",
+        "PreviewWrapper"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "PhotosUI"
+      ],
+      "complexity_score": 9,
+      "lines_of_code": 215
+    },
+    "EarningsTestApp": {
+      "name": "EarningsTestApp",
+      "path": "Invest_V3/EarningsTestApp.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [
+        "LoadingEarningsViewModel",
+        "ErrorEarningsViewModel"
+      ],
+      "protocols": [],
+      "structs": [
+        "EarningsTestApp",
+        "EarningsTestApp_Previews",
+        "EarningsTestWithMockData",
+        "LoadingEarningsView",
+        "ErrorEarningsView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 1,
+      "lines_of_code": 77
+    },
+    "HomeView": {
+      "name": "HomeView",
+      "path": "Invest_V3/HomeView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "HomeView",
+        "RankingCard",
+        "GroupCard",
+        "JoinGroupRequestView"
+      ],
+      "enums": [],
+      "extensions": [
+        "HomeView"
+      ],
+      "dependencies": [],
+      "complexity_score": 39,
+      "lines_of_code": 696
+    },
+    "FullScreenQRCodeView": {
+      "name": "FullScreenQRCodeView",
+      "path": "Invest_V3/FullScreenQRCodeView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "FullScreenQRCodeView",
+        "FullScreenQRCodeView_Previews"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 1,
+      "lines_of_code": 29
+    },
+    "AuthenticationService": {
+      "name": "AuthenticationService",
+      "path": "Invest_V3/AuthenticationService.swift",
+      "imports": [
+        "Foundation",
+        "Supabase"
+      ],
+      "classes": [
+        "AuthenticationService"
+      ],
+      "protocols": [],
+      "structs": [],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "Supabase"
+      ],
+      "complexity_score": 24,
+      "lines_of_code": 166
+    },
+    "EarningsDesignTokens": {
+      "name": "EarningsDesignTokens",
+      "path": "Invest_V3/EarningsDesignTokens.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [],
+      "enums": [
+        "EarningsDesignTokens"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Color+Hex"
+      ],
+      "complexity_score": 1,
+      "lines_of_code": 25
+    },
+    "UserProfile": {
+      "name": "UserProfile",
+      "path": "Invest_V3/UserProfile.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "UserProfile",
+        "NotificationSettings"
+      ],
+      "enums": [
+        "CodingKeys",
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "SupabaseService"
+      ],
+      "complexity_score": 16,
+      "lines_of_code": 48
+    },
+    "CreateGroupViewModel": {
+      "name": "CreateGroupViewModel",
+      "path": "Invest_V3/CreateGroupViewModel.swift",
+      "imports": [
+        "SwiftUI",
+        "PhotosUI",
+        "UIKit"
+      ],
+      "classes": [
+        "CreateGroupViewModel"
+      ],
+      "protocols": [],
+      "structs": [],
+      "enums": [],
+      "extensions": [
+        "CreateGroupViewModel"
+      ],
+      "dependencies": [
+        "CreateGroupView",
+        "PhotosUI"
+      ],
+      "complexity_score": 24,
+      "lines_of_code": 150
+    },
+    "WalletTransaction": {
+      "name": "WalletTransaction",
+      "path": "Invest_V3/WalletTransaction.swift",
+      "imports": [
+        "Foundation",
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "WalletTransaction",
+        "Gift",
+        "UserBalance"
+      ],
+      "enums": [
+        "CodingKeys",
+        "TransactionType",
+        "TransactionStatus",
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 71,
+      "lines_of_code": 157
+    },
+    "RankingsView": {
+      "name": "RankingsView",
+      "path": "Invest_V3/RankingsView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "RankingsView",
+        "TopRankerCard",
+        "RankingRow",
+        "MyRankingCard"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "HomeView"
+      ],
+      "complexity_score": 15,
+      "lines_of_code": 276
+    },
+    "Portfolio": {
+      "name": "Portfolio",
+      "path": "Invest_V3/Portfolio.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "Portfolio",
+        "Position",
+        "PortfolioWithPositions"
+      ],
+      "enums": [
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 23,
+      "lines_of_code": 94
+    },
+    "AuthorEarningsViewModel": {
+      "name": "AuthorEarningsViewModel",
+      "path": "Invest_V3/AuthorEarningsViewModel.swift",
+      "imports": [
+        "SwiftUI",
+        "Foundation"
+      ],
+      "classes": [
+        "AuthorEarningsViewModel"
+      ],
+      "protocols": [],
+      "structs": [
+        "EarningsData",
+        "ArticleEarning"
+      ],
+      "enums": [
+        "EarningsTimeframe"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Article",
+        "AuthorEarningsView"
+      ],
+      "complexity_score": 36,
+      "lines_of_code": 188
+    },
+    "LoginPromptView": {
+      "name": "LoginPromptView",
+      "path": "Invest_V3/LoginPromptView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "LoginPromptView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 1,
+      "lines_of_code": 43
+    },
+    "InitializeRankingsData": {
+      "name": "InitializeRankingsData",
+      "path": "Invest_V3/InitializeRankingsData.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "InitializeRankingsDataView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 10,
+      "lines_of_code": 146
+    },
+    "PaymentViews": {
+      "name": "PaymentViews",
+      "path": "Invest_V3/PaymentViews.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "PaymentOptionsView",
+        "PaymentMethodView",
+        "PaymentOptionRow",
+        "TokenPackage",
+        "TokenPackageCard",
+        "SuccessAnimationView",
+        "SubscriptionView",
+        "PlatformSubscriptionPlan",
+        "GiftPurchaseView"
+      ],
+      "enums": [],
+      "extensions": [
+        "DateFormatter"
+      ],
+      "dependencies": [
+        "WalletTransaction",
+        "Subscription",
+        "PlatformSubscription"
+      ],
+      "complexity_score": 17,
+      "lines_of_code": 633
+    },
+    "Subscription": {
+      "name": "Subscription",
+      "path": "Invest_V3/Subscription.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "Subscription"
+      ],
+      "enums": [
+        "CodingKeys",
+        "SubscriptionStatus",
+        "SubscriptionType"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 16,
+      "lines_of_code": 46
+    },
+    "Font+Style": {
+      "name": "Font+Style",
+      "path": "Invest_V3/Font+Style.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [],
+      "enums": [],
+      "extensions": [
+        "Font"
+      ],
+      "dependencies": [],
+      "complexity_score": 1,
+      "lines_of_code": 8
+    },
+    "AuthenticationView": {
+      "name": "AuthenticationView",
+      "path": "Invest_V3/AuthenticationView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "AuthenticationView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 8,
+      "lines_of_code": 131
+    },
+    "CreateGroupView": {
+      "name": "CreateGroupView",
+      "path": "Invest_V3/CreateGroupView.swift",
+      "imports": [
+        "SwiftUI",
+        "PhotosUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "CreateGroupView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "PhotosUI"
+      ],
+      "complexity_score": 10,
+      "lines_of_code": 272
+    },
+    "PortfolioService": {
+      "name": "PortfolioService",
+      "path": "Invest_V3/PortfolioService.swift",
+      "imports": [
+        "Foundation",
+        "Supabase",
+        "SwiftUI"
+      ],
+      "classes": [
+        "PortfolioService"
+      ],
+      "protocols": [],
+      "structs": [
+        "PortfolioUpdatePayload",
+        "PortfolioTransaction",
+        "PortfolioItem"
+      ],
+      "enums": [
+        "PortfolioServiceError",
+        "TransactionAction",
+        "CodingKeys"
+      ],
+      "extensions": [
+        "Date"
+      ],
+      "dependencies": [
+        "SupabaseService",
+        "Supabase",
+        "Portfolio"
+      ],
+      "complexity_score": 38,
+      "lines_of_code": 244
+    },
+    "ArticleCardView": {
+      "name": "ArticleCardView",
+      "path": "Invest_V3/ArticleCardView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ArticleCardView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "Article"
+      ],
+      "complexity_score": 4,
+      "lines_of_code": 88
+    },
+    "GiftItem": {
+      "name": "GiftItem",
+      "path": "Invest_V3/GiftItem.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "GiftItem"
+      ],
+      "enums": [],
+      "extensions": [
+        "GiftItem"
+      ],
+      "dependencies": [
+        "WalletTransaction"
+      ],
+      "complexity_score": 1,
+      "lines_of_code": 22
+    },
+    "ArticleDraft": {
+      "name": "ArticleDraft",
+      "path": "Invest_V3/ArticleDraft.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ArticleDraft",
+        "Publication"
+      ],
+      "enums": [],
+      "extensions": [
+        "String",
+        "Publication"
+      ],
+      "dependencies": [
+        "Article"
+      ],
+      "complexity_score": 3,
+      "lines_of_code": 50
+    },
+    "TopicsEditView": {
+      "name": "TopicsEditView",
+      "path": "Invest_V3/TopicsEditView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TopicsEditView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 3,
+      "lines_of_code": 69
+    },
+    "Stock": {
+      "name": "Stock",
+      "path": "Invest_V3/Stock.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "Stock",
+        "TaiwanStocks",
+        "AlphaVantageResponse",
+        "GlobalQuote",
+        "StockHistoryPoint",
+        "PortfolioHolding"
+      ],
+      "enums": [
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Portfolio"
+      ],
+      "complexity_score": 24,
+      "lines_of_code": 107
+    },
+    "NotificationView": {
+      "name": "NotificationView",
+      "path": "Invest_V3/NotificationView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [
+        "NotificationViewModel"
+      ],
+      "protocols": [],
+      "structs": [
+        "NotificationView",
+        "NotificationRowView",
+        "GroupInviteDetailView",
+        "TradingAlertDetailView",
+        "RankingUpdateDetailView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 23,
+      "lines_of_code": 394
+    },
+    "Notification": {
+      "name": "Notification",
+      "path": "Invest_V3/Notification.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "AppNotification"
+      ],
+      "enums": [
+        "CodingKeys",
+        "NotificationType"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 21,
+      "lines_of_code": 47
+    },
+    "TradingAppView": {
+      "name": "TradingAppView",
+      "path": "Invest_V3/TradingAppView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TradingAppView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 6,
+      "lines_of_code": 56
+    },
+    "Int+Formatted": {
+      "name": "Int+Formatted",
+      "path": "Invest_V3/Int+Formatted.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TokenSystem"
+      ],
+      "enums": [],
+      "extensions": [
+        "Int",
+        "Double",
+        "Int"
+      ],
+      "dependencies": [],
+      "complexity_score": 15,
+      "lines_of_code": 88
+    },
+    "ArticleDetailView": {
+      "name": "ArticleDetailView",
+      "path": "Invest_V3/ArticleDetailView.swift",
+      "imports": [
+        "SwiftUI",
+        "MarkdownUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ArticleDetailView",
+        "PlatformMembershipView",
+        "SubscriptionFeatureRow"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "MarkdownUI",
+        "Article",
+        "Subscription"
+      ],
+      "complexity_score": 6,
+      "lines_of_code": 250
+    },
+    "TradingService": {
+      "name": "TradingService",
+      "path": "Invest_V3/TradingService.swift",
+      "imports": [
+        "Foundation",
+        "Combine"
+      ],
+      "classes": [
+        "TradingService"
+      ],
+      "protocols": [],
+      "structs": [],
+      "enums": [
+        "TradingError"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 57,
+      "lines_of_code": 271
+    },
+    "AuthorEarningsView": {
+      "name": "AuthorEarningsView",
+      "path": "Invest_V3/AuthorEarningsView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "AuthorEarningsView",
+        "AuthorEarningsView_Previews",
+        "ScaleButtonStyle"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 5,
+      "lines_of_code": 171
+    },
+    "WalletViewModel": {
+      "name": "WalletViewModel",
+      "path": "Invest_V3/WalletViewModel.swift",
+      "imports": [
+        "SwiftUI",
+        "Foundation"
+      ],
+      "classes": [
+        "WalletViewModel"
+      ],
+      "protocols": [],
+      "structs": [],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "WalletView"
+      ],
+      "complexity_score": 22,
+      "lines_of_code": 250
+    },
+    "GridTable": {
+      "name": "GridTable",
+      "path": "Invest_V3/GridTable.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "GridTable"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 14,
+      "lines_of_code": 52
+    },
+    "SupabaseManager": {
+      "name": "SupabaseManager",
+      "path": "Invest_V3/SupabaseManager.swift",
+      "imports": [
+        "Supabase",
+        "Foundation"
+      ],
+      "classes": [
+        "SupabaseManager"
+      ],
+      "protocols": [],
+      "structs": [],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "Supabase"
+      ],
+      "complexity_score": 11,
+      "lines_of_code": 91
+    },
+    "Article": {
+      "name": "Article",
+      "path": "Invest_V3/Article.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "Article"
+      ],
+      "enums": [
+        "CodingKeys"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 15,
+      "lines_of_code": 66
+    },
+    "ChatView": {
+      "name": "ChatView",
+      "path": "Invest_V3/ChatView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ChatView",
+        "GroupRowView",
+        "ChatBubbleView",
+        "GiftOptionView",
+        "InfoRow"
+      ],
+      "enums": [],
+      "extensions": [
+        "ChatMessage",
+        "ChatView"
+      ],
+      "dependencies": [
+        "ChatMessage",
+        "WalletTransaction"
+      ],
+      "complexity_score": 74,
+      "lines_of_code": 1123
+    },
+    "WalletView": {
+      "name": "WalletView",
+      "path": "Invest_V3/WalletView.swift",
+      "imports": [
+        "SwiftUI",
+        "StoreKit"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "WalletView",
+        "TestTopUpButton",
+        "EarningsSourceMini",
+        "WalletView_Previews"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "StoreKit"
+      ],
+      "complexity_score": 13,
+      "lines_of_code": 503
+    },
+    "DraftsView": {
+      "name": "DraftsView",
+      "path": "Invest_V3/DraftsView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "DraftsView",
+        "DraftRowView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 4,
+      "lines_of_code": 74
+    },
+    "ArticleTemplate": {
+      "name": "ArticleTemplate",
+      "path": "Invest_V3/ArticleTemplate.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [],
+      "enums": [
+        "ArticleTemplate"
+      ],
+      "extensions": [],
+      "dependencies": [
+        "Article"
+      ],
+      "complexity_score": 1,
+      "lines_of_code": 56
+    },
+    "SupabaseError": {
+      "name": "SupabaseError",
+      "path": "Invest_V3/SupabaseError.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [],
+      "enums": [
+        "SupabaseError"
+      ],
+      "extensions": [
+        "SupabaseError"
+      ],
+      "dependencies": [],
+      "complexity_score": 61,
+      "lines_of_code": 133
+    },
+    "ArticleViewModel": {
+      "name": "ArticleViewModel",
+      "path": "Invest_V3/ArticleViewModel.swift",
+      "imports": [
+        "Foundation",
+        "Supabase"
+      ],
+      "classes": [
+        "ArticleViewModel"
+      ],
+      "protocols": [],
+      "structs": [
+        "ArticleData"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "Article",
+        "Supabase",
+        "ArticleView"
+      ],
+      "complexity_score": 6,
+      "lines_of_code": 78
+    },
+    "ContentView": {
+      "name": "ContentView",
+      "path": "Invest_V3/ContentView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ContentView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 3,
+      "lines_of_code": 72
+    },
+    "RichTextView": {
+      "name": "RichTextView",
+      "path": "Invest_V3/RichTextView.swift",
+      "imports": [
+        "SwiftUI",
+        "UIKit",
+        "PhotosUI"
+      ],
+      "classes": [
+        "Coordinator"
+      ],
+      "protocols": [],
+      "structs": [
+        "RichTextView"
+      ],
+      "enums": [],
+      "extensions": [
+        "UIFont"
+      ],
+      "dependencies": [
+        "PhotosUI"
+      ],
+      "complexity_score": 29,
+      "lines_of_code": 273
+    },
+    "PerformanceChart": {
+      "name": "PerformanceChart",
+      "path": "Invest_V3/PerformanceChart.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "PerformanceDataPoint",
+        "PerformanceChart",
+        "PerformanceDataGenerator"
+      ],
+      "enums": [
+        "PerformanceTimeRange"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 38,
+      "lines_of_code": 259
+    },
+    "PieChartView": {
+      "name": "PieChartView",
+      "path": "Invest_V3/PieChartView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "PieChartView",
+        "PieSlice"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 7,
+      "lines_of_code": 83
+    },
+    "TradingView": {
+      "name": "TradingView",
+      "path": "Invest_V3/TradingView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "TradingView",
+        "HotStocksListView",
+        "HoldingsListView",
+        "WatchlistView",
+        "TradingStockRow",
+        "HoldingRow"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "Stock",
+        "TradingModels"
+      ],
+      "complexity_score": 12,
+      "lines_of_code": 191
+    },
+    "PortfolioView": {
+      "name": "PortfolioView",
+      "path": "Invest_V3/PortfolioView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "PortfolioView",
+        "PortfolioOverviewView",
+        "AssetOverviewCard",
+        "PortfolioAnalysisCard",
+        "AnalysisRow",
+        "AssetAllocationCard",
+        "LegendItem",
+        "PerformanceChartCard",
+        "PortfolioHoldingsView",
+        "PortfolioPositionRow",
+        "TransactionHistoryView",
+        "TransactionHistoryRow"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "Stock",
+        "TradingModels",
+        "Portfolio",
+        "PerformanceChart"
+      ],
+      "complexity_score": 18,
+      "lines_of_code": 453
+    },
+    "InvestmentGroup": {
+      "name": "InvestmentGroup",
+      "path": "Invest_V3/InvestmentGroup.swift",
+      "imports": [
+        "Foundation"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "InvestmentGroup",
+        "GroupMember",
+        "GroupInvitation"
+      ],
+      "enums": [
+        "CodingKeys",
+        "CodingKeys",
+        "MemberRole",
+        "CodingKeys",
+        "InvitationStatus"
+      ],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 46,
+      "lines_of_code": 145
+    },
+    "SupabaseService": {
+      "name": "SupabaseService",
+      "path": "Invest_V3/SupabaseService.swift",
+      "imports": [
+        "Foundation",
+        "Supabase",
+        "UIKit"
+      ],
+      "classes": [
+        "SupabaseService"
+      ],
+      "protocols": [],
+      "structs": [
+        "DatabaseGroup",
+        "GroupHostInfo",
+        "ChatMessageInsert",
+        "UserDisplayName",
+        "ChatMessageInsert",
+        "MembershipCheck",
+        "GroupMemberBasic",
+        "MemberCountUpdate",
+        "GroupMemberInsert",
+        "MemberCountUpdate",
+        "ArticleInsertWithMD",
+        "ArticleInsertWithoutTags",
+        "PortfolioInsert",
+        "PortfolioUpdate",
+        "InvitationInsert",
+        "PositionUpdate",
+        "PositionInsert",
+        "TipTransactionInsert",
+        "ChatMessageInsert",
+        "GroupMemberInsert",
+        "GroupHostInfo",
+        "UserDisplayName",
+        "GroupMemberCheck",
+        "GroupMemberCount",
+        "GroupInsert",
+        "UserProfileInsert",
+        "UserProfileInsert",
+        "GroupMemberExistCheck",
+        "InvitationInsert",
+        "InvitationUpdate",
+        "FriendRow",
+        "InvitationInsertById",
+        "BalanceUpdate",
+        "UserBalanceUpdate",
+        "SubscriptionInsert",
+        "ArticleViewInsert",
+        "FreeArticleViewInsert",
+        "AuthorInfo",
+        "PlatformSubscriptionInsert",
+        "ArticleReadRecordInsert",
+        "WalletTransactionInsert",
+        "SimpleResult",
+        "UserProfile",
+        "that",
+        "DatabaseGroup",
+        "GroupMemberQuery",
+        "GroupMemberResponse",
+        "TradingUserData",
+        "TradingUserData",
+        "TradingUserInsert",
+        "TestUserData",
+        "PerformanceSnapshotInsert",
+        "WalletTransactionQuery"
+      ],
+      "enums": [
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys",
+        "CodingKeys"
+      ],
+      "extensions": [
+        "DateFormatter"
+      ],
+      "dependencies": [
+        "HomeViewModel",
+        "Article",
+        "ChatMessage",
+        "UserProfile",
+        "Friend",
+        "UserProfileService",
+        "InvestmentGroup",
+        "Supabase",
+        "PlatformSubscription",
+        "WalletTransaction",
+        "TradingModels",
+        "Portfolio",
+        "Subscription",
+        "ArticleView"
+      ],
+      "complexity_score": 413,
+      "lines_of_code": 2544
+    },
+    "ExpertProfileView": {
+      "name": "ExpertProfileView",
+      "path": "Invest_V3/ExpertProfileView.swift",
+      "imports": [
+        "SwiftUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "ExpertProfileView",
+        "PerformanceMetric",
+        "StatItem",
+        "HoldingItem",
+        "TransactionItem",
+        "TagView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [],
+      "complexity_score": 1,
+      "lines_of_code": 337
+    },
+    "NativeRichTextEditor": {
+      "name": "NativeRichTextEditor",
+      "path": "Invest_V3/NativeRichTextEditor.swift",
+      "imports": [
+        "SwiftUI",
+        "UIKit",
+        "Combine",
+        "Foundation",
+        "PhotosUI",
+        "Supabase",
+        "MarkdownUI"
+      ],
+      "classes": [],
+      "protocols": [],
+      "structs": [
+        "NativeRichTextEditor",
+        "SubtopicsSelectionView"
+      ],
+      "enums": [],
+      "extensions": [],
+      "dependencies": [
+        "MarkdownUI",
+        "Supabase",
+        "PhotosUI"
+      ],
+      "complexity_score": 15,
+      "lines_of_code": 412
+    }
+  },
+  "dependency_graph": {
+    "nodes": [
+      "Invest_V3Tests",
+      "Invest_V3UITestsLaunchTests",
+      "Invest_V3UITests",
+      "TradingMainView",
+      "StockMarketView",
+      "DynamicPieChart",
+      "TradeOrderView",
+      "Invest_V3App",
+      "TableEditorView",
+      "ChatPortfolioManager",
+      "Friend",
+      "PublishSettingsSheet",
+      "MediumStyleEditor",
+      "ArticleEditorView",
+      "SettingsView",
+      "SearchView",
+      "SimpleMarkdownView",
+      "TradingModels",
+      "GridTableEditorView",
+      "UserProfileService",
+      "ChatMessage",
+      "TradingRankingModels",
+      "ArticleView",
+      "HomeViewModel",
+      "InfoView",
+      "ChatViewModel",
+      "TradingAuthView",
+      "SettingsViewModel",
+      "Color+Hex",
+      "StockService",
+      "PlatformSubscription",
+      "MainAppView",
+      "PublishSettingsView",
+      "ToastView",
+      "TableGridPicker",
+      "GroupAvatarPicker",
+      "EarningsTestApp",
+      "HomeView",
+      "FullScreenQRCodeView",
+      "AuthenticationService",
+      "EarningsDesignTokens",
+      "UserProfile",
+      "CreateGroupViewModel",
+      "WalletTransaction",
+      "RankingsView",
+      "Portfolio",
+      "AuthorEarningsViewModel",
+      "LoginPromptView",
+      "InitializeRankingsData",
+      "PaymentViews",
+      "Subscription",
+      "Font+Style",
+      "AuthenticationView",
+      "CreateGroupView",
+      "PortfolioService",
+      "ArticleCardView",
+      "GiftItem",
+      "ArticleDraft",
+      "TopicsEditView",
+      "Stock",
+      "NotificationView",
+      "Notification",
+      "TradingAppView",
+      "Int+Formatted",
+      "ArticleDetailView",
+      "TradingService",
+      "AuthorEarningsView",
+      "WalletViewModel",
+      "GridTable",
+      "SupabaseManager",
+      "Article",
+      "ChatView",
+      "WalletView",
+      "DraftsView",
+      "ArticleTemplate",
+      "SupabaseError",
+      "ArticleViewModel",
+      "ContentView",
+      "RichTextView",
+      "PerformanceChart",
+      "PieChartView",
+      "TradingView",
+      "PortfolioView",
+      "InvestmentGroup",
+      "SupabaseService",
+      "ExpertProfileView",
+      "NativeRichTextEditor"
+    ],
+    "edges": [
+      [
+        "Invest_V3UITestsLaunchTests",
+        "Invest_V3UITests"
+      ],
+      [
+        "TradingMainView",
+        "Stock"
+      ],
+      [
+        "TradingMainView",
+        "HomeView"
+      ],
+      [
+        "TradingMainView",
+        "Portfolio"
+      ],
+      [
+        "StockMarketView",
+        "Stock"
+      ],
+      [
+        "DynamicPieChart",
+        "PortfolioView"
+      ],
+      [
+        "ChatPortfolioManager",
+        "Portfolio"
+      ],
+      [
+        "MediumStyleEditor",
+        "PublishSettingsView"
+      ],
+      [
+        "ArticleEditorView",
+        "Article"
+      ],
+      [
+        "ArticleEditorView",
+        "SettingsView"
+      ],
+      [
+        "ArticleEditorView",
+        "PublishSettingsView"
+      ],
+      [
+        "TradingModels",
+        "Stock"
+      ],
+      [
+        "TradingModels",
+        "TradingRankingModels"
+      ],
+      [
+        "TradingModels",
+        "Portfolio"
+      ],
+      [
+        "GridTableEditorView",
+        "TableEditorView"
+      ],
+      [
+        "GridTableEditorView",
+        "Portfolio"
+      ],
+      [
+        "GridTableEditorView",
+        "GridTable"
+      ],
+      [
+        "UserProfileService",
+        "SupabaseService"
+      ],
+      [
+        "UserProfileService",
+        "UserProfile"
+      ],
+      [
+        "UserProfileService",
+        "InvestmentGroup"
+      ],
+      [
+        "TradingRankingModels",
+        "TradingModels"
+      ],
+      [
+        "ArticleView",
+        "Article"
+      ],
+      [
+        "HomeViewModel",
+        "SupabaseService"
+      ],
+      [
+        "HomeViewModel",
+        "HomeView"
+      ],
+      [
+        "ChatViewModel",
+        "ChatView"
+      ],
+      [
+        "SettingsViewModel",
+        "SettingsView"
+      ],
+      [
+        "StockService",
+        "Stock"
+      ],
+      [
+        "PlatformSubscription",
+        "Article"
+      ],
+      [
+        "PlatformSubscription",
+        "Subscription"
+      ],
+      [
+        "PublishSettingsView",
+        "SettingsView"
+      ],
+      [
+        "EarningsDesignTokens",
+        "Color+Hex"
+      ],
+      [
+        "UserProfile",
+        "SupabaseService"
+      ],
+      [
+        "CreateGroupViewModel",
+        "CreateGroupView"
+      ],
+      [
+        "RankingsView",
+        "HomeView"
+      ],
+      [
+        "AuthorEarningsViewModel",
+        "Article"
+      ],
+      [
+        "AuthorEarningsViewModel",
+        "AuthorEarningsView"
+      ],
+      [
+        "PaymentViews",
+        "WalletTransaction"
+      ],
+      [
+        "PaymentViews",
+        "Subscription"
+      ],
+      [
+        "PaymentViews",
+        "PlatformSubscription"
+      ],
+      [
+        "PortfolioService",
+        "SupabaseService"
+      ],
+      [
+        "PortfolioService",
+        "Portfolio"
+      ],
+      [
+        "ArticleCardView",
+        "Article"
+      ],
+      [
+        "GiftItem",
+        "WalletTransaction"
+      ],
+      [
+        "ArticleDraft",
+        "Article"
+      ],
+      [
+        "Stock",
+        "Portfolio"
+      ],
+      [
+        "ArticleDetailView",
+        "Article"
+      ],
+      [
+        "ArticleDetailView",
+        "Subscription"
+      ],
+      [
+        "WalletViewModel",
+        "WalletView"
+      ],
+      [
+        "ChatView",
+        "ChatMessage"
+      ],
+      [
+        "ChatView",
+        "WalletTransaction"
+      ],
+      [
+        "ArticleTemplate",
+        "Article"
+      ],
+      [
+        "ArticleViewModel",
+        "Article"
+      ],
+      [
+        "ArticleViewModel",
+        "ArticleView"
+      ],
+      [
+        "TradingView",
+        "Stock"
+      ],
+      [
+        "TradingView",
+        "TradingModels"
+      ],
+      [
+        "PortfolioView",
+        "Stock"
+      ],
+      [
+        "PortfolioView",
+        "TradingModels"
+      ],
+      [
+        "PortfolioView",
+        "Portfolio"
+      ],
+      [
+        "PortfolioView",
+        "PerformanceChart"
+      ],
+      [
+        "SupabaseService",
+        "HomeViewModel"
+      ],
+      [
+        "SupabaseService",
+        "Article"
+      ],
+      [
+        "SupabaseService",
+        "ChatMessage"
+      ],
+      [
+        "SupabaseService",
+        "UserProfile"
+      ],
+      [
+        "SupabaseService",
+        "Friend"
+      ],
+      [
+        "SupabaseService",
+        "UserProfileService"
+      ],
+      [
+        "SupabaseService",
+        "InvestmentGroup"
+      ],
+      [
+        "SupabaseService",
+        "PlatformSubscription"
+      ],
+      [
+        "SupabaseService",
+        "WalletTransaction"
+      ],
+      [
+        "SupabaseService",
+        "TradingModels"
+      ],
+      [
+        "SupabaseService",
+        "Portfolio"
+      ],
+      [
+        "SupabaseService",
+        "Subscription"
+      ],
+      [
+        "SupabaseService",
+        "ArticleView"
+      ]
+    ],
+    "cycles": [
+      [
+        "HomeViewModel",
+        "SupabaseService"
+      ],
+      [
+        "SupabaseService",
+        "UserProfile"
+      ],
+      [
+        "SupabaseService",
+        "UserProfileService"
+      ],
+      [
+        "SupabaseService",
+        "UserProfileService",
+        "UserProfile"
+      ],
+      [
+        "TradingRankingModels",
+        "TradingModels"
+      ]
+    ],
+    "layers": {
+      "Tests": [
+        "Invest_V3Tests",
+        "Invest_V3UITestsLaunchTests",
+        "Invest_V3UITests"
+      ],
+      "Views": [
+        "TradingMainView",
+        "StockMarketView",
+        "TradeOrderView",
+        "TableEditorView",
+        "ArticleEditorView",
+        "SettingsView",
+        "SearchView",
+        "SimpleMarkdownView",
+        "GridTableEditorView",
+        "ArticleView",
+        "InfoView",
+        "TradingAuthView",
+        "MainAppView",
+        "PublishSettingsView",
+        "ToastView",
+        "HomeView",
+        "FullScreenQRCodeView",
+        "RankingsView",
+        "LoginPromptView",
+        "AuthenticationView",
+        "CreateGroupView",
+        "ArticleCardView",
+        "TopicsEditView",
+        "NotificationView",
+        "TradingAppView",
+        "ArticleDetailView",
+        "AuthorEarningsView",
+        "ChatView",
+        "WalletView",
+        "DraftsView",
+        "ContentView",
+        "RichTextView",
+        "PieChartView",
+        "TradingView",
+        "PortfolioView",
+        "ExpertProfileView"
+      ],
+      "Other": [
+        "DynamicPieChart",
+        "Friend",
+        "PublishSettingsSheet",
+        "MediumStyleEditor",
+        "TradingModels",
+        "ChatMessage",
+        "TradingRankingModels",
+        "PlatformSubscription",
+        "TableGridPicker",
+        "GroupAvatarPicker",
+        "EarningsDesignTokens",
+        "UserProfile",
+        "WalletTransaction",
+        "Portfolio",
+        "InitializeRankingsData",
+        "PaymentViews",
+        "Subscription",
+        "GiftItem",
+        "ArticleDraft",
+        "Stock",
+        "Notification",
+        "GridTable",
+        "Article",
+        "ArticleTemplate",
+        "SupabaseError",
+        "PerformanceChart",
+        "InvestmentGroup",
+        "NativeRichTextEditor"
+      ],
+      "App": [
+        "Invest_V3App",
+        "EarningsTestApp"
+      ],
+      "Services": [
+        "ChatPortfolioManager",
+        "UserProfileService",
+        "StockService",
+        "AuthenticationService",
+        "PortfolioService",
+        "TradingService",
+        "SupabaseManager",
+        "SupabaseService"
+      ],
+      "ViewModels": [
+        "HomeViewModel",
+        "ChatViewModel",
+        "SettingsViewModel",
+        "CreateGroupViewModel",
+        "AuthorEarningsViewModel",
+        "WalletViewModel",
+        "ArticleViewModel"
+      ],
+      "Extensions": [
+        "Color+Hex",
+        "Font+Style",
+        "Int+Formatted"
+      ]
+    },
+    "metrics": {
+      "total_files": 87,
+      "total_dependencies": 98,
+      "total_lines_of_code": 19592,
+      "average_complexity": 23.21,
+      "dependency_density": 1.13,
+      "most_complex_files": [
+        [
+          "SupabaseService",
+          413
+        ],
+        [
+          "ChatViewModel",
+          94
+        ],
+        [
+          "ChatView",
+          74
+        ],
+        [
+          "WalletTransaction",
+          71
+        ],
+        [
+          "SupabaseError",
+          61
+        ]
+      ],
+      "most_dependent_files": [
+        [
+          "SupabaseService",
+          14
+        ],
+        [
+          "ArticleEditorView",
+          5
+        ],
+        [
+          "UserProfileService",
+          4
+        ],
+        [
+          "PortfolioView",
+          4
+        ],
+        [
+          "TradingMainView",
+          3
+        ]
+      ]
+    }
+  }
+}

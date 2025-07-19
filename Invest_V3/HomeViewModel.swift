@@ -232,41 +232,6 @@ class HomeViewModel: ObservableObject {
     }
 }
 
-// MARK: - 排行榜用戶資料結構
-struct RankingUser: Identifiable {
-    let id = UUID()
-    let name: String
-    let returnRate: Double
-    let rank: Int
-    
-    // 根據排名返回對應的顏色
-    var borderColor: Color {
-        switch rank {
-        case 1: return Color(hex: "#FFD700") // 金色
-        case 2: return Color(hex: "#C0C0C0") // 銀色  
-        case 3: return Color(hex: "#CD7F32") // 銅色
-        default: return .gray300
-        }
-    }
-    
-    // 根據排名返回對應的徽章顏色
-    var badgeColor: Color {
-        switch rank {
-        case 1: return Color(hex: "#FFD700") // 金色
-        case 2: return Color(hex: "#C0C0C0") // 銀色  
-        case 3: return Color(hex: "#CD7F32") // 銅色
-        default: return .gray400
-        }
-    }
-    
-    // 安全的格式化回報率顯示
-    var formattedReturnRate: String {
-        guard returnRate.isFinite && !returnRate.isNaN else {
-            return "0.0%"
-        }
-        return String(format: "%.1f%%", returnRate)
-    }
-}
 
 // MARK: - 週排名資料結構 (保留向後兼容)
 struct WeeklyRanking: Identifiable, Codable {
