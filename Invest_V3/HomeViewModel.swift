@@ -1,21 +1,12 @@
 import SwiftUI
 import Foundation
 
-// MARK: - 排行榜時間週期
-enum RankingPeriod: String, CaseIterable {
-    case weekly = "本週冠軍"
-    case quarterly = "本季冠軍" 
-    case yearly = "本年冠軍"
-}
-
 @MainActor
 class HomeViewModel: ObservableObject {
     @Published var investmentGroups: [InvestmentGroup] = []
     @Published var joinedIds: Set<UUID> = []
-    @Published var weeklyRankings: [RankingUser] = []
-    @Published var quarterlyRankings: [RankingUser] = []
-    @Published var yearlyRankings: [RankingUser] = []
-    @Published var selectedPeriod: RankingPeriod = .weekly
+    @Published var tradingRankings: [TradingUserRanking] = []
+    @Published var selectedPeriod: RankingPeriod = .all
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var successMessage: String?
@@ -27,15 +18,8 @@ class HomeViewModel: ObservableObject {
     private let supabaseService = SupabaseService.shared
     
     // 根據選中的時間週期返回對應的排行榜
-    var currentRankings: [RankingUser] {
-        switch selectedPeriod {
-        case .weekly:
-            return weeklyRankings
-        case .quarterly:
-            return quarterlyRankings
-        case .yearly:
-            return yearlyRankings
-        }
+    var currentRankings: [TradingUserRanking] {
+        return tradingRankings
     }
     
     // MARK: - 初始化資料
@@ -46,7 +30,7 @@ class HomeViewModel: ObservableObject {
         do {
             // 並行載入資料
             async let groupsTask = loadInvestmentGroups()
-            async let rankingsTask = loadAllRankings()
+            async let rankingsTask = loadTradingRankings()
             async let joinedGroupsTask = refreshJoinedGroups()
             async let invitationsTask = loadPendingInvitations()
             
@@ -72,18 +56,32 @@ class HomeViewModel: ObservableObject {
     }
     
     // MARK: - 載入所有排行榜
-    private func loadAllRankings() async throws {
-        // 排行榜功能暫時返回空陣列，等待後端實作
-        self.weeklyRankings = []
-        self.quarterlyRankings = []
-        self.yearlyRankings = []
-        
-        print("ℹ️ 排行榜功能暫未實作，顯示空資料")
+    private func loadTradingRankings() async throws {
+        do {
+            // 從 Supabase 載入真實的投資排行榜資料
+            let rankings = try await supabaseService.fetchTradingRankings(
+                period: selectedPeriod.apiValue,
+                limit: 10
+            )
+            
+            self.tradingRankings = rankings
+            print("✅ 成功載入 \(rankings.count) 筆排行榜資料")
+            
+        } catch {
+            // 如果載入失敗，使用模擬資料
+            print("⚠️ 載入排行榜失敗，使用模擬資料: \(error)")
+            self.tradingRankings = TradingUserRanking.mockRankings()
+        }
     }
     
     // MARK: - 切換排行榜週期
     func switchPeriod(to period: RankingPeriod) {
         selectedPeriod = period
+        
+        // 重新載入排行榜資料
+        Task {
+            await loadTradingRankings()
+        }
     }
     
     

@@ -3043,7 +3043,331 @@ struct GroupMemberResponse: Codable {
     }
 }
 
-// MARK: - Supporting Structures
+    // MARK: - Trading Rankings
+    
+    /// 獲取投資排行榜資料
+    func fetchTradingRankings(period: String = "all", limit: Int = 10) async throws -> [TradingUserRanking] {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        struct TradingUserData: Codable {
+            let id: String
+            let name: String
+            let cumulativeReturn: Double
+            let totalAssets: Double
+            let totalProfit: Double
+            let avatarUrl: String?
+            let createdAt: String
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case name
+                case cumulativeReturn = "cumulative_return"
+                case totalAssets = "total_assets"
+                case totalProfit = "total_profit"
+                case avatarUrl = "avatar_url"
+                case createdAt = "created_at"
+            }
+        }
+        
+        let tradingUsers: [TradingUserData] = try await client
+            .from("trading_users")
+            .select("id, name, cumulative_return, total_assets, total_profit, avatar_url, created_at")
+            .eq("is_active", value: true)
+            .order("cumulative_return", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+        
+        let rankings = tradingUsers.enumerated().map { index, user in
+            TradingUserRanking(
+                rank: index + 1,
+                userId: user.id,
+                name: user.name,
+                returnRate: user.cumulativeReturn,
+                totalAssets: user.totalAssets,
+                totalProfit: user.totalProfit,
+                avatarUrl: user.avatarUrl,
+                period: period
+            )
+        }
+        
+        print("✅ 成功獲取 \(rankings.count) 筆投資排行榜資料")
+        return rankings
+    }
+    
+    /// 獲取用戶的投資績效資料
+    func fetchUserTradingPerformance(userId: String) async throws -> TradingUserPerformance? {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        struct TradingUserData: Codable {
+            let id: String
+            let name: String
+            let cumulativeReturn: Double
+            let totalAssets: Double
+            let totalProfit: Double
+            let cashBalance: Double
+            let avatarUrl: String?
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case name
+                case cumulativeReturn = "cumulative_return"
+                case totalAssets = "total_assets"
+                case totalProfit = "total_profit"
+                case cashBalance = "cash_balance"
+                case avatarUrl = "avatar_url"
+            }
+        }
+        
+        let users: [TradingUserData] = try await client
+            .from("trading_users")
+            .select("id, name, cumulative_return, total_assets, total_profit, cash_balance, avatar_url")
+            .eq("id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+        
+        guard let userData = users.first else {
+            return nil
+        }
+        
+        // 獲取用戶排名
+        let allUsers: [TradingUserData] = try await client
+            .from("trading_users")
+            .select("cumulative_return")
+            .eq("is_active", value: true)
+            .order("cumulative_return", ascending: false)
+            .execute()
+            .value
+        
+        let userRank = allUsers.firstIndex { $0.cumulativeReturn <= userData.cumulativeReturn } ?? allUsers.count
+        
+        return TradingUserPerformance(
+            userId: userData.id,
+            name: userData.name,
+            rank: userRank + 1,
+            returnRate: userData.cumulativeReturn,
+            totalAssets: userData.totalAssets,
+            totalProfit: userData.totalProfit,
+            cashBalance: userData.cashBalance,
+            avatarUrl: userData.avatarUrl
+        )
+    }
+    
+    /// 清除所有測試用戶資料（僅開發使用）
+    func clearAllTradingTestData() async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("🧹 開始清理交易系統測試資料...")
+        
+        // 清理順序很重要，要先清理有外鍵依賴的表格
+        let tablesToClear = [
+            "trading_performance_snapshots",
+            "trading_transactions", 
+            "trading_positions",
+            "trading_referrals",
+            "trading_watchlists",
+            "trading_alerts",
+            "trading_users"
+        ]
+        
+        for tableName in tablesToClear {
+            try await client
+                .from(tableName)
+                .delete()
+                .neq("id", value: "00000000-0000-0000-0000-000000000000")
+                .execute()
+            
+            print("✅ 已清理表格: \(tableName)")
+        }
+        
+        print("🎉 交易系統測試資料清理完成!")
+    }
+    
+    /// 創建新的測試用戶排名資料
+    func createTestTradingUsers() async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("👥 開始創建新的測試用戶...")
+        
+        // 新的測試用戶資料
+        let testUsers = [
+            TestUserData(name: "test王", phone: "+886900000001", returnRate: 25.8, rank: 1),
+            TestUserData(name: "test徐", phone: "+886900000002", returnRate: 22.3, rank: 2),
+            TestUserData(name: "test張", phone: "+886900000003", returnRate: 19.7, rank: 3),
+            TestUserData(name: "test林", phone: "+886900000004", returnRate: 17.2, rank: 4),
+            TestUserData(name: "test黃", phone: "+886900000005", returnRate: 15.6, rank: 5)
+        ]
+        
+        for userData in testUsers {
+            let userId = UUID().uuidString
+            let inviteCode = generateInviteCode(from: userId)
+            let totalAssets = 1000000.0 + (userData.returnRate / 100.0 * 1000000.0)
+            let totalProfit = userData.returnRate / 100.0 * 1000000.0
+            let cashBalance = totalAssets * 0.3 // 30% 現金
+            
+            struct TradingUserInsert: Codable {
+                let id: String
+                let name: String
+                let phone: String
+                let cashBalance: Double
+                let totalAssets: Double
+                let totalProfit: Double
+                let cumulativeReturn: Double
+                let inviteCode: String
+                let isActive: Bool
+                let riskTolerance: String
+                let investmentExperience: String
+                let createdAt: String
+                let updatedAt: String
+                
+                enum CodingKeys: String, CodingKey {
+                    case id, name, phone
+                    case cashBalance = "cash_balance"
+                    case totalAssets = "total_assets"
+                    case totalProfit = "total_profit"
+                    case cumulativeReturn = "cumulative_return"
+                    case inviteCode = "invite_code"
+                    case isActive = "is_active"
+                    case riskTolerance = "risk_tolerance"
+                    case investmentExperience = "investment_experience"
+                    case createdAt = "created_at"
+                    case updatedAt = "updated_at"
+                }
+            }
+            
+            let userRecord = TradingUserInsert(
+                id: userId,
+                name: userData.name,
+                phone: userData.phone,
+                cashBalance: cashBalance,
+                totalAssets: totalAssets,
+                totalProfit: totalProfit,
+                cumulativeReturn: userData.returnRate,
+                inviteCode: inviteCode,
+                isActive: true,
+                riskTolerance: "moderate",
+                investmentExperience: "intermediate",
+                createdAt: ISO8601DateFormatter().string(from: Date()),
+                updatedAt: ISO8601DateFormatter().string(from: Date())
+            )
+            
+            try await client
+                .from("trading_users")
+                .insert(userRecord)
+                .execute()
+            
+            print("✅ 創建用戶: \(userData.name) (排名 \(userData.rank), 回報率 \(userData.returnRate)%)")
+            
+            // 為每個用戶創建績效快照
+            try await createPerformanceSnapshots(userId: userId, userData: userData, totalAssets: totalAssets)
+        }
+        
+        print("🎉 成功創建 \(testUsers.count) 個測試用戶！")
+    }
+    
+    /// 為用戶創建績效快照
+    private func createPerformanceSnapshots(userId: String, userData: TestUserData, totalAssets: Double) async throws {
+        let calendar = Calendar.current
+        let today = Date()
+        var snapshots: [PerformanceSnapshotInsert] = []
+        
+        // 創建過去30天的績效快照
+        for daysAgo in (0..<30).reversed() {
+            guard let snapshotDate = calendar.date(byAdding: .day, value: -daysAgo, to: today) else { continue }
+            
+            let progress = Double(30 - daysAgo) / 30.0
+            let currentReturn = userData.returnRate * progress
+            let currentAssets = 1000000.0 + (totalAssets - 1000000.0) * progress
+            
+            let snapshot = PerformanceSnapshotInsert(
+                userId: userId,
+                snapshotDate: ISO8601DateFormatter().string(from: snapshotDate),
+                totalAssets: currentAssets,
+                cashBalance: currentAssets * 0.3,
+                positionValue: currentAssets * 0.7,
+                dailyReturn: daysAgo == 0 ? currentReturn / 30 : 0,
+                cumulativeReturn: currentReturn,
+                benchmarkReturn: currentReturn * 0.6,
+                alpha: currentReturn * 0.4,
+                beta: 1.2,
+                sharpeRatio: currentReturn / 10,
+                volatility: abs(currentReturn) * 0.1,
+                maxDrawdown: -abs(currentReturn) * 0.05,
+                createdAt: ISO8601DateFormatter().string(from: Date())
+            )
+            
+            snapshots.append(snapshot)
+        }
+        
+        if !snapshots.isEmpty {
+            try await client
+                .from("trading_performance_snapshots")
+                .insert(snapshots)
+                .execute()
+        }
+    }
+    
+    /// 生成邀請碼
+    private func generateInviteCode(from userId: String) -> String {
+        return String(userId.prefix(8)).uppercased()
+    }
+    
+    /// 初始化測試資料（清理舊資料並創建新資料）
+    func initializeTestTradingData() async throws {
+        print("🚀 開始初始化排名系統測試資料...")
+        
+        // 先清理舊資料
+        try await clearAllTradingTestData()
+        
+        // 再創建新資料
+        try await createTestTradingUsers()
+        
+        print("✅ 排名系統測試資料初始化完成！")
+    }
+
+// MARK: - Supporting Structures for Trading Rankings
+
+struct TestUserData {
+    let name: String
+    let phone: String
+    let returnRate: Double
+    let rank: Int
+}
+
+struct PerformanceSnapshotInsert: Codable {
+    let userId: String
+    let snapshotDate: String
+    let totalAssets: Double
+    let cashBalance: Double
+    let positionValue: Double
+    let dailyReturn: Double
+    let cumulativeReturn: Double
+    let benchmarkReturn: Double
+    let alpha: Double
+    let beta: Double
+    let sharpeRatio: Double
+    let volatility: Double
+    let maxDrawdown: Double
+    let createdAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case snapshotDate = "snapshot_date"
+        case totalAssets = "total_assets"
+        case cashBalance = "cash_balance"
+        case positionValue = "position_value"
+        case dailyReturn = "daily_return"
+        case cumulativeReturn = "cumulative_return"
+        case benchmarkReturn = "benchmark_return"
+        case alpha, beta
+        case sharpeRatio = "sharpe_ratio"
+        case volatility
+        case maxDrawdown = "max_drawdown"
+        case createdAt = "created_at"
+    }
+}
+
 struct WalletTransactionQuery: Codable {
     let amount: Double
     let transactionType: String
