@@ -37,6 +37,31 @@ struct WalletTransaction: Identifiable, Codable {
     var transactionStatus: TransactionStatus {
         TransactionStatus(rawValue: status) ?? .pending
     }
+    
+    // 用於 UI 顯示的計算屬性
+    var icon: String {
+        type.iconName
+    }
+    
+    var iconColor: Color {
+        type.iconColor
+    }
+    
+    var displayName: String {
+        type.displayName
+    }
+    
+    var formattedAmount: String {
+        let absoluteAmount = abs(amount)
+        let sign = amount >= 0 ? "+" : "-"
+        return "\(sign)\(TokenSystem.formatTokens(Double(absoluteAmount).ntdToTokens()))"
+    }
+    
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd HH:mm"
+        return formatter.string(from: createdAt)
+    }
 }
 
 // MARK: - 交易類型
