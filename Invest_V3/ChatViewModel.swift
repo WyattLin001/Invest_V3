@@ -32,7 +32,7 @@ class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var isLoadingMessages = false
     @Published var isSendingMessage = false
-    @Published var isHostMode = false
+    @Published var isCurrentUserHost = false
     @Published var actualMemberCount: Int = 0
     
     // Text Input
@@ -55,6 +55,11 @@ class ChatViewModel: ObservableObject {
     @Published var animatingGiftEmoji = ""
     @Published var animatingGiftOffset: CGSize = .zero
     
+    // Donation Leaderboard
+    @Published var donationLeaderboard: [DonationSummary] = []
+    @Published var showDonationLeaderboard = false
+    @Published var isLoadingLeaderboard = false
+    
     // Modals & Alerts
     @Published var showInfoModal = false
     @Published var showInviteSheet = false
@@ -62,6 +67,9 @@ class ChatViewModel: ObservableObject {
     @Published var groupDetails: (group: InvestmentGroup, hostInfo: UserProfile?)?
     @Published var errorMessage: String?
     @Published var showError = false
+    @Published var showErrorAlert = false
+    @Published var successMessage: String?
+    @Published var showSuccessAlert = false
     @Published var showClearChatAlert = false
     @Published var showLeaveGroupAlert = false
     
@@ -71,7 +79,7 @@ class ChatViewModel: ObservableObject {
     @Published var tradeAction = "buy"
     @Published var showTradeSuccess = false
     @Published var tradeSuccessMessage = ""
-    @Published var portfolioManager = ChatPortfolioManager()
+    @Published var portfolioManager = ChatPortfolioManager.shared
     
     // Invitation
     @Published var inviteEmail = ""
@@ -133,7 +141,7 @@ class ChatViewModel: ObservableObject {
         // 先進行連線診斷
         Task {
             await performDiagnostics()
-            loadJoinedGroups()
+            await loadJoinedGroups()
             loadWalletBalance()
         }
         
@@ -175,118 +183,27 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - 測試功能
     
-    /// 模擬加入測試群組
-    func simulateJoinTestGroup() async throws {
-        print("🏠 [測試] 開始模擬加入測試群組...")
-        
-        do {
-            // 獲取當前用戶 ID
-            guard let authService = authService,
-                  let currentUser = authService.currentUser else {
-                throw NSError(domain: "ChatViewModel", code: 401, userInfo: [NSLocalizedDescriptionKey: "用戶未登入"])
-            }
-            
-            // 嘗試加入測試群組
-            try await supabaseService.joinGroup(groupId: TestConstants.testGroupId, userId: currentUser.id)
-            print("✅ [測試] 成功加入測試群組")
-            
-            // 重新載入群組列表
-            loadJoinedGroups(forceReload: true)
-            
-        } catch {
-            print("❌ [測試] 加入測試群組失敗: \(error.localizedDescription)")
-            handleError(error, context: "加入測試群組失敗")
-        }
-    }
-    
-    /// 發送測試訊息
-    func sendTestMessage() async throws {
-        print("💬 [測試] 開始發送測試訊息...")
-        
-        do {
-            let testMessage = "測試訊息 - \(Date().formatted(date: .omitted, time: .shortened))"
-            let message = try await supabaseService.sendMessage(
-                groupId: TestConstants.testGroupId,
-                content: testMessage
-            )
-            
-            print("✅ [測試] 測試訊息發送成功: \(message.content)")
-            
-            // 如果當前在測試群組，更新訊息列表
-            if selectedGroupId == TestConstants.testGroupId {
-                loadChatMessages(for: TestConstants.testGroupId)
-            }
-            
-        } catch {
-            print("❌ [測試] 發送測試訊息失敗: \(error.localizedDescription)")
-            handleError(error, context: "發送測試訊息失敗")
-        }
-    }
-    
-    /// 檢查測試群組訊息
-    func checkTestGroupMessages() async throws {
-        print("📋 [測試] 開始檢查測試群組訊息...")
-        
-        do {
-            let messages = try await supabaseService.fetchChatMessages(groupId: TestConstants.testGroupId)
-            print("📋 [測試] 測試群組共有 \(messages.count) 則訊息")
-            
-            // 顯示最近的 5 則訊息
-            let recentMessages = messages.suffix(5)
-            for message in recentMessages {
-                print("📋 [測試]   - \(message.senderName): \(message.content)")
-            }
-            
-            // 如果當前在測試群組，更新訊息列表
-            if selectedGroupId == TestConstants.testGroupId {
-                self.messages = messages.sorted { $0.createdAt < $1.createdAt }
-            }
-            
-        } catch {
-            print("❌ [測試] 檢查測試群組訊息失敗: \(error.localizedDescription)")
-            handleError(error, context: "檢查測試群組訊息失敗")
-        }
-    }
-    
-    /// 將 yuka 用戶加入測試群組
-    func addYukaToTestGroup() async throws {
-        print("👥 [測試] 開始將 yuka 用戶加入測試群組...")
-        
-        do {
-            try await supabaseService.addYukaToTestGroup()
-            print("✅ [測試] yuka 用戶已成功加入測試群組")
-            
-            // 重新載入群組列表
-            loadJoinedGroups(forceReload: true)
-            
-        } catch {
-            print("❌ [測試] 將 yuka 用戶加入測試群組失敗: \(error.localizedDescription)")
-            handleError(error, context: "將 yuka 用戶加入測試群組失敗")
-        }
-    }
 
     // MARK: - Data Loading & Actions
     
-    func loadJoinedGroups(forceReload: Bool = false) {
+    func loadJoinedGroups(forceReload: Bool = false) async {
         isLoadingGroups = true
-        Task {
-            do {
-                let groups = try await supabaseService.fetchUserJoinedGroups()
-                self.joinedGroups = groups
-                self.filterGroups()
-                self.isLoadingGroups = false
-                
-                if groups.isEmpty {
-                    print("ℹ️ 用戶尚未加入任何群組")
-                } else {
-                    print("✅ 載入了 \(groups.count) 個已加入的群組")
-                }
-            } catch {
-                handleError(error, context: "載入群組失敗")
-                self.joinedGroups = [] // 改為空陣列，不使用假資料
-                self.filterGroups()
-                self.isLoadingGroups = false
+        do {
+            let groups = try await supabaseService.fetchUserJoinedGroups()
+            self.joinedGroups = groups
+            self.filterGroups()
+            self.isLoadingGroups = false
+            
+            if groups.isEmpty {
+                print("ℹ️ 用戶尚未加入任何群組")
+            } else {
+                print("✅ 載入了 \(groups.count) 個已加入的群組")
             }
+        } catch {
+            handleError(error, context: "載入群組失敗")
+            self.joinedGroups = [] // 改為空陣列，不使用假資料
+            self.filterGroups()
+            self.isLoadingGroups = false
         }
     }
     
@@ -381,7 +298,17 @@ class ChatViewModel: ObservableObject {
     }
     
     func performTip(amount: Double) {
-        guard let groupId = selectedGroupId, let hostInfo = groupDetails?.hostInfo else { return }
+        guard let groupId = selectedGroupId else { 
+            print("❌ [抖內] 沒有選中的群組")
+            handleError(nil, context: "請先選擇群組")
+            return 
+        }
+        
+        guard let selectedGroup = selectedGroup else {
+            print("❌ [抖內] 群組資料不完整")
+            handleError(nil, context: "群組資料載入中，請稍後再試")
+            return
+        }
         
         // 確保 amount 是有效數值
         guard amount.isFinite && !amount.isNaN && amount > 0 else {
@@ -394,18 +321,50 @@ class ChatViewModel: ObservableObject {
             return
         }
         
-        // Trigger animation
+        print("🎁 [抖內] 開始執行抖內: \(amount) 金幣給群組 \(selectedGroup.name)")
+        
+        // 觸發動畫 - 專業級多階段動畫效果
         animatingGiftEmoji = "🎁"
-        animatingGiftOffset = CGSize(width: 0, height: -120)
-        showGiftAnimation = true
-        withAnimation(.easeOut(duration: 0.5)) { self.animatingGiftOffset = .zero }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation(.easeIn(duration: 0.2)) { self.showGiftAnimation = false }
+        animatingGiftOffset = CGSize(width: 0, height: 100) // 從下方開始
+        
+        // 第一階段：從下方彈入並放大
+        withAnimation(.easeOut(duration: 0.1)) {
+            showGiftAnimation = true
         }
         
-        Task {
+        // 第二階段：向上飛行
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
+                self.animatingGiftOffset = CGSize(width: 0, height: -100)
+            }
+        }
+        
+        // 第三階段：旋轉和光環效果
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                self.animatingGiftOffset = CGSize(width: 0, height: -80)
+            }
+        }
+        
+        // 第四階段：淡出並關閉禮物彈窗
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            withAnimation(.easeOut(duration: 0.4)) { 
+                self.showGiftAnimation = false 
+            }
+            
+            // 延遲關閉禮物選擇彈窗
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.showGiftModal = false
+            }
+        }
+        
+        Task { @MainActor in
             do {
-                _ = try await supabaseService.createTipTransaction(recipientId: hostInfo.id, amount: amount, groupId: groupId)
+                // 創建抖內交易記錄
+                try await supabaseService.createDonationRecord(
+                    groupId: groupId, 
+                    amount: amount
+                )
                 
                 // 安全地更新餘額
                 let newBalance = currentBalance - amount
@@ -416,11 +375,21 @@ class ChatViewModel: ObservableObject {
                     loadWalletBalance()
                 }
                 
-                self.showGiftModal = false
-                let tipMessage = "🎁 抖內了 \(Int(amount)) 金幣給主持人！"
-                self.messageText = tipMessage
-                self.sendMessage()
-                loadWalletBalance() // Refresh balance
+                // 獲取當前用戶資訊來顯示訊息
+                if let currentUser = supabaseService.getCurrentUser() {
+                    let userName = currentUser.displayName.isEmpty ? "匿名用戶" : currentUser.displayName
+                    let tipMessage = "💰 \(userName) 已抖內 \(Int(amount)) 金幣給群組！感謝支持！ 🎉"
+                    self.messageText = tipMessage
+                    self.sendMessage()
+                }
+                
+                loadWalletBalance() // 重新載入餘額
+                loadDonationLeaderboard() // 更新捐贈排行榜
+                
+                // 顯示成功反饋
+                showSuccessMessage("抖內成功！🎉 感謝您的支持！")
+                print("✅ [抖內] 抖內成功完成")
+                
             } catch {
                 handleError(error, context: "抖內失敗")
             }
@@ -439,13 +408,20 @@ class ChatViewModel: ObservableObject {
             }
         }
     }
+    
+    
+    /// 顯示捐贈排行榜
+    func showLeaderboard() {
+        loadDonationLeaderboard()
+        showDonationLeaderboard = true
+    }
 
     // MARK: - UI Logic
     
     /// 處理從 HomeView 來的群組切換通知
     func handleGroupSwitchNotification(groupId: UUID) async {
         // 先載入用戶的群組列表
-        loadJoinedGroups(forceReload: true)
+        await loadJoinedGroups(forceReload: true)
         
         // 尋找對應的群組
         if let group = joinedGroups.first(where: { $0.id == groupId }) {
@@ -464,11 +440,56 @@ class ChatViewModel: ObservableObject {
         self.showGroupSelection = false
     }
     
+    func selectGroup(groupId: UUID) async {
+        print("🔍 透過 ID 選擇群組: \(groupId)")
+        
+        // 先檢查已載入的群組中是否有這個 ID
+        if let group = joinedGroups.first(where: { $0.id == groupId }) {
+            print("✅ 在已載入群組中找到: \(group.name)")
+            await MainActor.run {
+                selectGroup(group)
+            }
+            return
+        }
+        
+        // 如果沒找到，嘗試重新載入群組列表
+        print("🔄 重新載入群組列表以尋找群組...")
+        await loadJoinedGroups()
+        
+        if let group = joinedGroups.first(where: { $0.id == groupId }) {
+            print("✅ 重新載入後找到群組: \(group.name)")
+            await MainActor.run {
+                selectGroup(group)
+            }
+        } else {
+            print("❌ 無法找到群組 ID: \(groupId)")
+        }
+    }
+    
     private func onGroupSelected(_ groupId: UUID) {
         loadChatMessages(for: groupId)
         loadGroupDetails(for: groupId)
         loadWalletBalance()
         subscribeToChatMessages(groupId: groupId)
+        
+        // 延遲權限檢查以避免記憶體問題
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.checkIfCurrentUserIsHost(for: groupId)
+        }
+    }
+    
+    /// 檢查當前用戶是否為群組主持人
+    private func checkIfCurrentUserIsHost(for groupId: UUID) {
+        Task { @MainActor in
+            do {
+                let userRole = try await supabaseService.fetchUserRole(groupId: groupId)
+                self.isCurrentUserHost = (userRole == .host)
+                print("👑 [權限檢查] 用戶角色: \(userRole), 是否為主持人: \(self.isCurrentUserHost)")
+            } catch {
+                self.isCurrentUserHost = false
+                print("❌ [權限檢查] 無法獲取用戶角色: \(error.localizedDescription)")
+            }
+        }
     }
 
     private func subscribeToChatMessages(groupId: UUID) {
@@ -552,17 +573,6 @@ class ChatViewModel: ObservableObject {
 
     // MARK: - Helpers
     
-    private func handleError(_ error: Error?, context: String) {
-        let message = error?.localizedDescription ?? "未知錯誤"
-        if message.contains("not authenticated") {
-            self.errorMessage = "認證失效，請重新登入後再試"
-        } else {
-            self.errorMessage = "\(context): \(message)"
-        }
-        self.showError = true
-        print("❌ \(context): \(message)")
-    }
-    
     private func createMockGroups() -> [InvestmentGroup] {
         return [
             InvestmentGroup(id: UUID(), name: "科技股投資俱樂部", host: "張投資", returnRate: 15.5, entryFee: "10 代幣", memberCount: 25, category: "科技股", rules: "專注於台灣科技股，禁止投機短線操作，每日最多交易3次", tokenCost: 10, createdAt: Date(), updatedAt: Date()),
@@ -575,7 +585,9 @@ class ChatViewModel: ObservableObject {
     func fullResetAndResync() {
         // This is a placeholder for more complex logic if needed
         print("🔄 [DEBUG] Performing full reset and resync...")
-        loadJoinedGroups()
+        Task {
+            await loadJoinedGroups()
+        }
     }
     
     // MARK: - Invitation Methods (B線邀請功能)
@@ -598,6 +610,15 @@ class ChatViewModel: ObservableObject {
     /// 發送群組邀請
     func sendInvitation() async {
         guard let groupId = selectedGroupId else { return }
+        
+        // 額外的權限檢查：確保只有主持人能發送邀請
+        guard isCurrentUserHost else {
+            await MainActor.run {
+                self.errorMessage = "只有群組主持人才能邀請新成員"
+                self.showError = true
+            }
+            return
+        }
         
         isSendingInvitation = true
         
@@ -661,7 +682,9 @@ class ChatViewModel: ObservableObject {
                     showGroupSelection = true
                     
                     // 重新載入群組列表
-                    loadJoinedGroups(forceReload: true)
+                    Task {
+                        await loadJoinedGroups(forceReload: true)
+                    }
                 }
                 
             } catch {
@@ -774,6 +797,101 @@ class ChatViewModel: ObservableObject {
                 print("❌ 發送交易通知失敗: \(error)")
             }
         }
+    }
+    
+    // MARK: - 捐贈排行榜功能
+    
+    /// 載入群組捐贈排行榜
+    func loadDonationLeaderboard() {
+        guard let groupId = selectedGroupId else { 
+            print("❌ [排行榜] 沒有選中的群組")
+            return 
+        }
+        
+        isLoadingLeaderboard = true
+        
+        _Concurrency.Task { @MainActor in
+            do {
+                let leaderboard = try await supabaseService.fetchGroupDonationLeaderboard(groupId: groupId)
+                self.donationLeaderboard = leaderboard
+                self.isLoadingLeaderboard = false
+                print("✅ [排行榜] 載入捐贈排行榜成功: \(leaderboard.count) 位捐贈者")
+            } catch {
+                self.isLoadingLeaderboard = false
+                print("❌ [排行榜] 載入失敗: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    /// 切換排行榜顯示狀態
+    func toggleDonationLeaderboard() {
+        showDonationLeaderboard.toggle()
+        if showDonationLeaderboard {
+            loadDonationLeaderboard()
+        }
+    }
+    
+    // MARK: - 錯誤處理和用戶反饋
+    
+    /// 統一錯誤處理方法
+    func handleError(_ error: Error?, context: String) {
+        let errorMessage: String
+        
+        if let error = error {
+            switch error {
+            case let supabaseError as SupabaseError:
+                switch supabaseError {
+                case .unknown(let message):
+                    if message.contains("餘額不足") {
+                        errorMessage = "餘額不足，請先充值後再試！💰"
+                    } else {
+                        errorMessage = "\(context): \(message)"
+                    }
+                case .notAuthenticated:
+                    errorMessage = "請先登入後再進行操作 🔐"
+                default:
+                    errorMessage = "\(context): 服務暫時無法使用，請稍後再試"
+                }
+            default:
+                if error.localizedDescription.contains("網路") || error.localizedDescription.contains("network") {
+                    errorMessage = "\(context): 網路連線異常，請檢查網路連線 📶"
+                } else {
+                    errorMessage = "\(context): \(error.localizedDescription)"
+                }
+            }
+        } else {
+            errorMessage = context
+        }
+        
+        // 設置錯誤消息並顯示
+        self.errorMessage = errorMessage
+        self.showErrorAlert = true
+        
+        // 自動清除錯誤消息
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            if self.errorMessage == errorMessage {
+                self.errorMessage = nil
+                self.showErrorAlert = false
+            }
+        }
+        
+        print("❌ [ChatViewModel] \(errorMessage)")
+    }
+    
+    /// 顯示成功反饋
+    func showSuccessMessage(_ message: String) {
+        self.successMessage = message
+        self.showSuccessAlert = true
+        
+        // 自動清除成功消息
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            if self.successMessage == message {
+                self.successMessage = nil
+                self.showSuccessAlert = false
+            }
+        }
+        
+        print("✅ [ChatViewModel] \(message)")
     }
 
 } 

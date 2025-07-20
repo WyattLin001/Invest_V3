@@ -8,6 +8,8 @@ class AuthorEarningsViewModel: ObservableObject {
     @Published var tipEarnings: Double = 0
     @Published var articleEarnings: Double = 0
     @Published var giftEarnings: Double = 0
+    @Published var groupEntryFeeEarnings: Double = 0 // 群組入會費收入
+    @Published var groupTipEarnings: Double = 0 // 群組抖內收入
     @Published var withdrawableAmount: Double = 0
     @Published var isLoading = false
     @Published var hasError = false
@@ -23,7 +25,7 @@ class AuthorEarningsViewModel: ObservableObject {
     
     // 計算屬性
     var articleReadingEarnings: Double { articleEarnings }
-    var otherEarnings: Double { totalEarnings - subscriptionEarnings - tipEarnings - articleEarnings - giftEarnings }
+    var otherEarnings: Double { totalEarnings - subscriptionEarnings - tipEarnings - articleEarnings - giftEarnings - groupEntryFeeEarnings - groupTipEarnings }
     
     var articleReadingPercentage: Double {
         guard totalEarnings > 0 else { return 0 }
@@ -45,8 +47,43 @@ class AuthorEarningsViewModel: ObservableObject {
         return (otherEarnings / totalEarnings) * 100
     }
     
+    var groupEntryFeePercentage: Double {
+        guard totalEarnings > 0 else { return 0 }
+        return (groupEntryFeeEarnings / totalEarnings) * 100
+    }
+    
+    var groupTipPercentage: Double {
+        guard totalEarnings > 0 else { return 0 }
+        return (groupTipEarnings / totalEarnings) * 100
+    }
+    
     var isGrowthPositive: Bool { true } // 可根據實際數據計算
     var maxEarnings: Double { earningsHistory.map(\.amount).max() ?? 100 }
+    
+    // 金幣轉台幣匯率 (1金幣 = 1台幣)
+    private let coinToTWDRate: Double = 1.0
+    
+    // 格式化顯示總收益 (金幣)
+    var formattedTotalEarningsInCoins: String {
+        return "\(Int(totalEarnings)) 金幣"
+    }
+    
+    // 格式化顯示總收益 (台幣)
+    var formattedTotalEarningsInTWD: String {
+        let twd = totalEarnings * coinToTWDRate
+        return "NT$\(Int(twd))"
+    }
+    
+    // 格式化顯示可提領金額 (金幣)
+    var formattedWithdrawableInCoins: String {
+        return "\(Int(withdrawableAmount)) 金幣"
+    }
+    
+    // 格式化顯示可提領金額 (台幣)
+    var formattedWithdrawableInTWD: String {
+        let twd = withdrawableAmount * coinToTWDRate
+        return "NT$\(Int(twd))"
+    }
 
     private let supabaseService = SupabaseService.shared
 
@@ -56,19 +93,51 @@ class AuthorEarningsViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            // 模擬網絡延遲
-            try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+            // 獲取當前用戶ID
+            guard let currentUser = supabaseService.getCurrentUser() else {
+                throw SupabaseError.notAuthenticated
+            }
             
-            // 載入模擬數據
-            await loadMockEarningsData()
+            // 從 Supabase 載入真實數據
+            let stats = try await supabaseService.fetchCreatorRevenueStats(creatorId: currentUser.id)
+            
+            // 更新 UI 數據
+            totalEarnings = stats.totalEarnings
+            subscriptionEarnings = stats.subscriptionEarnings
+            tipEarnings = stats.tipEarnings
+            articleEarnings = stats.articleEarnings
+            giftEarnings = stats.giftEarnings
+            groupEntryFeeEarnings = stats.groupEntryFeeEarnings
+            groupTipEarnings = stats.groupTipEarnings
+            withdrawableAmount = stats.withdrawableAmount
+            
+            // 載入其他模擬數據 (訂閱統計等)
+            await loadMockSupplementaryData()
             
         } catch {
             hasError = true
             errorMessage = error.localizedDescription
             print("❌ [AuthorEarningsViewModel] 載入數據失敗: \(error)")
+            
+            // 發生錯誤時使用模擬數據作為後備
+            await loadMockEarningsData()
         }
         
         isLoading = false
+    }
+    
+    private func loadMockSupplementaryData() async {
+        // 訂閱統計 (這部分暫時使用模擬數據)
+        totalSubscribers = 142
+        newSubscribersThisMonth = 23
+        monthlySubscriptionRevenue = subscriptionEarnings
+        retentionRate = 0.87
+        
+        // 文章收益明細
+        topArticleEarnings = generateMockArticleEarnings()
+        
+        // 收益歷史數據
+        earningsHistory = generateEarningsHistory()
     }
     
     private func loadMockEarningsData() async {
@@ -87,7 +156,14 @@ class AuthorEarningsViewModel: ObservableObject {
         retentionRate = 0.87
         
         // 文章收益明細
-        topArticleEarnings = [
+        topArticleEarnings = generateMockArticleEarnings()
+        
+        // 收益歷史數據 (過去30天)
+        earningsHistory = generateEarningsHistory()
+    }
+    
+    private func generateMockArticleEarnings() -> [ArticleEarning] {
+        return [
             ArticleEarning(
                 title: "2024年AI投資趨勢分析",
                 earnings: 580.0,
@@ -190,13 +266,28 @@ class AuthorEarningsViewModel: ObservableObject {
         isLoading = true
         
         do {
-            // 模擬提領處理
-            try await Task.sleep(nanoseconds: 1_000_000_000) // 1秒
+            // 獲取當前用戶ID
+            guard let currentUser = supabaseService.getCurrentUser() else {
+                throw SupabaseError.notAuthenticated
+            }
             
-            // 模擬成功提領
+            // 執行提領處理 (將收益轉入錢包並歸零總收益)
+            try await supabaseService.processWithdrawal(
+                creatorId: currentUser.id, 
+                amount: withdrawableAmount
+            )
+            
+            // 更新本地狀態
+            totalEarnings = 0.0
+            subscriptionEarnings = 0.0
+            tipEarnings = 0.0
+            articleEarnings = 0.0
+            giftEarnings = 0.0
+            groupEntryFeeEarnings = 0.0
+            groupTipEarnings = 0.0
             withdrawableAmount = 0.0
             
-            print("✅ [AuthorEarningsViewModel] 提領申請成功")
+            print("✅ [AuthorEarningsViewModel] 提領申請成功，收益已轉入錢包")
             
         } catch {
             hasError = true
@@ -234,4 +325,71 @@ struct ArticleEarning: Identifiable {
     let earnings: Double
     let views: Int
     let date: Date
+}
+
+// MARK: - Creator Revenue Models
+struct CreatorRevenue: Codable, Identifiable {
+    let id: String
+    let creatorId: String
+    let revenueType: RevenueType
+    let amount: Int // 金幣數量
+    let sourceId: String? // 來源ID (例如：群組ID、文章ID等)
+    let sourceName: String? // 來源名稱
+    let description: String
+    let createdAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case creatorId = "creator_id"
+        case revenueType = "revenue_type"
+        case amount
+        case sourceId = "source_id"
+        case sourceName = "source_name"
+        case description
+        case createdAt = "created_at"
+    }
+}
+
+// RevenueType 已移動到 InvestmentGroup.swift 以便共享
+
+// 提領記錄模型
+struct WithdrawalRecord: Codable, Identifiable {
+    let id: String
+    let creatorId: String
+    let amount: Int // 提領金額 (金幣)
+    let amountTWD: Int // 提領金額 (台幣)
+    let status: WithdrawalStatus
+    let bankAccount: String? // 銀行帳戶 (未來功能)
+    let processedAt: Date?
+    let createdAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case creatorId = "creator_id"
+        case amount
+        case amountTWD = "amount_twd"
+        case status
+        case bankAccount = "bank_account"
+        case processedAt = "processed_at"
+        case createdAt = "created_at"
+    }
+}
+
+// 提領狀態枚舉
+enum WithdrawalStatus: String, Codable {
+    case pending = "pending" // 處理中
+    case completed = "completed" // 已完成
+    case failed = "failed" // 失敗
+}
+
+// 創作者收益統計結構
+struct CreatorRevenueStats {
+    var totalEarnings: Double = 0
+    var subscriptionEarnings: Double = 0
+    var tipEarnings: Double = 0
+    var articleEarnings: Double = 0
+    var giftEarnings: Double = 0
+    var groupEntryFeeEarnings: Double = 0
+    var groupTipEarnings: Double = 0
+    var withdrawableAmount: Double = 0
 }

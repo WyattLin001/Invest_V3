@@ -95,6 +95,22 @@ struct HomeView: View {
         .sheet(isPresented: $showWalletView) {
             WalletView()
         }
+        .sheet(isPresented: $viewModel.showInvestmentPanel) {
+            InvestmentPanelView(
+                portfolioManager: ChatPortfolioManager.shared,
+                stockSymbol: $viewModel.stockSymbol,
+                tradeAmount: $viewModel.tradeAmount,
+                tradeAction: $viewModel.tradeAction,
+                showTradeSuccess: $viewModel.showTradeSuccess,
+                tradeSuccessMessage: $viewModel.tradeSuccessMessage,
+                onExecuteTrade: {
+                    viewModel.executeTrade()
+                },
+                onClose: {
+                    viewModel.showInvestmentPanel = false
+                }
+            )
+        }
         .onReceive(viewModel.$errorMessage) { errorMessage in
             if let errorMessage = errorMessage {
                 // 檢查是否為餘額不足錯誤
@@ -162,6 +178,14 @@ struct HomeView: View {
             Spacer()
             
             HStack(spacing: 16) {
+                // 投資按鈕 📈
+                Button(action: { viewModel.showInvestmentPanel = true }) {
+                    Text("📈")
+                        .font(.title2)
+                }
+                .accessibilityLabel("投資")
+                .accessibilityHint("開啟投資面板進行股票交易")
+                
                 // 通知按鈕
                 Button(action: { showNotifications = true }) {
                     ZStack {

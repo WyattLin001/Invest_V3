@@ -11,6 +11,8 @@ struct WalletTransaction: Identifiable, Codable {
     let status: String
     let paymentMethod: String?
     let blockchainId: String?
+    let recipientId: String?
+    let groupId: String?
     let createdAt: Date
     
     enum CodingKeys: String, CodingKey {
@@ -22,6 +24,8 @@ struct WalletTransaction: Identifiable, Codable {
         case status
         case paymentMethod = "payment_method"
         case blockchainId = "blockchain_id"
+        case recipientId = "recipient_id"
+        case groupId = "group_id"
         case createdAt = "created_at"
     }
     

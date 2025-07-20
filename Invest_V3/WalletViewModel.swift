@@ -31,9 +31,9 @@ class WalletViewModel: ObservableObject {
             }
         }
     }
-    @Published var gifts: [GiftItem] = GiftItem.defaultGifts
+    @Published var gifts: [Gift] = [] // 禮物功能已刪除，改為抖內功能
     
-    private let supabaseService = SupabaseService.shared
+    // private let supabaseService = SupabaseService.shared // 暫時註釋
     
     init() {
         // 確保初始值是安全的
@@ -47,137 +47,126 @@ class WalletViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        do {
-            // 載入錢包餘額和交易記錄
-            async let balanceTask = loadBalance()
-            async let transactionsTask = loadTransactions()
-            
-            try await balanceTask
-            try await transactionsTask
-            
-        } catch {
-            errorMessage = "載入資料失敗: \(error.localizedDescription)"
-            print("WalletViewModel loadData error: \(error)")
-        }
+        // 載入錢包餘額和交易記錄
+        await loadBalance()
+        await loadTransactions()
         
         isLoading = false
     }
     
     // MARK: - 載入餘額
-    private func loadBalance() async throws {
-        do {
-            // 從 Supabase 獲取真實餘額
-            let walletBalance = try await supabaseService.fetchWalletBalance()
-            
-            // 確保獲取的餘額是有效數值
-            if walletBalance >= 0 {
-                self.balance = Double(walletBalance)
-                print("✅ [WalletViewModel] 載入餘額成功: \(walletBalance) NTD")
-            } else {
-                print("⚠️ [WalletViewModel] 獲取到無效餘額: \(walletBalance)，使用預設值")
-                self.balance = 10000.0
-            }
-        } catch {
-            print("❌ [WalletViewModel] 載入餘額失敗: \(error)")
-            // 使用模擬資料作為後備
-            self.balance = 10000.0 // 初始餘額 10000 NTD
-        }
+    private func loadBalance() async {
+        // 暫時註釋 Supabase 調用
+        // let walletBalance = try await supabaseService.fetchWalletBalance()
+        
+        // 使用模擬資料
+        let walletBalance = 10000
+        
+        // 確保獲取的餘額是有效數值
+        self.balance = Double(walletBalance)
+        print("✅ [WalletViewModel] 載入餘額成功: \(walletBalance) NTD")
     }
     
     // MARK: - 充值功能
     func topUp10K() async {
-        do {
-            try await supabaseService.updateWalletBalance(delta: 10000)
-            await MainActor.run {
-                self.balance += 10000
-                print("✅ [WalletViewModel] 充值成功: 餘額增加 10000 NTD")
-            }
-        } catch {
-            await MainActor.run {
-                self.errorMessage = "充值失敗: \(error.localizedDescription)"
-                print("❌ [WalletViewModel] 充值失敗: \(error)")
-            }
+        // 暫時註釋 Supabase 調用
+        // try await supabaseService.updateWalletBalance(delta: 10000)
+        await MainActor.run {
+            self.balance += 10000
+            print("✅ [WalletViewModel] 充值成功: 餘額增加 10000 NTD")
         }
     }
     
+    // MARK: - 測試充值功能
+    func performTestTopUp(tokens: Int) async {
+        let amountNTD = Double(tokens * 100) // 1 代幣 = 100 NTD
+        await MainActor.run {
+            self.balance += amountNTD
+            print("✅ [WalletViewModel] 測試充值成功: 增加 \(tokens) 代幣 (\(amountNTD) NTD)")
+        }
+        
+        // 模擬網路延遲
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 秒
+    }
+    
     // MARK: - 載入交易記錄
-    private func loadTransactions() async throws {
-        // 模擬資料，實際應該從 Supabase 獲取
+    private func loadTransactions() async {
         self.transactions = [
             WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.deposit.rawValue,
+                transactionType: "deposit",
                 amount: 1000,
                 description: "儲值",
-                status: TransactionStatus.confirmed.rawValue,
+                status: "confirmed",
                 paymentMethod: "apple_pay",
-                blockchainId: nil,
+                blockchainId: nil as String?,
+                recipientId: nil as String?,
+                groupId: nil as String?,
                 createdAt: Date().addingTimeInterval(-86400)
             ),
             WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.giftPurchase.rawValue,
+                transactionType: "tip",
                 amount: 100,
-                description: "購買花束",
-                status: TransactionStatus.confirmed.rawValue,
+                description: "抖內給用戶",
+                status: "confirmed",
                 paymentMethod: "wallet",
-                blockchainId: nil,
+                blockchainId: nil as String?,
+                recipientId: UUID().uuidString,
+                groupId: UUID().uuidString,
                 createdAt: Date().addingTimeInterval(-3600)
             ),
             WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.subscription.rawValue,
+                transactionType: "subscription",
                 amount: 300,
                 description: "月費訂閱",
-                status: TransactionStatus.confirmed.rawValue,
+                status: "confirmed",
                 paymentMethod: "wallet",
-                blockchainId: nil,
+                blockchainId: nil as String?,
+                recipientId: nil as String?,
+                groupId: nil as String?,
                 createdAt: Date().addingTimeInterval(-1800)
             )
         ]
     }
     
-    // MARK: - 購買禮物
-    func purchaseGift(_ gift: GiftItem) async {
-        guard balance >= gift.price else {
+    // MARK: - 抖內功能
+    func sendTip(recipientId: UUID, amount: Double, groupId: UUID) async {
+        guard balance >= amount else {
             errorMessage = "餘額不足"
             return
         }
         
         do {
-            // 調用 Supabase 服務創建交易
-            _ = try await supabaseService.createTipTransaction(
-                recipientId: UUID(), // 這裡應該是實際的接收者 ID
-                amount: gift.price,
-                groupId: UUID() // 這裡應該是實際的群組 ID
-            )
-            
             // 扣除餘額
-            balance -= gift.price
+            balance -= amount
             
             // 創建本地交易記錄
             let transaction = WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.giftPurchase.rawValue,
-                amount: Int(gift.price),
-                description: "購買\(gift.name)",
-                status: TransactionStatus.confirmed.rawValue,
+                transactionType: "tip",
+                amount: Int(amount),
+                description: "抖內給用戶",
+                status: "confirmed",
                 paymentMethod: "wallet",
-                blockchainId: nil,
+                blockchainId: nil as String?,
+                recipientId: recipientId.uuidString,
+                groupId: groupId.uuidString,
                 createdAt: Date()
             )
             
             transactions.insert(transaction, at: 0)
             
-            print("✅ [WalletViewModel] 購買禮物成功: \(gift.name)")
+            print("✅ [WalletViewModel] 抖內成功: \(amount) 代幣")
             
         } catch {
-            errorMessage = "購買失敗: \(error.localizedDescription)"
-            print("❌ [WalletViewModel] 購買禮物失敗: \(error)")
+            errorMessage = "抖內失敗: \(error.localizedDescription)"
+            print("❌ [WalletViewModel] 抖內失敗: \(error)")
         }
     }
     
@@ -189,12 +178,14 @@ class WalletViewModel: ObservableObject {
             let transaction = WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.deposit.rawValue,
+                transactionType: "deposit",
                 amount: Int(amount),
                 description: "儲值",
-                status: TransactionStatus.confirmed.rawValue,
+                status: "confirmed",
                 paymentMethod: "apple_pay",
-                blockchainId: nil,
+                blockchainId: nil as String?,
+                recipientId: nil as String?,
+                groupId: nil as String?,
                 createdAt: Date()
             )
             
@@ -220,12 +211,14 @@ class WalletViewModel: ObservableObject {
             let transaction = WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.withdrawal.rawValue,
+                transactionType: "withdrawal",
                 amount: Int(amount),
                 description: "提領",
-                status: TransactionStatus.pending.rawValue,
+                status: "pending",
                 paymentMethod: "bank_transfer",
-                blockchainId: nil,
+                blockchainId: nil as String?,
+                recipientId: nil as String?,
+                groupId: nil as String?,
                 createdAt: Date()
             )
             
@@ -263,12 +256,14 @@ class WalletViewModel: ObservableObject {
             let transaction = WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.subscription.rawValue,
+                transactionType: "subscription",
                 amount: Int(subscriptionFee),
                 description: plan == "monthly" ? "月費訂閱" : "年費訂閱",
-                status: TransactionStatus.confirmed.rawValue,
+                status: "confirmed",
                 paymentMethod: "wallet",
-                blockchainId: nil,
+                blockchainId: nil as String?,
+                recipientId: nil as String?,
+                groupId: nil as String?,
                 createdAt: Date()
             )
             
@@ -283,16 +278,11 @@ class WalletViewModel: ObservableObject {
     
     // MARK: - 取消訂閱
     func cancelSubscription() async {
-        do {
-            isSubscribed = false
-            subscriptionExpiryDate = nil
-            subscriptionPlan = ""
-            
-            print("✅ [WalletViewModel] 訂閱已取消")
-            
-        } catch {
-            errorMessage = "取消訂閱失敗: \(error.localizedDescription)"
-        }
+        isSubscribed = false
+        subscriptionExpiryDate = nil
+        subscriptionPlan = ""
+        
+        print("✅ [WalletViewModel] 訂閱已取消")
     }
     
     // MARK: - 提領處理
@@ -316,8 +306,4 @@ class WalletViewModel: ObservableObject {
     }
     
     // MARK: - 測試功能
-    func simulateUserSwitch() async {
-        print("🔄 [WalletViewModel] 模擬用戶切換，重新載入餘額...")
-        await loadData()
-    }
 } 

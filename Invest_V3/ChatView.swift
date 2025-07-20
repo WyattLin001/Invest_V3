@@ -29,6 +29,12 @@ extension ChatMessage {
 struct ChatView: View {
     @EnvironmentObject private var authService: AuthenticationService
     @StateObject private var viewModel = ChatViewModel() // The single source of truth
+    
+    let preselectedGroupId: UUID?
+    
+    init(preselectedGroupId: UUID? = nil) {
+        self.preselectedGroupId = preselectedGroupId
+    }
 
     var body: some View {
         NavigationStack {
@@ -47,6 +53,14 @@ struct ChatView: View {
         .onAppear {
             viewModel.setup(authService: authService)
         }
+        .onChange(of: preselectedGroupId) { groupId in
+            if let groupId = groupId {
+                print("🎯 收到預選群組 ID: \(groupId)")
+                Task {
+                    await viewModel.selectGroup(groupId: groupId)
+                }
+            }
+        }
         .overlay(
             VStack {
                 Spacer()
@@ -64,7 +78,22 @@ struct ChatView: View {
         .sheet(isPresented: $viewModel.showGiftModal) { giftModalView }
         .sheet(isPresented: $viewModel.showInfoModal) { infoModalView }
         .sheet(isPresented: $viewModel.showInviteSheet) { inviteSheetView }
-        .sheet(isPresented: $viewModel.showInvestmentPanel) { investmentPanelView }
+        .sheet(isPresented: $viewModel.showInvestmentPanel) {
+            InvestmentPanelView(
+                portfolioManager: ChatPortfolioManager.shared,
+                stockSymbol: $viewModel.stockSymbol,
+                tradeAmount: $viewModel.tradeAmount,
+                tradeAction: $viewModel.tradeAction,
+                showTradeSuccess: $viewModel.showTradeSuccess,
+                tradeSuccessMessage: $viewModel.tradeSuccessMessage,
+                onExecuteTrade: {
+                    viewModel.executeTrade()
+                },
+                onClose: {
+                    viewModel.showInvestmentPanel = false
+                }
+            )
+        }
     }
     
     // MARK: - Subviews (now read from viewModel)
@@ -156,6 +185,25 @@ struct ChatView: View {
             }
         }
         .background(Color(.systemBackground))
+        // 錯誤和成功提示
+        .alert("錯誤", isPresented: $viewModel.showErrorAlert) {
+            Button("確定", role: .cancel) {
+                viewModel.errorMessage = nil
+            }
+        } message: {
+            if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+            }
+        }
+        .alert("成功", isPresented: $viewModel.showSuccessAlert) {
+            Button("確定", role: .cancel) {
+                viewModel.successMessage = nil
+            }
+        } message: {
+            if let successMessage = viewModel.successMessage {
+                Text(successMessage)
+            }
+        }
     }
     
     private var chatRoomView: some View {
@@ -171,20 +219,52 @@ struct ChatView: View {
         }
         .background(Color(.systemBackground))
         .overlay(
-            // 禮物動畫覆蓋層
+            // 禮物動畫覆蓋層 - 改善版
             Group {
                 if viewModel.showGiftAnimation {
-                    VStack {
-                        Spacer()
-                        HStack {
+                    ZStack {
+                        // 背景模糊效果
+                        Color.black.opacity(0.1)
+                            .ignoresSafeArea()
+                        
+                        VStack {
                             Spacer()
-                            Text(viewModel.animatingGiftEmoji)
-                                .font(.system(size: 60))
-                                .offset(viewModel.animatingGiftOffset)
-                                .opacity(viewModel.showGiftAnimation ? 1 : 0)
+                            HStack {
+                                Spacer()
+                                
+                                // 主要禮物動畫
+                                Text(viewModel.animatingGiftEmoji)
+                                    .font(.system(size: 80))
+                                    .scaleEffect(viewModel.showGiftAnimation ? 1.3 : 0.5)
+                                    .rotationEffect(.degrees(viewModel.showGiftAnimation ? 360 : 0))
+                                    .offset(viewModel.animatingGiftOffset)
+                                    .opacity(viewModel.showGiftAnimation ? 1 : 0)
+                                    .shadow(color: .brandGreen.opacity(0.6), radius: 15, x: 0, y: 5)
+                                    .overlay(
+                                        // 光環效果
+                                        Circle()
+                                            .stroke(Color.brandGreen.opacity(0.3), lineWidth: 3)
+                                            .scaleEffect(viewModel.showGiftAnimation ? 2.0 : 0.5)
+                                            .opacity(viewModel.showGiftAnimation ? 0 : 1)
+                                    )
+                                
+                                Spacer()
+                            }
+                            
+                            // 成功提示文字
+                            if viewModel.showGiftAnimation {
+                                Text("抖內成功！🎉")
+                                    .font(.headline)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.brandGreen)
+                                    .scaleEffect(viewModel.showGiftAnimation ? 1.1 : 0.8)
+                                    .opacity(viewModel.showGiftAnimation ? 1 : 0)
+                                    .offset(y: viewModel.showGiftAnimation ? 0 : 20)
+                                    .padding(.top, 20)
+                            }
+                            
                             Spacer()
                         }
-                        Spacer()
                     }
                     .allowsHitTesting(false)
                 }
@@ -201,13 +281,6 @@ struct ChatView: View {
                     .foregroundColor(.brandGreen)
             }
             
-            // 模式切換
-            Toggle(isOn: $viewModel.isHostMode) {
-                Image(systemName: viewModel.isHostMode ? "person.badge.key.fill" : "person.fill")
-                    .foregroundColor(viewModel.isHostMode ? .brandBlue : .gray)
-            }
-            .tint(.brandBlue)
-            .padding(.trailing, 8)
             
             // 群組資訊
             VStack(alignment: .leading, spacing: 4) {
@@ -234,8 +307,8 @@ struct ChatView: View {
             Spacer()
             
             HStack(spacing: 12) {
-                // 邀請按鈕 (只有主持人模式才顯示)
-                if viewModel.isHostMode {
+                // 邀請按鈕 (只有主持人才能顯示)
+                if viewModel.isCurrentUserHost && viewModel.selectedGroup != nil {
                     Button(action: { viewModel.showInviteSheet = true }) {
                         Image(systemName: "person.badge.plus")
                             .font(.system(size: 18))
@@ -341,7 +414,6 @@ struct ChatView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 12)
                 .padding(.vertical, 4)
             }
             .onChange(of: viewModel.messages.count) { _, _ in
@@ -360,16 +432,18 @@ struct ChatView: View {
             Divider()
             
             HStack(spacing: 12) {
-                // 投資面板按鈕
-                Button(action: { viewModel.showInvestmentPanel = true }) {
-                    Image(systemName: "chart.xyaxis.line")
-                        .font(.system(size: 20))
-                        .foregroundColor(.accentColor)
-                        .frame(width: 32, height: 32)
-                        .background(Color.clear)
-                        .contentShape(Rectangle())
+                // 投資面板按鈕 (只有主持人可見)
+                if viewModel.isCurrentUserHost {
+                    Button(action: { viewModel.showInvestmentPanel = true }) {
+                        Image(systemName: "chart.xyaxis.line")
+                            .font(.system(size: 20))
+                            .foregroundColor(.accentColor)
+                            .frame(width: 32, height: 32)
+                            .background(Color.clear)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
                 
                 // 文字輸入框
                 HStack {
@@ -963,62 +1037,57 @@ struct ChatBubbleView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 4) {
+        HStack(alignment: .top, spacing: 8) {
             if message.isOwn {
-                Spacer(minLength: 40)
+                Spacer(minLength: 50)
                 
                 // 自己的訊息 - 右側
                 VStack(alignment: .trailing, spacing: 4) {
-                    // 訊息內容
-                    VStack(alignment: .leading, spacing: 2) {
-                        // 發送者名稱和角色標示
-                        HStack(spacing: 4) {
-                            Spacer()
-                            
-                            // 角色標示
-                            if message.isHost {
-                                Image(systemName: "crown.fill")
-                                    .font(.caption2)
-                                    .foregroundColor(.yellow)
-                            }
-                            
-                            Text(message.senderName)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(message.isHost ? .blue : .green)
+                    // 發送者名稱和角色標示
+                    HStack(spacing: 4) {
+                        // 角色標示
+                        if message.isHost {
+                            Image(systemName: "crown.fill")
+                                .font(.caption2)
+                                .foregroundColor(.yellow)
                         }
                         
-                        // 訊息泡泡
-                        Text(message.content)
-                            .font(.body)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(bubbleColor)
-                            .cornerRadius(16, corners: [.topLeft, .topRight, .bottomLeft])
-                            .overlay(
-                                // 投資指令標示
-                                Group {
-                                    if message.isCommand {
-                                        HStack {
-                                            Image(systemName: "chart.line.uptrend.xyaxis")
-                                                .font(.caption)
-                                                .foregroundColor(.white)
-                                            Spacer()
-                                        }
-                                        .padding(.horizontal, 12)
-                                        .padding(.top, 4)
-                                    }
-                                }
-                            )
+                        Text(message.senderName)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(message.isHost ? .blue : .green)
                     }
+                    
+                    // 訊息泡泡
+                    Text(message.content)
+                        .font(.body)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(bubbleColor)
+                        .cornerRadius(16, corners: [.topLeft, .topRight, .bottomLeft])
+                        .overlay(
+                            // 投資指令標示
+                            Group {
+                                if message.isCommand {
+                                    HStack {
+                                        Image(systemName: "chart.line.uptrend.xyaxis")
+                                            .font(.caption)
+                                            .foregroundColor(.white)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.top, 4)
+                                }
+                            }
+                        )
                     
                     // 時間
                     Text(message.time)
                         .font(.caption2)
                         .foregroundColor(.gray500)
                 }
-                .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .trailing)
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 
             } else {
                 // 其他人的訊息 - 左側
@@ -1045,7 +1114,7 @@ struct ChatBubbleView: View {
                     }
                     
                     // 訊息內容
-                    VStack(alignment: .leading, spacing: 4) {
+                    HStack {
                         Text(message.content)
                             .font(.body)
                             .foregroundColor(textColor)
@@ -1068,14 +1137,17 @@ struct ChatBubbleView: View {
                                     }
                                 }
                             )
+                        
+                        Spacer()
                     }
                 }
-                .frame(maxWidth: UIScreen.main.bounds.width * 0.8, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
-                Spacer()
+                Spacer(minLength: 50)
             }
         }
-        .padding(.vertical, 1)
+        .padding(.vertical, 2)
+        .padding(.horizontal, 16)
     }
 }
 
@@ -1355,6 +1427,7 @@ extension ChatView {
         }
     }
 }
+
 
 // MARK: - Preview
 #Preview {

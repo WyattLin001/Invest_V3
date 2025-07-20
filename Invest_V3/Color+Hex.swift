@@ -141,40 +141,7 @@ extension Color {
 }
 
 // MARK: - Design System Constants
-
-struct DesignTokens {
-    // MARK: - Spacing (根據 target.txt 8pt grid)
-    static let spacing: CGFloat = 8
-    static let spacingXS: CGFloat = 4
-    static let spacingSM: CGFloat = 8
-    static let spacingMD: CGFloat = 16
-    static let spacingLG: CGFloat = 24
-    static let spacingXL: CGFloat = 32
-    static let spacingXXL: CGFloat = 48
-    
-    // MARK: - Corner Radius (全域圓角 12pt)
-    static let cornerRadius: CGFloat = 12
-    static let cornerRadiusSM: CGFloat = 8
-    static let cornerRadiusLG: CGFloat = 16
-    static let cornerRadiusXL: CGFloat = 24
-    
-    // MARK: - Shadows (Elevation 1)
-    static let shadowRadius: CGFloat = 2
-    static let shadowOffset = CGSize(width: 0, height: 2)
-    static let shadowOpacity: Double = 0.05
-    static let shadowOpacityDark: Double = 0.2
-    
-    // MARK: - Animation Durations
-    static let animationFast: Double = 0.15
-    static let animationNormal: Double = 0.25
-    static let animationSlow: Double = 0.4
-    
-    // MARK: - Tab Bar
-    static let tabBarHeight: CGFloat = 60
-    
-    // MARK: - Safe Area
-    static let safeAreaTop: CGFloat = 54
-}
+// Note: DesignTokens is defined in DesignTokens.swift
 
 // MARK: - View Modifiers
 

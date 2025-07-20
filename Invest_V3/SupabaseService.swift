@@ -2,6 +2,13 @@ import Foundation
 import Supabase
 import UIKit
 
+/// 用戶在群組中的角色
+enum UserRole: String, CaseIterable {
+    case host = "host"
+    case member = "member"
+    case none = "none"
+}
+
 @MainActor
 class SupabaseService: ObservableObject {
     static let shared = SupabaseService()
@@ -203,8 +210,18 @@ class SupabaseService: ObservableObject {
             updatedAt: Date()
         )
         
-        // 暫時跳過投資組合和成員表的創建，先確保群組能成功創建
-        print("⚠️ 暫時跳過投資組合和成員表創建，優先完成群組建立")
+        // 將創建者自動加入群組成員表
+        do {
+            print("👥 準備將創建者加入群組成員...")
+            print("   - 群組 ID: \(groupId)")
+            print("   - 用戶 ID: \(currentUser.id)")
+            try await joinGroup(groupId: groupId, userId: currentUser.id)
+            print("✅ 成功將創建者加入群組成員")
+        } catch {
+            print("⚠️ 將創建者加入群組成員失敗: \(error.localizedDescription)")
+            print("❌ 詳細錯誤: \(error)")
+            // 繼續返回群組，但記錄錯誤
+        }
         
         print("✅ 成功創建群組: \(name), 入會費: \(entryFee) 代幣, 主持人回報率: \(hostReturnRate)%")
         return group
@@ -515,6 +532,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.notAuthenticated
         }
         let userId = authUser.id
+        print("🔍 [fetchUserJoinedGroups] 當前用戶 ID: \(userId)")
         
         // 獲取用戶加入的群組 ID
         struct GroupMemberBasic: Codable {
@@ -532,9 +550,13 @@ class SupabaseService: ObservableObject {
             .execute()
             .value
         
+        print("🔍 [fetchUserJoinedGroups] 找到 \(memberRecords.count) 個群組成員記錄")
+        
         let groupIds = memberRecords.compactMap { UUID(uuidString: $0.groupId) }
+        print("🔍 [fetchUserJoinedGroups] 解析出 \(groupIds.count) 個有效群組 ID")
         
         if groupIds.isEmpty {
+            print("ℹ️ [fetchUserJoinedGroups] 用戶尚未加入任何群組")
             return []
         }
         
@@ -545,6 +567,11 @@ class SupabaseService: ObservableObject {
             .in("id", values: groupIds.map { $0.uuidString })
             .execute()
             .value
+        
+        print("✅ [fetchUserJoinedGroups] 成功載入 \(groups.count) 個群組")
+        for group in groups {
+            print("   - \(group.name) (ID: \(group.id))")
+        }
         
         return groups
     }
@@ -1304,6 +1331,257 @@ class SupabaseService: ObservableObject {
         return transaction
     }
     
+    /// 創建抖內捐贈記錄 (用於禮物系統和排行榜)
+    func createDonationRecord(groupId: UUID, amount: Double) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let currentUser = try await getCurrentUserAsync()
+        
+        // 檢查餘額是否足夠
+        let currentBalance = try await fetchWalletBalance()
+        guard Double(currentBalance) >= amount else {
+            throw SupabaseError.unknown("餘額不足")
+        }
+        
+        // 創建捐贈記錄結構
+        struct DonationRecord: Codable {
+            let id: String
+            let groupId: String
+            let donorId: String
+            let donorName: String
+            let amount: Int
+            let message: String?
+            let createdAt: Date
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case groupId = "group_id"
+                case donorId = "donor_id"
+                case donorName = "donor_name"
+                case amount
+                case message
+                case createdAt = "created_at"
+            }
+        }
+        
+        let donationData = DonationRecord(
+            id: UUID().uuidString,
+            groupId: groupId.uuidString,
+            donorId: currentUser.id.uuidString,
+            donorName: currentUser.displayName,
+            amount: Int(amount),
+            message: nil,
+            createdAt: Date()
+        )
+        
+        // 插入捐贈記錄到 group_donations 表
+        try await client
+            .from("group_donations")
+            .insert(donationData)
+            .execute()
+        
+        // 獲取群組主持人資訊
+        let group = try await fetchInvestmentGroup(id: groupId)
+        let hostProfile = try? await fetchUserProfileByDisplayName(group.host)
+        
+        // 為群組主持人創建收益記錄
+        if let hostProfile = hostProfile {
+            try await createCreatorRevenue(
+                creatorId: hostProfile.id,
+                revenueType: .groupTip,
+                amount: Int(amount),
+                sourceId: groupId,
+                sourceName: group.name,
+                description: "群組抖內收入來自 \(currentUser.displayName)"
+            )
+        }
+        
+        // 創建錢包交易記錄
+        _ = try await createTipTransaction(
+            recipientId: hostProfile?.id ?? UUID(),
+            amount: amount,
+            groupId: groupId
+        )
+        
+        // 扣除用戶餘額
+        try await updateWalletBalance(delta: -Int(amount))
+        
+        print("✅ [SupabaseService] 群組抖內處理完成: \(currentUser.displayName) 抖內 \(amount) 金幣給主持人 \(group.host)")
+    }
+    
+    
+    // MARK: - Creator Revenue System
+    
+    /// 創建創作者收益記錄
+    func createCreatorRevenue(
+        creatorId: UUID, 
+        revenueType: RevenueType, 
+        amount: Int, 
+        sourceId: UUID? = nil, 
+        sourceName: String? = nil, 
+        description: String
+    ) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        struct CreatorRevenueInsert: Codable {
+            let id: String
+            let creatorId: String
+            let revenueType: String
+            let amount: Int
+            let sourceId: String?
+            let sourceName: String?
+            let description: String
+            let createdAt: Date
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case creatorId = "creator_id"
+                case revenueType = "revenue_type"
+                case amount
+                case sourceId = "source_id"
+                case sourceName = "source_name"
+                case description
+                case createdAt = "created_at"
+            }
+        }
+        
+        let revenueData = CreatorRevenueInsert(
+            id: UUID().uuidString,
+            creatorId: creatorId.uuidString,
+            revenueType: revenueType.rawValue,
+            amount: amount,
+            sourceId: sourceId?.uuidString,
+            sourceName: sourceName,
+            description: description,
+            createdAt: Date()
+        )
+        
+        try await client
+            .from("creator_revenues")
+            .insert(revenueData)
+            .execute()
+        
+        print("✅ [SupabaseService] 創作者收益記錄創建成功: \(revenueType.displayName) \(amount) 金幣")
+    }
+    
+    /// 獲取創作者總收益統計
+    func fetchCreatorRevenueStats(creatorId: UUID) async throws -> CreatorRevenueStats {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let response: [CreatorRevenue] = try await client
+            .from("creator_revenues")
+            .select()
+            .eq("creator_id", value: creatorId.uuidString)
+            .execute()
+            .value
+        
+        // 按類型統計收益
+        var stats = CreatorRevenueStats()
+        
+        for revenue in response {
+            switch revenue.revenueType {
+            case .subscriptionShare:
+                stats.subscriptionEarnings += Double(revenue.amount)
+            case .readerTip:
+                stats.tipEarnings += Double(revenue.amount)
+            case .groupEntryFee:
+                stats.groupEntryFeeEarnings += Double(revenue.amount)
+            case .groupTip:
+                stats.groupTipEarnings += Double(revenue.amount)
+            }
+        }
+        
+        stats.totalEarnings = stats.subscriptionEarnings + stats.tipEarnings + 
+                             stats.groupEntryFeeEarnings + stats.groupTipEarnings
+        stats.withdrawableAmount = stats.totalEarnings // 目前全部可提領
+        
+        print("✅ [SupabaseService] 創作者收益統計載入成功: 總計 \(stats.totalEarnings) 金幣")
+        return stats
+    }
+    
+    /// 處理提領申請 (將總收益歸零並轉入錢包)
+    func processWithdrawal(creatorId: UUID, amount: Double) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        // 1. 獲取當前收益統計
+        let stats = try await fetchCreatorRevenueStats(creatorId: creatorId)
+        
+        // 2. 檢查提領金額是否合法
+        guard amount <= stats.withdrawableAmount else {
+            throw SupabaseError.unknown("提領金額超過可提領餘額")
+        }
+        
+        // 3. 創建提領記錄
+        struct WithdrawalInsert: Codable {
+            let id: String
+            let creatorId: String
+            let amount: Int
+            let amountTWD: Int
+            let status: String
+            let createdAt: Date
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case creatorId = "creator_id"
+                case amount
+                case amountTWD = "amount_twd"
+                case status
+                case createdAt = "created_at"
+            }
+        }
+        
+        let withdrawalData = WithdrawalInsert(
+            id: UUID().uuidString,
+            creatorId: creatorId.uuidString,
+            amount: Int(amount),
+            amountTWD: Int(amount), // 1:1 匯率
+            status: WithdrawalStatus.completed.rawValue,
+            createdAt: Date()
+        )
+        
+        try await client
+            .from("withdrawal_records")
+            .insert(withdrawalData)
+            .execute()
+        
+        // 4. 將提領金額加入用戶錢包
+        try await updateWalletBalance(delta: Int(amount))
+        
+        // 5. 創建一個標記記錄表示已提領 (清空收益)
+        try await createCreatorRevenue(
+            creatorId: creatorId,
+            revenueType: .subscriptionShare, // 使用特殊類型標記
+            amount: -Int(amount), // 負數表示提領
+            description: "提領收益到錢包"
+        )
+        
+        print("✅ [SupabaseService] 提領處理成功: \(amount) 金幣已轉入錢包")
+    }
+    
+    /// 處理群組入會費收入 (當有人加入付費群組時)
+    func processGroupEntryFeeRevenue(groupId: UUID, newMemberId: UUID, entryFee: Int) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        // 獲取群組資訊以找到主持人
+        let group = try await fetchInvestmentGroup(id: groupId)
+        let hostProfile = try? await fetchUserProfileByDisplayName(group.host)
+        let newMemberProfile = try? await fetchUserProfileById(userId: newMemberId)
+        
+        // 為群組主持人創建收益記錄
+        if let hostProfile = hostProfile {
+            try await createCreatorRevenue(
+                creatorId: hostProfile.id,
+                revenueType: .groupEntryFee,
+                amount: entryFee,
+                sourceId: groupId,
+                sourceName: group.name,
+                description: "群組入會費收入來自 \(newMemberProfile?.displayName ?? "新成員")"
+            )
+            
+            print("✅ [SupabaseService] 群組入會費收益記錄完成: 主持人 \(group.host) 獲得 \(entryFee) 金幣")
+        }
+    }
+    
     // MARK: - Group Details and Members
     func fetchGroupDetails(groupId: UUID) async throws -> (group: InvestmentGroup, hostInfo: UserProfile?) {
         try SupabaseManager.shared.ensureInitialized()
@@ -1330,6 +1608,25 @@ class SupabaseService: ObservableObject {
             .from("user_profiles")
             .select()
             .eq("display_name", value: displayName)
+            .limit(1)
+            .execute()
+            .value
+        
+        guard let userProfile = response.first else {
+            throw SupabaseError.userNotFound
+        }
+        
+        return userProfile
+    }
+    
+    /// 根據用戶ID獲取用戶資料
+    func fetchUserProfileById(userId: UUID) async throws -> UserProfile {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let response: [UserProfile] = try await client
+            .from("user_profiles")
+            .select()
+            .eq("id", value: userId.uuidString)
             .limit(1)
             .execute()
             .value
@@ -1602,33 +1899,25 @@ class SupabaseService: ObservableObject {
     }
     
     /// 測試用：模擬加入群組
-    func simulateJoinGroup(userId: UUID, groupId: UUID, username: String, displayName: String) async throws {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        struct GroupMemberInsert: Codable {
-            let groupId: String
-            let userId: String
-            let joinedAt: Date
-            
-            enum CodingKeys: String, CodingKey {
-                case groupId = "group_id"
-                case userId = "user_id"
-                case joinedAt = "joined_at"
-            }
+    
+    /// 獲取當前用戶在群組中的角色
+    func fetchUserRole(groupId: UUID) async throws -> UserRole {
+        guard let currentUser = getCurrentUser() else {
+            print("❌ [fetchUserRole] 無法獲取當前用戶")
+            throw SupabaseError.notAuthenticated
         }
         
-        let memberData = GroupMemberInsert(
-            groupId: groupId.uuidString,
-            userId: userId.uuidString,
-            joinedAt: Date()
-        )
+        print("🔍 [fetchUserRole] 檢查用戶 \(currentUser.displayName) 在群組 \(groupId) 中的角色")
         
-        try await client
-            .from("group_members")
-            .insert(memberData)
-            .execute()
-        
-        logError(message: "✅ [測試] 模擬加入群組成功: 用戶 \(displayName) 加入群組 \(groupId)")
+        do {
+            let roleString = try await fetchUserRole(userId: currentUser.id, groupId: groupId)
+            let role = UserRole(rawValue: roleString) ?? .none
+            print("✅ [fetchUserRole] 用戶角色: \(roleString) -> \(role)")
+            return role
+        } catch {
+            print("❌ [fetchUserRole] 獲取角色失敗: \(error)")
+            throw error
+        }
     }
     
     /// 獲取用戶在群組中的角色
@@ -1637,7 +1926,7 @@ class SupabaseService: ObservableObject {
         
         // 使用簡單的結構來只獲取需要的欄位
         struct GroupHostInfo: Codable {
-            let id: UUID
+            let id: String
             let host: String
         }
         
@@ -1720,270 +2009,7 @@ class SupabaseService: ObservableObject {
         return memberResponse.count
     }
     
-    /// 創建測試用戶和群組
-    func createTestEnvironment() async throws {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        // 創建測試群組「價值投資學院」
-        let testGroupId = TestConstants.testGroupId
-        
-        // 檢查群組是否已存在
-        let existingGroups: [InvestmentGroup] = try await client
-            .from("investment_groups")
-            .select()
-            .eq("id", value: testGroupId.uuidString)
-            .execute()
-            .value
-        
-        if existingGroups.isEmpty {
-            // 創建測試群組
-            struct GroupInsert: Codable {
-                let id: String
-                let name: String
-                let host: String
-                let returnRate: Double
-                let entryFee: String
-                let memberCount: Int
-                let category: String
-                let rules: String
-                let createdAt: Date
-                let updatedAt: Date
-                
-                enum CodingKeys: String, CodingKey {
-                    case id, name, host
-                    case returnRate = "return_rate"
-                    case entryFee = "entry_fee"
-                    case memberCount = "member_count"
-                    case category, rules
-                    case createdAt = "created_at"
-                    case updatedAt = "updated_at"
-                }
-            }
-            
-            let groupData = GroupInsert(
-                id: testGroupId.uuidString,
-                name: "價值投資學院",
-                host: "主持人",
-                returnRate: 12.3,
-                entryFee: "20 代幣",
-                memberCount: 2,
-                category: "價值投資",
-                rules: "長期持有策略，最少持股期間30天，重視基本面分析",
-                createdAt: Date(),
-                updatedAt: Date()
-            )
-            
-            try await client
-            .from("investment_groups")
-                .insert(groupData)
-                .execute()
-            
-            logError(message: "✅ [測試環境] 創建測試群組成功: 價值投資學院")
-        }
-    }
     
-    /// 創建測試用戶
-    func createTestUsers() async throws {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        // 創建主持人用戶
-        let hostUserId = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
-        let memberUserId = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
-        
-        struct UserProfileInsert: Codable {
-            let id: String
-            let email: String
-            let username: String
-            let displayName: String
-            let avatarUrl: String?
-            let createdAt: Date
-            let updatedAt: Date
-            
-            enum CodingKeys: String, CodingKey {
-                case id, email, username
-                case displayName = "display_name"
-                case avatarUrl = "avatar_url"
-                case createdAt = "created_at"
-                case updatedAt = "updated_at"
-            }
-        }
-        
-        let hostUser = UserProfileInsert(
-            id: hostUserId.uuidString,
-            email: TestConstants.testUserEmail,
-            username: "host_user",
-            displayName: "主持人",
-            avatarUrl: nil,
-            createdAt: Date(),
-            updatedAt: Date()
-        )
-        
-        let memberUser = UserProfileInsert(
-            id: memberUserId.uuidString,
-            email: TestConstants.yukaUserEmail,
-            username: "yuka",
-            displayName: "成員",
-            avatarUrl: nil,
-            createdAt: Date(),
-            updatedAt: Date()
-        )
-        
-        // 檢查用戶是否已存在，如果不存在則創建
-        let existingHostUsers: [UserProfile] = try await client
-            .from("user_profiles")
-            .select()
-            .eq("email", value: TestConstants.testUserEmail)
-            .execute()
-            .value
-        
-        if existingHostUsers.isEmpty {
-            try await client
-            .from("user_profiles")
-                .insert(hostUser)
-                .execute()
-            
-            logError(message: "✅ [測試環境] 創建主持人用戶成功: \(TestConstants.testUserEmail)")
-        }
-        
-        let existingMemberUsers: [UserProfile] = try await client
-            .from("user_profiles")
-            .select()
-            .eq("email", value: TestConstants.yukaUserEmail)
-            .execute()
-            .value
-        
-        if existingMemberUsers.isEmpty {
-            try await client
-            .from("user_profiles")
-                .insert(memberUser)
-                .execute()
-            
-            logError(message: "✅ [測試環境] 創建成員用戶成功: \(TestConstants.yukaUserEmail)")
-        }
-        
-        // 將兩個用戶加入測試群組
-        try await simulateJoinGroup(userId: hostUserId, groupId: TestConstants.testGroupId, username: "host_user", displayName: "主持人")
-        try await simulateJoinGroup(userId: memberUserId, groupId: TestConstants.testGroupId, username: "yuka", displayName: "成員")
-    }
-    
-    /// 模擬切換用戶（用於測試）
-    func simulateUserSwitch(toEmail: String) async throws {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        // 根據 email 獲取用戶資料
-        let userResponse: [UserProfile] = try await client
-            .from("user_profiles")
-            .select()
-            .eq("email", value: toEmail)
-            .execute()
-            .value
-        
-        guard let user = userResponse.first else {
-            throw SupabaseError.userNotFound
-        }
-        
-        // 將用戶資料保存到 UserDefaults
-        if let data = try? JSONEncoder().encode(user) {
-            UserDefaults.standard.set(data, forKey: "current_user")
-            logError(message: "✅ [用戶切換] 已切換到用戶: \(user.displayName) (\(user.email))")
-        }
-    }
-    
-    /// 模擬發送測試訊息（指定用戶）
-    func simulateTestMessage(fromEmail: String, groupId: UUID, content: String) async throws -> ChatMessage {
-        // 先切換用戶
-        try await simulateUserSwitch(toEmail: fromEmail)
-        
-        // 發送訊息
-        let message = try await sendMessage(groupId: groupId, content: content)
-        
-        logError(message: "✅ [測試訊息] \(fromEmail) 發送訊息: \(content)")
-        
-        return message
-    }
-    
-    /// 專門用於將 yuka 用戶加入測試群組
-    func addYukaToTestGroup() async throws {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        // 獲取 yuka 用戶的信息
-        let yukaUsers: [UserProfile] = try await client
-            .from("user_profiles")
-            .select()
-            .eq("email", value: TestConstants.yukaUserEmail)
-            .execute()
-            .value
-        
-        guard let yukaUser = yukaUsers.first else {
-            // 如果 yuka 用戶不存在，先創建
-            let yukaUserId = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
-            
-            struct UserProfileInsert: Codable {
-                let id: String
-                let email: String
-                let username: String
-                let displayName: String
-                let avatarUrl: String?
-                let createdAt: Date
-                let updatedAt: Date
-                
-                enum CodingKeys: String, CodingKey {
-                    case id, email, username
-                    case displayName = "display_name"
-                    case avatarUrl = "avatar_url"
-                    case createdAt = "created_at"
-                    case updatedAt = "updated_at"
-                }
-            }
-            
-            let yukaUserData = UserProfileInsert(
-                id: yukaUserId.uuidString,
-                email: TestConstants.yukaUserEmail,
-                username: "yuka",
-                displayName: "成員",
-                avatarUrl: nil,
-                createdAt: Date(),
-                updatedAt: Date()
-            )
-            
-            try await client
-            .from("user_profiles")
-                .insert(yukaUserData)
-                .execute()
-            
-            logError(message: "✅ [添加 Yuka] 創建 yuka 用戶成功")
-            
-            // 使用新創建的用戶 ID
-            try await simulateJoinGroup(userId: yukaUserId, groupId: TestConstants.testGroupId, username: "yuka", displayName: "成員")
-            logError(message: "✅ [添加 Yuka] yuka 用戶已成功加入測試群組")
-            return
-        }
-        
-        // 檢查 yuka 是否已經是群組成員
-        struct GroupMemberExistCheck: Codable {
-            let groupId: String
-            
-            enum CodingKeys: String, CodingKey {
-                case groupId = "group_id"
-            }
-        }
-        
-        let existingMembers: [GroupMemberExistCheck] = try await client
-            .from("group_members")
-            .select("group_id")
-            .eq("group_id", value: TestConstants.testGroupId.uuidString)
-            .eq("user_id", value: yukaUser.id.uuidString)
-            .execute()
-            .value
-        
-        if existingMembers.isEmpty {
-            // 如果不是成員，則加入群組
-            try await simulateJoinGroup(userId: yukaUser.id, groupId: TestConstants.testGroupId, username: "yuka", displayName: "成員")
-            logError(message: "✅ [添加 Yuka] yuka 用戶已成功加入測試群組")
-        } else {
-            logError(message: "ℹ️ [添加 Yuka] yuka 用戶已經是測試群組成員")
-        }
-    }
     
     // MARK: - Group Invitations (B線邀請功能)
     
@@ -2310,6 +2336,8 @@ class SupabaseService: ObservableObject {
             status: "completed",
             paymentMethod: "system",
             blockchainId: nil,
+            recipientId: nil,
+            groupId: nil,
             createdAt: Date()
         )
         
@@ -3452,4 +3480,172 @@ extension DateFormatter {
         formatter.timeZone = TimeZone.current
         return formatter
     }()
+}
+
+// MARK: - 創作者收益擴展
+extension SupabaseService {
+    
+    /// 創建創作者收益記錄
+    func createCreatorRevenue(
+        creatorId: String,
+        revenueType: RevenueType,
+        amount: Int,
+        sourceId: UUID,
+        sourceName: String,
+        description: String
+    ) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        struct CreatorRevenueInsert: Codable {
+            let creatorId: String
+            let revenueType: String
+            let amount: Int
+            let sourceId: String
+            let sourceName: String
+            let description: String
+            let createdAt: Date
+            
+            enum CodingKeys: String, CodingKey {
+                case creatorId = "creator_id"
+                case revenueType = "revenue_type"
+                case amount
+                case sourceId = "source_id"
+                case sourceName = "source_name"
+                case description
+                case createdAt = "created_at"
+            }
+        }
+        
+        let revenueRecord = CreatorRevenueInsert(
+            creatorId: creatorId,
+            revenueType: revenueType.rawValue,
+            amount: amount,
+            sourceId: sourceId.uuidString,
+            sourceName: sourceName,
+            description: description,
+            createdAt: Date()
+        )
+        
+        try await client
+            .from("creator_revenues")
+            .insert(revenueRecord)
+            .execute()
+        
+        print("✅ [SupabaseService] 創建創作者收益記錄成功: \(revenueType.rawValue) \(amount) 金幣")
+    }
+    
+    /// 獲取創作者收益統計
+    func fetchCreatorRevenueStats(creatorId: String) async throws -> [String: Int] {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let response: [CreatorRevenue] = try await client
+            .from("creator_revenues")
+            .select()
+            .eq("creator_id", value: creatorId)
+            .execute()
+            .value
+        
+        var stats: [String: Int] = [:]
+        
+        for revenue in response {
+            let currentAmount = stats[revenue.revenueType.rawValue] ?? 0
+            stats[revenue.revenueType.rawValue] = currentAmount + revenue.amount
+        }
+        
+        return stats
+    }
+}
+
+// MARK: - 捐贈排行榜擴展
+extension SupabaseService {
+    
+    /// 獲取群組捐贈排行榜
+    func fetchGroupDonationLeaderboard(groupId: UUID) async throws -> [DonationSummary] {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let response: [GroupDonation] = try await client
+            .from("group_donations")
+            .select()
+            .eq("group_id", value: groupId.uuidString)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+        
+        // 統計每個捐贈者的總額
+        var donorStats: [String: (name: String, totalAmount: Int, count: Int, lastDate: Date)] = [:]
+        
+        for record in response {
+            let donorId = record.donorId
+            let existing = donorStats[donorId]
+            
+            donorStats[donorId] = (
+                name: record.donorName,
+                totalAmount: (existing?.totalAmount ?? 0) + record.amount,
+                count: (existing?.count ?? 0) + 1,
+                lastDate: max(existing?.lastDate ?? record.createdAt, record.createdAt)
+            )
+        }
+        
+        // 轉換為 DonationSummary 並按總額排序
+        let summaries = donorStats.map { (donorId, stats) in
+            DonationSummary(
+                donorId: donorId,
+                donorName: stats.name,
+                totalAmount: stats.totalAmount,
+                donationCount: stats.count,
+                lastDonationDate: stats.lastDate
+            )
+        }.sorted { $0.totalAmount > $1.totalAmount }
+        
+        print("✅ [SupabaseService] 載入捐贈排行榜成功: \(summaries.count) 位捐贈者")
+        return summaries
+    }
+    
+    /// 獲取用戶主持的群組列表
+    func fetchUserHostedGroups() async throws -> [InvestmentGroup] {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        guard let currentUser = getCurrentUser() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        // 查詢用戶為主持人的群組
+        let response: [InvestmentGroup] = try await client
+            .from("investment_groups")
+            .select()
+            .eq("host_id", value: currentUser.id.uuidString)
+            .execute()
+            .value
+        
+        print("✅ [SupabaseService] 獲取用戶主持的群組: \(response.count) 個")
+        return response
+    }
+    
+    /// 獲取特定用戶在群組中的捐贈統計
+    func fetchUserDonationStats(groupId: UUID, userId: String) async throws -> DonationSummary? {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let response: [GroupDonation] = try await client
+            .from("group_donations")
+            .select()
+            .eq("group_id", value: groupId.uuidString)
+            .eq("donor_id", value: userId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+        
+        guard !response.isEmpty else { return nil }
+        
+        let totalAmount = response.reduce(0) { $0 + $1.amount }
+        let firstRecord = response.first!
+        let lastDate = response.max(by: { $0.createdAt < $1.createdAt })?.createdAt ?? firstRecord.createdAt
+        
+        return DonationSummary(
+            donorId: userId,
+            donorName: firstRecord.donorName,
+            totalAmount: totalAmount,
+            donationCount: response.count,
+            lastDonationDate: lastDate
+        )
+    }
 }

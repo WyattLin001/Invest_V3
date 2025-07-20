@@ -1,8 +1,10 @@
 import Foundation
 import SwiftUI
 
-// MARK: - Chat Portfolio Manager
+// MARK: - Chat Portfolio Manager (Shared Instance)
 class ChatPortfolioManager: ObservableObject {
+    static let shared = ChatPortfolioManager()
+    
     @Published var holdings: [PortfolioHolding] = []
     @Published var virtualBalance: Double = 1_000_000 // 每月100萬虛擬幣
     @Published var totalInvested: Double = 0
@@ -10,7 +12,7 @@ class ChatPortfolioManager: ObservableObject {
     private let colors = ["blue", "orange", "green", "red", "purple"]
     private var colorIndex = 0
     
-    init() {
+    private init() {
         loadPortfolio()
     }
     

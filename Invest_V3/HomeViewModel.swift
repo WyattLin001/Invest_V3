@@ -15,6 +15,15 @@ class HomeViewModel: ObservableObject {
     @Published var pendingInvitations: [GroupInvitation] = []
     @Published var isProcessingInvitation = false
     
+    // 投資功能
+    @Published var showInvestmentPanel = false
+    @Published var stockSymbol = ""
+    @Published var tradeAmount = ""
+    @Published var tradeAction = "buy"
+    @Published var showTradeSuccess = false
+    @Published var tradeSuccessMessage = ""
+    @Published var portfolioManager = ChatPortfolioManager.shared
+    
     private let supabaseService = SupabaseService.shared
     
     // 根據選中的時間週期返回對應的排行榜
@@ -45,6 +54,115 @@ class HomeViewModel: ObservableObject {
         }
         
         isLoading = false
+    }
+    
+    // MARK: - 投資功能
+    
+    /// 執行股票交易
+    func executeTrade() {
+        guard !stockSymbol.isEmpty,
+              !tradeAmount.isEmpty,
+              let amount = Double(tradeAmount) else {
+            return
+        }
+        
+        Task {
+            do {
+                // 獲取模擬股價
+                let stockPrice = try await getStockPrice(symbol: stockSymbol)
+                
+                await MainActor.run {
+                    let success: Bool
+                    let errorMessage: String?
+                    
+                    if tradeAction == "buy" {
+                        let shares = amount / stockPrice
+                        success = portfolioManager.buyStock(symbol: stockSymbol, shares: shares, price: stockPrice)
+                        errorMessage = success ? nil : "餘額不足或交易失敗"
+                    } else {
+                        // 賣出時，amount 是股數而不是金額
+                        let shares = amount
+                        success = portfolioManager.sellStock(symbol: stockSymbol, shares: shares, price: stockPrice)
+                        errorMessage = success ? nil : "持股不足或交易失敗"
+                    }
+                    
+                    if success {
+                        // 設置成功訊息
+                        let actionText = tradeAction == "buy" ? "買入" : "賣出"
+                        if tradeAction == "buy" {
+                            tradeSuccessMessage = "已\(actionText) \(stockSymbol) $\(Int(amount))"
+                        } else {
+                            tradeSuccessMessage = "已\(actionText) \(stockSymbol) \(Int(amount)) 股"
+                        }
+                        
+                        // 清空輸入欄位
+                        let symbolToAnnounce = stockSymbol
+                        stockSymbol = ""
+                        tradeAmount = ""
+                        
+                        // 顯示成功提示
+                        showTradeSuccess = true
+                        
+                        // 發送交易通知到所有主持人的群組
+                        Task {
+                            await sendTradeNotificationToHostedGroups(symbol: symbolToAnnounce, amount: amount, action: tradeAction)
+                        }
+                    } else {
+                        self.errorMessage = errorMessage ?? "交易失敗"
+                    }
+                }
+                
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "交易執行失敗: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+    
+    /// 獲取股票價格 (模擬)
+    private func getStockPrice(symbol: String) async throws -> Double {
+        // 模擬網路延遲
+        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 秒
+        
+        // 模擬股價 (後續可以接真實 API)
+        let mockPrices: [String: Double] = [
+            "AAPL": 150.0,
+            "TSLA": 200.0,
+            "NVDA": 400.0,
+            "GOOGL": 120.0,
+            "MSFT": 300.0,
+            "AMZN": 130.0
+        ]
+        
+        return mockPrices[symbol.uppercased()] ?? 100.0
+    }
+    
+    /// 發送交易通知到用戶主持的群組
+    private func sendTradeNotificationToHostedGroups(symbol: String, amount: Double, action: String) async {
+        do {
+            // 獲取用戶主持的群組列表
+            let hostedGroups = try await supabaseService.fetchUserHostedGroups()
+            
+            let actionText = action == "buy" ? "買入" : "賣出"
+            let announcementText = "📈 我剛剛\(actionText)了 \(symbol) $\(Int(amount))"
+            
+            // 向每個主持的群組發送通知
+            for group in hostedGroups {
+                do {
+                    try await supabaseService.sendMessage(
+                        groupId: group.id,
+                        content: announcementText,
+                        isCommand: true
+                    )
+                    print("✅ [HomeViewModel] 交易通知已發送到群組: \(group.name)")
+                } catch {
+                    print("❌ [HomeViewModel] 發送交易通知失敗到群組 \(group.name): \(error)")
+                }
+            }
+        } catch {
+            print("❌ [HomeViewModel] 獲取主持群組失敗: \(error)")
+        }
     }
     
     // MARK: - 載入投資群組

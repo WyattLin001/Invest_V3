@@ -179,4 +179,82 @@ enum InvitationStatus: String, Codable {
     case accepted = "accepted"
     case rejected = "rejected"
     case expired = "expired"
+}
+
+// 群組捐贈記錄模型
+struct GroupDonation: Codable, Identifiable {
+    let id: String
+    let groupId: String
+    let donorId: String
+    let donorName: String
+    let amount: Int
+    let message: String?
+    let createdAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case groupId = "group_id"
+        case donorId = "donor_id"
+        case donorName = "donor_name"
+        case amount
+        case message
+        case createdAt = "created_at"
+    }
+}
+
+// 捐贈統計摘要模型 (用於排行榜)
+struct DonationSummary: Codable, Identifiable {
+    let donorId: String
+    let donorName: String
+    let totalAmount: Int
+    let donationCount: Int
+    let lastDonationDate: Date
+    
+    var id: String { donorId }
+    
+    // 格式化總金額顯示
+    var formattedTotalAmount: String {
+        return "\(totalAmount) 金幣"
+    }
+    
+    // 格式化捐贈次數顯示
+    var formattedDonationCount: String {
+        return "\(donationCount) 次"
+    }
+    
+    // 格式化最後捐贈時間
+    var formattedLastDonationDate: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .none
+        return formatter.string(from: lastDonationDate)
+    }
+}
+
+// MARK: - 創作者收益相關模型
+
+// 收益類型枚舉
+enum RevenueType: String, CaseIterable, Codable {
+    case subscriptionShare = "subscription_share" // 訂閱分潤
+    case readerTip = "reader_tip" // 讀者抖內
+    case groupEntryFee = "group_entry_fee" // 群組入會費收入
+    case groupTip = "group_tip" // 群組抖內收入
+    
+    var displayName: String {
+        switch self {
+        case .subscriptionShare: return "訂閱分潤"
+        case .readerTip: return "讀者抖內"
+        case .groupEntryFee: return "群組入會費收入"
+        case .groupTip: return "群組抖內收入"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .subscriptionShare: return "👥"
+        case .readerTip: return "💝"
+        case .groupEntryFee: return "🎫"
+        case .groupTip: return "🎁"
+        }
+    }
 } 

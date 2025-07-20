@@ -16,7 +16,7 @@ struct ContentView: View {
                 .tag(0)
             
             // 聊天 - 投資群組討論
-            ChatView()
+            ChatView(preselectedGroupId: selectedGroupId)
                 .tabItem {
                     Image(systemName: selectedTab == 1 ? "message.fill" : "message")
                     Text("聊天")
