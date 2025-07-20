@@ -186,9 +186,9 @@ class HomeViewModel: ObservableObject {
             print("✅ 成功載入 \(rankings.count) 筆排行榜資料")
             
         } catch {
-            // 如果載入失敗，使用模擬資料
-            print("⚠️ 載入排行榜失敗，使用模擬資料: \(error)")
-            self.tradingRankings = TradingUserRanking.mockRankings()
+            // 如果載入失敗，設為空陣列
+            print("⚠️ 載入排行榜失敗: \(error)")
+            self.tradingRankings = []
         }
     }
     

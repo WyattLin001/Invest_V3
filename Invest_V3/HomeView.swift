@@ -266,24 +266,45 @@ struct HomeView: View {
     
     private var rankingContentView: some View {
         VStack {
-            // 排行榜卡片 - 使用 TabView 實現輪播
-            TabView {
-                ForEach(Array(viewModel.currentRankings.prefix(3).enumerated()), id: \.element.id) { index, user in
-                    Button(action: {
-                        selectedRankingUser = user
-                        showJoinGroupSheet = true
-                    }) {
-                        TradingRankingCard(user: user, selectedPeriod: viewModel.selectedPeriod)
-                            .frame(maxWidth: .infinity)
+            if viewModel.currentRankings.isEmpty {
+                // 空狀態顯示
+                VStack(spacing: 16) {
+                    Image(systemName: "chart.bar.xaxis")
+                        .font(.system(size: 50))
+                        .foregroundColor(.gray400)
+                    
+                    VStack(spacing: 8) {
+                        Text("暫無排行榜資料")
+                            .font(.headline)
+                            .foregroundColor(.textPrimary)
+                        
+                        Text("等待更多用戶加入交易排行榜")
+                            .font(.body)
+                            .foregroundColor(.textSecondary)
+                            .multilineTextAlignment(.center)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .accessibilityLabel("\(viewModel.selectedPeriod.rawValue) 第 \(user.rank) 名，\(user.name)，回報率 \(user.formattedReturnRate)")
-                    .accessibilityHint("點擊查看詳細資料並申請加入群組")
-                    .tag(index)
                 }
+                .frame(height: 190)
+            } else {
+                // 排行榜卡片 - 使用 TabView 實現輪播
+                TabView {
+                    ForEach(Array(viewModel.currentRankings.prefix(3).enumerated()), id: \.element.id) { index, user in
+                        Button(action: {
+                            selectedRankingUser = user
+                            showJoinGroupSheet = true
+                        }) {
+                            TradingRankingCard(user: user, selectedPeriod: viewModel.selectedPeriod)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .accessibilityLabel("\(viewModel.selectedPeriod.rawValue) 第 \(user.rank) 名，\(user.name)，回報率 \(user.formattedReturnRate)")
+                        .accessibilityHint("點擊查看詳細資料並申請加入群組")
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .automatic))
+                .frame(height: 190)
             }
-            .tabViewStyle(.page(indexDisplayMode: .automatic))
-            .frame(height: 190)
         }
     }
     

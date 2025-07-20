@@ -182,65 +182,6 @@ struct TradingRankingsResponse: Codable {
     let message: String?
 }
 
-// MARK: - Mock Data for Testing
-
-extension TradingUserRanking {
-    /// 創建測試用的排行榜資料
-    static func mockRankings() -> [TradingUserRanking] {
-        return [
-            TradingUserRanking(
-                rank: 1,
-                userId: "user1",
-                name: "test王",
-                returnRate: 25.8,
-                totalAssets: 1258000,
-                totalProfit: 258000,
-                avatarUrl: nil,
-                period: "all"
-            ),
-            TradingUserRanking(
-                rank: 2,
-                userId: "user2", 
-                name: "test徐",
-                returnRate: 22.3,
-                totalAssets: 1223000,
-                totalProfit: 223000,
-                avatarUrl: nil,
-                period: "all"
-            ),
-            TradingUserRanking(
-                rank: 3,
-                userId: "user3",
-                name: "test張", 
-                returnRate: 19.7,
-                totalAssets: 1197000,
-                totalProfit: 197000,
-                avatarUrl: nil,
-                period: "all"
-            ),
-            TradingUserRanking(
-                rank: 4,
-                userId: "user4",
-                name: "test林",
-                returnRate: 17.2,
-                totalAssets: 1172000,
-                totalProfit: 172000,
-                avatarUrl: nil,
-                period: "all"
-            ),
-            TradingUserRanking(
-                rank: 5,
-                userId: "user5",
-                name: "test黃",
-                returnRate: 15.6,
-                totalAssets: 1156000,
-                totalProfit: 156000,
-                avatarUrl: nil,
-                period: "all"
-            )
-        ]
-    }
-}
 
 extension TradingUserPerformance {
     /// 創建測試用的用戶績效資料

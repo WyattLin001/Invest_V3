@@ -32,18 +32,31 @@ struct InitializeRankingsDataView: View {
                         .padding(.horizontal)
                 }
                 
-                // 資料預覽
+                // 資料說明
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("將創建以下測試用戶：")
+                    Text("排行榜資料來源：")
                         .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    VStack(spacing: 8) {
-                        testUserRow(rank: 1, name: "test王", returnRate: 25.8)
-                        testUserRow(rank: 2, name: "test徐", returnRate: 22.3)
-                        testUserRow(rank: 3, name: "test張", returnRate: 19.7)
-                        testUserRow(rank: 4, name: "test林", returnRate: 17.2)
-                        testUserRow(rank: 5, name: "test黃", returnRate: 15.6)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("從 Supabase trading_users 表格讀取")
+                                .font(.body)
+                        }
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("顯示真實用戶交易績效")
+                                .font(.body)
+                        }
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("即時更新投資回報率")
+                                .font(.body)
+                        }
                     }
                     .padding(.leading, 16)
                 }
@@ -148,19 +161,18 @@ struct InitializeRankingsDataView: View {
         
         Task {
             do {
-                try await supabaseService.initializeTestTradingData()
+                // TestUserData functions have been removed - ranking data should come from real Supabase users
+                print("📊 排行榜資料現在直接從 Supabase trading_users 表格讀取")
                 
                 await MainActor.run {
                     isSuccess = true
                     resultMessage = """
-                    ✅ 排名系統初始化成功！
+                    ✅ 排名系統現在使用真實 Supabase 資料！
                     
-                    已創建5個測試用戶：
-                    • test王 (25.8%)
-                    • test徐 (22.3%)
-                    • test張 (19.7%)
-                    • test林 (17.2%)
-                    • test黃 (15.6%)
+                    排行榜將顯示：
+                    • 真實用戶的交易績效
+                    • 來自 Supabase 的即時數據
+                    • 不再使用測試假資料
                     
                     每個用戶都有完整的30天績效快照資料。
                     """
