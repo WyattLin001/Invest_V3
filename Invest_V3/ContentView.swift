@@ -87,6 +87,10 @@ struct ContentView: View {
                 selectedGroupId = groupId
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowWalletForTopUp"))) { _ in
+            // 切換到錢包 Tab 進行充值
+            selectedTab = 2
+        }
     }
 }
 

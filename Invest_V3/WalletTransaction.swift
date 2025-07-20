@@ -47,6 +47,8 @@ enum TransactionType: String, Codable, CaseIterable {
     case subscription = "subscription"   // 訂閱
     case tip = "tip"               // 抖內
     case bonus = "bonus"           // 紅利
+    case groupEntryFee = "group_entry_fee"  // 群組入會費
+    case groupTip = "group_tip"     // 群組抖內
     
     var displayName: String {
         switch self {
@@ -56,13 +58,15 @@ enum TransactionType: String, Codable, CaseIterable {
         case .subscription: return "訂閱"
         case .tip: return "抖內"
         case .bonus: return "紅利"
+        case .groupEntryFee: return "群組入會費"
+        case .groupTip: return "群組抖內"
         }
     }
     
     var isIncome: Bool {
         switch self {
         case .deposit, .bonus: return true
-        case .withdrawal, .giftPurchase, .subscription, .tip: return false
+        case .withdrawal, .giftPurchase, .subscription, .tip, .groupEntryFee, .groupTip: return false
         }
     }
     
@@ -74,6 +78,8 @@ enum TransactionType: String, Codable, CaseIterable {
         case .subscription: return "crown.fill"
         case .tip: return "heart.fill"
         case .bonus: return "star.fill"
+        case .groupEntryFee: return "person.2.fill"
+        case .groupTip: return "dollarsign.circle.fill"
         }
     }
     
@@ -85,6 +91,8 @@ enum TransactionType: String, Codable, CaseIterable {
         case .subscription: return Color.blue.opacity(0.1)
         case .tip: return Color.pink.opacity(0.1)
         case .bonus: return Color.yellow.opacity(0.1)
+        case .groupEntryFee: return Color.cyan.opacity(0.1)
+        case .groupTip: return Color.mint.opacity(0.1)
         }
     }
     
@@ -96,6 +104,8 @@ enum TransactionType: String, Codable, CaseIterable {
         case .subscription: return .blue
         case .tip: return .pink
         case .bonus: return .orange
+        case .groupEntryFee: return .cyan
+        case .groupTip: return .mint
         }
     }
 }

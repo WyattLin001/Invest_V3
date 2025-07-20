@@ -123,6 +123,13 @@ class ChatViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+        
+        // 監聽錢包餘額更新通知
+        NotificationCenter.default.publisher(for: NSNotification.Name("WalletBalanceUpdated"))
+            .sink { [weak self] _ in
+                self?.loadWalletBalance()
+            }
+            .store(in: &cancellables)
     }
     
     deinit {
@@ -143,6 +150,13 @@ class ChatViewModel: ObservableObject {
             await performDiagnostics()
             await loadJoinedGroups()
             loadWalletBalance()
+            
+            // 統合的載入完成訊息
+            await MainActor.run {
+                let groupCount = joinedGroups.count
+                let balanceText = String(format: "%.0f", currentBalance)
+                print("💬 聊天頁面載入完成: \(groupCount)個群組, \(balanceText)代幣")
+            }
         }
         
         self.messageText = lastMessageContent
@@ -178,12 +192,9 @@ class ChatViewModel: ObservableObject {
         }
         
         self.diagnosticInfo = diagnosticResults.joined(separator: "\n")
-        print("🔍 [診斷] 診斷完成:\n\(diagnosticInfo)")
+        // 診斷完成（靜默）
     }
     
-    // MARK: - 測試功能
-    
-
     // MARK: - Data Loading & Actions
     
     func loadJoinedGroups(forceReload: Bool = false) async {
@@ -194,11 +205,7 @@ class ChatViewModel: ObservableObject {
             self.filterGroups()
             self.isLoadingGroups = false
             
-            if groups.isEmpty {
-                print("ℹ️ 用戶尚未加入任何群組")
-            } else {
-                print("✅ 載入了 \(groups.count) 個已加入的群組")
-            }
+            // 群組載入完成（靜默）
         } catch {
             handleError(error, context: "載入群組失敗")
             self.joinedGroups = [] // 改為空陣列，不使用假資料
@@ -249,7 +256,7 @@ class ChatViewModel: ObservableObject {
                 let balanceDouble = Double(walletBalance)
                 if balanceDouble.isFinite && !balanceDouble.isNaN && balanceDouble >= 0 {
                     self.currentBalance = balanceDouble
-                    print("✅ [ChatViewModel] 載入餘額成功: \(walletBalance) 代幣")
+                    // 餘額載入成功（靜默）
                 } else {
                     print("⚠️ [ChatViewModel] 獲取到無效餘額: \(walletBalance)，使用預設值")
                     self.currentBalance = 5280.0
@@ -318,6 +325,9 @@ class ChatViewModel: ObservableObject {
         
         guard currentBalance >= amount else {
             handleError(nil, context: "餘額不足，請先儲值")
+            
+            // 發送通知跳轉到錢包頁面
+            NotificationCenter.default.post(name: NSNotification.Name("ShowWalletForTopUp"), object: nil)
             return
         }
         

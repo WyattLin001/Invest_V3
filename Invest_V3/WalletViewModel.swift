@@ -33,13 +33,28 @@ class WalletViewModel: ObservableObject {
     }
     @Published var gifts: [Gift] = [] // 禮物功能已刪除，改為抖內功能
     
-    // private let supabaseService = SupabaseService.shared // 暫時註釋
+    private let supabaseService = SupabaseService.shared
     
     init() {
         // 確保初始值是安全的
         self.balance = 0.0
         self.withdrawableAmount = 0.0
         print("✅ [WalletViewModel] 初始化完成，balance: \(balance)")
+        
+        // 監聽錢包餘額更新通知
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("WalletBalanceUpdated"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task {
+                await self?.loadBalance()
+            }
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     // MARK: - 初始化資料
@@ -55,43 +70,86 @@ class WalletViewModel: ObservableObject {
     }
     
     // MARK: - 載入餘額
-    private func loadBalance() async {
-        // 暫時註釋 Supabase 調用
-        // let walletBalance = try await supabaseService.fetchWalletBalance()
-        
-        // 使用模擬資料
-        let walletBalance = 10000
-        
-        // 確保獲取的餘額是有效數值
-        self.balance = Double(walletBalance)
-        print("✅ [WalletViewModel] 載入餘額成功: \(walletBalance) NTD")
+    func loadBalance() async {
+        do {
+            let walletBalance = try await supabaseService.fetchWalletBalance()
+            
+            // 確保獲取的餘額是有效數值
+            let balanceDouble = Double(walletBalance)
+            if balanceDouble.isFinite && !balanceDouble.isNaN && balanceDouble >= 0 {
+                self.balance = balanceDouble
+                print("✅ [WalletViewModel] 載入餘額成功: \(walletBalance) NTD")
+            } else {
+                print("⚠️ [WalletViewModel] 獲取到無效餘額: \(walletBalance)，使用預設值")
+                self.balance = 0.0
+            }
+        } catch {
+            print("❌ [WalletViewModel] 載入餘額失敗: \(error.localizedDescription)")
+            self.balance = 0.0
+        }
     }
     
     // MARK: - 充值功能
     func topUp10K() async {
-        // 暫時註釋 Supabase 調用
-        // try await supabaseService.updateWalletBalance(delta: 10000)
-        await MainActor.run {
-            self.balance += 10000
-            print("✅ [WalletViewModel] 充值成功: 餘額增加 10000 NTD")
+        do {
+            try await supabaseService.updateWalletBalance(delta: 10000)
+            await loadBalance()
+            
+            await MainActor.run {
+                print("✅ [WalletViewModel] 充值成功: 餘額增加 10000 NTD")
+                
+                // 發送通知給其他頁面更新餘額
+                NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
+            }
+        } catch {
+            await MainActor.run {
+                print("❌ [WalletViewModel] 充值失敗: \(error.localizedDescription)")
+            }
         }
     }
     
     // MARK: - 測試充值功能
     func performTestTopUp(tokens: Int) async {
         let amountNTD = Double(tokens * 100) // 1 代幣 = 100 NTD
-        await MainActor.run {
-            self.balance += amountNTD
-            print("✅ [WalletViewModel] 測試充值成功: 增加 \(tokens) 代幣 (\(amountNTD) NTD)")
-        }
         
-        // 模擬網路延遲
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 秒
+        do {
+            // 實際更新 Supabase 餘額
+            try await supabaseService.updateWalletBalance(delta: Int(amountNTD))
+            
+            // 重新載入餘額以確保同步
+            await loadBalance()
+            
+            await MainActor.run {
+                print("✅ [WalletViewModel] 測試充值成功: 增加 \(tokens) 代幣 (\(amountNTD) NTD)")
+            }
+            
+            // 發送通知給其他頁面更新餘額
+            NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
+            
+        } catch {
+            await MainActor.run {
+                print("❌ [WalletViewModel] 測試充值失敗: \(error.localizedDescription)")
+            }
+        }
     }
     
     // MARK: - 載入交易記錄
     private func loadTransactions() async {
-        self.transactions = [
+        do {
+            // 從 Supabase 載入真實的交易記錄（最近5筆）
+            let fetchedTransactions = try await supabaseService.fetchUserTransactions(limit: 5)
+            self.transactions = fetchedTransactions
+            print("✅ [WalletViewModel] 載入交易記錄成功: \(fetchedTransactions.count) 筆")
+        } catch {
+            print("❌ [WalletViewModel] 載入交易記錄失敗: \(error.localizedDescription)")
+            // 發生錯誤時使用模擬資料作為後備
+            self.transactions = createMockTransactions()
+        }
+    }
+    
+    // 創建模擬交易記錄（作為後備）
+    private func createMockTransactions() -> [WalletTransaction] {
+        return [
             WalletTransaction(
                 id: UUID(),
                 userId: UUID(),

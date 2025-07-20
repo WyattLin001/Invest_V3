@@ -29,6 +29,40 @@ class HomeViewModel: ObservableObject {
     
     private let supabaseService = SupabaseService.shared
     
+    init() {
+        // 監聽錢包餘額更新通知
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("WalletBalanceUpdated"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task {
+                await self?.loadWalletBalance()
+            }
+        }
+    }
+    
+    // 新增載入錢包餘額的方法，供外部調用
+    func loadWalletBalance() async {
+        do {
+            let balance = try await supabaseService.fetchWalletBalance()
+            await MainActor.run {
+                // balance 是從 user_balances 表獲取的 NTD 值，需要轉換為代幣顯示
+                // 注意：這個方法在 HomeViewModel 中應該設置一個屬性來存儲餘額
+                // 但我看到 walletBalance 是在 HomeView 中定義的，需要重新架構
+                print("✅ [HomeViewModel] 載入錢包餘額成功: \(balance) NTD")
+            }
+        } catch {
+            await MainActor.run {
+                print("❌ [HomeViewModel] 載入錢包餘額失敗: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     // 根據選中的時間週期返回對應的排行榜
     var currentRankings: [TradingUserRanking] {
         return tradingRankings

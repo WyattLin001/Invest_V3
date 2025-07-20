@@ -17,7 +17,12 @@ struct InvestmentGroup: Codable, Identifiable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        id = try container.decode(UUID.self, forKey: .id)
+        // Handle both String and UUID for id field
+        if let idString = try? container.decode(String.self, forKey: .id) {
+            id = UUID(uuidString: idString) ?? UUID()
+        } else {
+            id = try container.decode(UUID.self, forKey: .id)
+        }
         name = try container.decode(String.self, forKey: .name)
         host = try container.decode(String.self, forKey: .host)
         returnRate = try container.decode(Double.self, forKey: .returnRate)

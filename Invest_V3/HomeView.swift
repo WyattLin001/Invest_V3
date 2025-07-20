@@ -412,6 +412,9 @@ struct HomeView: View {
                 // 直接更新顯示的代幣數量
                 self.walletBalance += 100.0
                 print("✅ [HomeView] 假充值成功: +100 代幣")
+                
+                // 發送通知給其他頁面更新餘額
+                NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
             }
         } catch {
             await MainActor.run {

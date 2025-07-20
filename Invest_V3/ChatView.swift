@@ -55,7 +55,7 @@ struct ChatView: View {
         }
         .onChange(of: preselectedGroupId) { groupId in
             if let groupId = groupId {
-                print("🎯 收到預選群組 ID: \(groupId)")
+                // 收到預選群組 ID（靜默）
                 Task {
                     await viewModel.selectGroup(groupId: groupId)
                 }

@@ -17,7 +17,6 @@ struct WalletView: View {
     @State private var showSubscriptionSheet = false
     @State private var showGiftAnimation = false
     @State private var showWithdrawalAlert = false
-    @State private var showAuthorEarnings = false
     @State private var showTopUpAnimation = false
     @State private var topUpAmount: Double = 0
     @State private var showCancelSubscriptionAlert = false
@@ -42,12 +41,6 @@ struct WalletView: View {
                         
                         // 交易紀錄
                         transactionHistoryCard
-                        
-                        // 創作者收益
-                        authorEarningsCard
-                        
-                        // 提領卡片
-                        withdrawalCard
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 16)
@@ -61,9 +54,6 @@ struct WalletView: View {
         }
         .sheet(isPresented: $showSubscriptionSheet) {
             Text("訂閱功能")  // 簡化實現
-        }
-        .sheet(isPresented: $showAuthorEarnings) {
-            AuthorEarningsView()
         }
         .alert("提領確認", isPresented: $showWithdrawalAlert) {
             Button("確認", role: .destructive) {
@@ -242,86 +232,17 @@ struct WalletView: View {
                     .foregroundColor(.secondary)
                     .padding(.vertical, 24)
             } else {
-                // 暫時顯示佔位符，因為 WalletTransaction 類型不可見
-                Text("交易記錄載入中...")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, 24)
-            }
-        }
-        .brandCardStyle()
-    }
-
-    // MARK: - 創作者收益卡片  
-    private var authorEarningsCard: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("創作者收益")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Spacer()
-                
-                Button("詳細") {
-                    showAuthorEarnings = true
+                // 顯示最近的交易記錄
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.transactions) { transaction in
+                        TransactionRowView(transaction: transaction)
+                    }
                 }
-                .font(.caption)
-                .foregroundColor(.blue)
-            }
-            
-            HStack(spacing: 16) {
-                EarningsSourceMini(
-                    icon: "📝",
-                    title: "文章收益",
-                    amount: 2650.0
-                )
-                
-                EarningsSourceMini(
-                    icon: "💰",
-                    title: "投資建議",
-                    amount: 8750.0
-                )
-                
-                Spacer()
             }
         }
         .brandCardStyle()
     }
 
-    // MARK: - 提領卡片
-    private var withdrawalCard: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("可提領金額")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Spacer()
-            }
-            
-            HStack {
-                Text("提領到玉山銀行")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text(TokenSystem.formatTokens(viewModel.withdrawableAmount.ntdToTokens()))
-                    .font(.title3)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-            }
-            
-            Button(action: { showWithdrawalAlert = true }) {
-                Text("提領")
-                    .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.orange)
-                    .cornerRadius(8)
-            }
-            .disabled(viewModel.withdrawableAmount <= 0)
-        }
-        .brandCardStyle()
-    }
     
     // MARK: - 測試充值功能
     private func performTestTopUp(amount: Double) async {
@@ -347,6 +268,48 @@ struct WalletView: View {
 }
 
 // MARK: - 支援元件
+
+struct TransactionRowView: View {
+    let transaction: WalletTransaction
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // 交易類型圖示
+            Image(systemName: transaction.icon)
+                .font(.title3)
+                .foregroundColor(transaction.iconColor)
+                .frame(width: 24, height: 24)
+            
+            // 交易詳情
+            VStack(alignment: .leading, spacing: 2) {
+                Text(transaction.displayName)
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text(transaction.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            // 金額和時間
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(transaction.formattedAmount)
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(transaction.amount >= 0 ? .green : .red)
+                
+                Text(transaction.formattedDate)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+}
 
 struct TestTopUpButton: View {
     let amount: Double

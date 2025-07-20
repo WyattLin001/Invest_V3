@@ -122,13 +122,23 @@ struct AuthorEarningsView: View {
     }
 
     private var withdrawalButton: some View {
-        Button(action: {}) {
+        Button(action: {
+            Task {
+                await viewModel.initiateWithdrawal()
+            }
+        }) {
             HStack {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.title3)
-                Text("申請提領")
-                    .font(EarningsDesignTokens.body)
-                    .fontWeight(.semibold)
+                if viewModel.isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
+                } else {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title3)
+                    Text("申請提領")
+                        .font(EarningsDesignTokens.body)
+                        .fontWeight(.semibold)
+                }
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
@@ -141,7 +151,7 @@ struct AuthorEarningsView: View {
             .cornerRadius(EarningsDesignTokens.cornerRadius12)
         }
         .buttonStyle(ScaleButtonStyle())
-        .disabled(viewModel.withdrawableAmount < 1000)
+        .disabled(viewModel.withdrawableAmount < 1000 || viewModel.isLoading)
     }
 
     private var loadingState: some View {

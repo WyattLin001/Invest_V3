@@ -287,6 +287,9 @@ class AuthorEarningsViewModel: ObservableObject {
             groupTipEarnings = 0.0
             withdrawableAmount = 0.0
             
+            // 發送錢包餘額更新通知給其他頁面
+            NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
+            
             print("✅ [AuthorEarningsViewModel] 提領申請成功，收益已轉入錢包")
             
         } catch {

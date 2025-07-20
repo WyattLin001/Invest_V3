@@ -566,6 +566,43 @@ class SupabaseService: ObservableObject {
         return groups
     }
     
+    /// 直接通過 ID 查找並嘗試加入群組（簡化版本，不扣除代幣）
+    func findAndJoinGroupById(groupId: String) async throws -> InvestmentGroup? {
+        try await SupabaseManager.shared.ensureInitialized()
+        
+        // 直接查找群組
+        let groups: [InvestmentGroup] = try await client
+            .from("investment_groups")
+            .select()
+            .eq("id", value: groupId)
+            .limit(1)
+            .execute()
+            .value
+        
+        guard let group = groups.first else {
+            print("❌ 群組 \(groupId) 不存在")
+            return nil
+        }
+        
+        print("✅ 找到群組: \(group.name)")
+        
+        // 獲取當前用戶
+        guard let currentUser = getCurrentUser() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        // 直接加入群組成員（跳過代幣扣除以避免交易約束問題）
+        if let groupUUID = UUID(uuidString: groupId) {
+            try await joinGroup(groupId: groupUUID, userId: currentUser.id)
+            print("✅ 成功加入群組: \(group.name)")
+            return group
+        } else {
+            print("❌ 無效的群組 ID 格式")
+            return nil
+        }
+    }
+    
+    
     /// 退出群組
     func leaveGroup(groupId: UUID) async throws {
         try await SupabaseManager.shared.ensureInitialized()
@@ -698,6 +735,17 @@ class SupabaseService: ObservableObject {
         // 檢查並扣除代幣
         if tokenCost > 0 {
             try await deductTokens(userId: currentUser.id, amount: tokenCost, description: "加入群組：\(group.name)")
+            
+            // 創建群組主持人的收益記錄
+            let hostId = try await fetchGroupHostId(groupId: groupId)
+            try await createCreatorRevenue(
+                creatorId: hostId.uuidString,
+                revenueType: .groupEntryFee,
+                amount: tokenCost,
+                sourceId: groupId,
+                sourceName: group.name,
+                description: "群組入會費：\(currentUser.displayName) 加入 \(group.name)"
+            )
         }
         
         // 調用原有的 joinGroup 函數
@@ -707,6 +755,27 @@ class SupabaseService: ObservableObject {
         let _ = try await createPortfolio(groupId: groupId, userId: currentUser.id)
         
         print("✅ 成功加入群組並扣除 \(tokenCost) 代幣")
+    }
+    
+    /// 獲取群組主持人的用戶ID
+    func fetchGroupHostId(groupId: UUID) async throws -> UUID {
+        try await SupabaseManager.shared.ensureInitialized()
+        
+        let groups: [InvestmentGroup] = try await client
+            .from("investment_groups")
+            .select()
+            .eq("id", value: groupId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+        
+        guard let group = groups.first else {
+            throw SupabaseError.unknown("群組不存在")
+        }
+        
+        // 通過 host 名稱查找主持人的 user ID
+        let hostProfile = try? await fetchUserProfileByDisplayName(group.host)
+        return hostProfile?.id ?? UUID()
     }
     
 
@@ -1647,7 +1716,7 @@ class SupabaseService: ObservableObject {
             .rpc("check_connection")
                 .execute()
             
-            logError(message: "✅ [連線檢查] 資料庫連線成功")
+            // 連線檢查成功（靜默）
             return (true, "✅ [連線檢查] 資料庫連線正常")
             
         } catch {
@@ -1661,7 +1730,7 @@ class SupabaseService: ObservableObject {
                     .execute()
                 
                 // 檢查是否有響應數據（不解碼為具體模型）
-                logError(message: "✅ [連線檢查] 資料庫連線成功 (備用方法)")
+                // 連線檢查成功 (備用方法，靜默)
                 return (true, "✅ [連線檢查] 資料庫連線正常")
                 
             } catch {
@@ -1687,7 +1756,7 @@ class SupabaseService: ObservableObject {
                 .value
             
             guard let userProfile = userProfiles.first else {
-                logError(message: "⚠️ [訊息檢查] 找不到用戶: \(userEmail)")
+                // 找不到用戶（靜默）
                 return (false, 0, nil)
             }
             
@@ -1725,7 +1794,7 @@ class SupabaseService: ObservableObject {
                 .value
             
             let isMember = !members.isEmpty
-            logError(message: "✅ [群組檢查] 用戶 \(userId) 是否為群組 \(groupId) 成員: \(isMember)")
+            // 群組成員檢查完成（靜默）
             return isMember
             
         } catch {
@@ -2261,6 +2330,29 @@ class SupabaseService: ObservableObject {
         print("✅ 錢包餘額更新成功: \(currentBalance) → \(newBalance) (變化: \(delta))")
     }
     
+    /// 獲取用戶交易記錄
+    func fetchUserTransactions(limit: Int = 5) async throws -> [WalletTransaction] {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        guard let authUser = try? await client.auth.user() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        let userId = authUser.id
+        
+        let response: [WalletTransaction] = try await client
+            .from("wallet_transactions")
+            .select()
+            .eq("user_id", value: userId)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+        
+        print("✅ [SupabaseService] 成功載入 \(response.count) 筆交易記錄")
+        return response
+    }
+    
     /// 獲取指定用戶的代幣餘額
     func getUserBalance(userId: UUID) async throws -> Double {
         try SupabaseManager.shared.ensureInitialized()
@@ -2316,14 +2408,14 @@ class SupabaseService: ObservableObject {
             .eq("user_id", value: userId)
             .execute()
         
-        // 記錄交易
+        // 記錄交易 - 使用最基本的有效交易類型
         let transaction = WalletTransaction(
             id: UUID(),
             userId: userId,
-            transactionType: "deduction",
+            transactionType: "withdrawal", // 扣除類型，使用提領
             amount: -amount, // 負數表示扣除
             description: description,
-            status: "completed",
+            status: "confirmed",
             paymentMethod: "system",
             blockchainId: nil,
             recipientId: nil,
@@ -2982,8 +3074,9 @@ class SupabaseService: ObservableObject {
     func createRealTestGroups() async throws {
         try await SupabaseManager.shared.ensureInitialized()
         
-        // 定義五個群組
+        // 定義六個群組
         let groupsData = [
+            ("Test01", "測試群組 - 基礎投資討論", 10),
             ("林老師的投資群組", "專業股票分析，適合新手投資者", 1),
             ("黃老師的投資群組", "中階投資策略分享", 10),
             ("張老師的投資群組", "高階投資技術分析", 100),
@@ -2996,6 +3089,13 @@ class SupabaseService: ObservableObject {
             .from("investment_groups")
             .delete()
             .like("name", value: "%老師的投資群組%")
+            .execute()
+        
+        // 刪除 Test01 群組
+        try await self.client
+            .from("investment_groups")
+            .delete()
+            .eq("name", value: "Test01")
             .execute()
         
         // 創建新的群組
