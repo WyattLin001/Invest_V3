@@ -3284,6 +3284,7 @@ extension SupabaseService {
         return String(userId.prefix(8)).uppercased()
     }
     
+    
 }
 
 // MARK: - Supporting Structures for Trading Rankings

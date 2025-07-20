@@ -32,32 +32,34 @@ struct InitializeRankingsDataView: View {
                         .padding(.horizontal)
                 }
                 
-                // 資料說明
+                // 真實用戶註冊指引
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("排行榜資料來源：")
+                    Text("需要真實註冊的 5 個用戶帳號：")
                         .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("從 Supabase trading_users 表格讀取")
-                                .font(.body)
-                        }
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("顯示真實用戶交易績效")
-                                .font(.body)
-                        }
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("即時更新投資回報率")
-                                .font(.body)
-                        }
+                        realUserRow(name: "test01", email: "test01@example.com", status: "待註冊")
+                        realUserRow(name: "test02", email: "test02@example.com", status: "待註冊")
+                        realUserRow(name: "test03", email: "test03@example.com", status: "待註冊")
+                        realUserRow(name: "test04", email: "test04@example.com", status: "待註冊")
+                        realUserRow(name: "test05", email: "test05@example.com", status: "待註冊")
                     }
+                    .padding(.leading, 16)
+                    
+                    Text("註冊步驟：")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .padding(.top, 8)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("1. 每個人使用上述 email 進行真實註冊")
+                        Text("2. 設定各自的密碼")
+                        Text("3. 完成用戶資料設定")
+                        Text("4. 開始進行真實交易投資")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.gray600)
                     .padding(.leading, 16)
                 }
                 .padding()
@@ -115,32 +117,41 @@ struct InitializeRankingsDataView: View {
     }
     
     /// 測試用戶行視圖
-    private func testUserRow(rank: Int, name: String, returnRate: Double) -> some View {
+    private func realUserRow(name: String, email: String, status: String) -> some View {
         HStack {
-            // 排名圖標
+            // 用戶圖標
             ZStack {
                 Circle()
-                    .fill(rankColor(for: rank))
+                    .fill(Color.brandBlue)
                     .frame(width: 24, height: 24)
                 
-                Text("\(rank)")
+                Image(systemName: "person.fill")
                     .font(.caption)
-                    .fontWeight(.bold)
                     .foregroundColor(.white)
             }
             
-            // 用戶名稱
-            Text(name)
-                .font(.body)
-                .fontWeight(.medium)
+            // 用戶資訊
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.body)
+                    .fontWeight(.medium)
+                
+                Text(email)
+                    .font(.caption)
+                    .foregroundColor(.gray600)
+            }
             
             Spacer()
             
-            // 回報率
-            Text(String(format: "%.1f%%", returnRate))
-                .font(.body)
-                .fontWeight(.semibold)
-                .foregroundColor(.brandGreen)
+            // 狀態
+            Text(status)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.orange)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
         }
         .padding(.vertical, 4)
     }
@@ -160,33 +171,37 @@ struct InitializeRankingsDataView: View {
         isInitializing = true
         
         Task {
-            do {
-                // TestUserData functions have been removed - ranking data should come from real Supabase users
-                print("📊 排行榜資料現在直接從 Supabase trading_users 表格讀取")
+            // 模擬檢查過程
+            await MainActor.run {
+                resultMessage = "正在準備真實用戶註冊資訊..."
+            }
+            
+            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 秒
+            
+            await MainActor.run {
+                isSuccess = true
+                resultMessage = """
+                ✅ 真實用戶註冊指引準備完成！
                 
-                await MainActor.run {
-                    isSuccess = true
-                    resultMessage = """
-                    ✅ 排名系統現在使用真實 Supabase 資料！
-                    
-                    排行榜將顯示：
-                    • 真實用戶的交易績效
-                    • 來自 Supabase 的即時數據
-                    • 不再使用測試假資料
-                    
-                    每個用戶都有完整的30天績效快照資料。
-                    """
-                    showResult = true
-                    isInitializing = false
-                }
+                請讓 5 個真實用戶分別註冊以下帳號：
                 
-            } catch {
-                await MainActor.run {
-                    isSuccess = false
-                    resultMessage = "❌ 初始化失敗：\(error.localizedDescription)"
-                    showResult = true
-                    isInitializing = false
-                }
+                📧 用戶帳號：
+                • test01@example.com
+                • test02@example.com  
+                • test03@example.com
+                • test04@example.com
+                • test05@example.com
+                
+                🔐 每個用戶需要：
+                1. 使用對應 email 註冊真實帳號
+                2. 設定個人密碼
+                3. 完成用戶資料填寫
+                4. 開始真實交易投資
+                
+                ⚠️ 這些將是真實用戶，不是假數據！
+                """
+                showResult = true
+                isInitializing = false
             }
         }
     }
