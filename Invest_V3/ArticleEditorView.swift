@@ -23,8 +23,7 @@ struct ArticleEditorView: View {
     @State private var isUploadingImage = false
     @State private var uploadProgress: Double = 0.0
     @State private var isShowingDraftAlert = false
-    @State private var showTableEditor = false
-    @State private var currentTable = GridTable(rows: 3, columns: 3)
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
     
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
@@ -109,9 +108,22 @@ struct ArticleEditorView: View {
         }
         .photosPicker(
             isPresented: $showImagePicker,
-            selection: .constant(nil),
+            selection: $selectedPhotoItems,
+            maxSelectionCount: 5,
             matching: .images
         )
+        .onChange(of: selectedPhotoItems) { oldValue, newValue in
+            print("📸 onChange 觸發 - 舊: \(oldValue.count), 新: \(newValue.count)")
+            
+            if newValue.count > oldValue.count {
+                print("📸 開始處理圖片...")
+                Task {
+                    await processNewPhotos(newValue)
+                }
+            } else {
+                print("📸 沒有新項目，跳過處理")
+            }
+        }
         .alert("未保存的更改", isPresented: $isShowingDraftAlert) {
             Button("保存草稿") {
                 saveDraft()
@@ -123,33 +135,6 @@ struct ArticleEditorView: View {
             Button("取消", role: .cancel) { }
         } message: {
             Text("您有未保存的更改，是否要保存為草稿？")
-        }
-        .sheet(isPresented: $showTableEditor) {
-            NavigationView {
-                VStack {
-                    GridTableEditorView(table: $currentTable)
-                        .padding()
-                    
-                    Spacer()
-                }
-                .navigationTitle("編輯表格")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("取消") {
-                            showTableEditor = false
-                        }
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("插入") {
-                            // TODO: 實現 insertTable 函數 (未來版本)
-                            // insertTable(currentTable)
-                            showTableEditor = false
-                        }
-                        .fontWeight(.semibold)
-                    }
-                }
-            }
         }
     }
     
@@ -364,38 +349,19 @@ struct ArticleEditorView: View {
                 
                 Spacer()
                 
-                // 格式化工具（整合現有功能）
-                HStack(spacing: 16) {
-                    // 標題格式
-                    toolbarButton(icon: "textformat", action: { insertMarkdown("# ") })
-                    toolbarButton(icon: "quote.bubble", action: { insertMarkdown("> ") })
-                    
-                    // 文字格式
+                // 簡化的格式化工具（減少約束衝突）
+                HStack(spacing: 12) {
+                    // 基本格式
                     formatButton("B", isBold: true, action: { insertMarkdown("**", suffix: "**") })
                     formatButton("I", isItalic: true, action: { insertMarkdown("*", suffix: "*") })
                     
-                    // 列表
+                    // 標題和列表
+                    toolbarButton(icon: "textformat", action: { insertMarkdown("# ") })
                     toolbarButton(icon: "list.bullet", action: { insertMarkdown("- ") })
-                    toolbarButton(icon: "line.horizontal.3", action: { insertMarkdown("---\n") })
                     
-                    // 特殊格式
-                    toolbarButton(icon: "at", action: { insertMarkdown("@") })
-                    toolbarButton(icon: "curlybraces", action: { insertMarkdown("```\n", suffix: "\n```") })
-                    
-                    // 圖片上傳按鈕
+                    // 圖片上傳
                     Button(action: { showImagePicker = true }) {
                         Image(systemName: "photo")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.primary)
-                            .frame(width: 32, height: 32)
-                    }
-                    
-                    // 表格按鈕
-                    Button(action: { 
-                        currentTable = GridTable(rows: 3, columns: 3)
-                        showTableEditor = true 
-                    }) {
-                        Image(systemName: "tablecells")
                             .font(.system(size: 18, weight: .medium))
                             .foregroundColor(.primary)
                             .frame(width: 32, height: 32)
@@ -543,6 +509,35 @@ struct ArticleEditorView: View {
             }
             print("上傳失敗: \(error)")
         }
+    }
+    
+    // MARK: - 圖片處理
+    private func processNewPhotos(_ photoItems: [PhotosPickerItem]) async {
+        print("📸 處理 \(photoItems.count) 個圖片項目")
+        
+        for item in photoItems {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let uiImage = UIImage(data: data) {
+                
+                await MainActor.run {
+                    print("📸 添加圖片到列表")
+                    selectedImages.append(uiImage)
+                    
+                    // 插入圖片到編輯器
+                    insertImageMarkdown()
+                }
+            }
+        }
+    }
+    
+    private func insertImageMarkdown() {
+        let imageCount = selectedImages.count
+        let imageMarkdown = "![圖片 \(imageCount)](.image\(imageCount))\n\n"
+        
+        // 插入到內容中當前游標位置
+        content += imageMarkdown
+        
+        print("📸 插入圖片到編輯器")
     }
     
     private func getCurrentUserId() -> UUID {

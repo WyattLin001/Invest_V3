@@ -16,7 +16,7 @@ struct WalletView: View {
     @State private var showPaymentOptions = false
     @State private var showSubscriptionSheet = false
     @State private var showGiftAnimation = false
-    @State private var showWithdrawalAlert = false
+    @State private var showTopUpOptions = false
     @State private var showTopUpAnimation = false
     @State private var topUpAmount: Double = 0
     @State private var showCancelSubscriptionAlert = false
@@ -32,9 +32,6 @@ struct WalletView: View {
                     LazyVStack(spacing: 16) {
                         // 餘額卡片
                         balanceCard
-                        
-                        // 測試充值區塊（保留的重要功能）
-                        testTopUpSection
                         
                         // 訂閱狀態卡片
                         subscriptionCard
@@ -55,15 +52,13 @@ struct WalletView: View {
         .sheet(isPresented: $showSubscriptionSheet) {
             Text("訂閱功能")  // 簡化實現
         }
-        .alert("提領確認", isPresented: $showWithdrawalAlert) {
-            Button("確認", role: .destructive) {
+        .sheet(isPresented: $showTopUpOptions) {
+            TopUpOptionsView { amount in
                 Task {
-                    // await viewModel.processWithdrawal()
+                    await performTestTopUp(amount: amount)
                 }
+                showTopUpOptions = false
             }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("確定要提領 \(TokenSystem.formatTokens(viewModel.withdrawableAmount.ntdToTokens())) 到您的玉山銀行帳戶嗎？")
         }
         .task {
             await viewModel.loadData()
@@ -115,9 +110,11 @@ struct WalletView: View {
                 }
             }
             
-            // 操作按鈕區域
+            // 充值按鈕（整合測試充值功能）
             HStack(spacing: 12) {
-                Button(action: { showPaymentOptions = true }) {
+                Button(action: { 
+                    showTopUpOptions = true 
+                }) {
                     Text("充值")
                         .font(.body)
                         .fontWeight(.medium)
@@ -128,54 +125,12 @@ struct WalletView: View {
                         .cornerRadius(8)
                 }
                 
-                Button(action: { showWithdrawalAlert = true }) {
-                    Text("提領")
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 8)
-                        .background(Color.orange)
-                        .cornerRadius(8)
-                }
-                .disabled(viewModel.withdrawableAmount <= 0)
-                
                 Spacer()
             }
         }
         .brandCardStyle()
     }
     
-    // MARK: - 測試充值區塊 (重要功能 - 必須保留)
-    private var testTopUpSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("測試充值功能 (重要：必須保留)")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Spacer()
-            }
-            
-            Text("點擊下方按鈕進行測試充值")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            HStack(spacing: 12) {
-                TestTopUpButton(amount: 1000, label: "充值 10 代幣") {
-                    await performTestTopUp(amount: 1000)
-                }
-                
-                TestTopUpButton(amount: 5000, label: "充值 50 代幣") {
-                    await performTestTopUp(amount: 5000)
-                }
-                
-                TestTopUpButton(amount: 10000, label: "充值 100 代幣") {
-                    await performTestTopUp(amount: 10000)
-                }
-            }
-        }
-        .brandCardStyle()
-    }
     
     // MARK: - 訂閱狀態卡片
     private var subscriptionCard: some View {
@@ -269,6 +224,77 @@ struct WalletView: View {
 
 // MARK: - 支援元件
 
+struct TopUpOptionsView: View {
+    let onTopUp: (Double) -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                Text("選擇充值金額")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Text("測試版本：選擇金額將直接加值到您的代幣錢包")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                VStack(spacing: 16) {
+                    TopUpOptionButton(amount: 1000, tokens: 10, onTap: onTopUp)
+                    TopUpOptionButton(amount: 5000, tokens: 50, onTap: onTopUp)
+                    TopUpOptionButton(amount: 10000, tokens: 100, onTap: onTopUp)
+                }
+                
+                Spacer()
+            }
+            .padding(24)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("關閉") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct TopUpOptionButton: View {
+    let amount: Double
+    let tokens: Int
+    let onTap: (Double) -> Void
+    
+    var body: some View {
+        Button(action: {
+            onTap(amount)
+        }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("充值 \(tokens) 代幣")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text("NT$\(Int(amount))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "plus.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.blue)
+            }
+            .padding(16)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(12)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
 struct TransactionRowView: View {
     let transaction: WalletTransaction
     
@@ -311,28 +337,6 @@ struct TransactionRowView: View {
     }
 }
 
-struct TestTopUpButton: View {
-    let amount: Double
-    let label: String
-    let action: () async -> Void
-    
-    var body: some View {
-        Button(action: {
-            Task {
-                await action()
-            }
-        }) {
-            Text(label)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.blue)
-                .cornerRadius(6)
-        }
-    }
-}
 
 struct EarningsSourceMini: View {
     let icon: String
