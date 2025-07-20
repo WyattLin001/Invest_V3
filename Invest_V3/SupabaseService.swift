@@ -532,7 +532,6 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.notAuthenticated
         }
         let userId = authUser.id
-        print("🔍 [fetchUserJoinedGroups] 當前用戶 ID: \(userId)")
         
         // 獲取用戶加入的群組 ID
         struct GroupMemberBasic: Codable {
@@ -550,13 +549,9 @@ class SupabaseService: ObservableObject {
             .execute()
             .value
         
-        print("🔍 [fetchUserJoinedGroups] 找到 \(memberRecords.count) 個群組成員記錄")
-        
         let groupIds = memberRecords.compactMap { UUID(uuidString: $0.groupId) }
-        print("🔍 [fetchUserJoinedGroups] 解析出 \(groupIds.count) 個有效群組 ID")
         
         if groupIds.isEmpty {
-            print("ℹ️ [fetchUserJoinedGroups] 用戶尚未加入任何群組")
             return []
         }
         
@@ -567,11 +562,6 @@ class SupabaseService: ObservableObject {
             .in("id", values: groupIds.map { $0.uuidString })
             .execute()
             .value
-        
-        print("✅ [fetchUserJoinedGroups] 成功載入 \(groups.count) 個群組")
-        for group in groups {
-            print("   - \(group.name) (ID: \(group.id))")
-        }
         
         return groups
     }
@@ -3091,28 +3081,41 @@ class SupabaseService: ObservableObject {
                 "%綠能投資團%"
             ]
             
-            print("🧹 開始清理所有投資群組...")
-            
+            // 檢查所有測試群組是否存在
+            var foundGroups: [InvestmentGroup] = []
             for keyword in testKeywords {
-                // 先檢查是否存在匹配的群組
                 let existingGroups: [InvestmentGroup] = try await client
                     .from("investment_groups")
                     .select()
                     .like("name", value: keyword)
                     .execute()
                     .value
+                foundGroups.append(contentsOf: existingGroups)
+            }
+            
+            if !foundGroups.isEmpty {
+                print("🧹 清理測試資料：找到 \(foundGroups.count) 個測試群組")
                 
-                if !existingGroups.isEmpty {
-                    // 只有存在時才刪除
-                    try await client
+                // 批量刪除所有找到的測試群組
+                for keyword in testKeywords {
+                    let existingGroups: [InvestmentGroup] = try await client
                         .from("investment_groups")
-                        .delete()
+                        .select()
                         .like("name", value: keyword)
                         .execute()
-                    print("✅ 清理群組: \(keyword) (找到 \(existingGroups.count) 個)")
-                } else {
-                    print("⚪ 跳過群組: \(keyword) (不存在)")
+                        .value
+                    
+                    if !existingGroups.isEmpty {
+                        try await client
+                            .from("investment_groups")
+                            .delete()
+                            .like("name", value: keyword)
+                            .execute()
+                        print("✅ 已刪除: \(keyword) (\(existingGroups.count)個)")
+                    }
                 }
+            } else {
+                print("✅ 測試資料已清理完成 (無需清理)")
             }
             
             // 額外清理：刪除所有 created_at 在今天之前的群組（假設都是測試資料）
@@ -3197,7 +3200,6 @@ extension SupabaseService {
             )
         }
         
-        print("✅ 成功獲取 \(rankings.count) 筆投資排行榜資料")
         return rankings
     }
     

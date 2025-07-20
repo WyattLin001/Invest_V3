@@ -190,10 +190,9 @@ class AuthenticationService: ObservableObject {
                 // 將用戶資料保存到 UserDefaults 供 SupabaseService 使用
                 if let data = try? JSONEncoder().encode(profile) {
                     UserDefaults.standard.set(data, forKey: "current_user")
-                    print("✅ 用戶資料已保存到 UserDefaults")
                 }
                 
-                print("✅ 已獲取用戶資料: \(profile.username)")
+                print("👤 用戶: \(profile.username) (ID: \(profile.id.uuidString.prefix(8))...)")
             } else {
                 print("⚠️ 未找到用戶 \(user.id) 的個人資料，嘗試創建...")
                 // 為現有用戶創建 profile

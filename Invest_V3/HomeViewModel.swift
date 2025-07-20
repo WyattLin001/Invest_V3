@@ -51,6 +51,14 @@ class HomeViewModel: ObservableObject {
             try await joinedGroupsTask
             try await invitationsTask
             
+            // 統合載入完成訊息
+            let groupCount = investmentGroups.count
+            let rankingCount = tradingRankings.count
+            let joinedCount = joinedIds.count
+            let inviteCount = pendingInvitations.count
+            
+            print("📊 資料載入完成: \(groupCount)個群組, \(rankingCount)筆排行榜, \(joinedCount)個已加入群組, \(inviteCount)個邀請")
+            
         } catch {
             // 忽略取消錯誤，避免在快速重新整理時顯示錯誤
             if error is CancellationError {
@@ -178,7 +186,6 @@ class HomeViewModel: ObservableObject {
         // 從 Supabase 載入真實的投資群組資料
         let groups = try await supabaseService.fetchInvestmentGroups()
         self.investmentGroups = groups
-        print("✅ 已載入 \(groups.count) 個投資群組")
     }
     
     // MARK: - 載入所有排行榜
@@ -191,7 +198,6 @@ class HomeViewModel: ObservableObject {
             )
             
             self.tradingRankings = rankings
-            print("✅ 成功載入 \(rankings.count) 筆排行榜資料")
             
         } catch {
             // 如果載入失敗，設為空陣列
@@ -261,7 +267,7 @@ class HomeViewModel: ObservableObject {
         }
         
         do {
-            print("🧹 首次初始化：開始清理測試資料...")
+            print("🧹 系統初始化：清理測試資料...")
             
             // 清理所有假資料群組
             try await SupabaseService.shared.clearAllDummyGroups()
@@ -275,9 +281,7 @@ class HomeViewModel: ObservableObject {
             // 重新載入群組數據
             await loadData()
             
-            await MainActor.run {
-                self.successMessage = "資料清理完成！現在可以創建真實群組"
-            }
+            print("✅ 系統初始化完成")
             
         } catch {
             await MainActor.run {
