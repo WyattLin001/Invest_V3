@@ -71,7 +71,7 @@ class AuthenticationService: ObservableObject {
 
             // 2. 創建 UserProfile
             let profile = UserProfile(
-                id: user.id,
+                id: UUID(uuidString: user.id.uuidString) ?? UUID(),
                 email: email,
                 username: username,
                 displayName: displayName,
@@ -80,10 +80,31 @@ class AuthenticationService: ObservableObject {
                 updatedAt: Date()
             )
             
-            // 3. 將 Profile 插入資料庫
+            // 3. 創建用於資料庫的結構體（使用 String ID）
+            struct UserProfileInsert: Codable {
+                let id: String
+                let email: String
+                let username: String
+                let display_name: String
+                let avatar_url: String?
+                let created_at: String
+                let updated_at: String
+            }
+            
+            let dbProfile = UserProfileInsert(
+                id: user.id.uuidString,
+                email: email,
+                username: username,
+                display_name: displayName,
+                avatar_url: nil,
+                created_at: ISO8601DateFormatter().string(from: Date()),
+                updated_at: ISO8601DateFormatter().string(from: Date())
+            )
+            
+            // 將 Profile 插入資料庫
             try await client
                 .from("user_profiles")
-                .insert(profile)
+                .insert(dbProfile)
                 .execute()
 
             print("✅ User profile created for \(username)")
@@ -174,14 +195,75 @@ class AuthenticationService: ObservableObject {
                 
                 print("✅ 已獲取用戶資料: \(profile.username)")
             } else {
-                print("⚠️ 未找到用戶 \(user.id) 的個人資料")
-                // 清除 UserDefaults 中的舊資料
-                UserDefaults.standard.removeObject(forKey: "current_user")
+                print("⚠️ 未找到用戶 \(user.id) 的個人資料，嘗試創建...")
+                // 為現有用戶創建 profile
+                await createMissingUserProfile(for: user)
             }
         } catch {
             print("❌ 獲取用戶資料失敗: \(error.localizedDescription)")
             // 清除 UserDefaults 中的舊資料
             UserDefaults.standard.removeObject(forKey: "current_user")
+        }
+    }
+    
+    // MARK: - 為現有用戶創建缺失的 Profile
+    private func createMissingUserProfile(for user: User) async {
+        do {
+            // 從 email 提取用戶名
+            let email = user.email ?? "unknown@example.com"
+            let username = String(email.split(separator: "@").first ?? "unknown")
+            let displayName = username.capitalized
+            
+            let profile = UserProfile(
+                id: UUID(uuidString: user.id.uuidString) ?? UUID(),
+                email: email,
+                username: username,
+                displayName: displayName,
+                avatarUrl: nil,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            
+            // 創建用於資料庫的結構體（使用 String ID）
+            struct UserProfileInsert: Codable {
+                let id: String
+                let email: String
+                let username: String
+                let display_name: String
+                let avatar_url: String?
+                let created_at: String
+                let updated_at: String
+            }
+            
+            let dbProfile = UserProfileInsert(
+                id: user.id.uuidString,
+                email: email,
+                username: username,
+                display_name: displayName,
+                avatar_url: nil,
+                created_at: ISO8601DateFormatter().string(from: Date()),
+                updated_at: ISO8601DateFormatter().string(from: Date())
+            )
+            
+            // 插入到 user_profiles 表格
+            try await client
+                .from("user_profiles")
+                .insert(dbProfile)
+                .execute()
+            
+            // 設置為當前用戶
+            self.currentUserProfile = profile
+            
+            // 保存到 UserDefaults
+            if let data = try? JSONEncoder().encode(profile) {
+                UserDefaults.standard.set(data, forKey: "current_user")
+            }
+            
+            print("✅ 已為用戶 \(username) 創建缺失的 Profile")
+            
+        } catch {
+            print("❌ 創建用戶 Profile 失敗: \(error.localizedDescription)")
+            self.error = "無法創建用戶資料: \(error.localizedDescription)"
         }
     }
 

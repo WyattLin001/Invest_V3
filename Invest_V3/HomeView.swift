@@ -113,16 +113,24 @@ struct HomeView: View {
         }
         .onReceive(viewModel.$errorMessage) { errorMessage in
             if let errorMessage = errorMessage {
-                // 檢查是否為餘額不足錯誤
-                if errorMessage.contains("餘額不足") {
-                    showInsufficientBalanceAlert = true
-                } else {
-                    showErrorAlert = true
+                // 延遲顯示警告框確保視圖層級正確
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    // 檢查是否為餘額不足錯誤
+                    if errorMessage.contains("餘額不足") {
+                        showInsufficientBalanceAlert = true
+                    } else {
+                        showErrorAlert = true
+                    }
                 }
             }
         }
         .onReceive(viewModel.$successMessage) { successMessage in
-            showSuccessAlert = successMessage != nil
+            if successMessage != nil {
+                // 延遲顯示成功警告框確保視圖層級正確
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showSuccessAlert = true
+                }
+            }
         }
         .onAppear {
             Task {
@@ -191,7 +199,7 @@ struct HomeView: View {
                     ZStack {
                         Image(systemName: "bell")
                             .font(.title3)
-                            .foregroundColor(.gray600)
+                            .foregroundColor(.primary)
                         
                         // 紅色通知點
                         Circle()
@@ -207,7 +215,7 @@ struct HomeView: View {
                 Button(action: { showSearch = true }) {
                     Image(systemName: "magnifyingglass")
                         .font(.title3)
-                        .foregroundColor(.gray600)
+                        .foregroundColor(.primary)
                 }
                 .accessibilityLabel("搜尋")
                 .accessibilityHint("搜尋投資群組和內容")
@@ -236,32 +244,42 @@ struct HomeView: View {
     }
     
     private var periodSelectionButtons: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             ForEach(RankingPeriod.allCases, id: \.self) { period in
                 periodButton(for: period)
             }
         }
+        .padding(.horizontal, 4)
     }
     
     private func periodButton(for period: RankingPeriod) -> some View {
         let isSelected = viewModel.selectedPeriod == period
         
         return Button(action: {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.easeInOut(duration: 0.25)) {
                 viewModel.switchPeriod(to: period)
             }
         }) {
             Text(period.rawValue)
-                .font(.footnote)
-                .fontWeight(.medium)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(isSelected ? Color.brandGreen : Color.gray200)
-                .foregroundColor(isSelected ? .white : .gray600)
-                .cornerRadius(20)
+                .font(.system(size: 15, weight: .medium, design: .default))
+                .foregroundColor(isSelected ? Color.white : Color.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(isSelected ? Color.accentColor : Color(.secondarySystemFill))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(isSelected ? Color.clear : Color(.separator), lineWidth: 0.5)
+                )
         }
+        .buttonStyle(.plain)
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         .accessibilityLabel(isSelected ? "目前選擇：\(period.rawValue)" : "切換至\(period.rawValue)")
         .accessibilityHint("查看\(period.rawValue)排行榜")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
     
     private var rankingContentView: some View {
@@ -286,23 +304,26 @@ struct HomeView: View {
                 }
                 .frame(height: 190)
             } else {
-                // 排行榜卡片 - 使用 TabView 實現輪播
-                TabView {
-                    ForEach(Array(viewModel.currentRankings.prefix(3).enumerated()), id: \.element.id) { index, user in
-                        Button(action: {
-                            selectedRankingUser = user
-                            showJoinGroupSheet = true
-                        }) {
-                            TradingRankingCard(user: user, selectedPeriod: viewModel.selectedPeriod)
-                                .frame(maxWidth: .infinity)
+                // 排行榜卡片 - 顯示前三名，空位顯示為待占位
+                HStack(spacing: 12) {
+                    ForEach(0..<3, id: \.self) { index in
+                        if index < viewModel.currentRankings.count {
+                            let user = viewModel.currentRankings[index]
+                            Button(action: {
+                                selectedRankingUser = user
+                                showJoinGroupSheet = true
+                            }) {
+                                TradingRankingCard(user: user, selectedPeriod: viewModel.selectedPeriod)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .accessibilityLabel("\(viewModel.selectedPeriod.rawValue) 第 \(user.rank) 名，\(user.name)，回報率 \(user.formattedReturnRate)")
+                            .accessibilityHint("點擊查看詳細資料並申請加入群組")
+                        } else {
+                            // 空位顯示
+                            EmptyRankingCard(rank: index + 1, selectedPeriod: viewModel.selectedPeriod)
                         }
-                        .buttonStyle(PlainButtonStyle())
-                        .accessibilityLabel("\(viewModel.selectedPeriod.rawValue) 第 \(user.rank) 名，\(user.name)，回報率 \(user.formattedReturnRate)")
-                        .accessibilityHint("點擊查看詳細資料並申請加入群組")
-                        .tag(index)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
                 .frame(height: 190)
             }
         }
@@ -399,6 +420,7 @@ struct HomeView: View {
         }
     }
     
+    
     // MARK: - Empty & Loading States
     
     var loadingStateView: some View {
@@ -491,6 +513,84 @@ struct HomeView: View {
     }
 }
 
+// MARK: - 空位排行榜卡片
+struct EmptyRankingCard: View {
+    let rank: Int
+    let selectedPeriod: RankingPeriod
+    
+    var periodText: String {
+        switch selectedPeriod {
+        case .weekly:
+            return "本週第\(rank)名"
+        case .monthly:
+            return "本月第\(rank)名"
+        case .quarterly:
+            return "本季第\(rank)名"
+        case .yearly:
+            return "本年第\(rank)名"
+        case .all:
+            return "總榜第\(rank)名"
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 10) {
+            // 排名徽章
+            ZStack {
+                Circle()
+                    .fill(Color.gray300)
+                    .frame(width: 50, height: 50)
+                
+                VStack(spacing: 1) {
+                    Image(systemName: "medal")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(.gray500)
+                    
+                    Text("\(rank)")
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundColor(.gray500)
+                }
+            }
+            
+            // 空位提示
+            Text("虛位以待")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.gray500)
+                .multilineTextAlignment(.center)
+                .frame(height: 40)
+            
+            // 排名位置說明
+            VStack(spacing: 4) {
+                Text("暫無用戶")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.gray400)
+                    .cornerRadius(12)
+                    .fixedSize(horizontal: true, vertical: false)
+                
+                Text(periodText)
+                    .font(.caption)
+                    .foregroundColor(.gray500)
+                    .lineLimit(1)
+            }
+        }
+        .padding(6)
+        .frame(width: 100, height: 150)
+        .background(Color.white)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray300, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
+    }
+}
+
 // MARK: - 排行榜卡片  
 struct TradingRankingCard: View {
     let user: TradingUserRanking
@@ -560,15 +660,15 @@ struct TradingRankingCard: View {
                     .lineLimit(1)
             }
         }
-        .padding(8)
-        .frame(maxWidth: .infinity, minHeight: 170) // 增加最小高度以容納更多內容
+        .padding(6)
+        .frame(width: 100, height: 150)
         .background(Color.white)
-        .cornerRadius(16)
+        .cornerRadius(12)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(user.borderColor, lineWidth: 2)
         )
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
 }
 

@@ -19,20 +19,25 @@ struct InfoView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // 頂部導航欄 (44px)
-                topNavigationBar
+            ZStack {
+                VStack(spacing: 0) {
+                    // 頂部導航欄 (44px)
+                    topNavigationBar
+                    
+                    // 搜尋框 (343×40 pt)
+                    searchBar
+                    
+                    // 類別篩選
+                    categoryFilter
+                    
+                    // 文章列表
+                    articlesList
+                }
+                .background(Color.gray100)
                 
-                // 搜尋框 (343×40 pt)
-                searchBar
-                
-                // 類別篩選
-                categoryFilter
-                
-                // 文章列表
-                articlesList
+                // Medium 風格圓形浮動按鈕
+                mediumStyleFloatingButton
             }
-            .background(Color.gray100)
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showArticleEditor) {
@@ -69,15 +74,6 @@ struct InfoView: View {
                 .foregroundColor(.gray900)
             
             Spacer()
-            
-            Button(action: {
-                showArticleEditor = true
-            }) {
-                Image(systemName: "plus")
-                    .foregroundColor(.brandGreen)
-                    .font(.title2)
-                    .fontWeight(.medium)
-            }
         }
         .padding(.horizontal, DesignTokens.spacingMD)
         .frame(height: 44)
@@ -178,6 +174,44 @@ struct InfoView: View {
             }
         }
         .background(Color.gray100)
+    }
+    
+    // MARK: - Medium 風格圓形浮動按鈕
+    private var mediumStyleFloatingButton: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                
+                Button(action: {
+                    showArticleEditor = true
+                }) {
+                    ZStack {
+                        // 主圓形背景
+                        Circle()
+                            .fill(Color.brandGreen)
+                            .frame(width: 56, height: 56)
+                            .shadow(
+                                color: Color.black.opacity(0.15),
+                                radius: 8,
+                                x: 0,
+                                y: 4
+                            )
+                        
+                        // 加號圖標
+                        Image(systemName: "plus")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+                }
+                .scaleEffect(1.0)
+                .animation(.spring(response: 0.4, dampingFraction: 0.6), value: showArticleEditor)
+                .accessibilityLabel("寫文章")
+                .accessibilityHint("點擊開始撰寫新文章")
+                .padding(.trailing, 20)
+                .padding(.bottom, 100) // 避免與底部 Tab Bar 重疊
+            }
+        }
     }
 }
 

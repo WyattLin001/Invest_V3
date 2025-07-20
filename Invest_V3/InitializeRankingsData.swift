@@ -32,31 +32,32 @@ struct InitializeRankingsDataView: View {
                         .padding(.horizontal)
                 }
                 
-                // 真實用戶註冊指引
+                // 用戶交易績效設定
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("需要真實註冊的 5 個用戶帳號：")
+                    Text("將為以下用戶創建交易績效：")
                         .font(.headline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        realUserRow(name: "test01", email: "test01@example.com", status: "待註冊")
-                        realUserRow(name: "test02", email: "test02@example.com", status: "待註冊")
-                        realUserRow(name: "test03", email: "test03@example.com", status: "待註冊")
-                        realUserRow(name: "test04", email: "test04@example.com", status: "待註冊")
-                        realUserRow(name: "test05", email: "test05@example.com", status: "待註冊")
+                        userPerformanceRow(
+                            name: "Wyatt Lin",
+                            userId: "1a91110c-4420-4212-9929-06c5b54c585b",
+                            returnRate: 10.0,
+                            status: "準備創建"
+                        )
                     }
                     .padding(.leading, 16)
                     
-                    Text("註冊步驟：")
+                    Text("將會創建的資料：")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .padding(.top, 8)
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("1. 每個人使用上述 email 進行真實註冊")
-                        Text("2. 設定各自的密碼")
-                        Text("3. 完成用戶資料設定")
-                        Text("4. 開始進行真實交易投資")
+                        Text("• 投資回報率: 10.0%")
+                        Text("• 總資產: 110萬 TWD")
+                        Text("• 總獲利: 10萬 TWD")
+                        Text("• 完整30天績效快照")
                     }
                     .font(.caption)
                     .foregroundColor(.gray600)
@@ -116,42 +117,51 @@ struct InitializeRankingsDataView: View {
         }
     }
     
-    /// 測試用戶行視圖
-    private func realUserRow(name: String, email: String, status: String) -> some View {
-        HStack {
-            // 用戶圖標
-            ZStack {
-                Circle()
-                    .fill(Color.brandBlue)
-                    .frame(width: 24, height: 24)
+    /// 用戶績效行視圖
+    private func userPerformanceRow(name: String, userId: String, returnRate: Double, status: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                // 用戶圖標
+                ZStack {
+                    Circle()
+                        .fill(Color.brandGreen)
+                        .frame(width: 32, height: 32)
+                    
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                }
                 
-                Image(systemName: "person.fill")
+                // 用戶資訊
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                        .font(.body)
+                        .fontWeight(.semibold)
+                    
+                    Text("回報率: +\(String(format: "%.1f", returnRate))%")
+                        .font(.caption)
+                        .foregroundColor(.brandGreen)
+                        .fontWeight(.medium)
+                }
+                
+                Spacer()
+                
+                // 狀態
+                Text(status)
                     .font(.caption)
-                    .foregroundColor(.white)
-            }
-            
-            // 用戶資訊
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.body)
                     .fontWeight(.medium)
-                
-                Text(email)
-                    .font(.caption)
-                    .foregroundColor(.gray600)
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
             }
             
-            Spacer()
-            
-            // 狀態
-            Text(status)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.orange)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.orange.opacity(0.1))
-                .cornerRadius(8)
+            // 用戶ID
+            Text("ID: \(userId)")
+                .font(.caption2)
+                .foregroundColor(.gray500)
+                .padding(.leading, 40)
         }
         .padding(.vertical, 4)
     }
@@ -171,37 +181,45 @@ struct InitializeRankingsDataView: View {
         isInitializing = true
         
         Task {
-            // 模擬檢查過程
-            await MainActor.run {
-                resultMessage = "正在準備真實用戶註冊資訊..."
-            }
-            
-            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 秒
-            
-            await MainActor.run {
-                isSuccess = true
-                resultMessage = """
-                ✅ 真實用戶註冊指引準備完成！
+            do {
+                // 為當前用戶創建交易績效
+                await MainActor.run {
+                    resultMessage = "正在為用戶創建交易績效資料..."
+                }
                 
-                請讓 5 個真實用戶分別註冊以下帳號：
+                // 為用戶 1a91110c-4420-4212-9929-06c5b54c585b 創建 10% 回報率
+                try await supabaseService.createUserTradingPerformance(
+                    userId: "1a91110c-4420-4212-9929-06c5b54c585b",
+                    returnRate: 10.0
+                )
                 
-                📧 用戶帳號：
-                • test01@example.com
-                • test02@example.com  
-                • test03@example.com
-                • test04@example.com
-                • test05@example.com
+                await MainActor.run {
+                    isSuccess = true
+                    resultMessage = """
+                    ✅ 用戶交易績效已成功創建！
+                    
+                    📈 已為用戶創建：
+                    • 用戶ID: 1a91110c-4420-4212-9929-06c5b54c585b
+                    • 投資回報率: 10.0%
+                    • 總資產: 110萬 TWD
+                    • 總獲利: 10萬 TWD
+                    • 現金餘額: 33萬 TWD
+                    
+                    🎯 用戶現在會出現在排行榜上！
+                    
+                    📊 包含完整30天績效快照資料
+                    """
+                    showResult = true
+                    isInitializing = false
+                }
                 
-                🔐 每個用戶需要：
-                1. 使用對應 email 註冊真實帳號
-                2. 設定個人密碼
-                3. 完成用戶資料填寫
-                4. 開始真實交易投資
-                
-                ⚠️ 這些將是真實用戶，不是假數據！
-                """
-                showResult = true
-                isInitializing = false
+            } catch {
+                await MainActor.run {
+                    isSuccess = false
+                    resultMessage = "❌ 創建交易績效失敗：\(error.localizedDescription)"
+                    showResult = true
+                    isInitializing = false
+                }
             }
         }
     }

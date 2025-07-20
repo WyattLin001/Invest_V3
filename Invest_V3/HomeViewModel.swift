@@ -11,6 +11,9 @@ class HomeViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var successMessage: String?
     
+    // 追蹤是否已經初始化過測試資料
+    private var hasInitializedTestData = false
+    
     // B線邀請功能
     @Published var pendingInvitations: [GroupInvitation] = []
     @Published var isProcessingInvitation = false
@@ -49,8 +52,13 @@ class HomeViewModel: ObservableObject {
             try await invitationsTask
             
         } catch {
-            errorMessage = "載入資料失敗: \(error.localizedDescription)"
-            print("HomeViewModel loadData error: \(error)")
+            // 忽略取消錯誤，避免在快速重新整理時顯示錯誤
+            if error is CancellationError {
+                print("⚠️ 資料載入被取消（正常情況，用戶快速重新整理）")
+            } else {
+                errorMessage = "載入資料失敗: \(error.localizedDescription)"
+                print("HomeViewModel loadData error: \(error)")
+            }
         }
         
         isLoading = false
@@ -245,12 +253,24 @@ class HomeViewModel: ObservableObject {
     
     // MARK: - 清理假資料和載入真實數據
     func initializeTestData() async {
+        // 避免重複初始化
+        guard !hasInitializedTestData else {
+            print("⚠️ 測試資料已經初始化過，跳過重複初始化")
+            await loadData() // 只載入數據，不清理
+            return
+        }
+        
         do {
+            print("🧹 首次初始化：開始清理測試資料...")
+            
             // 清理所有假資料群組
             try await SupabaseService.shared.clearAllDummyGroups()
             
             // 清空聊天內容
             try await SupabaseService.shared.clearAllChatMessages()
+            
+            // 標記已初始化
+            hasInitializedTestData = true
             
             // 重新載入群組數據
             await loadData()

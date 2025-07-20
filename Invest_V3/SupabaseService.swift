@@ -3094,12 +3094,25 @@ class SupabaseService: ObservableObject {
             print("🧹 開始清理所有投資群組...")
             
             for keyword in testKeywords {
-                try await client
+                // 先檢查是否存在匹配的群組
+                let existingGroups: [InvestmentGroup] = try await client
                     .from("investment_groups")
-                    .delete()
+                    .select()
                     .like("name", value: keyword)
                     .execute()
-                print("✅ 清理群組: \(keyword)")
+                    .value
+                
+                if !existingGroups.isEmpty {
+                    // 只有存在時才刪除
+                    try await client
+                        .from("investment_groups")
+                        .delete()
+                        .like("name", value: keyword)
+                        .execute()
+                    print("✅ 清理群組: \(keyword) (找到 \(existingGroups.count) 個)")
+                } else {
+                    print("⚪ 跳過群組: \(keyword) (不存在)")
+                }
             }
             
             // 額外清理：刪除所有 created_at 在今天之前的群組（假設都是測試資料）
@@ -3284,6 +3297,132 @@ extension SupabaseService {
         return String(userId.prefix(8)).uppercased()
     }
     
+    /// 為特定用戶創建或更新交易績效資料
+    func createUserTradingPerformance(userId: String, returnRate: Double) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("💰 為用戶 \(userId) 創建交易績效，回報率: \(returnRate)%")
+        
+        let initialAssets = 1000000.0 // 100萬初始資產
+        let totalProfit = returnRate / 100.0 * initialAssets
+        let totalAssets = initialAssets + totalProfit
+        let cashBalance = totalAssets * 0.3 // 30% 現金
+        
+        struct TradingUserUpsert: Codable {
+            let id: String
+            let name: String
+            let phone: String
+            let cashBalance: Double
+            let totalAssets: Double
+            let totalProfit: Double
+            let cumulativeReturn: Double
+            let inviteCode: String
+            let isActive: Bool
+            let riskTolerance: String
+            let investmentExperience: String
+            let createdAt: String
+            let updatedAt: String
+            
+            enum CodingKeys: String, CodingKey {
+                case id, name, phone
+                case cashBalance = "cash_balance"
+                case totalAssets = "total_assets"
+                case totalProfit = "total_profit"
+                case cumulativeReturn = "cumulative_return"
+                case inviteCode = "invite_code"
+                case isActive = "is_active"
+                case riskTolerance = "risk_tolerance"
+                case investmentExperience = "investment_experience"
+                case createdAt = "created_at"
+                case updatedAt = "updated_at"
+            }
+        }
+        
+        let userRecord = TradingUserUpsert(
+            id: userId,
+            name: "Wyatt Lin", // 根據截圖中的名稱
+            phone: "+886900000000",
+            cashBalance: cashBalance,
+            totalAssets: totalAssets,
+            totalProfit: totalProfit,
+            cumulativeReturn: returnRate,
+            inviteCode: generateInviteCode(from: userId),
+            isActive: true,
+            riskTolerance: "moderate",
+            investmentExperience: "intermediate",
+            createdAt: ISO8601DateFormatter().string(from: Date()),
+            updatedAt: ISO8601DateFormatter().string(from: Date())
+        )
+        
+        // 先嘗試刪除現有資料（如果存在）
+        try await self.client
+            .from("trading_users")
+            .delete()
+            .eq("id", value: userId)
+            .execute()
+        
+        // 插入新資料
+        try await self.client
+            .from("trading_users")
+            .insert(userRecord)
+            .execute()
+        
+        print("✅ 用戶交易績效已創建/更新: \(returnRate)% 回報率")
+        
+        // 創建績效快照
+        try await createUserPerformanceSnapshots(userId: userId, returnRate: returnRate, totalAssets: totalAssets)
+    }
+    
+    /// 為用戶創建績效快照
+    private func createUserPerformanceSnapshots(userId: String, returnRate: Double, totalAssets: Double) async throws {
+        let calendar = Calendar.current
+        let today = Date()
+        var snapshots: [PerformanceSnapshotInsert] = []
+        
+        // 創建過去30天的績效快照
+        for daysAgo in (0..<30).reversed() {
+            guard let snapshotDate = calendar.date(byAdding: .day, value: -daysAgo, to: today) else { continue }
+            
+            let progress = Double(30 - daysAgo) / 30.0
+            let currentReturn = returnRate * progress
+            let currentAssets = 1000000.0 + (totalAssets - 1000000.0) * progress
+            
+            let snapshot = PerformanceSnapshotInsert(
+                userId: userId,
+                snapshotDate: ISO8601DateFormatter().string(from: snapshotDate),
+                totalAssets: currentAssets,
+                cashBalance: currentAssets * 0.3,
+                positionValue: currentAssets * 0.7,
+                dailyReturn: daysAgo == 0 ? currentReturn / 30 : 0,
+                cumulativeReturn: currentReturn,
+                benchmarkReturn: currentReturn * 0.8,
+                alpha: currentReturn * 0.2,
+                beta: 1.15,
+                sharpeRatio: currentReturn / 12,
+                volatility: abs(currentReturn) * 0.15,
+                maxDrawdown: -abs(currentReturn) * 0.1,
+                createdAt: ISO8601DateFormatter().string(from: Date())
+            )
+            
+            snapshots.append(snapshot)
+        }
+        
+        if !snapshots.isEmpty {
+            // 刪除現有快照（如果存在）
+            try await self.client
+                .from("trading_performance_snapshots")
+                .delete()
+                .eq("user_id", value: userId)
+                .execute()
+            
+            // 插入新快照
+            try await self.client
+                .from("trading_performance_snapshots")
+                .insert(snapshots)
+                .execute()
+        }
+    }
+    
     
 }
 
@@ -3395,26 +3534,6 @@ extension SupabaseService {
         print("✅ [SupabaseService] 創建創作者收益記錄成功: \(revenueType.rawValue) \(amount) 金幣")
     }
     
-    /// 獲取創作者收益統計
-    func fetchCreatorRevenueStats(creatorId: String) async throws -> [String: Int] {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        let response: [CreatorRevenue] = try await client
-            .from("creator_revenues")
-            .select()
-            .eq("creator_id", value: creatorId)
-            .execute()
-            .value
-        
-        var stats: [String: Int] = [:]
-        
-        for revenue in response {
-            let currentAmount = stats[revenue.revenueType.rawValue] ?? 0
-            stats[revenue.revenueType.rawValue] = currentAmount + revenue.amount
-        }
-        
-        return stats
-    }
 }
 
 // MARK: - 捐贈排行榜擴展
