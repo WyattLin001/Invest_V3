@@ -204,6 +204,18 @@ struct ChatView: View {
                 Text(successMessage)
             }
         }
+        .alert("餘額不足", isPresented: $viewModel.showInsufficientBalanceAlert) {
+            Button("前往充值", role: .none) {
+                // 注意：由於 ChatView 在 TabView 結構中，需要通過 NotificationCenter 來切換到錢包頁面
+                NotificationCenter.default.post(name: NSNotification.Name("NavigateToWallet"), object: nil)
+                viewModel.showInsufficientBalanceAlert = false
+            }
+            Button("取消", role: .cancel) {
+                viewModel.showInsufficientBalanceAlert = false
+            }
+        } message: {
+            Text("您的餘額不足以購買此禮物，請先充值。")
+        }
     }
     
     private var chatRoomView: some View {
@@ -509,18 +521,18 @@ struct ChatView: View {
                     .foregroundColor(.gray700)
                 
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                    ForEach([100, 200, 500, 1000, 2000, 5000], id: \.self) { amount in
+                    ForEach(GiftItem.defaultGifts) { gift in
                         GiftOptionView(
-                            amount: amount,
-                            isAffordable: viewModel.currentBalance >= Double(amount)
+                            gift: gift,
+                            isAffordable: viewModel.currentBalance >= Double(gift.price)
                         ) {
-                            if viewModel.currentBalance >= Double(amount) {
-                                // 執行抖內
-                                viewModel.performTip(amount: Double(amount))
+                            if viewModel.currentBalance >= Double(gift.price) {
+                                // 執行抖內 - 傳入禮物資訊以支援不同動畫
+                                viewModel.performTip(amount: Double(gift.price), giftItem: gift)
                             } else {
-                                // 跳轉到錢包
+                                // 餘額不足，顯示提示並引導充值
                                 viewModel.showGiftModal = false
-                                // TODO: 跳轉到 WalletView
+                                viewModel.showInsufficientBalanceAlert = true
                             }
                         }
                     }
@@ -1153,32 +1165,41 @@ struct ChatBubbleView: View {
 
 // MARK: - 禮物選項視圖
 struct GiftOptionView: View {
-    let amount: Int
+    let gift: GiftItem
     let isAffordable: Bool
     let onTap: () -> Void
     
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 8) {
-                Text("🎁")
-                    .font(.system(size: 24))
+                Text(gift.icon)
+                    .font(.system(size: 28))
                 
-                Text("\(amount) 金幣")
-                    .font(.headline)
+                Text(gift.name)
+                    .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(isAffordable ? .gray900 : .gray400)
+                    .multilineTextAlignment(.center)
                 
-                Text("= \(TokenSystem.formatCurrency(Double(amount * 100)))")
+                Text("\(gift.price) 金幣")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(isAffordable ? .brandGreen : .gray400)
+                
+                Text("= \(TokenSystem.formatCurrency(Double(gift.price * 100)))")
                     .font(.caption)
                     .foregroundColor(.gray500)
             }
-            .frame(maxWidth: .infinity, minHeight: 80)
+            .frame(maxWidth: .infinity, minHeight: 100)
+            .padding(12)
             .background(isAffordable ? Color(.systemGray6) : Color(.systemGray5))
-            .cornerRadius(12)
+            .cornerRadius(16)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isAffordable ? Color.brandGreen : Color.gray300, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isAffordable ? Color.brandGreen : Color.gray300, lineWidth: isAffordable ? 2 : 1)
             )
+            .scaleEffect(isAffordable ? 1.0 : 0.95)
+            .opacity(isAffordable ? 1.0 : 0.6)
         }
         .disabled(!isAffordable)
     }

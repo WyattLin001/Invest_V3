@@ -41,6 +41,7 @@ class ChatViewModel: ObservableObject {
     
     // Gift & Wallet
     @Published var showGiftModal = false
+    @Published var showInsufficientBalanceAlert = false
     @Published var currentBalance: Double = 0.0 {
         didSet {
             // 確保 currentBalance 始終是有效數值
@@ -304,7 +305,7 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    func performTip(amount: Double) {
+    func performTip(amount: Double, giftItem: GiftItem? = nil) {
         guard let groupId = selectedGroupId else { 
             print("❌ [抖內] 沒有選中的群組")
             handleError(nil, context: "請先選擇群組")
@@ -334,7 +335,8 @@ class ChatViewModel: ObservableObject {
         print("🎁 [抖內] 開始執行抖內: \(amount) 金幣給群組 \(selectedGroup.name)")
         
         // 觸發動畫 - 專業級多階段動畫效果
-        animatingGiftEmoji = "🎁"
+        // 使用對應的禮物圖標，如果沒有指定則使用預設
+        animatingGiftEmoji = giftItem?.icon ?? "🎁"
         animatingGiftOffset = CGSize(width: 0, height: 100) // 從下方開始
         
         // 第一階段：從下方彈入並放大
