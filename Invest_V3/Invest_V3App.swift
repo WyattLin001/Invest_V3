@@ -15,16 +15,20 @@ struct Invest_V3App: App {
     
     init() {
         // 在 app 啟動時初始化 Supabase 和通知服務
-        Task { @MainActor in
+        Task {
             do {
                 try await SupabaseManager.shared.initialize()
-                print("✅ App 啟動：Supabase 初始化完成")
+                await MainActor.run {
+                    print("✅ App 啟動：Supabase 初始化完成")
+                }
                 
                 // 初始化推播通知
                 await setupNotifications()
                 
             } catch {
-                print("❌ App 啟動：Supabase 初始化失敗 - \(error.localizedDescription)")
+                await MainActor.run {
+                    print("❌ App 啟動：Supabase 初始化失敗 - \(error.localizedDescription)")
+                }
             }
         }
     }

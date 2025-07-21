@@ -68,20 +68,20 @@ class NotificationService: NSObject, ObservableObject {
     
     /// 檢查當前權限狀態
     func checkAuthorizationStatus() {
-        Task {
-            let settings = await notificationCenter.getNotificationSettings()
-            await MainActor.run {
+        notificationCenter.getNotificationSettings { settings in
+            DispatchQueue.main.async {
                 self.isAuthorized = settings.authorizationStatus == .authorized ||
                                  settings.authorizationStatus == .provisional
+                print("📱 [NotificationService] 權限狀態: \(settings.authorizationStatus.rawValue)")
             }
-            
-            print("📱 [NotificationService] 權限狀態: \(settings.authorizationStatus.rawValue)")
         }
     }
     
     /// 註冊遠端推播
     private func registerForRemoteNotifications() async {
-        await UIApplication.shared.registerForRemoteNotifications()
+        DispatchQueue.main.async {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
     }
     
     /// 設定 Device Token
@@ -172,7 +172,7 @@ class NotificationService: NSObject, ObservableObject {
                 .from("notifications")
                 .select("count", head: true)
                 .eq("user_id", value: user.id)
-                .isNull("read_at")
+                .is("read_at", value: "null")
                 .execute()
             
             // 解析 count 結果
@@ -218,7 +218,9 @@ class NotificationService: NSObject, ObservableObject {
         notificationCenter.removeAllPendingNotificationRequests()
         
         // 重置 badge
-        await UIApplication.shared.setApplicationIconBadgeNumber(0)
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        }
         
         print("✅ [NotificationService] 已清除所有通知")
     }
@@ -229,7 +231,7 @@ class NotificationService: NSObject, ObservableObject {
     func createNotificationRecord(
         title: String,
         body: String,
-        type: NotificationType,
+        type: AppNotificationType,
         data: [String: Any]? = nil,
         userId: String? = nil
     ) async {
@@ -457,26 +459,4 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     }
 }
 
-// MARK: - 通知類型定義
-
-enum NotificationType: String, CaseIterable {
-    case hostMessage = "host_message"
-    case rankingUpdate = "ranking_update"
-    case stockPriceAlert = "stock_price_alert"
-    case chatMessage = "chat_message"
-    case investmentUpdate = "investment_update"
-    case marketNews = "market_news"
-    case systemAlert = "system_alert"
-    
-    var displayName: String {
-        switch self {
-        case .hostMessage: return "主持人訊息"
-        case .rankingUpdate: return "排名更新"
-        case .stockPriceAlert: return "股價提醒"
-        case .chatMessage: return "聊天訊息"
-        case .investmentUpdate: return "投資更新"
-        case .marketNews: return "市場新聞"
-        case .systemAlert: return "系統通知"
-        }
-    }
-}
+// 已移動到 AppNotification.swift 文件中
