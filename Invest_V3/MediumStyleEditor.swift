@@ -14,7 +14,6 @@ struct MediumStyleEditor: View {
     @State private var showSettings: Bool = false
     @State private var showPreview: Bool = false
     @State private var showPhotoPicker: Bool = false
-    @State private var showTablePicker: Bool = false
     @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
     @State private var titleCharacterCount: Int = 0
     @State private var isPublishing: Bool = false
@@ -107,11 +106,6 @@ struct MediumStyleEditor: View {
             maxSelectionCount: 1,
             matching: .images
         )
-        .sheet(isPresented: $showTablePicker) {
-            TableGridPicker { rows, cols in
-                insertTable(rows: rows, cols: cols)
-            }
-        }
         .onChange(of: title) { _, newValue in
             titleCharacterCount = newValue.count
         }
@@ -230,9 +224,6 @@ struct MediumStyleEditor: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowPhotoPicker"))) { _ in
                 showPhotoPicker = true
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowTablePicker"))) { _ in
-                showTablePicker = true
-            }
     }
     
     // MARK: - 圖片處理
@@ -244,14 +235,6 @@ struct MediumStyleEditor: View {
         )
     }
     
-    // MARK: - 表格處理
-    private func insertTable(rows: Int, cols: Int) {
-        // 通知 RichTextView 插入表格
-        NotificationCenter.default.post(
-            name: NSNotification.Name("InsertTable"),
-            object: ["rows": rows, "cols": cols]
-        )
-    }
 
     /// 將帶有圖片附件的富文本轉換為 Markdown，並將圖片上傳至 Supabase
     private func convertAttributedContentToMarkdown() async -> String {
@@ -495,9 +478,9 @@ struct PreviewSheet: View {
     }
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+        NavigationStack {
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 20) {
                     // 標題
                     Text(title)
                         .font(.system(size: 32, weight: .bold, design: .default))
@@ -520,21 +503,26 @@ struct PreviewSheet: View {
                         .cornerRadius(12)
                     }
                     
-                    // 內容 - 使用富文本顯示
+                    // 內容 - 使用富文本顯示，移除 minHeight 避免空白
                     if attributedContent.length > 0 {
                         RichTextPreviewView(attributedText: attributedContent)
-                            .frame(maxWidth: .infinity, minHeight: 200, alignment: .leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         Text("尚無內容...")
                             .font(.body)
                             .foregroundColor(.secondary)
                             .italic()
                     }
+                    
+                    // 底部適當間距
+                    Color.clear.frame(height: 20)
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 0)
             }
-            .background(backgroundColor.ignoresSafeArea())
+            .background(backgroundColor)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("預覽")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -570,9 +558,12 @@ struct RichTextPreviewView: UIViewRepresentable {
         textView.isEditable = false
         textView.isSelectable = true
         textView.backgroundColor = UIColor.clear
-        textView.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        // 修復：減少底部間距，避免額外空白
+        textView.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 0, right: 8)
         textView.textContainer.lineFragmentPadding = 0
-        textView.isScrollEnabled = true
+        textView.isScrollEnabled = false // 禁用內部滾動，讓外層 ScrollView 控制
+        textView.showsVerticalScrollIndicator = false
+        textView.showsHorizontalScrollIndicator = false
         
         // 設置默認字體作為備選，但不覆蓋 NSAttributedString 的格式
         textView.font = UIFont.systemFont(ofSize: 17)
@@ -587,13 +578,42 @@ struct RichTextPreviewView: UIViewRepresentable {
         print("🔍 updateUIView - attributedText.length: \(attributedText.length)")
         print("🔍 updateUIView - attributedText.string: '\(attributedText.string.prefix(100))'")
         
-        uiView.attributedText = attributedText
+        // 處理本地圖片顯示
+        let processedText = processImagesForPreview(attributedText)
+        uiView.attributedText = processedText
         
-        // 強制重新佈局
-        uiView.setNeedsLayout()
-        uiView.layoutIfNeeded()
+        // 優化高度計算，避免額外空白
+        DispatchQueue.main.async {
+            let size = uiView.sizeThatFits(CGSize(width: uiView.frame.width, height: CGFloat.greatestFiniteMagnitude))
+            print("🔍 計算的內容高度: \(size.height)")
+            
+            // 強制重新佈局
+            uiView.setNeedsLayout()
+            uiView.layoutIfNeeded()
+        }
         
         print("🔍 updateUIView - uiView.attributedText.length: \(uiView.attributedText?.length ?? 0)")
+    }
+    
+    // 處理圖片以便在預覽中正確顯示
+    private func processImagesForPreview(_ originalText: NSAttributedString) -> NSAttributedString {
+        let mutableText = NSMutableAttributedString(attributedString: originalText)
+        
+        // 遍歷所有附件，確保圖片能正確顯示
+        originalText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: originalText.length)) { value, range, _ in
+            if let attachment = value as? NSTextAttachment {
+                // 調整圖片大小以適應預覽
+                if let image = attachment.image {
+                    let maxWidth: CGFloat = 300 // 預覽最大寬度
+                    let aspectRatio = image.size.height / image.size.width
+                    let newSize = CGSize(width: maxWidth, height: maxWidth * aspectRatio)
+                    attachment.bounds = CGRect(origin: .zero, size: newSize)
+                    print("🔍 調整圖片大小: \(newSize)")
+                }
+            }
+        }
+        
+        return mutableText
     }
 }
 

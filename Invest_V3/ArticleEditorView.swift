@@ -105,6 +105,8 @@ struct ArticleEditorView: View {
                 isPaidContent: isPaidContent,
                 selectedImages: selectedImages
             )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .photosPicker(
             isPresented: $showImagePicker,
@@ -157,6 +159,13 @@ struct ArticleEditorView: View {
             // 設定按鈕（...）
             Button(action: { showSettings = true }) {
                 Image(systemName: "ellipsis")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(textColor)
+            }
+            
+            // 預覽按鈕
+            Button(action: { showPreview = true }) {
+                Image(systemName: "eye")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundColor(textColor)
             }
@@ -232,15 +241,21 @@ struct ArticleEditorView: View {
                         .padding(.leading, 4)
                 }
                 
-                TextEditor(text: $content)
+                CustomTextEditor(text: $content)
                     .font(.system(size: 18, weight: .regular))
                     .foregroundColor(textColor)
                     .frame(minHeight: 400)
-                    .scrollContentBackground(.hidden)
-                    .background(Color.clear)
                     .onTapGesture {
                         withAnimation(.spring(response: 0.3)) {
                             showFloatingToolbar = true
+                        }
+                    }
+                    .onAppear {
+                        // 編輯器出現時就顯示工具列
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.spring(response: 0.3)) {
+                                showFloatingToolbar = true
+                            }
                         }
                     }
             }
@@ -516,17 +531,35 @@ struct ArticleEditorView: View {
         print("📸 處理 \(photoItems.count) 個圖片項目")
         
         for item in photoItems {
-            if let data = try? await item.loadTransferable(type: Data.self),
-               let uiImage = UIImage(data: data) {
-                
-                await MainActor.run {
-                    print("📸 添加圖片到列表")
-                    selectedImages.append(uiImage)
+            do {
+                if let data = try await item.loadTransferable(type: Data.self) {
+                    print("📸 成功載入圖片數據，大小: \(data.count) bytes")
                     
-                    // 插入圖片到編輯器
-                    insertImageMarkdown()
+                    if let uiImage = UIImage(data: data) {
+                        print("📸 成功創建 UIImage，尺寸: \(uiImage.size)")
+                        
+                        await MainActor.run {
+                            print("📸 添加圖片到列表，當前數量: \(selectedImages.count)")
+                            selectedImages.append(uiImage)
+                            print("📸 圖片列表更新後數量: \(selectedImages.count)")
+                            
+                            // 插入圖片到編輯器
+                            insertImageMarkdown()
+                        }
+                    } else {
+                        print("❌ 無法從數據創建 UIImage")
+                    }
+                } else {
+                    print("❌ 無法載入圖片數據")
                 }
+            } catch {
+                print("❌ 載入圖片時發生錯誤: \(error.localizedDescription)")
             }
+        }
+        
+        // 清空選擇的項目以允許重新選擇同一張圖片
+        await MainActor.run {
+            selectedPhotoItems.removeAll()
         }
     }
     
@@ -534,10 +567,18 @@ struct ArticleEditorView: View {
         let imageCount = selectedImages.count
         let imageMarkdown = "![圖片 \(imageCount)](.image\(imageCount))\n\n"
         
-        // 插入到內容中當前游標位置
-        content += imageMarkdown
+        // 在當前內容末尾插入，保留原有文字
+        if content.isEmpty {
+            content = imageMarkdown
+        } else {
+            // 如果文字不為空，在末尾添加
+            if !content.hasSuffix("\n") {
+                content += "\n"
+            }
+            content += imageMarkdown
+        }
         
-        print("📸 插入圖片到編輯器")
+        print("📸 插入圖片到編輯器: \(imageMarkdown)")
     }
     
     private func getCurrentUserId() -> UUID {
@@ -628,9 +669,9 @@ struct ArticlePreviewView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+        NavigationStack {
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     // 付費標識
                     if isPaidContent {
                         HStack {
@@ -651,53 +692,77 @@ struct ArticlePreviewView: View {
                         .font(.system(size: 28, weight: .bold))
                         .foregroundColor(textColor)
                     
-                    // 內容預覽 - 使用 Markdown 渲染
+                    // 內容預覽 - 移除圖片 Markdown 引用，只顯示文字
                     if !content.isEmpty {
-                        Markdown(content)
-                            .markdownTextStyle {
-                                FontSize(16)
-                            }
-                            .foregroundColor(textColor)
-                            .markdownBlockStyle(\.heading1) { configuration in
-                                configuration.label
-                                    .markdownTextStyle {
-                                        FontWeight(.bold)
-                                        FontSize(24)
-                                    }
-                                    .foregroundColor(textColor)
-                            }
-                            .markdownBlockStyle(\.heading2) { configuration in
-                                configuration.label
-                                    .markdownTextStyle {
-                                        FontWeight(.semibold)
-                                        FontSize(20)
-                                    }
-                                    .foregroundColor(textColor)
-                            }
-                    } else {
+                        let cleanedContent = content
+                            .replacingOccurrences(of: #"!\[圖片 \d+\]\(\.image\d+\)\n\n"#, with: "", options: .regularExpression)
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        
+                        if !cleanedContent.isEmpty {
+                            Markdown(cleanedContent)
+                                .markdownTextStyle {
+                                    FontSize(16)
+                                }
+                                .foregroundColor(textColor)
+                                .markdownBlockStyle(\.heading1) { configuration in
+                                    configuration.label
+                                        .markdownTextStyle {
+                                            FontWeight(.bold)
+                                            FontSize(24)
+                                        }
+                                        .foregroundColor(textColor)
+                                }
+                                .markdownBlockStyle(\.heading2) { configuration in
+                                    configuration.label
+                                        .markdownTextStyle {
+                                            FontWeight(.semibold)
+                                            FontSize(20)
+                                        }
+                                        .foregroundColor(textColor)
+                                }
+                        }
+                    } else if selectedImages.isEmpty {
                         Text("暫無內容")
                             .font(.system(size: 16))
                             .foregroundColor(secondaryTextColor)
                     }
                     
-                    // 圖片預覽
+                    // 圖片預覽（立即顯示本地圖片）
                     if !selectedImages.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
+                            Text("圖片")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(textColor)
+                            
                             ForEach(Array(selectedImages.enumerated()), id: \.offset) { index, image in
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(maxWidth: .infinity)
-                                    .cornerRadius(8)
-                                    .shadow(color: .gray.opacity(0.3), radius: 4, x: 0, y: 2)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(maxWidth: .infinity, maxHeight: 300)
+                                        .cornerRadius(12)
+                                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                                    
+                                    Text("圖片 \(index + 1)")
+                                        .font(.caption)
+                                        .foregroundColor(secondaryTextColor)
+                                        .padding(.leading, 4)
+                                }
+                                .padding(.bottom, 8)
                             }
                         }
                         .padding(.top, 8)
                     }
+                    
+                    // 底部適當間距
+                    Color.clear.frame(height: 20)
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 16)
             }
             .background(backgroundColor)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("預覽")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -709,4 +774,5 @@ struct ArticlePreviewView: View {
             }
         }
     }
-} 
+}
+

@@ -7,7 +7,6 @@ struct RichTextView: UIViewRepresentable {
     @Binding var attributedText: NSAttributedString
     @State private var selectedImages: [PhotosPickerItem] = []
     @State private var showPhotoPicker = false
-    @State private var showTablePicker = false
     
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
@@ -20,10 +19,8 @@ struct RichTextView: UIViewRepresentable {
         textView.textContainerInset = UIEdgeInsets(top: 20, left: 16, bottom: 20, right: 16)
         textView.adjustsFontForContentSizeCategory = true
         
-        // 關鍵修復：延遲設置工具列
-        DispatchQueue.main.async {
-            textView.inputAccessoryView = self.createToolbar(for: textView, coordinator: context.coordinator)
-        }
+        // 修復：同步設置工具列，立即可用
+        textView.inputAccessoryView = self.createToolbar(for: textView, coordinator: context.coordinator)
         
         return textView
     }
@@ -60,8 +57,6 @@ struct RichTextView: UIViewRepresentable {
             createToolbarButton(systemName: "bold", action: #selector(coordinator.toggleBold), coordinator: coordinator),
             UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
             createToolbarButton(systemName: "photo", action: #selector(coordinator.insertPhoto), coordinator: coordinator),
-            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
-            createToolbarButton(systemName: "tablecells", action: #selector(coordinator.insertTable), coordinator: coordinator),
             UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
             createToolbarButton(systemName: "minus", action: #selector(coordinator.insertDivider), coordinator: coordinator),
             UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
@@ -105,12 +100,6 @@ struct RichTextView: UIViewRepresentable {
                 object: nil
             )
             
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(handleInsertTable),
-                name: NSNotification.Name("InsertTable"),
-                object: nil
-            )
         }
         
         @objc private func handleInsertImage(_ notification: Notification) {
@@ -119,12 +108,6 @@ struct RichTextView: UIViewRepresentable {
             }
         }
         
-        @objc private func handleInsertTable(_ notification: Notification) {
-            if let data = notification.object as? [String: Int],
-               let rows = data["rows"], let cols = data["cols"] {
-                insertTablePlaceholder(rows: rows, cols: cols)
-            }
-        }
         
         func textViewDidChange(_ textView: UITextView) {
             self.textView = textView
@@ -259,55 +242,6 @@ struct RichTextView: UIViewRepresentable {
             NotificationCenter.default.post(name: NSNotification.Name("ShowPhotoPicker"), object: nil)
         }
         
-        // MARK: - 表格插入
-        @objc func insertTable() {
-            NotificationCenter.default.post(name: NSNotification.Name("ShowTablePicker"), object: nil)
-        }
-        
-        func insertTablePlaceholder(rows: Int, cols: Int) {
-            guard let textView = textView else { return }
-            
-            let selectedRange = textView.selectedRange
-            let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
-            
-            // 創建可編輯的表格 Markdown
-            var tableMarkdown = "\n\n"
-            
-            // 表格標題行
-            tableMarkdown += "| "
-            for col in 1...cols {
-                tableMarkdown += "欄位 \(col) | "
-            }
-            tableMarkdown += "\n"
-            
-            // 分隔線
-            tableMarkdown += "| "
-            for _ in 1...cols {
-                tableMarkdown += "--- | "
-            }
-            tableMarkdown += "\n"
-            
-            // 內容行
-            for row in 1...rows {
-                tableMarkdown += "| "
-                for col in 1...cols {
-                    tableMarkdown += "  | "
-                }
-                tableMarkdown += "\n"
-            }
-            
-            tableMarkdown += "\n"
-            
-            let tableString = NSAttributedString(string: tableMarkdown, attributes: [
-                .font: UIFont.systemFont(ofSize: 16),
-                .foregroundColor: UIColor.label
-            ])
-            
-            let insertionIndex = selectedRange.location + selectedRange.length
-            mutableText.insert(tableString, at: insertionIndex)
-            textView.attributedText = mutableText
-            textView.selectedRange = NSRange(location: insertionIndex + tableMarkdown.count, length: 0)
-        }
         
         func insertImagePlaceholder(image: UIImage) {
             guard let textView = textView else { return }

@@ -20,6 +20,7 @@ struct NativeRichTextEditor: View {
     @State private var isUploadingImage = false
     @State private var uploadProgress: Double = 0.0
     @State private var selectedImages: [UIImage] = []
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var showFloatingToolbar = false
     @State private var isShowingDraftAlert = false
     
@@ -101,9 +102,22 @@ struct NativeRichTextEditor: View {
         }
         .photosPicker(
             isPresented: $showImagePicker,
-            selection: .constant(nil),
+            selection: $selectedPhotoItems,
+            maxSelectionCount: 5,
             matching: .images
         )
+        .onChange(of: selectedPhotoItems) { oldValue, newValue in
+            print("📸 NativeRichTextEditor onChange 觸發 - 舊: \(oldValue.count), 新: \(newValue.count)")
+            
+            if newValue.count > oldValue.count {
+                print("📸 開始處理圖片...")
+                Task {
+                    await processNewPhotos(newValue)
+                }
+            } else {
+                print("📸 沒有新項目，跳過處理")
+            }
+        }
         .alert("未保存的更改", isPresented: $isShowingDraftAlert) {
             Button("保存草稿") {
                 saveDraft()
@@ -236,15 +250,21 @@ struct NativeRichTextEditor: View {
                         .padding(.top, 8)
                 }
                 
-                TextEditor(text: $draft.bodyMD)
+                CustomTextEditor(text: $draft.bodyMD)
                     .font(.system(size: 18))
                     .foregroundColor(textColor)
-                    .scrollContentBackground(.hidden)
-                    .background(Color.clear)
                     .frame(minHeight: 300)
                     .onTapGesture {
                         withAnimation(.spring(response: 0.3)) {
                             showFloatingToolbar = true
+                        }
+                    }
+                    .onAppear {
+                        // 編輯器出現時就顯示工具列
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.spring(response: 0.3)) {
+                                showFloatingToolbar = true
+                            }
                         }
                     }
             }
@@ -266,29 +286,67 @@ struct NativeRichTextEditor: View {
                     .foregroundColor(secondaryTextColor)
             }
             
-            // Markdown 內容預覽
-            if !draft.bodyMD.isEmpty {
-                Markdown(draft.bodyMD)
-                    .markdownTextStyle {
-                        FontSize(18)
+            // 混合內容預覽（文字 + 圖片）
+            if !draft.bodyMD.isEmpty || !selectedImages.isEmpty {
+                VStack(alignment: .leading, spacing: 16) {
+                    // 處理文字內容
+                    if !draft.bodyMD.isEmpty {
+                        // 移除圖片引用的 Markdown，只顯示文字部分
+                        let cleanedText = draft.bodyMD
+                            .replacingOccurrences(of: #"!\[圖片 \d+\]\(\.image\d+\)\n\n"#, with: "", options: .regularExpression)
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                        
+                        if !cleanedText.isEmpty {
+                            Markdown(cleanedText)
+                                .markdownTextStyle {
+                                    FontSize(18)
+                                }
+                                .foregroundColor(textColor)
+                                .markdownBlockStyle(\.heading1) { configuration in
+                                    configuration.label
+                                        .markdownTextStyle {
+                                            FontWeight(.bold)
+                                            FontSize(24)
+                                        }
+                                        .foregroundColor(textColor)
+                                }
+                                .markdownBlockStyle(\.heading2) { configuration in
+                                    configuration.label
+                                        .markdownTextStyle {
+                                            FontWeight(.semibold)
+                                            FontSize(20)
+                                        }
+                                        .foregroundColor(textColor)
+                                }
+                        }
                     }
-                    .foregroundColor(textColor)
-                    .markdownBlockStyle(\.heading1) { configuration in
-                        configuration.label
-                            .markdownTextStyle {
-                                FontWeight(.bold)
-                                FontSize(24)
+                    
+                    // 顯示實際圖片（立即預覽本地圖片）
+                    if !selectedImages.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("圖片")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(textColor)
+                            
+                            ForEach(Array(selectedImages.enumerated()), id: \.offset) { index, image in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(maxWidth: .infinity, maxHeight: 300)
+                                        .cornerRadius(12)
+                                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                                    
+                                    Text("圖片 \(index + 1)")
+                                        .font(.caption)
+                                        .foregroundColor(secondaryTextColor)
+                                        .padding(.leading, 4)
+                                }
+                                .padding(.bottom, 8)
                             }
-                            .foregroundColor(textColor)
+                        }
                     }
-                    .markdownBlockStyle(\.heading2) { configuration in
-                        configuration.label
-                            .markdownTextStyle {
-                                FontWeight(.semibold)
-                                FontSize(20)
-                            }
-                            .foregroundColor(textColor)
-                    }
+                }
             } else {
                 Text("暫無內容")
                     .font(.system(size: 18))
@@ -457,6 +515,64 @@ struct NativeRichTextEditor: View {
         // TODO: 實現文章上傳邏輯
         print("上傳文章: \(draft.title)")
     }
+    
+    // MARK: - 圖片處理
+    private func processNewPhotos(_ photoItems: [PhotosPickerItem]) async {
+        print("📸 NativeRichTextEditor 處理 \(photoItems.count) 個圖片項目")
+        
+        for item in photoItems {
+            do {
+                if let data = try await item.loadTransferable(type: Data.self) {
+                    print("📸 成功載入圖片數據，大小: \(data.count) bytes")
+                    
+                    if let uiImage = UIImage(data: data) {
+                        print("📸 成功創建 UIImage，尺寸: \(uiImage.size)")
+                        
+                        await MainActor.run {
+                            print("📸 添加圖片到列表，當前數量: \(selectedImages.count)")
+                            selectedImages.append(uiImage)
+                            print("📸 圖片列表更新後數量: \(selectedImages.count)")
+                            
+                            // 插入圖片到編輯器內容
+                            insertImageMarkdown()
+                            
+                            // 通過修改狀態來強制觸發視圖更新
+                            // selectedImages 的更改會自動觸發視圖重新渲染
+                        }
+                    } else {
+                        print("❌ 無法從數據創建 UIImage")
+                    }
+                } else {
+                    print("❌ 無法載入圖片數據")
+                }
+            } catch {
+                print("❌ 載入圖片時發生錯誤: \(error.localizedDescription)")
+            }
+        }
+        
+        // 清空選擇的項目以允許重新選擇同一張圖片
+        await MainActor.run {
+            selectedPhotoItems.removeAll()
+        }
+    }
+    
+    private func insertImageMarkdown() {
+        let imageCount = selectedImages.count
+        let imageMarkdown = "![圖片 \(imageCount)](.image\(imageCount))\n\n"
+        
+        // 在當前游標位置插入，而不是添加到末尾
+        if draft.bodyMD.isEmpty {
+            draft.bodyMD = imageMarkdown
+        } else {
+            // 如果文字不為空，在末尾添加
+            if !draft.bodyMD.hasSuffix("\n") {
+                draft.bodyMD += "\n"
+            }
+            draft.bodyMD += imageMarkdown
+        }
+        
+        print("📸 插入圖片到 NativeRichTextEditor: \(imageMarkdown)")
+    }
 }
 
 // MARK: - 子主題選擇視圖
@@ -502,5 +618,6 @@ struct SubtopicsSelectionView: View {
             }
         }
     }
-} 
+}
+
 
