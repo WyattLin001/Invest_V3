@@ -702,13 +702,16 @@ struct RichTextPreviewView: UIViewRepresentable {
         // 遍歷所有附件，確保圖片能正確顯示
         originalText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: originalText.length)) { value, range, _ in
             if let attachment = value as? NSTextAttachment {
-                // 調整圖片大小以適應預覽
+                // 使用統一的圖片尺寸配置
                 if let image = attachment.image {
-                    let maxWidth: CGFloat = 300 // 預覽最大寬度
-                    let aspectRatio = image.size.height / image.size.width
-                    let newSize = CGSize(width: maxWidth, height: maxWidth * aspectRatio)
-                    attachment.bounds = CGRect(origin: .zero, size: newSize)
-                    print("🔍 調整圖片大小: \(newSize)")
+                    ImageSizeConfiguration.configureAttachment(attachment, with: image)
+                    
+                    // 調試信息
+                    ImageSizeConfiguration.logSizeInfo(
+                        originalSize: image.size,
+                        displaySize: attachment.bounds.size,
+                        context: "預覽"
+                    )
                 }
             }
         }

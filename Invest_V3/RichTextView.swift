@@ -249,15 +249,16 @@ struct RichTextView: UIViewRepresentable {
             let selectedRange = textView.selectedRange
             let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
             
-            // 計算圖片顯示尺寸（保持比例，寬度適應螢幕）
-            let maxWidth = textView.frame.width - 32
-            let aspectRatio = image.size.height / image.size.width
-            let displaySize = CGSize(width: maxWidth, height: maxWidth * aspectRatio)
-            
-            // 創建 attachment
+            // 創建 attachment 並設置統一的圖片尺寸
             let attachment = NSTextAttachment()
-            attachment.image = image
-            attachment.bounds = CGRect(origin: .zero, size: displaySize)
+            ImageSizeConfiguration.configureAttachment(attachment, with: image)
+            
+            // 調試信息
+            ImageSizeConfiguration.logSizeInfo(
+                originalSize: image.size,
+                displaySize: attachment.bounds.size,
+                context: "編輯器"
+            )
             
             // 插入圖片
             let attachmentString = NSAttributedString(attachment: attachment)
