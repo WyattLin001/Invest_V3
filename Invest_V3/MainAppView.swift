@@ -7,7 +7,7 @@
 import SwiftUI
 
 struct MainAppView: View {
-    @StateObject private var authService = AuthenticationService()
+    @EnvironmentObject var authService: AuthenticationService
     @State private var showConnectionToast = false
     @State private var toastMessage = ""
     @State private var isTransitioning = false

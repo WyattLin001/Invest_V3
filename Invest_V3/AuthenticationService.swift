@@ -23,7 +23,7 @@ class AuthenticationService: ObservableObject {
         SupabaseManager.shared.client
     }
 
-    init() {
+    private init() {
         Task {
             do {
                 try await SupabaseManager.shared.initialize()

@@ -24,7 +24,7 @@ struct Invest_V3App: App {
     var body: some Scene {
         WindowGroup {
             MainAppView()
-                .environmentObject(AuthenticationService())
+                .environmentObject(AuthenticationService.shared)
                 .environmentObject(UserProfileService.shared)
                 .environmentObject(PortfolioService.shared)
                 .environmentObject(StockService.shared)

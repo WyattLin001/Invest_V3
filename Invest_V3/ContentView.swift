@@ -96,6 +96,6 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .environmentObject(AuthenticationService())
+        .environmentObject(AuthenticationService.shared)
 }
 
