@@ -134,8 +134,11 @@ struct NotificationView: View {
             showTradingDetail = true
         case .rankingUpdate:
             showRankingDetail = true
-        case .systemMessage:
+        case .systemAlert:
             // 系統訊息通常只需要顯示，不需要特殊跳轉
+            break
+        case .hostMessage, .chatMessage, .investmentUpdate, .marketNews, .stockPriceAlert:
+            // 其他類型可以之後實現
             break
         }
     }
@@ -152,7 +155,7 @@ struct NotificationRowView: View {
                 // 通知圖標
                 ZStack {
                     Circle()
-                        .fill(Color(hex: notification.type.color))
+                        .fill(Color.blue) // 暫時使用固定顏色
                         .frame(width: 44, height: 44)
                     
                     Image(systemName: notification.type.iconName)
@@ -235,7 +238,7 @@ class NotificationViewModel: ObservableObject {
         // 模擬通知數據 - 實際應該從 Supabase 獲取
         self.notifications = [
             AppNotification(
-                id: UUID(),
+                id: UUID().uuidString,
                 title: "群組邀請",
                 message: "投資大師Tom 邀請您加入「科技股挑戰賽」",
                 type: .groupInvite,
@@ -243,7 +246,7 @@ class NotificationViewModel: ObservableObject {
                 createdAt: Date().addingTimeInterval(-300) // 5分鐘前
             ),
             AppNotification(
-                id: UUID(),
+                id: UUID().uuidString,
                 title: "排名更新",
                 message: "恭喜！您在本週排行榜中上升了3個名次",
                 type: .rankingUpdate,
@@ -251,7 +254,7 @@ class NotificationViewModel: ObservableObject {
                 createdAt: Date().addingTimeInterval(-3600) // 1小時前
             ),
             AppNotification(
-                id: UUID(),
+                id: UUID().uuidString,
                 title: "交易提醒",
                 message: "台積電(2330)達到您設定的目標價格 NT$580",
                 type: .tradingAlert,
@@ -263,7 +266,7 @@ class NotificationViewModel: ObservableObject {
         isLoading = false
     }
     
-    func markAsRead(_ notificationId: UUID) {
+    func markAsRead(_ notificationId: String) {
         if let index = notifications.firstIndex(where: { $0.id == notificationId }) {
             notifications[index] = AppNotification(
                 id: notifications[index].id,
@@ -422,7 +425,7 @@ struct RankingUpdateDetailView: View {
                 VStack(spacing: 16) {
                     Image(systemName: "trophy.fill")
                         .font(.system(size: 60))
-                        .foregroundColor(Color(hex: "#FFD700"))
+                        .foregroundColor(.yellow)
                     
                     Text("排名更新")
                         .font(.title2)
@@ -443,7 +446,7 @@ struct RankingUpdateDetailView: View {
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(Color(hex: "#FFD700"))
+                    .tint(.yellow)
                     .accessibilityLabel("查看完整投資排行榜")
                     .accessibilityHint("點擊查看所有投資者的完整排名列表")
                     
