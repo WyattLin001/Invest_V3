@@ -388,8 +388,8 @@ struct HomeView: View {
         do {
             let balance = try await supabaseService.fetchWalletBalance()
             await MainActor.run {
-                // balance 是從 user_balances 表獲取的 NTD 值，需要轉換為代幣顯示
-                self.walletBalance = Double(balance).ntdToTokens()
+                // balance 是從 user_balances 表獲取的代幣數量，直接使用
+                self.walletBalance = balance
                 self.isLoadingBalance = false
             }
         } catch {

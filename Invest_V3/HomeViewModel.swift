@@ -47,10 +47,8 @@ class HomeViewModel: ObservableObject {
         do {
             let balance = try await supabaseService.fetchWalletBalance()
             await MainActor.run {
-                // balance 是從 user_balances 表獲取的 NTD 值，需要轉換為代幣顯示
-                // 注意：這個方法在 HomeViewModel 中應該設置一個屬性來存儲餘額
-                // 但我看到 walletBalance 是在 HomeView 中定義的，需要重新架構
-                print("✅ [HomeViewModel] 載入錢包餘額成功: \(balance) NTD")
+                // balance 是從 user_balances 表獲取的代幣數量，直接使用
+                print("✅ [HomeViewModel] 載入錢包餘額成功: \(balance) 代幣")
             }
         } catch {
             await MainActor.run {

@@ -73,7 +73,7 @@ struct WalletView: View {
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
             Spacer()
-            Text(TokenSystem.formatTokens(viewModel.balance.ntdToTokens()))
+            Text(TokenSystem.formatTokens(viewModel.balance))
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.green)
@@ -99,7 +99,7 @@ struct WalletView: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(TokenSystem.formatTokens(viewModel.balance.ntdToTokens()))
+                    Text(TokenSystem.formatTokens(viewModel.balance))
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.green)
