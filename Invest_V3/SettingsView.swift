@@ -61,6 +61,11 @@ struct SettingsView: View {
                             // 通知設定
                             notificationSection
                             
+                            // 通知測試（僅在 DEBUG 模式顯示）
+                            #if DEBUG
+                            notificationTestSection
+                            #endif
+                            
                             // 應用設定
                             appSettingsSection
                             
@@ -316,10 +321,54 @@ struct SettingsView: View {
                     title: "投資提醒",
                     isOn: $viewModel.investmentNotificationsEnabled
                 )
+                
+                settingRow(
+                    title: "市場更新",
+                    isOn: $viewModel.marketUpdatesEnabled
+                )
             }
         }
         .brandCardStyle()
     }
+    
+    #if DEBUG
+    private var notificationTestSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+            Text("推播通知測試 (開發模式)")
+                .font(.sectionHeader)
+                .fontWeight(.semibold)
+                .foregroundColor(.gray900)
+            
+            NavigationLink(destination: NotificationTestView()) {
+                HStack {
+                    Image(systemName: "bell.badge")
+                        .font(.title3)
+                        .foregroundColor(.brandGreen)
+                        .frame(width: 24, height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("通知功能測試")
+                            .font(.bodyText)
+                            .fontWeight(.medium)
+                            .foregroundColor(.gray900)
+                        
+                        Text("測試各種推播通知功能")
+                            .font(.caption)
+                            .foregroundColor(.gray600)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.gray600)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .brandCardStyle()
+    }
+    #endif
     
     private var appSettingsSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {

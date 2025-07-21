@@ -242,17 +242,20 @@ class SettingsViewModel: ObservableObject {
                 return
             }
             
-            // 構建通知設定物件
-            let notificationSettings = NotificationSettings(
-                userId: user.id,
-                pushNotificationsEnabled: notificationsEnabled,
-                marketUpdatesEnabled: marketUpdatesEnabled,
-                chatNotificationsEnabled: chatNotificationsEnabled,
-                investmentNotificationsEnabled: investmentNotificationsEnabled,
-                updatedAt: Date()
-            )
+            // 構建通知設定字典 (使用新的表格結構)
+            let notificationSettings: [String: Any] = [
+                "user_id": user.id.uuidString,
+                "push_notifications_enabled": notificationsEnabled,
+                "market_updates_enabled": marketUpdatesEnabled,
+                "chat_notifications_enabled": chatNotificationsEnabled,
+                "investment_notifications_enabled": investmentNotificationsEnabled,
+                "ranking_updates_enabled": true, // 新增：排名更新
+                "host_messages_enabled": true,   // 新增：主持人訊息
+                "stock_price_alerts_enabled": true, // 新增：股價提醒
+                "updated_at": ISO8601DateFormatter().string(from: Date())
+            ]
             
-            // 上傳到 Supabase
+            // 上傳到 Supabase (使用 upsert 來處理插入或更新)
             try await supabaseService.client
                 .from("notification_settings")
                 .upsert(notificationSettings)
@@ -294,32 +297,40 @@ class SettingsViewModel: ObservableObject {
                 return
             }
             
-            // 從 Supabase 載入設定
-            let settings: [NotificationSettings] = try await supabaseService.client
+            // 從 Supabase 載入設定 (使用新的表格結構)
+            let result = try await supabaseService.client
                 .from("notification_settings")
-                .select()
-                .eq("user_id", value: user.id)
+                .select("push_notifications_enabled, market_updates_enabled, chat_notifications_enabled, investment_notifications_enabled, ranking_updates_enabled, host_messages_enabled, stock_price_alerts_enabled")
+                .eq("user_id", value: user.id.uuidString)
                 .limit(1)
                 .execute()
-                .value
             
-            if let setting = settings.first {
-                // 更新本地狀態
-                await MainActor.run {
-                    self.notificationsEnabled = setting.pushNotificationsEnabled
-                    self.marketUpdatesEnabled = setting.marketUpdatesEnabled
-                    self.chatNotificationsEnabled = setting.chatNotificationsEnabled
-                    self.investmentNotificationsEnabled = setting.investmentNotificationsEnabled
-                }
+            // 手動解析 JSON 響應
+            if let data = result.data {
+                let decoder = JSONDecoder()
+                let settingsArray = try decoder.decode([[String: Bool]].self, from: data)
                 
-                print("✅ [SettingsViewModel] 已從後端載入通知設定")
+                if let setting = settingsArray.first {
+                    // 更新本地狀態
+                    await MainActor.run {
+                        self.notificationsEnabled = setting["push_notifications_enabled"] ?? true
+                        self.marketUpdatesEnabled = setting["market_updates_enabled"] ?? true
+                        self.chatNotificationsEnabled = setting["chat_notifications_enabled"] ?? true
+                        self.investmentNotificationsEnabled = setting["investment_notifications_enabled"] ?? true
+                    }
+                    
+                    print("✅ [SettingsViewModel] 已從後端載入通知設定")
+                } else {
+                    // 後端沒有設定，使用本地設定或預設值
+                    loadNotificationSettingsLocally()
+                }
             } else {
-                // 後端沒有設定，使用本地設定或預設值
                 loadNotificationSettingsLocally()
             }
             
         } catch {
             print("❌ [SettingsViewModel] 載入通知設定失敗: \(error)")
+            print("ℹ️ [SettingsViewModel] 使用預設通知設定")
             loadNotificationSettingsLocally()
         }
     }
