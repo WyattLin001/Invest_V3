@@ -210,12 +210,36 @@ class SupabaseService: ObservableObject {
             updatedAt: Date()
         )
         
-        // 將創建者自動加入群組成員表
+        // 將創建者自動加入群組成員表（不增加成員計數，因為創建時已設為1）
         do {
             print("👥 準備將創建者加入群組成員...")
             print("   - 群組 ID: \(groupId)")
             print("   - 用戶 ID: \(currentUser.id)")
-            try await joinGroup(groupId: groupId, userId: currentUser.id)
+            
+            // 直接插入成員記錄，不調用會增加計數的 joinGroup 函數
+            struct GroupMemberInsert: Codable {
+                let groupId: String
+                let userId: String
+                let joinedAt: Date
+                
+                enum CodingKeys: String, CodingKey {
+                    case groupId = "group_id"
+                    case userId = "user_id"
+                    case joinedAt = "joined_at"
+                }
+            }
+            
+            let memberData = GroupMemberInsert(
+                groupId: groupId.uuidString,
+                userId: currentUser.id.uuidString,
+                joinedAt: Date()
+            )
+            
+            try await self.client
+                .from("group_members")
+                .insert(memberData)
+                .execute()
+            
             print("✅ 成功將創建者加入群組成員")
         } catch {
             print("⚠️ 將創建者加入群組成員失敗: \(error.localizedDescription)")
@@ -732,29 +756,47 @@ class SupabaseService: ObservableObject {
         let group = try await fetchInvestmentGroup(id: groupId)
         let tokenCost = group.tokenCost
         
-        // 檢查並扣除代幣
+        // 檢查餘額是否足夠（但不扣除）
         if tokenCost > 0 {
-            try await deductTokens(userId: currentUser.id, amount: tokenCost, description: "加入群組：\(group.name)")
-            
-            // 創建群組主持人的收益記錄
-            let hostId = try await fetchGroupHostId(groupId: groupId)
-            try await createCreatorRevenue(
-                creatorId: hostId.uuidString,
-                revenueType: .groupEntryFee,
-                amount: tokenCost,
-                sourceId: groupId,
-                sourceName: group.name,
-                description: "群組入會費：\(currentUser.displayName) 加入 \(group.name)"
-            )
+            let balance = try await fetchWalletBalance()
+            if balance < Double(tokenCost) {
+                throw SupabaseError.insufficientBalance
+            }
         }
         
-        // 調用原有的 joinGroup 函數
-        try await joinGroup(groupId: groupId, userId: currentUser.id)
-        
-        // 創建投資組合
-        let _ = try await createPortfolio(groupId: groupId, userId: currentUser.id)
-        
-        print("✅ 成功加入群組並扣除 \(tokenCost) 代幣")
+        // 首先嘗試加入群組 - 如果失敗，不會有任何費用
+        do {
+            // 調用原有的 joinGroup 函數
+            try await joinGroup(groupId: groupId, userId: currentUser.id)
+            
+            // 創建投資組合
+            let _ = try await createPortfolio(groupId: groupId, userId: currentUser.id)
+            
+            // 只有在成功加入群組後才扣除代幣
+            if tokenCost > 0 {
+                try await deductTokens(userId: currentUser.id, amount: tokenCost, description: "加入群組：\(group.name)")
+                
+                // 創建群組主持人的收益記錄
+                let hostId = try await fetchGroupHostId(groupId: groupId)
+                try await createCreatorRevenue(
+                    creatorId: hostId.uuidString,
+                    revenueType: .groupEntryFee,
+                    amount: tokenCost,
+                    sourceId: groupId,
+                    sourceName: group.name,
+                    description: "群組入會費：\(currentUser.displayName) 加入 \(group.name)"
+                )
+                
+                print("✅ 成功加入群組並扣除 \(tokenCost) 代幣")
+            } else {
+                print("✅ 成功加入群組（免費）")
+            }
+            
+        } catch {
+            // 如果加入群組失敗，不會扣除任何費用
+            print("❌ 加入群組失敗: \(error.localizedDescription)")
+            throw error
+        }
     }
     
     /// 獲取群組主持人的用戶ID
@@ -985,16 +1027,18 @@ class SupabaseService: ObservableObject {
         struct PortfolioInsert: Codable {
             let groupId: String
             let userId: String
+            let initialCash: Double
+            let availableCash: Double
             let totalValue: Double
-            let cashBalance: Double
             let returnRate: Double
             let lastUpdated: Date
             
             enum CodingKeys: String, CodingKey {
                 case groupId = "group_id"
                 case userId = "user_id"
+                case initialCash = "initial_cash"
+                case availableCash = "available_cash"
                 case totalValue = "total_value"
-                case cashBalance = "cash_balance"
                 case returnRate = "return_rate"
                 case lastUpdated = "last_updated"
             }
@@ -1003,8 +1047,9 @@ class SupabaseService: ObservableObject {
         let portfolioData = PortfolioInsert(
             groupId: groupId.uuidString,
             userId: userId.uuidString,
-            totalValue: 1000000, // 初始 100 萬虛擬資金
-            cashBalance: 1000000,
+            initialCash: 1000000, // 初始 100 萬虛擬資金
+            availableCash: 1000000, // 可用現金 = 初始資金
+            totalValue: 1000000, // 總價值 = 初始資金
             returnRate: 0.0,
             lastUpdated: Date()
         )
@@ -2345,6 +2390,11 @@ class SupabaseService: ObservableObject {
             .eq("user_id", value: userId)
             .execute()
         
+        // 發送餘額更新通知給所有 ViewModels
+        await MainActor.run {
+            NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
+        }
+        
         print("✅ 錢包餘額更新成功: \(currentBalance) → \(newBalance) (變化: \(delta))")
     }
     
@@ -2445,6 +2495,11 @@ class SupabaseService: ObservableObject {
             .from("wallet_transactions")
             .insert(transaction)
             .execute()
+        
+        // 發送餘額更新通知給所有 ViewModels
+        await MainActor.run {
+            NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
+        }
         
         print("✅ 成功扣除 \(amount) 代幣，餘額: \(currentBalance) → \(newBalance)")
     }
@@ -3617,6 +3672,7 @@ extension SupabaseService {
         try SupabaseManager.shared.ensureInitialized()
         
         struct CreatorRevenueInsert: Codable {
+            let id: String
             let creatorId: String
             let revenueType: String
             let amount: Int
@@ -3626,6 +3682,7 @@ extension SupabaseService {
             let createdAt: Date
             
             enum CodingKeys: String, CodingKey {
+                case id
                 case creatorId = "creator_id"
                 case revenueType = "revenue_type"
                 case amount
@@ -3637,6 +3694,7 @@ extension SupabaseService {
         }
         
         let revenueRecord = CreatorRevenueInsert(
+            id: UUID().uuidString,
             creatorId: creatorId,
             revenueType: revenueType.rawValue,
             amount: amount,
