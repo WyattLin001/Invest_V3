@@ -13,11 +13,10 @@ struct MainAppView: View {
     
     // Card View動畫控制
     @State private var authCardOffset: CGFloat = 0
-    @State private var authCardVisible = true
     
     var body: some View {
         ZStack {
-            // 主應用內容 - 始終存在但只有在認證時才可見
+            // 主應用內容 - 當用戶登入時顯示
             if authService.isAuthenticated {
                 ContentView()
                     .environmentObject(authService)
@@ -26,44 +25,44 @@ struct MainAppView: View {
                     }
             }
             
-            // 認證卡片 - 通過offset控制位置
-            if authCardVisible || !authService.isAuthenticated {
-                AuthenticationView()
-                    .environmentObject(authService)
-                    .offset(y: authCardOffset)
-                    .onAppear {
-                        print("📱 認證卡片準備就緒")
-                        // 初始位置調整
-                        if authService.isAuthenticated {
-                            // 如果已經登入，卡片應該在屏幕下方隱藏
-                            authCardOffset = UIScreen.main.bounds.height
-                            authCardVisible = false
-                        } else {
-                            // 未登入時，卡片在正常位置
-                            authCardOffset = 0
-                            authCardVisible = true
-                        }
+            // 認證卡片 - 始終存在，通過offset控制位置
+            AuthenticationView()
+                .environmentObject(authService)
+                .offset(y: authCardOffset)
+                .opacity(authService.isAuthenticated ? 0 : 1)
+        }
+        .onAppear {
+            checkSupabaseConnection()
+            // 設定初始狀態
+            if authService.isAuthenticated {
+                // 已登入時，卡片在底部隱藏
+                authCardOffset = UIScreen.main.bounds.height
+            } else {
+                // 未登入時，卡片在屏幕底部準備上升
+                authCardOffset = UIScreen.main.bounds.height * 0.8
+                
+                // 延遲一點讓卡片上升到等待位置
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.spring(response: 0.8, dampingFraction: 0.9)) {
+                        authCardOffset = 0 // 上升到正常位置
                     }
+                }
             }
         }
-        .onAppear(perform: checkSupabaseConnection)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserSignedIn"))) { _ in
             print("📱 收到登入成功通知，卡片向下滑動消失")
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                authCardOffset = UIScreen.main.bounds.height // 向下滑動到屏幕外
-            }
-            // 動畫完成後隱藏卡片
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                authCardVisible = false
+                authCardOffset = UIScreen.main.bounds.height // 下降消失
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserLoggedOut"))) { _ in
-            print("📱 收到登出通知，卡片向上滑動到等待位置")
-            // 先顯示卡片
-            authCardVisible = true
+            print("📱 收到登出通知，卡片從底部向上滑動到等待位置")
+            // 首先讓卡片在底部
+            authCardOffset = UIScreen.main.bounds.height * 0.8
             
+            // 然後向上滑動到等待位置
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                authCardOffset = 0 // 向上滑動到正常位置（等待登入）
+                authCardOffset = 0 // 上升到等待位置
             }
         }
         .toast(message: toastMessage, isShowing: $showConnectionToast)
