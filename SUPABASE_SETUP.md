@@ -1,6 +1,15 @@
-# Supabase 儲存設定指南
+# Supabase 完整設定指南
 
-## 圖片上傳設定
+## 📋 **檢查清單 - 必須在 Supabase 控制台完成**
+
+### ⚠️ **重要提醒**
+根據代碼分析，您的 Supabase 項目配置為：
+- **URL**: `https://wujlbjrouqcpnifbakmw.supabase.co`
+- **項目ID**: `wujlbjrouqcpnifbakmw`
+
+請在 Supabase 控制台完成以下設定：
+
+## 1. 圖片上傳設定
 
 為了讓圖片上傳功能正常運作，您需要在 Supabase 中設置以下配置：
 
@@ -83,5 +92,83 @@ ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'article_images' AND auth.uid()::text = owner);
 ```
+
+## 6. 資料庫表格檢查
+
+請確認以下表格在您的 Supabase 資料庫中存在：
+
+### 必要表格清單：
+- [ ] `user_profiles` - 用戶資料
+- [ ] `investment_groups` - 投資群組  
+- [ ] `chat_messages` - 聊天訊息
+- [ ] `creator_revenues` - 創作者收益
+- [ ] `group_donations` - 群組捐贈
+- [ ] `withdrawal_records` - 提領記錄
+
+### 如果表格缺失，請在 SQL Editor 中執行：
+```sql
+-- 創建投資群組表格
+CREATE TABLE IF NOT EXISTS investment_groups (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    host TEXT NOT NULL,
+    return_rate DECIMAL(5,2) DEFAULT 0.0,
+    entry_fee TEXT,
+    member_count INTEGER DEFAULT 1,
+    category TEXT,
+    created_at TEXT,
+    updated_at TEXT
+);
+
+-- 創建用戶資料表格  
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id),
+    username TEXT UNIQUE NOT NULL,
+    display_name TEXT,
+    avatar_url TEXT,
+    bio TEXT,
+    token_balance INTEGER DEFAULT 1000,
+    total_earnings INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 啟用 RLS
+ALTER TABLE investment_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- 基本權限政策
+CREATE POLICY "public_read_groups" ON investment_groups 
+    FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "users_can_read_profiles" ON user_profiles 
+    FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "users_can_update_own_profile" ON user_profiles 
+    FOR UPDATE TO authenticated USING (auth.uid() = id);
+```
+
+## 7. 認證設定檢查
+
+在 Authentication → Settings 中確認：
+- [ ] Email 認證已啟用
+- [ ] 確認 URL 已設置
+- [ ] 密碼強度設定合適
+
+## 8. 測試檢查清單
+
+完成設定後，請測試以下功能：
+- [ ] 用戶可以成功註冊/登入
+- [ ] 圖片上傳功能正常運作
+- [ ] Supabase Storage 中能看到上傳的圖片
+- [ ] 文章發布功能正常
+- [ ] 圖片在已發布文章中正常顯示
+
+## 🚨 **立即行動項目**
+
+1. **前往 Supabase 控制台**: https://supabase.com/dashboard/project/wujlbjrouqcpnifbakmw
+2. **創建 article_images 儲存桶**
+3. **設置儲存桶權限政策**
+4. **確認資料庫表格完整性**
 
 完成後，您的應用就能夠正常上傳和顯示圖片了！
