@@ -258,7 +258,7 @@ class SettingsViewModel: ObservableObject {
             // 上傳到 Supabase (使用 upsert 來處理插入或更新)
             try await supabaseService.client
                 .from("notification_settings")
-                .upsert([notificationSettings])
+                .upsert(notificationSettings)
                 .execute()
             
             print("✅ [SettingsViewModel] 通知設定已同步到後端")
@@ -306,26 +306,25 @@ class SettingsViewModel: ObservableObject {
                 .execute()
             
             // 手動解析 JSON 響應
-            guard let data = result.data else {
-                loadNotificationSettingsLocally()
-                return
-            }
-            
-            let decoder = JSONDecoder()
-            let settingsArray = try decoder.decode([[String: Bool]].self, from: data)
-            
-            if let setting = settingsArray.first {
-                // 更新本地狀態
-                await MainActor.run {
-                    self.notificationsEnabled = setting["push_notifications_enabled"] ?? true
-                    self.marketUpdatesEnabled = setting["market_updates_enabled"] ?? true
-                    self.chatNotificationsEnabled = setting["chat_notifications_enabled"] ?? true
-                    self.investmentNotificationsEnabled = setting["investment_notifications_enabled"] ?? true
-                }
+            if let data = result.data {
+                let decoder = JSONDecoder()
+                let settingsArray = try decoder.decode([[String: Bool]].self, from: data)
                 
-                print("✅ [SettingsViewModel] 已從後端載入通知設定")
+                if let setting = settingsArray.first {
+                    // 更新本地狀態
+                    await MainActor.run {
+                        self.notificationsEnabled = setting["push_notifications_enabled"] ?? true
+                        self.marketUpdatesEnabled = setting["market_updates_enabled"] ?? true
+                        self.chatNotificationsEnabled = setting["chat_notifications_enabled"] ?? true
+                        self.investmentNotificationsEnabled = setting["investment_notifications_enabled"] ?? true
+                    }
+                    
+                    print("✅ [SettingsViewModel] 已從後端載入通知設定")
+                } else {
+                    // 後端沒有設定，使用本地設定或預設值
+                    loadNotificationSettingsLocally()
+                }
             } else {
-                // 後端沒有設定，使用本地設定或預設值
                 loadNotificationSettingsLocally()
             }
             

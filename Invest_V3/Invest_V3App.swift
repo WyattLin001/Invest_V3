@@ -15,22 +15,7 @@ struct Invest_V3App: App {
     
     init() {
         // 在 app 啟動時初始化 Supabase 和通知服務
-        Task {
-            do {
-                try await SupabaseManager.shared.initialize()
-                await MainActor.run {
-                    print("✅ App 啟動：Supabase 初始化完成")
-                }
-                
-                // 初始化推播通知
-                await setupNotifications()
-                
-            } catch {
-                await MainActor.run {
-                    print("❌ App 啟動：Supabase 初始化失敗 - \(error.localizedDescription)")
-                }
-            }
-        }
+        // 移動到 onAppear 中執行，避免 escaping closure 問題
     }
 
     var body: some Scene {
@@ -41,6 +26,21 @@ struct Invest_V3App: App {
                 .environmentObject(PortfolioService.shared)
                 .environmentObject(StockService.shared)
                 .environmentObject(notificationService)
+                .onAppear {
+                    // App 啟動時初始化
+                    Task {
+                        do {
+                            try await SupabaseManager.shared.initialize()
+                            print("✅ App 啟動：Supabase 初始化完成")
+                            
+                            // 初始化推播通知
+                            await setupNotifications()
+                            
+                        } catch {
+                            print("❌ App 啟動：Supabase 初始化失敗 - \(error.localizedDescription)")
+                        }
+                    }
+                }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     // App 變為活躍時更新未讀數量
                     Task {

@@ -172,7 +172,7 @@ class NotificationService: NSObject, ObservableObject {
                 .from("notifications")
                 .select("count", head: true)
                 .eq("user_id", value: user.id)
-                .is("read_at", value: "null")
+                .is("read_at", value: nil)
                 .execute()
             
             // 解析 count 結果
@@ -260,7 +260,7 @@ class NotificationService: NSObject, ObservableObject {
             
             try await supabaseService.client
                 .from("notifications")
-                .insert(notificationData)
+                .insert([notificationData])
                 .execute()
             
             print("✅ [NotificationService] 通知記錄已創建: \(type.rawValue)")
