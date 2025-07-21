@@ -490,13 +490,26 @@ struct ArticleEditorView: View {
                     imageUrls.append(imageUrl.absoluteString)
                 }
                 
-                // 將圖片 URL 加入到文章內容中
+                // 將本地圖片引用替換為實際的 Supabase URL
                 if !imageUrls.isEmpty {
-                    var imageMarkdown = "\n\n"
-                    for url in imageUrls {
-                        imageMarkdown += "![圖片](\(url))\n\n"
+                    // 替換本地圖片引用為真實 URL
+                    for (index, url) in imageUrls.enumerated() {
+                        let placeholderPattern = "!\\[圖片 \\(index + 1)\\]\\(\\.image\\(index + 1)\\)"
+                        finalContent = finalContent.replacingOccurrences(
+                            of: placeholderPattern,
+                            with: "![圖片](\(url))",
+                            options: .regularExpression
+                        )
                     }
-                    finalContent += imageMarkdown
+                    
+                    // 如果還有未替換的佔位符，在末尾添加圖片
+                    if imageUrls.count > finalContent.matches(of: /!\[圖片\]\([^)]+\)/).count {
+                        var additionalImages = "\n\n"
+                        for url in imageUrls {
+                            additionalImages += "![圖片](\(url))\n\n"
+                        }
+                        finalContent += additionalImages
+                    }
                 }
             }
             

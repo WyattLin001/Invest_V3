@@ -20,7 +20,11 @@ struct CustomTextEditor: UIViewRepresentable {
         
         // 立即設置游標位置，讓編輯器可用
         textView.selectedRange = NSRange(location: textView.text.count, length: 0)
-        textView.becomeFirstResponder() // 立即獲得焦點
+        
+        // 延遲獲得焦點，確保在視圖完全載入後
+        DispatchQueue.main.async {
+            textView.becomeFirstResponder()
+        }
         
         return textView
     }

@@ -110,11 +110,11 @@ class SupabaseManager {
         
         do {
             // 創建存儲路徑
-            let path = "article-images/\(fileName)"
+            let path = "\(fileName)"
             
             // 上傳到 Supabase Storage
             let _ = try await client.storage
-                .from("article-assets")
+                .from("article_images")
                 .upload(
                     path: path,
                     file: data,
@@ -125,7 +125,7 @@ class SupabaseManager {
             
             // 獲取公開 URL
             let url = try client.storage
-                .from("article-assets")
+                .from("article_images")
                 .getPublicURL(path: path)
             
             onProgress(1.0) // 完成

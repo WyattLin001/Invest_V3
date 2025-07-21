@@ -168,15 +168,18 @@ struct MediumStyleEditor: View {
             .foregroundColor(.brandBlue)
             
             // 發佈按鈕
-            Button("發佈") {
-                showSettings = true
+            Button(isPublishing ? "發佈中..." : "發佈") {
+                if !isPublishing {
+                    showSettings = true
+                }
             }
             .font(.system(size: 16, weight: .semibold))
             .foregroundColor(.white)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(Color.brandGreen)
+            .background(isPublishing ? Color.gray : Color.brandGreen)
             .cornerRadius(20)
+            .disabled(isPublishing)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -253,8 +256,16 @@ struct MediumStyleEditor: View {
                let image = attachment.image ?? attachment.image(forBounds: attachment.bounds, textContainer: nil, characterIndex: 0),
                let data = image.jpegData(compressionQuality: 0.8) {
                 let fileName = UUID().uuidString + ".jpg"
-                if let url = try? await SupabaseService.shared.uploadArticleImage(data, fileName: fileName) {
+                print("📸 嘗試上傳圖片: \(fileName)，大小: \(data.count) bytes")
+                
+                do {
+                    let url = try await SupabaseService.shared.uploadArticleImage(data, fileName: fileName)
+                    print("✅ 圖片上傳成功: \(url)")
                     markdown += "![](\(url))"
+                } catch {
+                    print("❌ 圖片上傳失敗: \(error.localizedDescription)")
+                    // 如果上傳失敗，插入本地佔位符
+                    markdown += "![圖片上傳失敗]"
                 }
             } else {
                 markdown += segment.text
