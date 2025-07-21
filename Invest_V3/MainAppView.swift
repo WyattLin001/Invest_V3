@@ -30,21 +30,29 @@ struct MainAppView: View {
                     }
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: authService.isAuthenticated)
+        .transition(.asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .move(edge: .bottom).combined(with: .opacity)
+        ))
+        .animation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0.2), value: authService.isAuthenticated)
         .onAppear(perform: checkSupabaseConnection)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserSignedIn"))) { _ in
-            print("📱 收到登入成功通知，立即跳轉到首頁")
-            isTransitioning = true
+            print("📱 收到登入成功通知，登入卡片將向下滑動關閉")
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                isTransitioning = true
+            }
             // 短暫延遲後重置過渡狀態
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 isTransitioning = false
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserLoggedOut"))) { _ in
-            print("📱 收到登出通知，立即跳轉到登入畫面")
-            isTransitioning = true
+            print("📱 收到登出通知，登入卡片將從底部滑入")
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                isTransitioning = true
+            }
             // 短暫延遲後重置過渡狀態
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 isTransitioning = false
             }
         }

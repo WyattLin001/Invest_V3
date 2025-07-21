@@ -132,7 +132,11 @@ struct AuthenticationView: View {
                 
                 Spacer()
             }
-            .background(Color.investBackground)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.investBackground)
+                    .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: -5)
+            )
             .navigationBarHidden(true)
             .alert("錯誤", isPresented: $showError) {
                 Button("確定", role: .cancel) {}
