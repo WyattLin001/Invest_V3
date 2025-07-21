@@ -770,7 +770,16 @@ class SupabaseService: ObservableObject {
             try await joinGroup(groupId: groupId, userId: currentUser.id)
             
             // 創建投資組合
-            let _ = try await createPortfolio(groupId: groupId, userId: currentUser.id)
+            do {
+                let _ = try await createPortfolio(groupId: groupId, userId: currentUser.id)
+                print("✅ 成功創建投資組合")
+            } catch {
+                if error.localizedDescription.contains("404") {
+                    print("❌ portfolios 表不存在，請在 Supabase SQL Editor 中執行 CREATE_PORTFOLIOS_TABLE.sql")
+                    throw SupabaseError.unknown("❌ 數據庫配置錯誤：portfolios 表不存在\n\n請在 Supabase SQL Editor 中執行 CREATE_PORTFOLIOS_TABLE.sql 腳本來創建必要的表格。")
+                }
+                throw error
+            }
             
             // 只有在成功加入群組後才扣除代幣
             if tokenCost > 0 {
