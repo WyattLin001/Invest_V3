@@ -21,23 +21,27 @@ struct MainAppView: View {
                     .onAppear {
                         print("✅ 用戶已認證，顯示首頁")
                     }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),  // HomeView從上方滑入
+                        removal: .move(edge: .top).combined(with: .opacity)     // HomeView向上滑出
+                    ))
             } else {
                 // 用戶未登入，顯示登入畫面
                 AuthenticationView()
                     .environmentObject(authService)
                     .onAppear {
-                        print("📱 顯示登入畫面")
+                        print("📱 登入卡片從底部滑入，等待用戶登入")
                     }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity), // 登入卡片從底部滑入
+                        removal: .move(edge: .top).combined(with: .opacity)       // 登入卡片向上滑出
+                    ))
             }
         }
-        .transition(.asymmetric(
-            insertion: .move(edge: .bottom).combined(with: .opacity),
-            removal: .move(edge: .bottom).combined(with: .opacity)
-        ))
         .animation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0.2), value: authService.isAuthenticated)
         .onAppear(perform: checkSupabaseConnection)
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserSignedIn"))) { _ in
-            print("📱 收到登入成功通知，登入卡片將向下滑動關閉")
+            print("📱 收到登入成功通知，切換到HomeView")
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                 isTransitioning = true
             }
@@ -47,7 +51,7 @@ struct MainAppView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserLoggedOut"))) { _ in
-            print("📱 收到登出通知，登入卡片將從底部滑入")
+            print("📱 收到登出通知，HomeView向上滑出，等待登入卡片從底部滑入")
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                 isTransitioning = true
             }
