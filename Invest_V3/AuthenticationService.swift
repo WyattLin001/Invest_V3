@@ -139,6 +139,11 @@ class AuthenticationService: ObservableObject {
         do {
             try await client.auth.signIn(email: email, password: password)
             print("✅ 登入成功: \(email)")
+            
+            // 登入成功後發送通知確保立即跳轉
+            await MainActor.run {
+                NotificationCenter.default.post(name: NSNotification.Name("UserSignedIn"), object: nil)
+            }
         } catch {
             print("❌ 登入失敗: \(error.localizedDescription)")
             let supabaseError = SupabaseError.from(error)

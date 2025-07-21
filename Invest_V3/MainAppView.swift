@@ -10,6 +10,7 @@ struct MainAppView: View {
     @StateObject private var authService = AuthenticationService()
     @State private var showConnectionToast = false
     @State private var toastMessage = ""
+    @State private var isTransitioning = false
     
     var body: some View {
         Group {
@@ -29,8 +30,24 @@ struct MainAppView: View {
                     }
             }
         }
-        .animation(.easeInOut(duration: 0.5), value: authService.isAuthenticated)
+        .animation(.easeInOut(duration: 0.2), value: authService.isAuthenticated)
         .onAppear(perform: checkSupabaseConnection)
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserSignedIn"))) { _ in
+            print("📱 收到登入成功通知，立即跳轉到首頁")
+            isTransitioning = true
+            // 短暫延遲後重置過渡狀態
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                isTransitioning = false
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserLoggedOut"))) { _ in
+            print("📱 收到登出通知，立即跳轉到登入畫面")
+            isTransitioning = true
+            // 短暫延遲後重置過渡狀態
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                isTransitioning = false
+            }
+        }
         .toast(message: toastMessage, isShowing: $showConnectionToast)
     }
     
