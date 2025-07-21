@@ -18,38 +18,22 @@
 1. 登入您的 Supabase 專案面板
 2. 進入 "Storage" 頁面
 3. 點擊 "Create bucket"
-4. 創建名為 `article_images` 的儲存桶
+4. 創建名為 `article-images` 的儲存桶（注意：使用連字符 `-`，不是底線 `_`）
+5. 確保 "Public bucket" 選項已啟用
 
 ### 2. 設定儲存桶權限 (Bucket Policies)
 
-在 Supabase Storage 的 "Policies" 頁面，為 `article_images` 儲存桶新增以下政策：
+在 Supabase Storage 的 "Policies" 頁面，為 `article-images` 儲存桶新增以下政策：
 
 #### 允許已驗證用戶上傳圖片：
-```sql
--- Policy: 允許已驗證用戶上傳圖片
-CREATE POLICY "Allow authenticated users to upload images"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'article_images');
-```
+**⚠️ 重要提醒：請使用您提供的 SQL，它已經包含了正確的設定和多格式支援！**
 
-#### 允許所有人查看圖片：
-```sql
--- Policy: 允許所有人查看圖片
-CREATE POLICY "Allow public read access to images"
-ON storage.objects FOR SELECT
-TO public
-USING (bucket_id = 'article_images');
-```
+執行您提供的 SQL 代碼，它包含：
+- 自動創建 `article-images` 儲存桶
+- 支援多種圖片格式：.jpg, .jpeg, .png, .gif, .webp, .tiff, .bmp, .heic
+- 正確的權限政策設定
 
-#### 允許上傳者刪除自己的圖片：
-```sql
--- Policy: 允許用戶刪除自己上傳的圖片
-CREATE POLICY "Allow users to delete their own images"
-ON storage.objects FOR DELETE
-TO authenticated
-USING (bucket_id = 'article_images' AND auth.uid()::text = owner);
-```
+您的 SQL 設定比我們的更完整，直接使用即可！
 
 ### 3. 驗證設定
 

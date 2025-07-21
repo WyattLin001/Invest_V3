@@ -114,7 +114,7 @@ class SupabaseManager {
             
             // 上傳到 Supabase Storage
             let _ = try await client.storage
-                .from("article_images")
+                .from("article-images")
                 .upload(
                     path: path,
                     file: data,
@@ -125,7 +125,7 @@ class SupabaseManager {
             
             // 獲取公開 URL
             let url = try client.storage
-                .from("article_images")
+                .from("article-images")
                 .getPublicURL(path: path)
             
             onProgress(1.0) // 完成

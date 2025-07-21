@@ -915,15 +915,33 @@ class SupabaseService: ObservableObject {
     public func uploadArticleImage(_ imageData: Data, fileName: String) async throws -> String {
         try SupabaseManager.shared.ensureInitialized()
         
-        let path = "article_images/\(fileName)"
+        let path = "\(fileName)"
         
         try await client.storage
-            .from("article_images")
+            .from("article-images")
             .upload(path: path, file: imageData, options: FileOptions(contentType: "image/jpeg"))
         
         // 獲取公開 URL
         let publicURL = try client.storage
-            .from("article_images")
+            .from("article-images")
+            .getPublicURL(path: path)
+        
+        return publicURL.absoluteString
+    }
+    
+    // 上傳圖片到 Supabase Storage（支援多種格式）
+    public func uploadArticleImageWithContentType(_ imageData: Data, fileName: String, contentType: String) async throws -> String {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let path = "\(fileName)"
+        
+        try await client.storage
+            .from("article-images")
+            .upload(path: path, file: imageData, options: FileOptions(contentType: contentType))
+        
+        // 獲取公開 URL
+        let publicURL = try client.storage
+            .from("article-images")
             .getPublicURL(path: path)
         
         return publicURL.absoluteString
@@ -3054,7 +3072,7 @@ class SupabaseService: ObservableObject {
     
     /// 上傳圖片到 Supabase Storage
     func uploadImage(data: Data, fileName: String) async throws -> URL {
-        let bucket = "article_images"
+        let bucket = "article-images"
         let filePath = "\(UUID().uuidString)/\(fileName)"
         
         try await client.storage

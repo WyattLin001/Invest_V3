@@ -104,7 +104,7 @@ struct MediumStyleEditor: View {
             isPresented: $showPhotoPicker,
             selection: $selectedPhotosPickerItems,
             maxSelectionCount: 1,
-            matching: .images
+            matching: .any(of: [.images, .not(.videos)])
         )
         .onChange(of: title) { _, newValue in
             titleCharacterCount = newValue.count
@@ -126,17 +126,7 @@ struct MediumStyleEditor: View {
             print("📸 開始處理圖片...")
             
             Task {
-                if let data = try? await item.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    await MainActor.run {
-                        print("📸 插入圖片到編輯器")
-                        insertImage(image)
-                        // 處理完成後清空選擇
-                        selectedPhotosPickerItems.removeAll()
-                    }
-                } else {
-                    print("📸 圖片載入失敗")
-                }
+                await processSelectedImage(item)
             }
         }
     }
@@ -238,6 +228,103 @@ struct MediumStyleEditor: View {
         )
     }
     
+    // 支援的圖片格式
+    private let supportedImageFormats = ["jpg", "jpeg", "png", "gif", "webp", "tiff", "bmp", "heic"]
+    
+    // 處理選擇的圖片
+    private func processSelectedImage(_ item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            await showImageError("無法載入圖片數據")
+            return
+        }
+        
+        // 檢查文件格式
+        let fileName = item.itemIdentifier ?? "unknown"
+        let fileExtension = fileName.lowercased().components(separatedBy: ".").last ?? ""
+        
+        if !supportedImageFormats.contains(fileExtension) && !isValidImageData(data) {
+            await showImageError("不支援的圖片格式。支援格式：\(supportedImageFormats.joined(separator: ", "))")
+            return
+        }
+        
+        guard let image = UIImage(data: data) else {
+            await showImageError("無法處理此圖片，請確認圖片格式是否正確")
+            return
+        }
+        
+        await MainActor.run {
+            print("📸 成功處理圖片：\(fileName)")
+            insertImage(image)
+            // 處理完成後清空選擇
+            selectedPhotosPickerItems.removeAll()
+        }
+    }
+    
+    // 檢查是否為有效的圖片數據
+    private func isValidImageData(_ data: Data) -> Bool {
+        // 檢查常見的圖片文件頭
+        if data.count < 4 { return false }
+        
+        let bytes = data.prefix(4)
+        let header = bytes.map { String(format: "%02x", $0) }.joined()
+        
+        // 常見圖片格式的文件頭
+        let imageHeaders = [
+            "ffd8ff", // JPEG
+            "89504e47", // PNG
+            "47494638", // GIF
+            "52494646", // WebP (RIFF)
+            "49492a00", // TIFF (little endian)
+            "4d4d002a", // TIFF (big endian)
+            "424d", // BMP
+            "00000018667479706865696300", // HEIC (partial)
+        ]
+        
+        return imageHeaders.contains { header.hasPrefix($0) }
+    }
+    
+    // 顯示圖片錯誤提示
+    private func showImageError(_ message: String) async {
+        await MainActor.run {
+            print("❌ 圖片錯誤：\(message)")
+            // TODO: 可以添加 Toast 或 Alert 來顯示用戶友好的錯誤訊息
+            selectedPhotosPickerItems.removeAll()
+        }
+    }
+    
+    // 檢測圖片內容類型
+    private func detectContentType(from data: Data) -> String {
+        if data.count < 4 { return "image/jpeg" } // 默認返回 JPEG
+        
+        let bytes = data.prefix(4)
+        let header = bytes.map { String(format: "%02x", $0) }.joined()
+        
+        switch header {
+        case let h where h.hasPrefix("ffd8ff"):
+            return "image/jpeg"
+        case let h where h.hasPrefix("89504e47"):
+            return "image/png"
+        case let h where h.hasPrefix("47494638"):
+            return "image/gif"
+        case let h where h.hasPrefix("52494646"):
+            return "image/webp"
+        case let h where h.hasPrefix("49492a00"), let h where h.hasPrefix("4d4d002a"):
+            return "image/tiff"
+        case let h where h.hasPrefix("424d"):
+            return "image/bmp"
+        default:
+            // 嘗試檢查 HEIC 格式
+            if data.count >= 12 {
+                let heicCheck = data.subdata(in: 4..<12)
+                let heicString = String(data: heicCheck, encoding: .ascii) ?? ""
+                if heicString.contains("ftyp") && heicString.contains("heic") {
+                    return "image/heic"
+                }
+            }
+            return "image/jpeg" // 默認
+        }
+    }
+    
 
     /// 將帶有圖片附件的富文本轉換為 Markdown，並將圖片上傳至 Supabase
     private func convertAttributedContentToMarkdown() async -> String {
@@ -259,7 +346,9 @@ struct MediumStyleEditor: View {
                 print("📸 嘗試上傳圖片: \(fileName)，大小: \(data.count) bytes")
                 
                 do {
-                    let url = try await SupabaseService.shared.uploadArticleImage(data, fileName: fileName)
+                    // 根據圖片數據檢測內容類型
+                    let contentType = detectContentType(from: data)
+                    let url = try await SupabaseService.shared.uploadArticleImageWithContentType(data, fileName: fileName, contentType: contentType)
                     print("✅ 圖片上傳成功: \(url)")
                     markdown += "![](\(url))"
                 } catch {
