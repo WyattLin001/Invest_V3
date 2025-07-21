@@ -109,8 +109,9 @@ class AuthenticationService: ObservableObject {
 
             print("✅ User profile created for \(username)")
             
-            // 手動登入以觸發 session 更新
+            // 手動登入以觸發 session 更新並自動跳轉到主頁面
             try await signIn(email: email, password: password)
+            print("✅ 註冊成功，正在跳轉到首頁...")
             
         } catch {
             print("❌ 註冊失敗: \(error.localizedDescription)")
@@ -162,7 +163,12 @@ class AuthenticationService: ObservableObject {
             self.currentUserProfile = nil
             UserDefaults.standard.removeObject(forKey: "current_user")
             
-            print("✅ 用戶登出")
+            print("✅ 用戶登出，跳轉到登入畫面")
+            
+            // 發送通知確保跳轉到登入畫面
+            await MainActor.run {
+                NotificationCenter.default.post(name: NSNotification.Name("UserLoggedOut"), object: nil)
+            }
         } catch {
             print("❌ 登出失敗: \(error.localizedDescription)")
             let supabaseError = SupabaseError.from(error)

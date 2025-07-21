@@ -14,16 +14,22 @@ struct MainAppView: View {
     var body: some View {
         Group {
             if authService.isAuthenticated {
-                // 用戶已登入，顯示主應用程式內容
+                // 用戶已登入，顯示主應用程式內容（預設顯示首頁）
                 ContentView()
                     .environmentObject(authService)
+                    .onAppear {
+                        print("✅ 用戶已認證，顯示首頁")
+                    }
             } else {
                 // 用戶未登入，顯示登入畫面
                 AuthenticationView()
                     .environmentObject(authService)
+                    .onAppear {
+                        print("📱 顯示登入畫面")
+                    }
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: authService.isAuthenticated)
+        .animation(.easeInOut(duration: 0.5), value: authService.isAuthenticated)
         .onAppear(perform: checkSupabaseConnection)
         .toast(message: toastMessage, isShowing: $showConnectionToast)
     }

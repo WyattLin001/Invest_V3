@@ -142,6 +142,15 @@ struct AuthenticationView: View {
             .onChange(of: authService.error) { error in
                 showError = error != nil
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserLoggedOut"))) { _ in
+                // 登出後重置為登入模式並清空表單
+                isSignUp = false
+                username = ""
+                email = ""
+                password = ""
+                displayName = ""
+                print("📱 收到登出通知，切換到登入畫面")
+            }
         }
     }
     
@@ -150,11 +159,15 @@ struct AuthenticationView: View {
         do {
             if isSignUp {
                 try await authService.registerUser(email: email, password: password, username: username, displayName: displayName)
+                // 註冊成功後，使用者將自動登入並跳轉到首頁
+                print("📱 註冊成功，用戶將跳轉到首頁")
             } else {
                 try await authService.signIn(email: email, password: password)
+                print("📱 登入成功，用戶將跳轉到首頁")
             }
         } catch {
             // 錯誤處理已在 AuthenticationService 中完成
+            print("❌ 認證失敗: \(error.localizedDescription)")
         }
     }
 }

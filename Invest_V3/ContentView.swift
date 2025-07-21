@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var selectedTab = 0
+    @State private var selectedTab = 0  // 預設選中首頁 (0)
     @State private var selectedGroupId: UUID?
     @EnvironmentObject var authService: AuthenticationService
     
