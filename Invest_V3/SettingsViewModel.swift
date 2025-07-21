@@ -242,18 +242,30 @@ class SettingsViewModel: ObservableObject {
                 return
             }
             
-            // 構建通知設定字典 (使用新的表格結構)
-            let notificationSettings: [String: Any] = [
-                "user_id": user.id.uuidString,
-                "push_notifications_enabled": notificationsEnabled,
-                "market_updates_enabled": marketUpdatesEnabled,
-                "chat_notifications_enabled": chatNotificationsEnabled,
-                "investment_notifications_enabled": investmentNotificationsEnabled,
-                "ranking_updates_enabled": true, // 新增：排名更新
-                "host_messages_enabled": true,   // 新增：主持人訊息
-                "stock_price_alerts_enabled": true, // 新增：股價提醒
-                "updated_at": ISO8601DateFormatter().string(from: Date())
-            ]
+            // 創建可編碼的結構體
+            struct NotificationSettingsInsert: Codable {
+                let user_id: String
+                let push_notifications_enabled: Bool
+                let market_updates_enabled: Bool
+                let chat_notifications_enabled: Bool
+                let investment_notifications_enabled: Bool
+                let ranking_updates_enabled: Bool
+                let host_messages_enabled: Bool
+                let stock_price_alerts_enabled: Bool
+                let updated_at: String
+            }
+            
+            let notificationSettings = NotificationSettingsInsert(
+                user_id: user.id.uuidString,
+                push_notifications_enabled: notificationsEnabled,
+                market_updates_enabled: marketUpdatesEnabled,
+                chat_notifications_enabled: chatNotificationsEnabled,
+                investment_notifications_enabled: investmentNotificationsEnabled,
+                ranking_updates_enabled: true,
+                host_messages_enabled: true,
+                stock_price_alerts_enabled: true,
+                updated_at: ISO8601DateFormatter().string(from: Date())
+            )
             
             // 上傳到 Supabase (使用 upsert 來處理插入或更新)
             try await supabaseService.client
@@ -306,25 +318,26 @@ class SettingsViewModel: ObservableObject {
                 .execute()
             
             // 手動解析 JSON 響應
-            if let data = result.data {
-                let decoder = JSONDecoder()
-                let settingsArray = try decoder.decode([[String: Bool]].self, from: data)
-                
-                if let setting = settingsArray.first {
-                    // 更新本地狀態
-                    await MainActor.run {
-                        self.notificationsEnabled = setting["push_notifications_enabled"] ?? true
-                        self.marketUpdatesEnabled = setting["market_updates_enabled"] ?? true
-                        self.chatNotificationsEnabled = setting["chat_notifications_enabled"] ?? true
-                        self.investmentNotificationsEnabled = setting["investment_notifications_enabled"] ?? true
-                    }
-                    
-                    print("✅ [SettingsViewModel] 已從後端載入通知設定")
-                } else {
-                    // 後端沒有設定，使用本地設定或預設值
-                    loadNotificationSettingsLocally()
+            guard let data = result.data else {
+                loadNotificationSettingsLocally()
+                return
+            }
+            
+            let decoder = JSONDecoder()
+            let settingsArray = try decoder.decode([[String: Bool]].self, from: data)
+            
+            if let setting = settingsArray.first {
+                // 更新本地狀態
+                await MainActor.run {
+                    self.notificationsEnabled = setting["push_notifications_enabled"] ?? true
+                    self.marketUpdatesEnabled = setting["market_updates_enabled"] ?? true
+                    self.chatNotificationsEnabled = setting["chat_notifications_enabled"] ?? true
+                    self.investmentNotificationsEnabled = setting["investment_notifications_enabled"] ?? true
                 }
+                
+                print("✅ [SettingsViewModel] 已從後端載入通知設定")
             } else {
+                // 後端沒有設定，使用本地設定或預設值
                 loadNotificationSettingsLocally()
             }
             
