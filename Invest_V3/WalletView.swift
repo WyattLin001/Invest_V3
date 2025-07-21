@@ -364,5 +364,5 @@ struct EarningsSourceMini: View {
 // MARK: - Preview
 #Preview {
     WalletView()
-        .environmentObject(AuthenticationService())
+        .environmentObject(AuthenticationService.shared)
 }

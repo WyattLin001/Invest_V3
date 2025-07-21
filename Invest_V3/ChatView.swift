@@ -1453,5 +1453,5 @@ extension ChatView {
 // MARK: - Preview
 #Preview {
     ChatView()
-        .environmentObject(AuthenticationService())
+        .environmentObject(AuthenticationService.shared)
 }
