@@ -42,6 +42,10 @@ class ChatViewModel: ObservableObject {
     // Gift & Wallet
     @Published var showGiftModal = false
     @Published var showInsufficientBalanceAlert = false
+    @Published var selectedGift: GiftItem?
+    @Published var showGiftQuantitySelection = false
+    @Published var showGiftConfirmation = false
+    @Published var giftQuantity = 1
     @Published var currentBalance: Double = 0.0 {
         didSet {
             // 確保 currentBalance 始終是有效數值
@@ -305,7 +309,7 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    func performTip(amount: Double, giftItem: GiftItem? = nil) {
+    func performTip(amount: Double, giftItem: GiftItem? = nil, quantity: Int = 1) {
         guard let groupId = selectedGroupId else { 
             print("❌ [抖內] 沒有選中的群組")
             handleError(nil, context: "請先選擇群組")
@@ -390,7 +394,18 @@ class ChatViewModel: ObservableObject {
                 // 獲取當前用戶資訊來顯示訊息
                 if let currentUser = supabaseService.getCurrentUser() {
                     let userName = currentUser.displayName.isEmpty ? "匿名用戶" : currentUser.displayName
-                    let tipMessage = "💰 \(userName) 已抖內 \(Int(amount)) 金幣給群組！感謝支持！ 🎉"
+                    
+                    // 根據數量生成訊息
+                    let giftName = giftItem?.name ?? "禮物"
+                    let giftIcon = giftItem?.icon ?? "🎁"
+                    let tipMessage: String
+                    
+                    if quantity > 1 {
+                        tipMessage = "\(giftIcon) \(userName) 送出了 \(quantity) 個\(giftName)（\(Int(amount)) 金幣）給群組！感謝支持！ 🎉"
+                    } else {
+                        tipMessage = "\(giftIcon) \(userName) 送出了\(giftName)（\(Int(amount)) 金幣）給群組！感謝支持！ 🎉"
+                    }
+                    
                     self.messageText = tipMessage
                     self.sendMessage()
                 }
@@ -841,6 +856,41 @@ class ChatViewModel: ObservableObject {
         if showDonationLeaderboard {
             loadDonationLeaderboard()
         }
+    }
+    
+    // MARK: - 禮物選擇流程
+    
+    /// 選擇禮物並進入數量選擇
+    func selectGift(_ gift: GiftItem) {
+        selectedGift = gift
+        giftQuantity = 1
+        showGiftQuantitySelection = true
+    }
+    
+    /// 進入最終確認
+    func proceedToConfirmation() {
+        showGiftQuantitySelection = false
+        showGiftConfirmation = true
+    }
+    
+    /// 取消禮物選擇流程
+    func cancelGiftSelection() {
+        selectedGift = nil
+        giftQuantity = 1
+        showGiftQuantitySelection = false
+        showGiftConfirmation = false
+    }
+    
+    /// 完成禮物送出
+    func confirmGiftPurchase() {
+        guard let gift = selectedGift else { return }
+        
+        let totalAmount = Double(gift.price * giftQuantity)
+        performTip(amount: totalAmount, giftItem: gift, quantity: giftQuantity)
+        
+        // 重置狀態
+        cancelGiftSelection()
+        showGiftModal = false
     }
     
     // MARK: - 錯誤處理和用戶反饋

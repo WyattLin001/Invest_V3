@@ -76,6 +76,8 @@ struct ChatView: View {
             Text(viewModel.errorMessage ?? "未知錯誤")
         }
         .sheet(isPresented: $viewModel.showGiftModal) { giftModalView }
+        .sheet(isPresented: $viewModel.showGiftQuantitySelection) { giftQuantitySelectionView }
+        .alert("確認送出禮物", isPresented: $viewModel.showGiftConfirmation) { giftConfirmationAlert }
         .sheet(isPresented: $viewModel.showInfoModal) { infoModalView }
         .sheet(isPresented: $viewModel.showInviteSheet) { inviteSheetView }
         .sheet(isPresented: $viewModel.showDonationLeaderboard) { donationLeaderboardView }
@@ -528,8 +530,8 @@ struct ChatView: View {
                             isAffordable: viewModel.currentBalance >= Double(gift.price)
                         ) {
                             if viewModel.currentBalance >= Double(gift.price) {
-                                // 執行抖內 - 傳入禮物資訊以支援不同動畫
-                                viewModel.performTip(amount: Double(gift.price), giftItem: gift)
+                                // 選擇禮物並進入數量選擇
+                                viewModel.selectGift(gift)
                             } else {
                                 // 餘額不足，顯示提示並引導充值
                                 viewModel.showGiftModal = false
@@ -1702,6 +1704,202 @@ struct DonorRankingRow: View {
         switch rank {
         case 1, 2, 3: return .white
         default: return .brandGreen
+        }
+    }
+}
+
+// MARK: - 禮物數量選擇視圖
+extension ChatView {
+    
+    private var giftQuantitySelectionView: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                if let gift = viewModel.selectedGift {
+                    // 禮物預覽
+                    VStack(spacing: 16) {
+                        Text(gift.icon)
+                            .font(.system(size: 60))
+                        
+                        Text(gift.name)
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.gray900)
+                        
+                        Text(gift.description)
+                            .font(.subheadline)
+                            .foregroundColor(.gray600)
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(16)
+                    
+                    // 數量選擇
+                    VStack(spacing: 16) {
+                        Text("選擇數量")
+                            .font(.headline)
+                            .foregroundColor(.gray700)
+                        
+                        HStack(spacing: 20) {
+                            // 減少按鈕
+                            Button(action: {
+                                if viewModel.giftQuantity > 1 {
+                                    viewModel.giftQuantity -= 1
+                                }
+                            }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(viewModel.giftQuantity > 1 ? .brandGreen : .gray400)
+                            }
+                            .disabled(viewModel.giftQuantity <= 1)
+                            
+                            // 數量顯示
+                            Text("\(viewModel.giftQuantity)")
+                                .font(.title)
+                                .fontWeight(.bold)
+                                .foregroundColor(.gray900)
+                                .frame(minWidth: 50)
+                            
+                            // 增加按鈕
+                            Button(action: {
+                                let maxAffordable = Int(viewModel.currentBalance / Double(gift.price))
+                                if viewModel.giftQuantity < maxAffordable && viewModel.giftQuantity < 99 {
+                                    viewModel.giftQuantity += 1
+                                }
+                            }) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.brandGreen)
+                            }
+                        }
+                        
+                        // 快速選擇按鈕
+                        let maxAffordable = Int(viewModel.currentBalance / Double(gift.price))
+                        let quickOptions = [5, 10, 20, 50].filter { $0 <= maxAffordable }
+                        
+                        if !quickOptions.isEmpty {
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
+                                ForEach(quickOptions, id: \.self) { option in
+                                    Button("\(option)") {
+                                        viewModel.giftQuantity = option
+                                    }
+                                    .font(.caption)
+                                    .foregroundColor(.brandGreen)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.brandGreen.opacity(0.1))
+                                    .cornerRadius(8)
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 總計預覽
+                    VStack(spacing: 8) {
+                        let totalCost = Double(gift.price * viewModel.giftQuantity)
+                        let totalNTD = totalCost * 100
+                        
+                        HStack {
+                            Text("總計:")
+                                .font(.headline)
+                                .foregroundColor(.gray700)
+                            
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("\(Int(totalCost)) 金幣")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.brandGreen)
+                                
+                                Text("= \(TokenSystem.formatCurrency(totalNTD))")
+                                    .font(.caption)
+                                    .foregroundColor(.gray500)
+                            }
+                        }
+                        
+                        // 餘額檢查
+                        if totalCost > viewModel.currentBalance {
+                            Text("餘額不足，請先儲值")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        } else {
+                            Text("剩餘餘額: \(Int(viewModel.currentBalance - totalCost)) 金幣")
+                                .font(.caption)
+                                .foregroundColor(.gray500)
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                    
+                    Spacer()
+                    
+                    // 操作按鈕
+                    HStack(spacing: 16) {
+                        Button("取消") {
+                            viewModel.cancelGiftSelection()
+                        }
+                        .font(.headline)
+                        .foregroundColor(.gray600)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(.systemGray5))
+                        .cornerRadius(10)
+                        
+                        Button("下一步") {
+                            viewModel.proceedToConfirmation()
+                        }
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            (Double(gift.price * viewModel.giftQuantity) <= viewModel.currentBalance) ?
+                            Color.brandGreen : Color.gray400
+                        )
+                        .cornerRadius(10)
+                        .disabled(Double(gift.price * viewModel.giftQuantity) > viewModel.currentBalance)
+                    }
+                }
+            }
+            .padding()
+            .navigationTitle("選擇數量")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("關閉") {
+                        viewModel.cancelGiftSelection()
+                    }
+                }
+            }
+        }
+    }
+    
+    private var giftConfirmationAlert: some View {
+        Group {
+            if let gift = viewModel.selectedGift {
+                let totalCost = Double(gift.price * viewModel.giftQuantity)
+                let totalNTD = totalCost * 100
+                
+                VStack {
+                    Text("確定要送出 \(viewModel.giftQuantity) 個\(gift.name)嗎？")
+                    Text("總計: \(Int(totalCost)) 金幣 (\(TokenSystem.formatCurrency(totalNTD)))")
+                        .font(.subheadline)
+                        .foregroundColor(.gray600)
+                }
+                
+                Button("取消", role: .cancel) {
+                    viewModel.cancelGiftSelection()
+                }
+                
+                Button("確定送出") {
+                    viewModel.confirmGiftPurchase()
+                }
+            } else {
+                Button("確定") { }
+                Button("取消", role: .cancel) { }
+            }
         }
     }
 }
