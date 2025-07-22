@@ -12,6 +12,7 @@ struct Article: Codable, Identifiable {
     let readTime: String
     let likesCount: Int
     let commentsCount: Int
+    let sharesCount: Int
     let isFree: Bool
     let createdAt: Date
     let updatedAt: Date
@@ -28,13 +29,14 @@ struct Article: Codable, Identifiable {
         case readTime = "read_time"
         case likesCount = "likes_count"
         case commentsCount = "comments_count"
+        case sharesCount = "shares_count"
         case isFree = "is_free"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
     
     // 常規初始化器
-    init(id: UUID, title: String, author: String, authorId: UUID?, summary: String, fullContent: String, bodyMD: String? = nil, category: String, readTime: String, likesCount: Int, commentsCount: Int, isFree: Bool, createdAt: Date, updatedAt: Date, keywords: [String] = []) {
+    init(id: UUID, title: String, author: String, authorId: UUID?, summary: String, fullContent: String, bodyMD: String? = nil, category: String, readTime: String, likesCount: Int, commentsCount: Int, sharesCount: Int, isFree: Bool, createdAt: Date, updatedAt: Date, keywords: [String] = []) {
         self.id = id
         self.title = title
         self.author = author
@@ -46,6 +48,7 @@ struct Article: Codable, Identifiable {
         self.readTime = readTime
         self.likesCount = likesCount
         self.commentsCount = commentsCount
+        self.sharesCount = sharesCount
         self.isFree = isFree
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -65,6 +68,7 @@ struct Article: Codable, Identifiable {
         readTime = try container.decodeIfPresent(String.self, forKey: .readTime) ?? "5 分鐘"
         likesCount = try container.decodeIfPresent(Int.self, forKey: .likesCount) ?? 0
         commentsCount = try container.decodeIfPresent(Int.self, forKey: .commentsCount) ?? 0
+        sharesCount = try container.decodeIfPresent(Int.self, forKey: .sharesCount) ?? 0
         isFree = try container.decodeIfPresent(Bool.self, forKey: .isFree) ?? true
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
