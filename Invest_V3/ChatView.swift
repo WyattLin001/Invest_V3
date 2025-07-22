@@ -491,6 +491,33 @@ struct ChatView: View {
         .background(Color(.systemBackground))
     }
     
+    private var giftConfirmationAlert: some View {
+        Group {
+            if let gift = viewModel.selectedGift {
+                let totalCost = Double(gift.price) * Double(viewModel.giftQuantity)
+                let totalNTD = totalCost * 100
+                
+                VStack {
+                    Text("確定要送出 \(viewModel.giftQuantity) 個\(gift.name)嗎？")
+                    Text("總計: \(Int(totalCost)) 金幣 (\(TokenSystem.formatCurrency(totalNTD)))")
+                        .font(.subheadline)
+                        .foregroundColor(.gray600)
+                }
+                
+                Button("取消", role: .cancel) {
+                    viewModel.cancelGiftSelection()
+                }
+                
+                Button("確定送出") {
+                    viewModel.confirmGiftPurchase()
+                }
+            } else {
+                Button("確定") { }
+                Button("取消", role: .cancel) { }
+            }
+        }
+    }
+    
     private var giftModalView: some View {
         NavigationView {
             VStack(spacing: 24) {
@@ -1855,35 +1882,6 @@ struct DonorRankingRow: View {
         switch rank {
         case 1, 2, 3: return .white
         default: return .brandGreen
-        }
-    }
-}
-
-    
-    private var giftConfirmationAlert: some View {
-        Group {
-            if let gift = viewModel.selectedGift {
-                let totalCost = Double(gift.price) * Double(viewModel.giftQuantity)
-                let totalNTD = totalCost * 100
-                
-                VStack {
-                    Text("確定要送出 \(viewModel.giftQuantity) 個\(gift.name)嗎？")
-                    Text("總計: \(Int(totalCost)) 金幣 (\(TokenSystem.formatCurrency(totalNTD)))")
-                        .font(.subheadline)
-                        .foregroundColor(.gray600)
-                }
-                
-                Button("取消", role: .cancel) {
-                    viewModel.cancelGiftSelection()
-                }
-                
-                Button("確定送出") {
-                    viewModel.confirmGiftPurchase()
-                }
-            } else {
-                Button("確定") { }
-                Button("取消", role: .cancel) { }
-            }
         }
     }
 }
