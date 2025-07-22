@@ -70,6 +70,23 @@ struct ChatView: View {
                 }
             }
         )
+        .overlay(
+            // 儲值卡片overlay
+            Group {
+                if viewModel.showTopUpCard {
+                    Color.black.opacity(0.5)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            viewModel.dismissTopUpCard()
+                        }
+                        .overlay(
+                            topUpCardView
+                        )
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.3), value: viewModel.showTopUpCard)
+                }
+            }
+        )
         .alert("錯誤", isPresented: $viewModel.showError) {
             Button("確定") { }
         } message: {
@@ -491,18 +508,123 @@ struct ChatView: View {
         .background(Color(.systemBackground))
     }
     
+    private var topUpCardView: some View {
+        VStack(spacing: 24) {
+            // 標題和關閉按鈕
+            HStack {
+                Text("餘額不足")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.gray900)
+                
+                Spacer()
+                
+                Button(action: {
+                    viewModel.dismissTopUpCard()
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.gray400)
+                }
+            }
+            
+            // 餘額狀況
+            VStack(spacing: 16) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("目前餘額")
+                            .font(.subheadline)
+                            .foregroundColor(.gray600)
+                        Text("\(Int(viewModel.currentBalance)) 金幣")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.gray900)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("還需要")
+                            .font(.subheadline)
+                            .foregroundColor(.red)
+                        Text("\(Int(viewModel.requiredAmount)) 金幣")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.red)
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+                
+                // 推薦儲值金額
+                let recommendedAmount = ceil(viewModel.requiredAmount / 100) * 100 // 向上取整到百位
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("建議儲值")
+                        .font(.headline)
+                        .foregroundColor(.gray700)
+                    
+                    Text("\(Int(recommendedAmount)) 金幣")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.brandGreen)
+                    
+                    Text("= \(TokenSystem.formatCurrency(recommendedAmount * 100))")
+                        .font(.subheadline)
+                        .foregroundColor(.gray500)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(Color.brandGreen.opacity(0.1))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.brandGreen, lineWidth: 2)
+                )
+            }
+            
+            // 操作按鈕
+            VStack(spacing: 12) {
+                Button(action: {
+                    viewModel.goToTopUpPage()
+                }) {
+                    HStack {
+                        Image(systemName: "creditcard.fill")
+                        Text("立即儲值")
+                    }
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.brandGreen)
+                    .cornerRadius(12)
+                }
+                
+                Button(action: {
+                    viewModel.dismissTopUpCard()
+                }) {
+                    Text("稍後再說")
+                        .font(.subheadline)
+                        .foregroundColor(.gray500)
+                }
+            }
+        }
+        .padding(24)
+        .background(Color(.systemBackground))
+        .cornerRadius(20)
+        .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
+        .padding(.horizontal, 32)
+        .scaleEffect(viewModel.showTopUpCard ? 1.0 : 0.8)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.showTopUpCard)
+    }
+    
     private var giftConfirmationAlert: some View {
         Group {
             if let gift = viewModel.selectedGift {
                 let totalCost = Double(gift.price) * Double(viewModel.giftQuantity)
                 let totalNTD = totalCost * 100
                 
-                VStack {
-                    Text("確定要送出 \(viewModel.giftQuantity) 個\(gift.name)嗎？")
-                    Text("總計: \(Int(totalCost)) 金幣 (\(TokenSystem.formatCurrency(totalNTD)))")
-                        .font(.subheadline)
-                        .foregroundColor(.gray600)
-                }
                 
                 Button("取消", role: .cancel) {
                     viewModel.cancelGiftSelection()

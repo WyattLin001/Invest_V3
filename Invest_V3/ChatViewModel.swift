@@ -45,6 +45,8 @@ class ChatViewModel: ObservableObject {
     @Published var selectedGift: GiftItem?
     @Published var showGiftConfirmation = false
     @Published var giftQuantity = 1
+    @Published var showTopUpCard = false
+    @Published var requiredAmount: Double = 0
     @Published var currentBalance: Double = 0.0 {
         didSet {
             // 確保 currentBalance 始終是有效數值
@@ -328,10 +330,11 @@ class ChatViewModel: ObservableObject {
         }
         
         guard currentBalance >= amount else {
-            handleError(nil, context: "餘額不足，請先儲值")
+            // 計算需要的金額
+            requiredAmount = amount - currentBalance
             
-            // 發送通知跳轉到錢包頁面
-            NotificationCenter.default.post(name: NSNotification.Name("ShowWalletForTopUp"), object: nil)
+            // 顯示儲值卡片
+            showTopUpCard = true
             return
         }
         
@@ -890,6 +893,21 @@ class ChatViewModel: ObservableObject {
         // 重置狀態
         cancelGiftSelection()
         showGiftModal = false
+    }
+    
+    // MARK: - 儲值卡片功能
+    
+    /// 關閉儲值卡片
+    func dismissTopUpCard() {
+        showTopUpCard = false
+        requiredAmount = 0
+    }
+    
+    /// 前往儲值頁面
+    func goToTopUpPage() {
+        dismissTopUpCard()
+        // 發送通知跳轉到錢包頁面
+        NotificationCenter.default.post(name: NSNotification.Name("ShowWalletForTopUp"), object: nil)
     }
     
     // MARK: - 錯誤處理和用戶反饋

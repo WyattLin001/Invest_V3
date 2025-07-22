@@ -1534,8 +1534,8 @@ class SupabaseService: ObservableObject {
             groupId: groupId
         )
         
-        // 扣除用戶餘額 (轉換代幣為 NTD: 1 代幣 = 100 NTD)
-        try await updateWalletBalance(delta: -Int(amount * 100.0))
+        // 扣除用戶餘額 (amount 已經是金幣數量)
+        try await updateWalletBalance(delta: -Int(amount))
         
         print("✅ [SupabaseService] 群組抖內處理完成: \(currentUser.displayName) 抖內 \(Int(amount)) 代幣給主持人 \(group.host)")
     }
