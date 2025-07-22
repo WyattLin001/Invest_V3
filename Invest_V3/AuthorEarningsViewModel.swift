@@ -14,6 +14,7 @@ class AuthorEarningsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var hasError = false
     @Published var errorMessage: String?
+    @Published var isWithdrawalSuccessful = false
     
     // 新增統計數據
     @Published var totalSubscribers: Int = 0
@@ -141,9 +142,9 @@ class AuthorEarningsViewModel: ObservableObject {
     }
     
     private func loadMockEarningsData() async {
-        // 模擬作者收益數據
-        totalEarnings = 8750.0
-        subscriptionEarnings = 4200.0
+        // 模擬作者收益數據  
+        totalEarnings = 9850.0  // 更新總收益 (5300+1800+1950+800)
+        subscriptionEarnings = 5300.0  // 確保訂閱分潤為正數
         tipEarnings = 1800.0
         articleEarnings = 1950.0
         giftEarnings = 800.0
@@ -152,7 +153,7 @@ class AuthorEarningsViewModel: ObservableObject {
         // 訂閱統計
         totalSubscribers = 142
         newSubscribersThisMonth = 23
-        monthlySubscriptionRevenue = 4200.0
+        monthlySubscriptionRevenue = 5300.0  // 與 subscriptionEarnings 一致
         retentionRate = 0.87
         
         // 文章收益明細
@@ -290,12 +291,45 @@ class AuthorEarningsViewModel: ObservableObject {
             // 發送錢包餘額更新通知給其他頁面
             NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
             
+            // 觸發提領成功狀態
+            isWithdrawalSuccessful = true
+            
             print("✅ [AuthorEarningsViewModel] 提領申請成功，收益已轉入錢包")
+            
+            // 重置提領成功狀態 (延遲一點點讓動畫有時間觸發)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.isWithdrawalSuccessful = false
+            }
             
         } catch {
             hasError = true
             errorMessage = "提領失敗: \(error.localizedDescription)"
             print("❌ [AuthorEarningsViewModel] 提領失敗: \(error)")
+        }
+        
+        isLoading = false
+    }
+    
+    // MARK: - 數據初始化功能
+    /// 為當前用戶初始化所有必要數據（適用於所有用戶）
+    func initializeUserData() async {
+        isLoading = true
+        hasError = false
+        errorMessage = nil
+        
+        do {
+            // 調用通用的用戶數據初始化方法
+            let message = try await supabaseService.initializeCurrentUserData()
+            
+            // 重新載入數據
+            await loadData()
+            
+            print("✅ [AuthorEarningsViewModel] 用戶數據初始化完成: \(message)")
+            
+        } catch {
+            hasError = true
+            errorMessage = "初始化數據失敗: \(error.localizedDescription)"
+            print("❌ [AuthorEarningsViewModel] 初始化數據失敗: \(error)")
         }
         
         isLoading = false

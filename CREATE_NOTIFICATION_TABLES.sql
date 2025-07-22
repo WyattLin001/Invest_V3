@@ -35,9 +35,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     data JSONB, -- 額外的通知資料
     read_at TIMESTAMPTZ,
     sent_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    INDEX(user_id, created_at DESC),
-    INDEX(notification_type, created_at DESC)
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 建立股價提醒表
@@ -51,9 +49,7 @@ CREATE TABLE IF NOT EXISTS public.stock_price_alerts (
     is_active BOOLEAN DEFAULT true,
     triggered_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    INDEX(user_id, is_active),
-    INDEX(stock_symbol, is_active)
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 啟用 RLS (Row Level Security)
@@ -87,14 +83,20 @@ CREATE TRIGGER update_stock_price_alerts_updated_at BEFORE UPDATE
     ON public.stock_price_alerts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- 建立索引以提升查詢效能
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created 
+    ON public.notifications(user_id, created_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread 
     ON public.notifications(user_id, read_at) WHERE read_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_notifications_type_created 
     ON public.notifications(notification_type, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_stock_alerts_active 
-    ON public.stock_price_alerts(user_id, is_active, stock_symbol) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_stock_alerts_user_active 
+    ON public.stock_price_alerts(user_id, is_active);
+
+CREATE INDEX IF NOT EXISTS idx_stock_alerts_symbol_active 
+    ON public.stock_price_alerts(stock_symbol, is_active) WHERE is_active = true;
 
 -- 插入預設通知設定（當用戶註冊時自動觸發）
 CREATE OR REPLACE FUNCTION create_default_notification_settings()
@@ -131,7 +133,8 @@ GROUP BY ns.user_id;
 CREATE OR REPLACE FUNCTION cleanup_old_notifications()
 RETURNS INTEGER AS $$
 DECLARE
-    deleted_count INTEGER;
+    deleted_count INTEGER := 0;
+    additional_count INTEGER;
 BEGIN
     -- 刪除30天前的已讀通知
     DELETE FROM public.notifications 
@@ -145,7 +148,9 @@ BEGIN
     WHERE read_at IS NULL 
     AND created_at < NOW() - INTERVAL '90 days';
     
-    GET DIAGNOSTICS deleted_count = deleted_count + ROW_COUNT;
+    GET DIAGNOSTICS additional_count = ROW_COUNT;
+    
+    deleted_count := deleted_count + additional_count;
     
     RETURN deleted_count;
 END;

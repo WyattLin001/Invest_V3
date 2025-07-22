@@ -91,7 +91,8 @@ enum TransactionType: String, Codable, CaseIterable {
     var isIncome: Bool {
         switch self {
         case .deposit, .bonus: return true
-        case .withdrawal, .giftPurchase, .subscription, .tip, .groupEntryFee, .groupTip: return false
+        case .withdrawal, .giftPurchase, .tip, .groupEntryFee, .groupTip: return false
+        case .subscription: return true  // 訂閱分潤是作者收益，不是用戶支出
         }
     }
     

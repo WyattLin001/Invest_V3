@@ -10,8 +10,9 @@ import UserNotifications
 
 @main
 struct Invest_V3App: App {
-    // 添加 NotificationService
+    // 添加服務實例
     @StateObject private var notificationService = NotificationService.shared
+    @StateObject private var friendService = FriendService.shared
     
     init() {
         // 在 app 啟動時初始化 Supabase 和通知服務
@@ -26,6 +27,7 @@ struct Invest_V3App: App {
                 .environmentObject(PortfolioService.shared)
                 .environmentObject(StockService.shared)
                 .environmentObject(notificationService)
+                .environmentObject(friendService)
                 .onAppear {
                     // App 啟動時初始化
                     Task {

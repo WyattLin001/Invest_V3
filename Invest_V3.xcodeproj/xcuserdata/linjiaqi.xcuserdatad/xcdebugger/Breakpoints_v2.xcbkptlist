@@ -18,6 +18,106 @@
             endingLineNumber = "15"
             landmarkName = "SettingsViewModel"
             landmarkType = "3">
+            <Locations>
+               <Location
+                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 4f00f9f78958badf"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "property wrapper backing initializer of Invest_V3.SettingsViewModel.friends : Swift.Array&lt;Invest_V3.Friend&gt;"
+                  moduleName = "Invest_V3.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "0"
+                  endingLineNumber = "0">
+               </Location>
+               <Location
+                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - d8e0eb82ef14f456"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Invest_V3.SettingsViewModel.friends.getter : Swift.Array&lt;Invest_V3.Friend&gt;"
+                  moduleName = "Invest_V3.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "0"
+                  endingLineNumber = "0">
+               </Location>
+               <Location
+                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 128cedc72922d862"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Invest_V3.SettingsViewModel.friends.setter : Swift.Array&lt;Invest_V3.Friend&gt;"
+                  moduleName = "Invest_V3.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "0"
+                  endingLineNumber = "0">
+               </Location>
+               <Location
+                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 9f374c48dc3b0151"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Invest_V3.SettingsViewModel.friends.modify : Swift.Array&lt;Invest_V3.Friend&gt;"
+                  moduleName = "Invest_V3.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "0"
+                  endingLineNumber = "0">
+               </Location>
+               <Location
+                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 8c15a8b9310bb20a"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Invest_V3.SettingsViewModel.$friends.getter : Combine.Published&lt;Swift.Array&lt;Invest_V3.Friend&gt;&gt;.Publisher"
+                  moduleName = "Invest_V3.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "0"
+                  endingLineNumber = "0">
+               </Location>
+               <Location
+                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 3136b2682f2d5982"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Invest_V3.SettingsViewModel.$friends.setter : Combine.Published&lt;Swift.Array&lt;Invest_V3.Friend&gt;&gt;.Publisher"
+                  moduleName = "Invest_V3.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/%3Cstdin%3E"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "0"
+                  endingLineNumber = "0">
+               </Location>
+               <Location
+                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - c7fba78e0e9af6f1"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "Invest_V3.SettingsViewModel.$friends.modify : Combine.Published&lt;Swift.Array&lt;Invest_V3.Friend&gt;&gt;.Publisher"
+                  moduleName = "Invest_V3.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/%3Cstdin%3E"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "0"
+                  endingLineNumber = "0">
+               </Location>
+            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

@@ -49,6 +49,7 @@ class WalletViewModel: ObservableObject {
         ) { [weak self] _ in
             Task {
                 await self?.loadBalance()
+                await self?.loadTransactions() // 同時重新載入交易記錄
             }
         }
     }

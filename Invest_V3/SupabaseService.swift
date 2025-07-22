@@ -50,7 +50,7 @@ class SupabaseService: ObservableObject {
     // 獲取當前用戶的異步版本
     public func getCurrentUserAsync() async throws -> UserProfile {
         // 確保 Supabase 已初始化
-        try SupabaseManager.shared.ensureInitialized()
+        try await SupabaseManager.shared.ensureInitializedAsync()
         
         // 首先嘗試從 UserDefaults 獲取用戶資料
         if let data = UserDefaults.standard.data(forKey: "current_user"),
@@ -220,11 +220,15 @@ class SupabaseService: ObservableObject {
             struct GroupMemberInsert: Codable {
                 let groupId: String
                 let userId: String
+                let userName: String
+                let role: String
                 let joinedAt: Date
                 
                 enum CodingKeys: String, CodingKey {
                     case groupId = "group_id"
                     case userId = "user_id"
+                    case userName = "user_name"
+                    case role
                     case joinedAt = "joined_at"
                 }
             }
@@ -232,6 +236,8 @@ class SupabaseService: ObservableObject {
             let memberData = GroupMemberInsert(
                 groupId: groupId.uuidString,
                 userId: currentUser.id.uuidString,
+                userName: currentUser.displayName,
+                role: "host",
                 joinedAt: Date()
             )
             
@@ -688,14 +694,21 @@ class SupabaseService: ObservableObject {
     func joinGroup(groupId: UUID, userId: UUID) async throws {
         try await SupabaseManager.shared.ensureInitialized()
         
+        // 獲取用戶資料
+        let userProfile = try await fetchUserProfileById(userId: userId)
+        
         struct GroupMemberInsert: Codable {
             let groupId: String
             let userId: String
+            let userName: String
+            let role: String
             let joinedAt: Date
             
             enum CodingKeys: String, CodingKey {
                 case groupId = "group_id"
                 case userId = "user_id"
+                case userName = "user_name"
+                case role
                 case joinedAt = "joined_at"
             }
         }
@@ -703,6 +716,8 @@ class SupabaseService: ObservableObject {
         let memberData = GroupMemberInsert(
             groupId: groupId.uuidString,
             userId: userId.uuidString,
+            userName: userProfile.displayName,
+            role: "member",
             joinedAt: Date()
         )
         
@@ -764,12 +779,12 @@ class SupabaseService: ObservableObject {
             }
         }
         
-        // 首先嘗試加入群組 - 如果失敗，不會有任何費用
+        // 使用新的完整加入群組流程
         do {
-            // 調用原有的 joinGroup 函數
-            try await joinGroup(groupId: groupId, userId: currentUser.id)
+            // 調用我們新創建的完整加入群組方法
+            let message = try await joinInvestmentGroup(groupId: groupId)
             
-            // 創建投資組合
+            // 創建投資組合（保留原有功能）
             do {
                 let _ = try await createPortfolio(groupId: groupId, userId: currentUser.id)
                 print("✅ 成功創建投資組合")
@@ -778,31 +793,13 @@ class SupabaseService: ObservableObject {
                     print("❌ portfolios 表不存在，請在 Supabase SQL Editor 中執行 CREATE_PORTFOLIOS_TABLE.sql")
                     throw SupabaseError.unknown("❌ 數據庫配置錯誤：portfolios 表不存在\n\n請在 Supabase SQL Editor 中執行 CREATE_PORTFOLIOS_TABLE.sql 腳本來創建必要的表格。")
                 }
-                throw error
+                print("⚠️ 創建投資組合失敗，但群組已成功加入: \(error.localizedDescription)")
+                // 不拋出錯誤，因為加入群組已經成功
             }
             
-            // 只有在成功加入群組後才扣除代幣
-            if tokenCost > 0 {
-                try await deductTokens(userId: currentUser.id, amount: tokenCost, description: "加入群組：\(group.name)")
-                
-                // 創建群組主持人的收益記錄
-                let hostId = try await fetchGroupHostId(groupId: groupId)
-                try await createCreatorRevenue(
-                    creatorId: hostId.uuidString,
-                    revenueType: .groupEntryFee,
-                    amount: tokenCost,
-                    sourceId: groupId,
-                    sourceName: group.name,
-                    description: "群組入會費：\(currentUser.displayName) 加入 \(group.name)"
-                )
-                
-                print("✅ 成功加入群組並扣除 \(tokenCost) 代幣")
-            } else {
-                print("✅ 成功加入群組（免費）")
-            }
+            print("✅ [joinGroup] \(message)")
             
         } catch {
-            // 如果加入群組失敗，不會扣除任何費用
             print("❌ 加入群組失敗: \(error.localizedDescription)")
             throw error
         }
@@ -1402,9 +1399,12 @@ class SupabaseService: ObservableObject {
         // 使用異步方法獲取當前用戶
         let currentUser = try await getCurrentUserAsync()
         
+        // 將代幣轉換為 NTD（1 代幣 = 100 NTD）
+        let amountInNTD = amount * 100.0
+        
         // 檢查餘額是否足夠
         let currentBalance = try await fetchWalletBalance()
-        guard Double(currentBalance) >= amount else {
+        guard Double(currentBalance) >= amountInNTD else {
             throw SupabaseError.unknown("Insufficient balance")
         }
         
@@ -1437,7 +1437,7 @@ class SupabaseService: ObservableObject {
         let transactionData = TipTransactionInsert(
             userId: currentUser.id.uuidString,
             transactionType: TransactionType.tip.rawValue,
-            amount: -Int(amount), // 負數表示支出
+            amount: -Int(amountInNTD), // 負數表示支出，使用 NTD 金額
             description: "抖內禮物",
             status: TransactionStatus.confirmed.rawValue,
             paymentMethod: "wallet",
@@ -1458,7 +1458,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.unknown("Failed to create tip transaction")
         }
         
-        print("✅ [SupabaseService] 抖內交易創建成功: \(amount) 代幣")
+        print("✅ [SupabaseService] 抖內交易創建成功: \(Int(amount)) 代幣 (\(Int(amountInNTD)) NTD)")
         return transaction
     }
     
@@ -1534,10 +1534,10 @@ class SupabaseService: ObservableObject {
             groupId: groupId
         )
         
-        // 扣除用戶餘額
-        try await updateWalletBalance(delta: -Int(amount))
+        // 扣除用戶餘額 (轉換代幣為 NTD: 1 代幣 = 100 NTD)
+        try await updateWalletBalance(delta: -Int(amount * 100.0))
         
-        print("✅ [SupabaseService] 群組抖內處理完成: \(currentUser.displayName) 抖內 \(amount) 金幣給主持人 \(group.host)")
+        print("✅ [SupabaseService] 群組抖內處理完成: \(currentUser.displayName) 抖內 \(Int(amount)) 代幣給主持人 \(group.host)")
     }
     
     
@@ -1678,13 +1678,22 @@ class SupabaseService: ObservableObject {
         // 4. 將提領金額加入用戶錢包
         try await updateWalletBalance(delta: Int(amount))
         
-        // 5. 創建一個標記記錄表示已提領 (清空收益)
-        try await createCreatorRevenue(
-            creatorId: creatorId,
-            revenueType: .subscriptionShare, // 使用特殊類型標記
-            amount: -Int(amount), // 負數表示提領
-            description: "提領收益到錢包"
+        // 4.5. 創建錢包交易記錄（提領記錄）
+        try await createWalletTransaction(
+            type: TransactionType.deposit.rawValue, // 對錢包來說是入帳
+            amount: amount,
+            description: "創作者收益提領",
+            paymentMethod: "creator_earnings"
         )
+        
+        // 5. 刪除已提領的收益記錄，而不是創建負數記錄
+        try await client
+            .from("creator_revenues")
+            .delete()
+            .eq("creator_id", value: creatorId.uuidString)
+            .execute()
+        
+        print("✅ [SupabaseService] 已清理提領用戶的收益記錄")
         
         print("✅ [SupabaseService] 提領處理成功: \(amount) 金幣已轉入錢包")
     }
@@ -1711,6 +1720,169 @@ class SupabaseService: ObservableObject {
             
             print("✅ [SupabaseService] 群組入會費收益記錄完成: 主持人 \(group.host) 獲得 \(entryFee) 金幣")
         }
+    }
+    
+    /// 完整的加入群組流程：扣款 + 記錄收益 + 更新群組成員
+    func joinInvestmentGroup(groupId: UUID) async throws -> String {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        guard let currentUser = try? await client.auth.user() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        // 1. 獲取群組資訊
+        let group = try await fetchInvestmentGroup(id: groupId)
+        let entryFee = group.tokenCost // 使用 tokenCost (Int 類型)
+        
+        // 2. 檢查用戶餘額是否足夠
+        let currentBalance = try await fetchWalletBalance()
+        guard currentBalance >= Double(entryFee) else {
+            let currentBalanceInt = Int(currentBalance)
+            throw SupabaseError.unknown("錢包餘額不足，需要 \(entryFee) 代幣，當前餘額：\(currentBalanceInt) 代幣")
+        }
+        
+        // 3. 檢查是否已經是群組成員
+        let isAlreadyMember = try await checkGroupMembership(groupId: groupId, userId: currentUser.id)
+        if isAlreadyMember {
+            throw SupabaseError.unknown("您已經是此群組的成員")
+        }
+        
+        // 4. 扣除用戶錢包餘額
+        try await updateWalletBalance(delta: -entryFee)
+        
+        // 5. 創建用戶的交易記錄（支出）
+        try await createWalletTransaction(
+            type: TransactionType.groupEntryFee.rawValue,
+            amount: -Double(entryFee), // 負數表示支出
+            description: "加入群組「\(group.name)」入會費",
+            paymentMethod: "wallet"
+        )
+        
+        // 6. 為群組主持人創建收益記錄
+        try await processGroupEntryFeeRevenue(
+            groupId: groupId,
+            newMemberId: currentUser.id,
+            entryFee: entryFee
+        )
+        
+        // 7. 將用戶添加到群組成員列表
+        try await addUserToGroup(groupId: groupId, userId: currentUser.id)
+        
+        // 8. 發送錢包餘額更新通知
+        await MainActor.run {
+            NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
+        }
+        
+        let message = "成功加入群組「\(group.name)」！已扣除 \(entryFee) 代幣入會費"
+        print("✅ [SupabaseService] \(message)")
+        return message
+    }
+    
+    /// 檢查用戶是否已經是群組成員
+    private func checkGroupMembership(groupId: UUID, userId: UUID) async throws -> Bool {
+        let response = try await client
+            .from("group_members")
+            .select("id")
+            .eq("group_id", value: groupId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+        
+        let data = response.data
+        return !data.isEmpty
+    }
+    
+    /// 將用戶添加到群組成員列表
+    private func addUserToGroup(groupId: UUID, userId: UUID) async throws {
+        struct GroupMemberInsert: Codable {
+            let id: String
+            let groupId: String
+            let userId: String
+            let joinedAt: String
+            let status: String
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case groupId = "group_id"
+                case userId = "user_id"
+                case joinedAt = "joined_at"
+                case status
+            }
+        }
+        
+        let memberData = GroupMemberInsert(
+            id: UUID().uuidString,
+            groupId: groupId.uuidString,
+            userId: userId.uuidString,
+            joinedAt: ISO8601DateFormatter().string(from: Date()),
+            status: "active"
+        )
+        
+        try await client
+            .from("group_members")
+            .insert(memberData)
+            .execute()
+    }
+    
+    /// 群組內抖內功能：用戶在群組內給主持人抖內
+    func sendGroupTip(groupId: UUID, tipAmount: Int, message: String = "") async throws -> String {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        guard let currentUser = try? await client.auth.user() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        // 1. 獲取群組資訊
+        let group = try await fetchInvestmentGroup(id: groupId)
+        
+        // 2. 檢查用戶餘額是否足夠 (轉換代幣為 NTD: 1 代幣 = 100 NTD)
+        let currentBalance = try await fetchWalletBalance()
+        let tipAmountInNTD = Double(tipAmount * 100)
+        guard currentBalance >= tipAmountInNTD else {
+            let currentBalanceInTokens = Int(currentBalance / 100.0)
+            throw SupabaseError.unknown("錢包餘額不足，需要 \(tipAmount) 代幣，當前餘額：\(currentBalanceInTokens) 代幣")
+        }
+        
+        // 3. 檢查是否是群組成員
+        let isMember = try await checkGroupMembership(groupId: groupId, userId: currentUser.id)
+        guard isMember else {
+            throw SupabaseError.unknown("您必須是群組成員才能進行抖內")
+        }
+        
+        // 4. 扣除用戶錢包餘額 (使用 NTD 金額)
+        try await updateWalletBalance(delta: -Int(tipAmountInNTD))
+        
+        // 5. 創建用戶的交易記錄（支出）
+        let tipDescription = message.isEmpty ? "群組「\(group.name)」內抖內" : "群組「\(group.name)」內抖內：\(message)"
+        try await createWalletTransaction(
+            type: TransactionType.groupTip.rawValue,
+            amount: -tipAmountInNTD, // 負數表示支出，使用 NTD 金額
+            description: tipDescription,
+            paymentMethod: "wallet"
+        )
+        
+        // 6. 為群組主持人創建收益記錄
+        let hostProfile = try? await fetchUserProfileByDisplayName(group.host)
+        let tipper = try? await fetchUserProfileById(userId: currentUser.id)
+        
+        if let hostProfile = hostProfile {
+            try await createCreatorRevenue(
+                creatorId: hostProfile.id,
+                revenueType: .groupTip,
+                amount: tipAmount,
+                sourceId: groupId,
+                sourceName: group.name,
+                description: "群組抖內收入來自 \(tipper?.displayName ?? "群組成員")"
+            )
+        }
+        
+        // 7. 發送錢包餘額更新通知
+        await MainActor.run {
+            NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
+        }
+        
+        let resultMessage = "成功在群組「\(group.name)」內抖內 \(tipAmount) 代幣！"
+        print("✅ [SupabaseService] \(resultMessage)")
+        return resultMessage
     }
     
     // MARK: - Group Details and Members
@@ -2249,28 +2421,31 @@ class SupabaseService: ObservableObject {
             return [] 
         }
 
-        struct FriendRow: Decodable { 
-            let friendId: String
-            
-            enum CodingKeys: String, CodingKey {
-                case friendId = "friend_id"
-            }
-        }
-        
-        let rows: [FriendRow] = try await client
-            .from("user_friends")
-            .select("friend_id")
-            .eq("user_id", value: current.id.uuidString)
+        // 查詢好友關係（使用 friendships 表）
+        let friendships: [Friendship] = try await client
+            .from("friendships")
+            .select("requester_id, addressee_id")
+            .or("requester_id.eq.\(current.id.uuidString),addressee_id.eq.\(current.id.uuidString)")
+            .eq("status", value: "accepted")
             .execute()
             .value
+        
+        // 提取好友ID（排除自己）
+        let friendIds = friendships.compactMap { friendship -> String? in
+            if friendship.requesterID.uuidString == current.id.uuidString {
+                return friendship.addresseeID.uuidString
+            } else if friendship.addresseeID.uuidString == current.id.uuidString {
+                return friendship.requesterID.uuidString
+            }
+            return nil
+        }
 
-        let ids = rows.map(\.friendId)
-        if ids.isEmpty { return [] }
+        if friendIds.isEmpty { return [] }
 
         let friends: [UserProfile] = try await client
             .from("user_profiles")
             .select()
-            .in("id", values: ids)
+            .in("id", values: friendIds)
             .execute()
             .value
             
@@ -2321,7 +2496,7 @@ class SupabaseService: ObservableObject {
     
     /// 獲取用戶錢包餘額
     func fetchWalletBalance() async throws -> Double {
-        try SupabaseManager.shared.ensureInitialized()
+        try await SupabaseManager.shared.ensureInitializedAsync()
         
         guard let authUser = try? await client.auth.user() else {
             throw SupabaseError.notAuthenticated
@@ -2360,7 +2535,7 @@ class SupabaseService: ObservableObject {
     
     /// 更新用戶錢包餘額
     func updateWalletBalance(delta: Int) async throws {
-        try SupabaseManager.shared.ensureInitialized()
+        try await SupabaseManager.shared.ensureInitializedAsync()
         
         guard let authUser = try? await client.auth.user() else {
             throw SupabaseError.notAuthenticated
@@ -3028,7 +3203,8 @@ class SupabaseService: ObservableObject {
         type: String,
         amount: Double,
         description: String,
-        paymentMethod: String
+        paymentMethod: String,
+        status: String = TransactionStatus.confirmed.rawValue
     ) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
@@ -3063,7 +3239,7 @@ class SupabaseService: ObservableObject {
             transactionType: type,
             amount: Int(amount),
             description: description,
-            status: "completed",
+            status: status,
             paymentMethod: paymentMethod,
             createdAt: DateFormatter.iso8601.string(from: Date())
         )
@@ -3719,6 +3895,78 @@ extension SupabaseService {
             .execute()
         
         print("✅ [SupabaseService] 創建創作者收益記錄成功: \(revenueType.rawValue) \(amount) 金幣")
+    }
+    
+    /// 為指定用戶初始化創作者收益數據
+    func initializeCreatorRevenueData(userId: UUID) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        // 首先清理該用戶的所有收益記錄
+        try await client
+            .from("creator_revenues")
+            .delete()
+            .eq("creator_id", value: userId.uuidString)
+            .execute()
+        
+        print("✅ [SupabaseService] 已清理用戶 \(userId) 的舊收益記錄")
+        
+        // 創建正確的收益記錄
+        let revenueRecords = [
+            (revenueType: RevenueType.subscriptionShare, amount: 5300, description: "平台訂閱分潤收益"),
+            (revenueType: RevenueType.readerTip, amount: 1800, description: "讀者抖內收益"),
+            (revenueType: RevenueType.groupEntryFee, amount: 1950, description: "群組入會費收益"),
+            (revenueType: RevenueType.groupTip, amount: 800, description: "群組抖內收益")
+        ]
+        
+        for record in revenueRecords {
+            try await createCreatorRevenue(
+                creatorId: userId,
+                revenueType: record.revenueType,
+                amount: record.amount,
+                sourceId: nil,
+                sourceName: "系統初始化",
+                description: record.description
+            )
+        }
+        
+        print("✅ [SupabaseService] 用戶 \(userId) 創作者收益數據初始化完成")
+    }
+    
+    /// 為當前用戶初始化所有必要數據（通用方法）
+    func initializeCurrentUserData() async throws -> String {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let response = try await client
+            .rpc("initialize_current_user_data")
+            .execute()
+        
+        // 創建一個結構來處理返回的 JSON
+        struct InitializeResponse: Codable {
+            let success: Bool
+            let message: String
+            let userId: String?
+            let displayName: String?
+            let balance: Int?
+            let totalRevenue: Int?
+            
+            enum CodingKeys: String, CodingKey {
+                case success
+                case message
+                case userId = "user_id"
+                case displayName = "display_name"
+                case balance
+                case totalRevenue = "total_revenue"
+            }
+        }
+        
+        let result = try JSONDecoder().decode(InitializeResponse.self, from: response.data)
+        
+        if result.success {
+            print("✅ [SupabaseService] 當前用戶數據初始化成功: \(result.message)")
+            return result.message
+        } else {
+            throw SupabaseError.unknown(result.message)
+        }
     }
     
 }

@@ -175,15 +175,14 @@ class NotificationService: NSObject, ObservableObject {
                 .is("read_at", value: nil)
                 .execute()
             
-            // 解析 count 結果
-            if let countData = result.data,
-               let countString = String(data: countData, encoding: .utf8),
-               let count = Int(countString) {
-                await MainActor.run {
-                    self.unreadCount = count
-                }
-            } else {
-                await MainActor.run {
+            // 解析 count 結果 - 直接使用 Data
+            await MainActor.run {
+                do {
+                    let decoder = JSONDecoder()
+                    let countArray = try decoder.decode([Int].self, from: result.data)
+                    self.unreadCount = countArray.first ?? 0
+                } catch {
+                    print("❌ 解析未讀數量失敗: \(error)")
                     self.unreadCount = 0
                 }
             }
@@ -251,32 +250,16 @@ class NotificationService: NSObject, ObservableObject {
             }
             
             // 創建可編碼的結構體
-            struct NotificationInsert: Codable {
+            struct NotificationInsert: Encodable {
                 let user_id: String
                 let title: String
                 let body: String
                 let notification_type: String
-                let data: [String: Any]?
+                let data: String?
                 let created_at: String
                 
                 enum CodingKeys: String, CodingKey {
                     case user_id, title, body, notification_type, data, created_at
-                }
-                
-                func encode(to encoder: Encoder) throws {
-                    var container = encoder.container(keyedBy: CodingKeys.self)
-                    try container.encode(user_id, forKey: .user_id)
-                    try container.encode(title, forKey: .title)
-                    try container.encode(body, forKey: .body)
-                    try container.encode(notification_type, forKey: .notification_type)
-                    try container.encode(created_at, forKey: .created_at)
-                    
-                    if let data = data {
-                        // 將 [String: Any] 轉換為 JSON 字符串
-                        let jsonData = try JSONSerialization.data(withJSONObject: data)
-                        let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
-                        try container.encode(jsonString, forKey: .data)
-                    }
                 }
             }
             
@@ -285,7 +268,7 @@ class NotificationService: NSObject, ObservableObject {
                 title: title,
                 body: body,
                 notification_type: type.rawValue,
-                data: data,
+                data: data != nil ? try? JSONSerialization.data(withJSONObject: data!, options: []).base64EncodedString() : nil,
                 created_at: ISO8601DateFormatter().string(from: Date())
             )
             

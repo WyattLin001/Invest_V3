@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var showInsufficientBalanceAlert = false
     @State private var showWalletView = false
     @State private var showCreateGroupView = false
+    @State private var showFriendSearch = false // 好友搜尋頁面
     
 
     var body: some View {
@@ -65,6 +66,10 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showCreateGroupView) {
                 CreateGroupView()
+            }
+            .sheet(isPresented: $showFriendSearch) {
+                FriendSearchView()
+                    .environmentObject(FriendService.shared)
             }
         }
         .alert("錯誤", isPresented: $showErrorAlert) {
@@ -186,6 +191,15 @@ struct HomeView: View {
             Spacer()
             
             HStack(spacing: 16) {
+                // 好友管理按鈕
+                Button(action: { showFriendSearch = true }) {
+                    Image(systemName: "person.2")
+                        .font(.title3)
+                        .foregroundColor(.brandGreen)
+                }
+                .accessibilityLabel("好友管理")
+                .accessibilityHint("搜尋和管理好友")
+                
                 // 投資按鈕 📈
                 Button(action: { viewModel.showInvestmentPanel = true }) {
                     Text("📈")

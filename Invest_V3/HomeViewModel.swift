@@ -53,6 +53,13 @@ class HomeViewModel: ObservableObject {
         } catch {
             await MainActor.run {
                 print("❌ [HomeViewModel] 載入錢包餘額失敗: \(error.localizedDescription)")
+                // 如果是初始化錯誤，稍後重試
+                if error.localizedDescription.contains("尚未初始化") {
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000) // 等待2秒
+                        await self.loadWalletBalance()
+                    }
+                }
             }
         }
     }

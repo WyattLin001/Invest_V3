@@ -90,6 +90,13 @@ class SupabaseManager {
         }
     }
     
+    /// 異步確保已初始化，如果沒有則等待初始化完成
+    func ensureInitializedAsync() async throws {
+        if !isInitialized {
+            try await initialize()
+        }
+    }
+    
     // 清理資源
     func cleanup() {
         // 在需要時清理資源，例如應用退出時

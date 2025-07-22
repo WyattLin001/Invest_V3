@@ -19,6 +19,7 @@ struct WalletView: View {
     @State private var showTopUpOptions = false
     @State private var showTopUpAnimation = false
     @State private var topUpAmount: Double = 0
+    @State private var showTransactionHistory = false
     @State private var showCancelSubscriptionAlert = false
 
     var body: some View {
@@ -59,6 +60,9 @@ struct WalletView: View {
                 }
                 showTopUpOptions = false
             }
+        }
+        .sheet(isPresented: $showTransactionHistory) {
+            TransactionHistoryView()
         }
         .task {
             await viewModel.loadData()
@@ -175,7 +179,7 @@ struct WalletView: View {
                 Spacer()
                 
                 Button("查看全部") {
-                    // 導航到完整交易記錄
+                    showTransactionHistory = true
                 }
                 .font(.caption)
                 .foregroundColor(.blue)

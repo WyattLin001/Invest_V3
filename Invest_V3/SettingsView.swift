@@ -32,11 +32,6 @@ struct SettingsView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.gray900)
                     Spacer()
-                    Button(action: {}) {
-                        Image(systemName: "gearshape")
-                            .font(.title3)
-                            .foregroundColor(.gray600)
-                    }
                 }
                 .padding(.horizontal, DesignTokens.spacingMD)
                 .frame(height: 44)
@@ -64,6 +59,9 @@ struct SettingsView: View {
                             // 通知測試（僅在 DEBUG 模式顯示）
                             #if DEBUG
                             notificationTestSection
+                            
+                            // 好友系統測試
+                            friendSystemTestSection
                             #endif
                             
                             // 應用設定
@@ -368,6 +366,45 @@ struct SettingsView: View {
         }
         .brandCardStyle()
     }
+    
+    private var friendSystemTestSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+            Text("好友系統測試 (開發模式)")
+                .font(.sectionHeader)
+                .fontWeight(.semibold)
+                .foregroundColor(.gray900)
+            
+            NavigationLink(destination: FriendSystemTestView().environmentObject(FriendService.shared)) {
+                HStack {
+                    Image(systemName: "person.2.badge.gearshape")
+                        .font(.title3)
+                        .foregroundColor(.brandOrange)
+                        .frame(width: 24, height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("好友系統功能測試")
+                            .font(.bodyText)
+                            .fontWeight(.medium)
+                            .foregroundColor(.gray900)
+                        
+                        Text("測試 Supabase 連接和好友管理功能")
+                            .font(.caption)
+                            .foregroundColor(.gray600)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.gray600)
+                }
+                .padding(.vertical, DesignTokens.spacingSM)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .brandCardStyle()
+    }
     #endif
     
     private var appSettingsSection: some View {
@@ -378,24 +415,10 @@ struct SettingsView: View {
                 .foregroundColor(.gray900)
             
             VStack(spacing: DesignTokens.spacingSM) {
-                settingRow(
-                    title: "深色模式",
-                    isOn: $viewModel.darkModeEnabled
-                )
-                
-                HStack {
-                    Text("語言")
-                        .font(.bodyText) // 使用自定義字體
-                        .foregroundColor(.gray900)
-                    
-                    Spacer()
-                    
-                    Picker("語言", selection: $viewModel.selectedLanguage) {
-                        Text("繁體中文").tag("zh-TW")
-                        Text("English").tag("en")
-                    }
-                    .pickerStyle(.menu)
-                }
+                Text("其他應用設定功能開發中")
+                    .font(.bodyText)
+                    .foregroundColor(.gray600)
+                    .padding(.vertical, DesignTokens.spacingSM)
             }
         }
         .brandCardStyle()

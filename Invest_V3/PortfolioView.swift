@@ -49,7 +49,7 @@ struct PortfolioView: View {
         case 1:
             PortfolioHoldingsView()
         case 2:
-            TransactionHistoryView()
+            TradingHistoryView()
         default:
             PortfolioOverviewView()
         }
@@ -458,7 +458,7 @@ struct PortfolioPositionRow: View {
 }
 
 // MARK: - 交易記錄視圖
-struct TransactionHistoryView: View {
+struct TradingHistoryView: View {
     @ObservedObject private var tradingService = TradingService.shared
     
     var body: some View {

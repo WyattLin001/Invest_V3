@@ -19,9 +19,6 @@ class SettingsViewModel: ObservableObject {
     @Published var marketUpdatesEnabled = true
     @Published var chatNotificationsEnabled = true
     @Published var investmentNotificationsEnabled = true
-    @Published var isDarkMode = false
-    @Published var darkModeEnabled = false
-    @Published var selectedLanguage = "zh-Hant"
     @Published var isSubscribed = false // 新增訂閱狀態
     
     // 用戶 ID
@@ -317,27 +314,27 @@ class SettingsViewModel: ObservableObject {
                 .limit(1)
                 .execute()
             
-            // 手動解析 JSON 響應
-            guard let data = result.data else {
-                loadNotificationSettingsLocally()
-                return
-            }
-            
-            let decoder = JSONDecoder()
-            let settingsArray = try decoder.decode([[String: Bool]].self, from: data)
-            
-            if let setting = settingsArray.first {
-                // 更新本地狀態
-                await MainActor.run {
-                    self.notificationsEnabled = setting["push_notifications_enabled"] ?? true
-                    self.marketUpdatesEnabled = setting["market_updates_enabled"] ?? true
-                    self.chatNotificationsEnabled = setting["chat_notifications_enabled"] ?? true
-                    self.investmentNotificationsEnabled = setting["investment_notifications_enabled"] ?? true
-                }
+            // 手動解析 JSON 響應 - 直接使用 Data
+            do {
+                let decoder = JSONDecoder()
+                let settingsArray = try decoder.decode([[String: Bool]].self, from: result.data)
                 
-                print("✅ [SettingsViewModel] 已從後端載入通知設定")
-            } else {
-                // 後端沒有設定，使用本地設定或預設值
+                if let setting = settingsArray.first {
+                    // 更新本地狀態
+                    await MainActor.run {
+                        self.notificationsEnabled = setting["push_notifications_enabled"] ?? true
+                        self.marketUpdatesEnabled = setting["market_updates_enabled"] ?? true
+                        self.chatNotificationsEnabled = setting["chat_notifications_enabled"] ?? true
+                        self.investmentNotificationsEnabled = setting["investment_notifications_enabled"] ?? true
+                    }
+                    
+                    print("✅ [SettingsViewModel] 已從後端載入通知設定")
+                } else {
+                    // 後端沒有設定，使用本地設定或預設值
+                    loadNotificationSettingsLocally()
+                }
+            } catch {
+                print("❌ [SettingsViewModel] JSON 解析失敗: \(error)")
                 loadNotificationSettingsLocally()
             }
             
@@ -363,29 +360,4 @@ class SettingsViewModel: ObservableObject {
         }
     }
     
-    // MARK: - 切換深色模式
-    func toggleDarkMode(_ enabled: Bool) {
-        isDarkMode = enabled
-        // 實際實現會更新系統外觀
-        print("深色模式: \(enabled)")
-    }
-    
-    // MARK: - 切換語言
-    func changeLanguage(_ language: String) {
-        selectedLanguage = language
-        // 實際實現會更新應用語言
-        print("語言設定: \(language)")
-    }
-}
-
-// MARK: - 語言選項
-struct LanguageOption: Identifiable {
-    let id = UUID()
-    let code: String
-    let name: String
-    
-    static let options = [
-        LanguageOption(code: "zh-Hant", name: "繁體中文"),
-        LanguageOption(code: "en", name: "English")
-    ]
 } 

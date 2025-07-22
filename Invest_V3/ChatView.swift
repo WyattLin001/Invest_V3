@@ -78,6 +78,7 @@ struct ChatView: View {
         .sheet(isPresented: $viewModel.showGiftModal) { giftModalView }
         .sheet(isPresented: $viewModel.showInfoModal) { infoModalView }
         .sheet(isPresented: $viewModel.showInviteSheet) { inviteSheetView }
+        .sheet(isPresented: $viewModel.showDonationLeaderboard) { donationLeaderboardView }
         .sheet(isPresented: $viewModel.showInvestmentPanel) {
             InvestmentPanelView(
                 portfolioManager: ChatPortfolioManager.shared,
@@ -698,6 +699,78 @@ struct ChatView: View {
                         }
                     }
                     
+                    Divider()
+                    
+                    // 捐贈排行榜
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("捐贈排行榜")
+                                .font(.headline)
+                                .foregroundColor(.gray900)
+                            
+                            Spacer()
+                            
+                            if viewModel.isLoadingLeaderboard {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            }
+                        }
+                        
+                        if viewModel.donationLeaderboard.isEmpty && !viewModel.isLoadingLeaderboard {
+                            // 空狀態
+                            VStack(spacing: 8) {
+                                Image(systemName: "heart.circle")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.gray400)
+                                
+                                Text("還沒有人抖內")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray500)
+                                    .fontWeight(.medium)
+                                
+                                Text("成為第一個支持主持人的人吧！")
+                                    .font(.caption)
+                                    .foregroundColor(.gray400)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 20)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                        } else {
+                            // 排行榜列表
+                            LazyVStack(spacing: 8) {
+                                ForEach(Array(viewModel.donationLeaderboard.prefix(5).enumerated()), id: \.element.id) { index, donor in
+                                    DonorRankingRow(
+                                        rank: index + 1,
+                                        donor: donor,
+                                        isTopDonor: index == 0
+                                    )
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            
+                            // 顯示更多按鈕（如果有超過5個捐贈者）
+                            if viewModel.donationLeaderboard.count > 5 {
+                                Button(action: {
+                                    viewModel.showDonationLeaderboard = true
+                                }) {
+                                    HStack {
+                                        Text("查看完整排行榜")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                    }
+                                    .foregroundColor(.brandGreen)
+                                }
+                                .padding(.top, 8)
+                            }
+                        }
+                    }
+                    
                     Spacer()
                     
                     // 退出群組按鈕 (危險操作)
@@ -742,6 +815,10 @@ struct ChatView: View {
                         viewModel.showInfoModal = false
                     }
                 }
+            }
+            .onAppear {
+                // 當群組詳情頁面出現時，載入捐贈排行榜
+                viewModel.loadDonationLeaderboard()
             }
         }
         .alert("確認清除", isPresented: $viewModel.showClearChatAlert, actions: {
@@ -945,6 +1022,109 @@ struct ChatView: View {
             return !viewModel.selectedFriendIds.isEmpty
         case .email:
             return !viewModel.inviteEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+    
+    // MARK: - 完整捐贈排行榜視圖
+    private var donationLeaderboardView: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // 排行榜標題和統計
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("捐贈排行榜")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.gray900)
+                        
+                        if let groupName = viewModel.selectedGroup?.name {
+                            Text("群組「\(groupName)」")
+                                .font(.subheadline)
+                                .foregroundColor(.gray600)
+                        }
+                        
+                        // 統計信息
+                        HStack(spacing: 20) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("總捐贈者")
+                                    .font(.caption)
+                                    .foregroundColor(.gray500)
+                                Text("\(viewModel.donationLeaderboard.count)")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.brandGreen)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("總捐贈額")
+                                    .font(.caption)
+                                    .foregroundColor(.gray500)
+                                Text("\(viewModel.donationLeaderboard.reduce(0) { $0 + $1.totalAmount }) 代幣")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.brandGreen)
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    
+                    Divider()
+                    
+                    // 排行榜列表
+                    if viewModel.donationLeaderboard.isEmpty && !viewModel.isLoadingLeaderboard {
+                        // 空狀態
+                        VStack(spacing: 16) {
+                            Image(systemName: "heart.circle")
+                                .font(.system(size: 60))
+                                .foregroundColor(.gray400)
+                            
+                            Text("還沒有人抖內")
+                                .font(.title2)
+                                .fontWeight(.medium)
+                                .foregroundColor(.gray600)
+                            
+                            Text("成為第一個支持主持人的人吧！")
+                                .font(.body)
+                                .foregroundColor(.gray500)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                        
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(Array(viewModel.donationLeaderboard.enumerated()), id: \.element.id) { index, donor in
+                                DonorRankingRow(
+                                    rank: index + 1,
+                                    donor: donor,
+                                    isTopDonor: index == 0
+                                )
+                                .padding(.horizontal)
+                            }
+                        }
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.vertical)
+            }
+            .navigationTitle("排行榜")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("關閉") {
+                        viewModel.showDonationLeaderboard = false
+                    }
+                }
+            }
+            .refreshable {
+                viewModel.loadDonationLeaderboard()
+            }
         }
     }
 }
@@ -1181,7 +1361,7 @@ struct GiftOptionView: View {
                     .foregroundColor(isAffordable ? .gray900 : .gray400)
                     .multilineTextAlignment(.center)
                 
-                Text("\(gift.price) 金幣")
+                Text("\(Int(gift.price)) 金幣")
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(isAffordable ? .brandGreen : .gray400)
@@ -1445,6 +1625,83 @@ extension ChatView {
         case "GOOGL": return .red
         case "MSFT": return .purple
         default: return .blue
+        }
+    }
+}
+
+// MARK: - 捐贈排行榜行組件
+struct DonorRankingRow: View {
+    let rank: Int
+    let donor: DonationSummary
+    let isTopDonor: Bool
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // 排名徽章
+            ZStack {
+                Circle()
+                    .fill(rankColor)
+                    .frame(width: 28, height: 28)
+                
+                Text("\(rank)")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(rankTextColor)
+            }
+            
+            // 捐贈者信息
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(donor.donorName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.gray900)
+                    
+                    if isTopDonor {
+                        Image(systemName: "crown.fill")
+                            .font(.caption)
+                            .foregroundColor(.yellow)
+                    }
+                }
+                
+                Text("共 \(donor.donationCount) 次抖內")
+                    .font(.caption)
+                    .foregroundColor(.gray500)
+            }
+            
+            Spacer()
+            
+            // 總金額
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(donor.totalAmount) 代幣")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.brandGreen)
+                
+                Text(donor.formattedLastDonationDate)
+                    .font(.caption)
+                    .foregroundColor(.gray400)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(isTopDonor ? Color.brandGreen.opacity(0.05) : Color.clear)
+        .cornerRadius(8)
+    }
+    
+    private var rankColor: Color {
+        switch rank {
+        case 1: return .yellow
+        case 2: return .gray
+        case 3: return .orange
+        default: return .brandGreen.opacity(0.3)
+        }
+    }
+    
+    private var rankTextColor: Color {
+        switch rank {
+        case 1, 2, 3: return .white
+        default: return .brandGreen
         }
     }
 }

@@ -102,7 +102,7 @@ struct RichTextView: UIViewRepresentable {
             
         }
         
-        @objc private func handleInsertImage(_ notification: Notification) {
+        @objc private func handleInsertImage(_ notification: Foundation.Notification) {
             if let image = notification.object as? UIImage {
                 insertImagePlaceholder(image: image)
             }
