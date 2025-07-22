@@ -223,18 +223,6 @@ struct ChatView: View {
                 Text(successMessage)
             }
         }
-        .alert("餘額不足", isPresented: $viewModel.showInsufficientBalanceAlert) {
-            Button("前往充值", role: .none) {
-                // 注意：由於 ChatView 在 TabView 結構中，需要通過 NotificationCenter 來切換到錢包頁面
-                NotificationCenter.default.post(name: NSNotification.Name("NavigateToWallet"), object: nil)
-                viewModel.showInsufficientBalanceAlert = false
-            }
-            Button("取消", role: .cancel) {
-                viewModel.showInsufficientBalanceAlert = false
-            }
-        } message: {
-            Text("您的餘額不足以購買此禮物，請先充值。")
-        }
     }
     
     private var chatRoomView: some View {
@@ -685,8 +673,10 @@ struct ChatView: View {
                                 if viewModel.currentBalance >= Double(gift.price) {
                                     viewModel.selectGift(gift)
                                 } else {
+                                    // 關閉禮物選擇彈窗，顯示儲值卡片
                                     viewModel.showGiftModal = false
-                                    viewModel.showInsufficientBalanceAlert = true
+                                    viewModel.requiredAmount = Double(gift.price) - viewModel.currentBalance
+                                    viewModel.showTopUpCard = true
                                 }
                             case .increaseQuantity:
                                 if viewModel.giftQuantity < 99 && 

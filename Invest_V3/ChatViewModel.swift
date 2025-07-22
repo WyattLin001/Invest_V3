@@ -41,7 +41,6 @@ class ChatViewModel: ObservableObject {
     
     // Gift & Wallet
     @Published var showGiftModal = false
-    @Published var showInsufficientBalanceAlert = false
     @Published var selectedGift: GiftItem?
     @Published var showGiftConfirmation = false
     @Published var giftQuantity = 1
