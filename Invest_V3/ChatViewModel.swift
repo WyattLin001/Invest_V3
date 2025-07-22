@@ -43,7 +43,6 @@ class ChatViewModel: ObservableObject {
     @Published var showGiftModal = false
     @Published var showInsufficientBalanceAlert = false
     @Published var selectedGift: GiftItem?
-    @Published var showGiftQuantitySelection = false
     @Published var showGiftConfirmation = false
     @Published var giftQuantity = 1
     @Published var currentBalance: Double = 0.0 {
@@ -862,22 +861,22 @@ class ChatViewModel: ObservableObject {
     
     /// 選擇禮物並進入數量選擇
     func selectGift(_ gift: GiftItem) {
-        selectedGift = gift
-        giftQuantity = 1
-        showGiftQuantitySelection = true
+        if selectedGift?.id == gift.id {
+            // 如果已選中同一個禮物，則取消選擇
+            selectedGift = nil
+            giftQuantity = 1
+        } else {
+            // 選擇新禮物
+            selectedGift = gift
+            giftQuantity = 1
+        }
     }
     
-    /// 進入最終確認
-    func proceedToConfirmation() {
-        showGiftQuantitySelection = false
-        showGiftConfirmation = true
-    }
     
     /// 取消禮物選擇流程
     func cancelGiftSelection() {
         selectedGift = nil
         giftQuantity = 1
-        showGiftQuantitySelection = false
         showGiftConfirmation = false
     }
     
