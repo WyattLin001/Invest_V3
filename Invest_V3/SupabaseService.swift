@@ -1024,6 +1024,235 @@ class SupabaseService: ObservableObject {
             .execute()
     }
     
+    // MARK: - Article Interactions
+    
+    /// 按讚文章
+    func likeArticle(articleId: UUID) async throws {
+        guard let currentUser = getCurrentUser() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        print("❤️ 準備按讚文章: \(articleId)")
+        
+        // 檢查是否已經按讚
+        let existingLikes: [ArticleLike] = try await client
+            .from("article_likes")
+            .select()
+            .eq("article_id", value: articleId.uuidString)
+            .eq("user_id", value: currentUser.id.uuidString)
+            .execute()
+            .value
+        
+        guard existingLikes.isEmpty else {
+            print("ℹ️ 用戶已經按讚過此文章")
+            return
+        }
+        
+        // 新增按讚記錄
+        struct ArticleLikeInsert: Codable {
+            let articleId: String
+            let userId: String
+            let userName: String
+            
+            enum CodingKeys: String, CodingKey {
+                case articleId = "article_id"
+                case userId = "user_id"
+                case userName = "user_name"
+            }
+        }
+        
+        let likeData = ArticleLikeInsert(
+            articleId: articleId.uuidString,
+            userId: currentUser.id.uuidString,
+            userName: currentUser.displayName
+        )
+        
+        try await client
+            .from("article_likes")
+            .insert(likeData)
+            .execute()
+        
+        print("✅ 按讚成功")
+    }
+    
+    /// 取消按讚文章
+    func unlikeArticle(articleId: UUID) async throws {
+        guard let currentUser = getCurrentUser() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        print("💔 準備取消按讚文章: \(articleId)")
+        
+        try await client
+            .from("article_likes")
+            .delete()
+            .eq("article_id", value: articleId.uuidString)
+            .eq("user_id", value: currentUser.id.uuidString)
+            .execute()
+        
+        print("✅ 取消按讚成功")
+    }
+    
+    /// 獲取文章互動統計
+    func fetchArticleInteractionStats(articleId: UUID) async throws -> ArticleInteractionStats {
+        guard let currentUser = getCurrentUser() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        // 獲取按讚數
+        let likesCount: Int = try await client
+            .from("article_likes")
+            .select("*", head: true, count: .exact)
+            .eq("article_id", value: articleId.uuidString)
+            .execute()
+            .count ?? 0
+        
+        // 獲取留言數
+        let commentsCount: Int = try await client
+            .from("article_comments")
+            .select("*", head: true, count: .exact)
+            .eq("article_id", value: articleId.uuidString)
+            .execute()
+            .count ?? 0
+        
+        // 獲取分享數
+        let sharesCount: Int = try await client
+            .from("article_shares")
+            .select("*", head: true, count: .exact)
+            .eq("article_id", value: articleId.uuidString)
+            .execute()
+            .count ?? 0
+        
+        // 檢查用戶是否已按讚
+        let userLikes: [ArticleLike] = try await client
+            .from("article_likes")
+            .select()
+            .eq("article_id", value: articleId.uuidString)
+            .eq("user_id", value: currentUser.id.uuidString)
+            .execute()
+            .value
+        
+        return ArticleInteractionStats(
+            articleId: articleId,
+            likesCount: likesCount,
+            commentsCount: commentsCount,
+            sharesCount: sharesCount,
+            userHasLiked: !userLikes.isEmpty
+        )
+    }
+    
+    /// 獲取文章留言列表
+    func fetchArticleComments(articleId: UUID) async throws -> [ArticleComment] {
+        print("💬 獲取文章留言: \(articleId)")
+        
+        let comments: [ArticleComment] = try await client
+            .from("article_comments")
+            .select()
+            .eq("article_id", value: articleId.uuidString)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+        
+        print("✅ 獲取到 \(comments.count) 條留言")
+        return comments
+    }
+    
+    /// 新增文章留言
+    func addArticleComment(articleId: UUID, content: String) async throws -> ArticleComment {
+        guard let currentUser = getCurrentUser() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        print("💬 準備新增留言到文章: \(articleId)")
+        
+        struct ArticleCommentInsert: Codable {
+            let articleId: String
+            let userId: String
+            let userName: String
+            let content: String
+            
+            enum CodingKeys: String, CodingKey {
+                case articleId = "article_id"
+                case userId = "user_id"
+                case userName = "user_name"
+                case content
+            }
+        }
+        
+        let commentData = ArticleCommentInsert(
+            articleId: articleId.uuidString,
+            userId: currentUser.id.uuidString,
+            userName: currentUser.displayName,
+            content: content
+        )
+        
+        let newComment: ArticleComment = try await client
+            .from("article_comments")
+            .insert(commentData)
+            .select()
+            .single()
+            .execute()
+            .value
+        
+        print("✅ 留言新增成功")
+        return newComment
+    }
+    
+    /// 分享文章到群組
+    func shareArticleToGroup(articleId: UUID, groupId: UUID, groupName: String) async throws {
+        guard let currentUser = getCurrentUser() else {
+            throw SupabaseError.notAuthenticated
+        }
+        
+        print("📤 準備分享文章 \(articleId) 到群組 \(groupName)")
+        
+        // 檢查是否已經分享過
+        let existingShares: [ArticleShare] = try await client
+            .from("article_shares")
+            .select()
+            .eq("article_id", value: articleId.uuidString)
+            .eq("user_id", value: currentUser.id.uuidString)
+            .eq("group_id", value: groupId.uuidString)
+            .execute()
+            .value
+        
+        guard existingShares.isEmpty else {
+            print("ℹ️ 已經分享過此文章到此群組")
+            return
+        }
+        
+        struct ArticleShareInsert: Codable {
+            let articleId: String
+            let userId: String
+            let userName: String
+            let groupId: String
+            let groupName: String
+            
+            enum CodingKeys: String, CodingKey {
+                case articleId = "article_id"
+                case userId = "user_id"
+                case userName = "user_name"
+                case groupId = "group_id"
+                case groupName = "group_name"
+            }
+        }
+        
+        let shareData = ArticleShareInsert(
+            articleId: articleId.uuidString,
+            userId: currentUser.id.uuidString,
+            userName: currentUser.displayName,
+            groupId: groupId.uuidString,
+            groupName: groupName
+        )
+        
+        try await client
+            .from("article_shares")
+            .insert(shareData)
+            .execute()
+        
+        print("✅ 分享成功")
+    }
+    
 
 
     // MARK: - Group Management

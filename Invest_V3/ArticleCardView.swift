@@ -90,11 +90,11 @@ struct ArticleCardView: View {
                         }
                         .foregroundColor(.gray600)
                         
-                        // 閱讀量 (模擬)
+                        // 分享數
                         HStack(spacing: 2) {
-                            Image(systemName: "eye")
+                            Image(systemName: "square.and.arrow.up")
                                 .font(.caption)
-                            Text("\(Int.random(in: 100...9999))")
+                            Text("\(article.sharesCount)")
                                 .font(.caption)
                         }
                         .foregroundColor(.gray600)
