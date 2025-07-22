@@ -885,7 +885,7 @@ class ChatViewModel: ObservableObject {
     func confirmGiftPurchase() {
         guard let gift = selectedGift else { return }
         
-        let totalAmount = Double(gift.price * giftQuantity)
+        let totalAmount = Double(gift.price) * Double(giftQuantity)
         performTip(amount: totalAmount, giftItem: gift, quantity: giftQuantity)
         
         // 重置狀態

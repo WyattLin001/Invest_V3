@@ -1795,7 +1795,7 @@ extension ChatView {
                     
                     // 總計預覽
                     VStack(spacing: 8) {
-                        let totalCost = Double(gift.price * viewModel.giftQuantity)
+                        let totalCost = Double(gift.price) * Double(viewModel.giftQuantity)
                         let totalNTD = totalCost * 100
                         
                         HStack {
@@ -1855,11 +1855,11 @@ extension ChatView {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(
-                            (Double(gift.price * viewModel.giftQuantity) <= viewModel.currentBalance) ?
+                            (Double(gift.price) * Double(viewModel.giftQuantity) <= viewModel.currentBalance) ?
                             Color.brandGreen : Color.gray400
                         )
                         .cornerRadius(10)
-                        .disabled(Double(gift.price * viewModel.giftQuantity) > viewModel.currentBalance)
+                        .disabled(Double(gift.price) * Double(viewModel.giftQuantity) > viewModel.currentBalance)
                     }
                 }
             }
@@ -1879,7 +1879,7 @@ extension ChatView {
     private var giftConfirmationAlert: some View {
         Group {
             if let gift = viewModel.selectedGift {
-                let totalCost = Double(gift.price * viewModel.giftQuantity)
+                let totalCost = Double(gift.price) * Double(viewModel.giftQuantity)
                 let totalNTD = totalCost * 100
                 
                 VStack {
