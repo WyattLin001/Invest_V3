@@ -550,10 +550,14 @@ struct ArticleDetailView: View {
                         id: UUID(),
                         name: "模擬投資群組",
                         host: "測試主持人",
-                        memberCount: 10,
                         returnRate: 15.5,
+                        entryFee: "10 代幣",
+                        memberCount: 10,
                         category: "股票投資",
-                        entryFee: "10 代幣"
+                        rules: "投資群組規則",
+                        tokenCost: 10,
+                        createdAt: Date(),
+                        updatedAt: Date()
                     )
                 ]
             }
@@ -953,7 +957,8 @@ struct ShareGroupRowView: View {
             sharesCount: 12,
             isFree: true,
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
+            keywords: ["股票投資", "新手教學", "投資基礎"]
         )
     )
 } 

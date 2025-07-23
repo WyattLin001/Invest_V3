@@ -69,16 +69,28 @@ class WalletViewModel: ObservableObject {
             self.transactions = [
                 WalletTransaction(
                     id: UUID(),
+                    userId: UUID(),
+                    transactionType: "deposit",
                     amount: 10000,
-                    type: "deposit",
                     description: "初始充值",
+                    status: "confirmed",
+                    paymentMethod: nil,
+                    blockchainId: nil,
+                    recipientId: nil,
+                    groupId: nil,
                     createdAt: Date()
                 ),
                 WalletTransaction(
                     id: UUID(),
+                    userId: UUID(),
+                    transactionType: "subscription",
                     amount: -2500,
-                    type: "subscription",
                     description: "訂閱專家服務",
+                    status: "confirmed",
+                    paymentMethod: nil,
+                    blockchainId: nil,
+                    recipientId: nil,
+                    groupId: nil,
                     createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
                 )
             ]
