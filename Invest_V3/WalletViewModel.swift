@@ -60,6 +60,33 @@ class WalletViewModel: ObservableObject {
     
     // MARK: - 初始化資料
     func loadData() async {
+        // Preview 安全檢查
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            print("🔍 Preview 模式：使用模擬錢包數據")
+            self.balance = 50000.0
+            self.withdrawableAmount = 12500.0
+            self.transactions = [
+                WalletTransaction(
+                    id: UUID(),
+                    amount: 10000,
+                    type: "deposit",
+                    description: "初始充值",
+                    createdAt: Date()
+                ),
+                WalletTransaction(
+                    id: UUID(),
+                    amount: -2500,
+                    type: "subscription",
+                    description: "訂閱專家服務",
+                    createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+                )
+            ]
+            self.isLoading = false
+            return
+        }
+        #endif
+        
         isLoading = true
         errorMessage = nil
         

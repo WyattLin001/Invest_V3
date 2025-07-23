@@ -23,6 +23,11 @@ class SupabaseManager {
     }
     
     private init() {}
+    
+    // Preview 檢測工具
+    static var isPreview: Bool {
+        return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    }
 
     /// 執行初始化 - 只會執行一次，多次呼叫會等待同一個初始化任務完成
     func initialize() async throws {
@@ -49,6 +54,20 @@ class SupabaseManager {
     /// 實際執行初始化的私有方法
     private func performInitialization() async throws {
         guard !_isInitialized else { return }
+        
+        // 檢查是否在 Preview 模式
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            print("🔍 Preview mode detected - creating mock SupabaseClient")
+            // 在 Preview 模式下，使用模擬配置
+            self.client = SupabaseClient(
+                supabaseURL: URL(string: "https://preview.supabase.co")!,
+                supabaseKey: "preview-key"
+            )
+            _isInitialized = true
+            initializationTask = nil
+            print("✅ Supabase 初始化成功 (Preview 模式)")
+            return
+        }
         
         do {
             let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co")!

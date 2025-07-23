@@ -23,6 +23,19 @@ class AppBootstrapper: ObservableObject {
     func bootstrap() async {
         print("🚀 AppBootstrapper 開始初始化...")
         
+        // Preview 安全檢查
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            print("🔍 Preview 模式：跳過真實初始化")
+            await MainActor.run {
+                self.isInitialized = true
+                self.initializationError = nil
+            }
+            print("✅ AppBootstrapper 初始化完成 (Preview 模式)")
+            return
+        }
+        #endif
+        
         do {
             // 1. 初始化 Supabase
             try await SupabaseManager.shared.initialize()

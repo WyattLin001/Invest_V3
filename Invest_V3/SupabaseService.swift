@@ -15,6 +15,15 @@ class SupabaseService: ObservableObject {
 
     // 直接從 SupabaseManager 取得 client（移除 private(set) 因為計算屬性已經是只讀的）
     var client: SupabaseClient {
+        // 如果在 Preview 模式，創建安全的模擬客戶端
+        if SupabaseManager.isPreview {
+            print("🔍 SupabaseService.client: Preview mode detected")
+            return SupabaseClient(
+                supabaseURL: URL(string: "https://preview.supabase.co")!,
+                supabaseKey: "preview-key"
+            )
+        }
+        
         guard let client = SupabaseManager.shared.client else {
             print("❌ SupabaseService.client accessed before initialization")
             print("💡 確保在App啟動時調用 SupabaseManager.shared.initialize()")

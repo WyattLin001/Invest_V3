@@ -69,6 +69,14 @@ struct MainAppView: View {
     }
     
     private func checkSupabaseConnection() {
+        // Preview 安全檢查
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            print("🔍 Preview 模式：跳過 Supabase 連線檢查")
+            return
+        }
+        #endif
+        
         Task {
             do {
                 // 確保 Supabase 已初始化
