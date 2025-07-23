@@ -16,44 +16,60 @@ struct ArticleDetailView: View {
 
     var body: some View {
         NavigationView {
-            ZStack {
-                ScrollView {
-                    articleContentView
-                }
-                
-                // 留言輸入區域（固定在底部）
-                VStack {
-                    Spacer()
-                    commentInputView
-                }
-                
-                // 動畫效果
-                animationOverlays
-            }
-            .navigationTitle("文章詳情")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("關閉") {
-                        dismiss()
-                    }
-                }
-            }
-            .sheet(isPresented: $showGroupPicker) {
-                GroupPickerView(
-                    groups: availableGroups,
-                    onGroupSelected: { group in
-                        interactionVM.shareToGroup(group.id, groupName: group.name)
-                    }
-                )
-            }
-            .onAppear {
-                Task {
-                    await interactionVM.loadInteractionStats()
-                    await interactionVM.loadComments()
-                    await loadAvailableGroups()
+            mainContentStack
+        }
+    }
+    
+    // MARK: - 主要內容堆疊
+    private var mainContentStack: some View {
+        ZStack {
+            // 文章內容滿屏區域
+            articleScrollView
+            
+            // 底部留言輸入
+            bottomCommentInput
+            
+            // 動畫效果層
+            animationOverlays
+        }
+        .navigationTitle("文章詳情")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("關閉") {
+                    dismiss()
                 }
             }
+        }
+        .sheet(isPresented: $showGroupPicker) {
+            GroupPickerView(
+                groups: availableGroups,
+                onGroupSelected: { group in
+                    interactionVM.shareToGroup(group.id, groupName: group.name)
+                }
+            )
+        }
+        .onAppear {
+            Task {
+                await interactionVM.loadInteractionStats()
+                await interactionVM.loadComments()
+                await loadAvailableGroups()
+            }
+        }
+    }
+    
+    // MARK: - 文章滾動視圖
+    private var articleScrollView: some View {
+        ScrollView {
+            articleContentView
+        }
+    }
+    
+    // MARK: - 底部留言輸入
+    private var bottomCommentInput: some View {
+        VStack {
+            Spacer()
+            commentInputView
         }
     }
     
