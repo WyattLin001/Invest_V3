@@ -174,9 +174,9 @@ SELECT
     a.id as article_id,
     a.title,
     a.author,
-    COALESCE(likes_count, 0) as likes_count,
-    COALESCE(comments_count, 0) as comments_count,
-    COALESCE(shares_count, 0) as shares_count
+    COALESCE(likes.likes_count, 0) as likes_count,
+    COALESCE(comments.comments_count, 0) as comments_count,
+    COALESCE(shares.shares_count, 0) as shares_count
 FROM articles a
 LEFT JOIN (
     SELECT article_id, COUNT(*) as likes_count
