@@ -279,7 +279,7 @@ struct ArticleDetailView: View {
                     .font(.caption)
                     .foregroundColor(.gray600)
                 
-                Text("阅讀時間")
+                Text("閱讀時間")
                     .font(.caption2)
                     .foregroundColor(.gray500)
             }
@@ -288,7 +288,7 @@ struct ArticleDetailView: View {
         .background(Color.gray50)
         .cornerRadius(12)
     }
-    
+
     // MARK: - 文章標籤區塊
     private var keywordsBlock: some View {
         VStack(alignment: .leading, spacing: 12) {
