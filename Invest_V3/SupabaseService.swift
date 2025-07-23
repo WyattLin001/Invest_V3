@@ -18,7 +18,19 @@ class SupabaseService: ObservableObject {
         guard let client = SupabaseManager.shared.client else {
             print("❌ SupabaseService.client accessed before initialization")
             print("💡 確保在App啟動時調用 SupabaseManager.shared.initialize()")
-            fatalError("Supabase client is not initialized. Call SupabaseManager.shared.initialize() first.")
+            
+            // 嘗試立即同步初始化
+            do {
+                let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co")!
+                let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTMxNjcsImV4cCI6MjA2NzM4OTE2N30.2-l82gsxWDLMj3gUnSpj8sHddMLtX-JgqrbnY5c_9bg"
+                
+                let emergencyClient = SupabaseClient(supabaseURL: url, supabaseKey: anonKey)
+                print("⚠️ 使用緊急客戶端實例")
+                return emergencyClient
+                
+            } catch {
+                fatalError("無法創建緊急 Supabase 客戶端: \(error)")
+            }
         }
         return client
     }

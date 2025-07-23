@@ -319,7 +319,7 @@ struct ArticleDetailView: View {
     // MARK: - 載入用戶群組
     private func loadAvailableGroups() async {
         do {
-            let groups = try await SupabaseService.shared.fetchUserGroups()
+            let groups = try await SupabaseService.shared.fetchUserJoinedGroups()
             await MainActor.run {
                 self.availableGroups = groups
             }
