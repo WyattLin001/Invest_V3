@@ -540,6 +540,27 @@ struct ArticleDetailView: View {
     
     // MARK: - 載入用戶群組
     private func loadAvailableGroups() async {
+        // Preview 安全檢查
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            // Preview 模式：使用模擬群組
+            await MainActor.run {
+                self.availableGroups = [
+                    InvestmentGroup(
+                        id: UUID(),
+                        name: "模擬投資群組",
+                        host: "測試主持人",
+                        memberCount: 10,
+                        returnRate: 15.5,
+                        category: "股票投資",
+                        entryFee: "10 代幣"
+                    )
+                ]
+            }
+            return
+        }
+        #endif
+        
         do {
             let groups = try await SupabaseService.shared.fetchUserJoinedGroups()
             await MainActor.run {
@@ -549,7 +570,7 @@ struct ArticleDetailView: View {
             print("❌ 載入群組失敗: \(error)")
         }
     }
-}
+
 
 // MARK: - 訂閱彈窗視圖
 struct PlatformMembershipView: View {

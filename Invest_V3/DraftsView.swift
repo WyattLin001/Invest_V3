@@ -68,6 +68,28 @@ struct DraftsView: View {
     }
     
     private func loadDrafts() {
+        // Preview 安全檢查
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            // Preview 模式：使用模擬數據
+            drafts = [
+                ArticleDraft(
+                    title: "模擬草稿 1",
+                    subtitle: "這是一個測試草稿",
+                    bodyMD: "# 模擬內容",
+                    category: "投資分析"
+                ),
+                ArticleDraft(
+                    title: "模擬草稿 2",
+                    bodyMD: "## 另一個測試草稿",
+                    category: "市場觀點"
+                )
+            ]
+            isLoading = false
+            return
+        }
+        #endif
+        
         isLoading = true
         errorMessage = nil
         

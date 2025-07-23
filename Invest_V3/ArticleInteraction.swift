@@ -124,6 +124,20 @@ class ArticleInteractionViewModel: ObservableObject {
     
     /// 載入文章互動統計
     func loadInteractionStats() async {
+        // Preview 安全檢查
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            // Preview 模式：使用模擬數據
+            await MainActor.run {
+                self.isLiked = false
+                self.likesCount = 25
+                self.commentsCount = 8
+                self.sharesCount = 3
+            }
+            return
+        }
+        #endif
+        
         do {
             let stats = try await supabaseService.fetchArticleInteractionStats(articleId: articleId)
             await MainActor.run {
@@ -139,6 +153,30 @@ class ArticleInteractionViewModel: ObservableObject {
     
     /// 載入文章留言
     func loadComments() async {
+        // Preview 安全檢查
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            // Preview 模式：使用模擬留言
+            await MainActor.run {
+                self.comments = [
+                    ArticleComment(
+                        id: UUID(),
+                        content: "這是一個測試留言",
+                        userName: "測試用戶",
+                        createdAt: Date()
+                    ),
+                    ArticleComment(
+                        id: UUID(),
+                        content: "非常好的文章！",
+                        userName: "另一個用戶",
+                        createdAt: Date().addingTimeInterval(-3600)
+                    )
+                ]
+            }
+            return
+        }
+        #endif
+        
         do {
             let comments = try await supabaseService.fetchArticleComments(articleId: articleId)
             await MainActor.run {

@@ -20,6 +20,43 @@ class ArticleViewModel: ObservableObject {
     private let maxFreeArticlesPerDay = 3
     
     func fetchArticles() async {
+        // Preview 安全檢查
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            // Preview 模式：使用模擬數據
+            isLoading = true
+            
+            // 模擬加載時間
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+            
+            articles = [
+                Article(
+                    id: UUID(),
+                    title: "模擬文章 1",
+                    author: "測試作者",
+                    authorId: UUID(),
+                    summary: "這是一個測試文章的摘要",
+                    fullContent: "# 測試內容\n\n這是測試文章的內容。",
+                    bodyMD: "# 測試內容\n\n這是測試文章的內容。",
+                    category: "投資分析",
+                    readTime: "3 分鐘",
+                    likesCount: 15,
+                    commentsCount: 5,
+                    sharesCount: 2,
+                    keywords: ["測試", "投資"],
+                    isFree: true,
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+            ]
+            filteredArticles = articles
+            trendingKeywords = ["全部", "投資", "股票", "基金", "分析"]
+            error = nil
+            isLoading = false
+            return
+        }
+        #endif
+        
         isLoading = true
         do {
             articles = try await SupabaseService.shared.fetchArticles()
