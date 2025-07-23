@@ -3,7 +3,7 @@ import Foundation
 // MARK: - ArticleDraft Model
 
 struct ArticleDraft: Identifiable, Codable {
-    let id: UUID = UUID()
+    let id: UUID
     var title: String = ""
     var subtitle: String? = nil      // 修復：允許 nil 值
     var summary: String = ""         // 文章摘要
@@ -17,6 +17,41 @@ struct ArticleDraft: Identifiable, Codable {
     var publication: Publication?    // optional host publication
     var createdAt: Date = Date()     // 創建時間
     var updatedAt: Date = Date()     // 更新時間
+    
+    // MARK: - Initializers
+    
+    /// 預設初始化器（用於創建新草稿）
+    init(
+        id: UUID = UUID(),
+        title: String = "",
+        subtitle: String? = nil,
+        summary: String = "",
+        bodyMD: String = "",
+        category: String = "投資分析",
+        keywords: [String] = [],
+        slug: String = "",
+        isPaid: Bool = false,
+        isFree: Bool = true,
+        isUnlisted: Bool = false,
+        publication: Publication? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.summary = summary
+        self.bodyMD = bodyMD
+        self.category = category
+        self.keywords = keywords
+        self.slug = slug
+        self.isPaid = isPaid
+        self.isFree = isFree
+        self.isUnlisted = isUnlisted
+        self.publication = publication
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
     
     /// Computed canonical URL shown to the user
     var canonicalURL: String {
