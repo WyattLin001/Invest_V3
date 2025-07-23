@@ -56,7 +56,10 @@ class SupabaseManager {
         guard !_isInitialized else { return }
         
         // 檢查是否在 Preview 模式
-        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+        let isPreviewMode = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        print("🔍 SupabaseManager: isPreviewMode = \(isPreviewMode)")
+        
+        if isPreviewMode {
             print("🔍 Preview mode detected - creating mock SupabaseClient")
             // 在 Preview 模式下，使用模擬配置
             self.client = SupabaseClient(

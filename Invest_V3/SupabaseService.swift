@@ -15,9 +15,13 @@ class SupabaseService: ObservableObject {
 
     // 直接從 SupabaseManager 取得 client（移除 private(set) 因為計算屬性已經是只讀的）
     var client: SupabaseClient {
+        // Debug: 打印當前環境變數以檢查 Preview 模式
+        let isPreviewMode = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        print("🔍 SupabaseService.client: isPreviewMode = \(isPreviewMode)")
+        
         // 如果在 Preview 模式，創建安全的模擬客戶端
-        if SupabaseManager.isPreview {
-            print("🔍 SupabaseService.client: Preview mode detected")
+        if isPreviewMode {
+            print("🔍 SupabaseService.client: Using Preview mode client")
             return SupabaseClient(
                 supabaseURL: URL(string: "https://preview.supabase.co")!,
                 supabaseKey: "preview-key"
@@ -28,18 +32,12 @@ class SupabaseService: ObservableObject {
             print("❌ SupabaseService.client accessed before initialization")
             print("💡 確保在App啟動時調用 SupabaseManager.shared.initialize()")
             
-            // 嘗試立即同步初始化
-            do {
-                let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co")!
-                let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTMxNjcsImV4cCI6MjA2NzM4OTE2N30.2-l82gsxWDLMj3gUnSpj8sHddMLtX-JgqrbnY5c_9bg"
-                
-                let emergencyClient = SupabaseClient(supabaseURL: url, supabaseKey: anonKey)
-                print("⚠️ 使用緊急客戶端實例")
-                return emergencyClient
-                
-            } catch {
-                fatalError("無法創建緊急 Supabase 客戶端: \(error)")
-            }
+            // 嘗試立即同步初始化 - 使用正確的 URL
+            print("⚠️ 使用緊急客戶端實例 - 正式環境")
+            let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co")!
+            let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTMxNjcsImV4cCI6MjA2NzM4OTE2N30.2-l82gsxWDLMj3gUnSpj8sHddMLtX-JgqrbnY5c_9bg"
+            
+            return SupabaseClient(supabaseURL: url, supabaseKey: anonKey)
         }
         return client
     }
