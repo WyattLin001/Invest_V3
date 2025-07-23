@@ -484,7 +484,7 @@ struct ArticleDetailView: View {
             print("❌ 載入群組失敗: \(error)")
         }
     }
-
+}
 
 // MARK: - 訂閱彈窗視圖
 struct PlatformMembershipView: View {
