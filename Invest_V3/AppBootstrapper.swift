@@ -163,19 +163,33 @@ struct BootstrapView: View {
     
     var body: some View {
         ZStack {
-            Color.gray100
+            // 使用明確的背景色來診斷問題
+            Color.white
                 .ignoresSafeArea()
             
             VStack(spacing: 24) {
                 // Logo 或品牌圖標
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 60))
-                    .foregroundColor(.brandGreen)
+                    .foregroundColor(.green)
                 
                 Text("Invest V3")
                     .font(.title)
                     .fontWeight(.bold)
-                    .foregroundColor(.gray900)
+                    .foregroundColor(.black)
+                
+                // 添加調試信息
+                Text("初始化狀態: \(bootstrapper.isInitialized ? "已完成" : "進行中")")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                if let error = bootstrapper.initializationError {
+                    Text("錯誤: \(error)")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                }
                 
                 if bootstrapper.isInitialized {
                     // 初始化完成

@@ -33,36 +33,25 @@ struct MainAppView: View {
         }
         .onAppear {
             checkSupabaseConnection()
-            // 設定初始狀態
+            // 簡化初始狀態設定 - 避免動畫衝突
             if authService.isAuthenticated {
-                // 已登入時，卡片在底部隱藏
-                authCardOffset = UIScreen.main.bounds.height
+                // 已登入時，卡片隱藏
+                authCardOffset = 1000
             } else {
-                // 未登入時，卡片在屏幕底部準備上升
-                authCardOffset = UIScreen.main.bounds.height * 0.8
-                
-                // 延遲一點讓卡片上升到等待位置
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.spring(response: 0.8, dampingFraction: 0.9)) {
-                        authCardOffset = 0 // 上升到正常位置
-                    }
-                }
+                // 未登入時，卡片顯示
+                authCardOffset = 0
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserSignedIn"))) { _ in
-            print("📱 收到登入成功通知，卡片向下滑動消失")
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                authCardOffset = UIScreen.main.bounds.height // 下降消失
+            print("📱 收到登入成功通知，卡片隱藏")
+            withAnimation(.easeOut(duration: 0.3)) {
+                authCardOffset = 1000 // 簡單隱藏
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserLoggedOut"))) { _ in
-            print("📱 收到登出通知，卡片從底部向上滑動到等待位置")
-            // 首先讓卡片在底部
-            authCardOffset = UIScreen.main.bounds.height * 0.8
-            
-            // 然後向上滑動到等待位置
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                authCardOffset = 0 // 上升到等待位置
+            print("📱 收到登出通知，卡片顯示")
+            withAnimation(.easeIn(duration: 0.3)) {
+                authCardOffset = 0 // 簡單顯示
             }
         }
         .toast(message: toastMessage, isShowing: $showConnectionToast)
