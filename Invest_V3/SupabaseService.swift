@@ -1253,7 +1253,85 @@ class SupabaseService: ObservableObject {
         print("✅ 分享成功")
     }
     
-
+    // MARK: - Trending Keywords & Article Search
+    
+    /// 獲取熱門關鍵字（前5個最常用的關鍵字）
+    func fetchTrendingKeywords() async throws -> [String] {
+        print("🔥 準備獲取熱門關鍵字")
+        
+        do {
+            // 獲取所有文章的關鍵字
+            let articles: [Article] = try await client
+                .from("articles")
+                .select("keywords")
+                .execute()
+                .value
+            
+            // 統計關鍵字出現頻率
+            var keywordCount: [String: Int] = [:]
+            
+            for article in articles {
+                for keyword in article.keywords {
+                    let trimmedKeyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmedKeyword.isEmpty {
+                        keywordCount[trimmedKeyword, default: 0] += 1
+                    }
+                }
+            }
+            
+            // 如果沒有關鍵字數據，返回預設熱門關鍵字
+            if keywordCount.isEmpty {
+                print("ℹ️ 沒有關鍵字數據，使用預設熱門關鍵字")
+                return ["投資分析", "市場趨勢", "股票", "基金", "風險管理"]
+            }
+            
+            // 按出現次數排序，取前5個
+            let trendingKeywords = keywordCount
+                .sorted { $0.value > $1.value }
+                .prefix(5)
+                .map { $0.key }
+            
+            let result = Array(trendingKeywords)
+            print("✅ 獲取熱門關鍵字成功: \(result)")
+            return result
+            
+        } catch {
+            print("⚠️ 獲取關鍵字失敗，使用預設關鍵字: \(error)")
+            // 發生錯誤時返回預設關鍵字
+            return ["投資分析", "市場趨勢", "股票", "基金", "風險管理"]
+        }
+    }
+    
+    /// 根據關鍵字篩選文章
+    func fetchArticlesByKeyword(_ keyword: String) async throws -> [Article] {
+        print("🔍 根據關鍵字篩選文章: \(keyword)")
+        
+        if keyword == "全部" {
+            // 如果選擇"全部"，返回所有文章
+            return try await fetchArticles()
+        }
+        
+        // 獲取所有文章
+        let allArticles = try await fetchArticles()
+        
+        // 篩選包含指定關鍵字的文章
+        let filteredArticles = allArticles.filter { article in
+            // 檢查關鍵字數組是否包含指定關鍵字
+            article.keywords.contains { $0.localizedCaseInsensitiveContains(keyword) } ||
+            // 也檢查標題和摘要是否包含關鍵字
+            article.title.localizedCaseInsensitiveContains(keyword) ||
+            article.summary.localizedCaseInsensitiveContains(keyword)
+        }
+        
+        print("✅ 根據關鍵字 '\(keyword)' 篩選到 \(filteredArticles.count) 篇文章")
+        return filteredArticles
+    }
+    
+    /// 獲取完整的熱門關鍵字列表（包括"全部"選項）
+    func getTrendingKeywordsWithAll() async throws -> [String] {
+        let trendingKeywords = try await fetchTrendingKeywords()
+        return ["全部"] + trendingKeywords
+    }
 
     // MARK: - Group Management
     func createPortfolio(groupId: UUID, userId: UUID) async throws -> Portfolio {

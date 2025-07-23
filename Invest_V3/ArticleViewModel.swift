@@ -13,7 +13,8 @@ class ArticleViewModel: ObservableObject {
     @Published var filteredArticles: [Article] = []
     @Published var isLoading = false
     @Published var error: Error?
-    @Published var selectedCategory = "全部"
+    @Published var selectedKeyword = "全部"
+    @Published var trendingKeywords: [String] = ["全部"]
     @Published var freeArticlesReadToday = 0
     
     private let maxFreeArticlesPerDay = 3
@@ -24,11 +25,27 @@ class ArticleViewModel: ObservableObject {
             articles = try await SupabaseService.shared.fetchArticles()
             filteredArticles = articles
             error = nil
+            
+            // 同時載入熱門關鍵字
+            await loadTrendingKeywords()
         } catch {
             self.error = error
             print("❌ Fetch failed: \(error)")
         }
         isLoading = false
+    }
+    
+    /// 載入熱門關鍵字
+    func loadTrendingKeywords() async {
+        do {
+            let keywords = try await SupabaseService.shared.getTrendingKeywordsWithAll()
+            trendingKeywords = keywords
+            print("✅ 載入熱門關鍵字成功: \(keywords)")
+        } catch {
+            print("❌ 載入熱門關鍵字失敗: \(error)")
+            // 使用預設關鍵字
+            trendingKeywords = ["全部", "投資分析", "市場趨勢", "股票", "基金", "風險管理"]
+        }
     }
     
     func filteredArticles(search: String) -> [Article] {
@@ -46,17 +63,31 @@ class ArticleViewModel: ObservableObject {
         return result
     }
     
-    func filterByCategory(_ category: String) {
-        selectedCategory = category
-        applyFilter()
+    func filterByKeyword(_ keyword: String) {
+        selectedKeyword = keyword
+        Task {
+            await applyKeywordFilter()
+        }
     }
     
-    private func applyFilter() {
-        if selectedCategory != "全部" {
-            filteredArticles = articles.filter { $0.category == selectedCategory }
-        } else {
+    private func applyKeywordFilter() async {
+        if selectedKeyword == "全部" {
             filteredArticles = articles
+        } else {
+            do {
+                // 使用 SupabaseService 的關鍵字篩選功能
+                filteredArticles = try await SupabaseService.shared.fetchArticlesByKeyword(selectedKeyword)
+            } catch {
+                print("❌ 關鍵字篩選失敗: \(error)")
+                // 發生錯誤時使用本地篩選作為備選方案
+                filteredArticles = articles.filter { article in
+                    article.keywords.contains { $0.localizedCaseInsensitiveContains(selectedKeyword) } ||
+                    article.title.localizedCaseInsensitiveContains(selectedKeyword) ||
+                    article.summary.localizedCaseInsensitiveContains(selectedKeyword)
+                }
+            }
         }
+        print("✅ 關鍵字篩選完成，篩選到 \(filteredArticles.count) 篇文章")
     }
     
     func canReadFreeArticle() -> Bool {

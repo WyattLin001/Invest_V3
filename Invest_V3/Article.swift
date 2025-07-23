@@ -16,6 +16,7 @@ struct Article: Codable, Identifiable {
     let isFree: Bool
     let createdAt: Date
     let updatedAt: Date
+    let keywords: [String]
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -33,6 +34,7 @@ struct Article: Codable, Identifiable {
         case isFree = "is_free"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case keywords
     }
     
     // 常規初始化器
@@ -52,6 +54,7 @@ struct Article: Codable, Identifiable {
         self.isFree = isFree
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.keywords = keywords
     }
     
     // 提供默認值的初始化器
@@ -72,5 +75,6 @@ struct Article: Codable, Identifiable {
         isFree = try container.decodeIfPresent(Bool.self, forKey: .isFree) ?? true
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        keywords = try container.decodeIfPresent([String].self, forKey: .keywords) ?? []
     }
 } 

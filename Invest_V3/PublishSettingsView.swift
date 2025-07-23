@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct PublishSettingsView: View {
-    @Binding var selectedCategory: String
     @Binding var keywords: [String]
     @Binding var isPaidContent: Bool
     let onPublish: () -> Void
@@ -17,7 +16,6 @@ struct PublishSettingsView: View {
     @State private var showingImagePicker = false
     @State private var showingPreview = false
     
-    private let categories = ["投資分析", "市場趨勢", "個股研究", "加密貨幣"]
     private let maxTags = 5
     private let maxTitleLength = 100
     private let maxSubtitleLength = 80
@@ -44,9 +42,6 @@ struct PublishSettingsView: View {
                     
                     // 標題和副標題
                     titleSection
-                    
-                    // 分類選擇
-                    categorySection
                     
                     // 標籤管理
                     tagsSection
@@ -87,7 +82,7 @@ struct PublishSettingsView: View {
             PreviewView(
                 title: articleTitle,
                 subtitle: articleSubtitle,
-                category: selectedCategory,
+                category: "投資分析", // 使用默認分類
                 tags: keywords,
                 coverImageURL: coverImageURL,
                 isPaidContent: isPaidContent
@@ -204,26 +199,6 @@ struct PublishSettingsView: View {
         }
     }
     
-    // MARK: - 分類選擇區域
-    private var categorySection: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
-            Text("文章分類")
-                .font(.headline)
-                .foregroundColor(textColor)
-            
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: DesignTokens.spacingSM) {
-                ForEach(categories, id: \.self) { category in
-                    CategoryButton(
-                        title: category,
-                        isSelected: selectedCategory == category,
-                        textColor: textColor
-                    ) {
-                        selectedCategory = category
-                    }
-                }
-            }
-        }
-    }
     
     // MARK: - 標籤管理區域
     private var tagsSection: some View {
@@ -383,27 +358,6 @@ struct PublishSettingsView: View {
     }
 }
 
-// MARK: - 分類按鈕
-struct CategoryButton: View {
-    let title: String
-    let isSelected: Bool
-    let textColor: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(isSelected ? .white : textColor)
-                .padding(.horizontal, DesignTokens.spacingMD)
-                .padding(.vertical, DesignTokens.spacingSM)
-                .background(isSelected ? Color.brandBlue : Color.gray200)
-                .cornerRadius(DesignTokens.cornerRadius)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
 
 // MARK: - 標籤氣泡視圖
 struct TagBubbleView: View {
@@ -568,7 +522,6 @@ struct PreviewView: View {
 
 #Preview {
     PublishSettingsView(
-        selectedCategory: .constant("投資分析"),
         keywords: .constant(["股票", "投資"]),
         isPaidContent: .constant(false),
         onPublish: {}

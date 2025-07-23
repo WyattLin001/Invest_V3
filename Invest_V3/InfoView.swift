@@ -10,12 +10,10 @@ import SwiftUI
 struct InfoView: View {
     @StateObject private var viewModel = ArticleViewModel()
     @State private var searchText = ""
-    @State private var selectedCategory = 0
+    @State private var selectedKeywordIndex = 0
     @State private var showArticleEditor = false
     @State private var selectedArticle: Article?
     @State private var showArticleDetail = false
-    
-    private let categories = ["全部", "投資分析", "市場趨勢", "個股研究", "加密貨幣"]
 
     var body: some View {
         NavigationView {
@@ -27,8 +25,8 @@ struct InfoView: View {
                     // 搜尋框 (343×40 pt)
                     searchBar
                     
-                    // 類別篩選
-                    categoryFilter
+                    // 熱門關鍵字篩選
+                    keywordFilter
                     
                     // 文章列表
                     articlesList
@@ -105,18 +103,28 @@ struct InfoView: View {
         .padding(.vertical, DesignTokens.spacingSM)
     }
     
-    // MARK: - 類別篩選
-    private var categoryFilter: some View {
+    // MARK: - 熱門關鍵字篩選
+    private var keywordFilter: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: DesignTokens.spacingSM) {
-                ForEach(categories.indices, id: \.self) { index in
-                    CategoryChip(
-                        title: categories[index],
-                        isSelected: selectedCategory == index
+                if viewModel.trendingKeywords.isEmpty {
+                    // 顯示"無"選項當沒有熱門關鍵字時
+                    KeywordChip(
+                        title: "無",
+                        isSelected: true
                     ) {
-                        withAnimation(.easeInOut(duration: DesignTokens.animationFast)) {
-                            selectedCategory = index
-                            viewModel.filterByCategory(categories[index])
+                        // 無操作
+                    }
+                } else {
+                    ForEach(viewModel.trendingKeywords.indices, id: \.self) { index in
+                        KeywordChip(
+                            title: viewModel.trendingKeywords[index],
+                            isSelected: selectedKeywordIndex == index
+                        ) {
+                            withAnimation(.easeInOut(duration: DesignTokens.animationFast)) {
+                                selectedKeywordIndex = index
+                                viewModel.filterByKeyword(viewModel.trendingKeywords[index])
+                            }
                         }
                     }
                 }
@@ -215,8 +223,8 @@ struct InfoView: View {
     }
 }
 
-// MARK: - 類別標籤
-struct CategoryChip: View {
+// MARK: - 關鍵字標籤
+struct KeywordChip: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
@@ -226,16 +234,15 @@ struct CategoryChip: View {
             Text(title)
                 .font(.caption)
                 .fontWeight(.medium)
-                .padding(.horizontal, 12) // 增加水平內距
-                .padding(.vertical, 8) // 增加垂直內距
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 .background(isSelected ? Color.brandGreen : Color.gray200)
                 .foregroundColor(isSelected ? .white : .gray600)
-                .cornerRadius(16) // 增加圓角半徑
+                .cornerRadius(16)
         }
-        // 移除固定寬度限制，讓文字自然顯示
         .fixedSize(horizontal: true, vertical: false)
-        .accessibilityLabel(isSelected ? "目前篩選：\(title)" : "篩選：\(title)")
-        .accessibilityHint("切換到\(title)分類的投資群組")
+        .accessibilityLabel(isSelected ? "目前關鍵字：\(title)" : "關鍵字：\(title)")
+        .accessibilityHint("篩選包含\(title)關鍵字的文章")
     }
 }
 
