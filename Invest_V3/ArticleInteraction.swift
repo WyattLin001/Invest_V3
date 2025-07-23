@@ -20,7 +20,7 @@ struct ArticleLike: Codable, Identifiable {
 }
 
 /// 文章留言記錄  
-struct ArticleComment: Codable, Identifiable {
+struct ArticleComment: Codable, Identifiable, Equatable {
     let id: UUID
     let articleId: UUID
     let userId: UUID

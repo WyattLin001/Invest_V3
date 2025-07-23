@@ -572,7 +572,7 @@ struct GroupPickerView: View {
                     }
                 } else {
                     List(groups) { group in
-                        GroupRowView(
+                        ShareGroupRowView(
                             group: group,
                             isSelected: selectedGroup?.id == group.id
                         ) {
@@ -607,7 +607,7 @@ struct GroupPickerView: View {
 }
 
 // MARK: - 群組行視圖
-struct GroupRowView: View {
+struct ShareGroupRowView: View {
     let group: InvestmentGroup
     let isSelected: Bool
     let onTap: () -> Void
@@ -707,6 +707,7 @@ struct GroupRowView: View {
             readTime: "5 分鐘",
             likesCount: 128,
             commentsCount: 24,
+            sharesCount: 12,
             isFree: true,
             createdAt: Date(),
             updatedAt: Date()
