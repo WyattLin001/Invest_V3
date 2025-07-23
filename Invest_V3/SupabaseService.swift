@@ -15,8 +15,8 @@ class SupabaseService: ObservableObject {
 
     // 直接從 SupabaseManager 取得 client（移除 private(set) 因為計算屬性已經是只讀的）
     var client: SupabaseClient {
-        // Debug: 打印當前環境變數以檢查 Preview 模式
-        let isPreviewMode = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        // 使用統一的 Preview 檢測邏輯
+        let isPreviewMode = SupabaseManager.isPreview
         print("🔍 SupabaseService.client: isPreviewMode = \(isPreviewMode)")
         
         // 如果在 Preview 模式，創建安全的模擬客戶端
