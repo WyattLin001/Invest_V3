@@ -15,8 +15,15 @@ struct Invest_V3App: App {
     @StateObject private var friendService = FriendService.shared
     
     init() {
-        // 在 app 啟動時初始化 Supabase 和通知服務
-        // 移動到 onAppear 中執行，避免 escaping closure 問題
+        // 在 app 啟動時立即初始化 Supabase
+        Task {
+            do {
+                try await SupabaseManager.shared.initialize()
+                print("✅ App init：Supabase 初始化完成")
+            } catch {
+                print("❌ App init：Supabase 初始化失敗 - \(error.localizedDescription)")
+            }
+        }
     }
 
     var body: some Scene {

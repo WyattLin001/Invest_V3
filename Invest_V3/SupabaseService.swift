@@ -16,6 +16,8 @@ class SupabaseService: ObservableObject {
     // 直接從 SupabaseManager 取得 client（移除 private(set) 因為計算屬性已經是只讀的）
     var client: SupabaseClient {
         guard let client = SupabaseManager.shared.client else {
+            print("❌ SupabaseService.client accessed before initialization")
+            print("💡 確保在App啟動時調用 SupabaseManager.shared.initialize()")
             fatalError("Supabase client is not initialized. Call SupabaseManager.shared.initialize() first.")
         }
         return client
