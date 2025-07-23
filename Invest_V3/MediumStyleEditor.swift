@@ -17,6 +17,9 @@ struct MediumStyleEditor: View {
     @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
     @State private var titleCharacterCount: Int = 0
     @State private var isPublishing: Bool = false
+    @State private var showSaveDraftAlert = false
+    @State private var isAutoSaving = false
+    @State private var lastAutoSaveTime: Date = Date()
     
     @StateObject private var articleViewModel = ArticleViewModel()
     @Environment(\.dismiss) private var dismiss
@@ -82,6 +85,27 @@ struct MediumStyleEditor: View {
             // 初始化 draft
             currentDraft = createDraftFromCurrentState()
         }
+        .onDisappear {
+            // 當視圖消失時自動保存草稿
+            if hasUnsavedChanges {
+                Task {
+                    await autoSaveDraft(silent: true)
+                }
+            }
+        }
+        .alert("保存草稿", isPresented: $showSaveDraftAlert) {
+            Button("保存") {
+                Task {
+                    await saveDraftAndClose()
+                }
+            }
+            Button("不保存") {
+                dismiss()
+            }
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text("你有未保存的更改，是否要保存為草稿？")
+        }
         .onChange(of: showSettings) { _, isShowing in
             if isShowing {
                 // 打開設定頁面時，從當前狀態創建 draft
@@ -137,9 +161,10 @@ struct MediumStyleEditor: View {
             // 關閉按鈕
             Button(action: { 
                 if hasUnsavedChanges {
-                    // TODO: 顯示保存提醒
+                    showSaveDraftAlert = true
+                } else {
+                    dismiss()
                 }
-                dismiss() 
             }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .medium))
@@ -557,6 +582,51 @@ struct MediumStyleEditor: View {
             .padding(.vertical, 16)
         }
         .background(backgroundColor)
+    }
+    
+    // MARK: - Draft Management Methods
+    
+    /// 無靕自動保存草稿
+    private func autoSaveDraft(silent: Bool = false) async {
+        guard hasUnsavedChanges else { return }
+        
+        isAutoSaving = true
+        
+        do {
+            var draft = createDraftFromCurrentState()
+            draft.bodyMD = await convertAttributedContentToMarkdown()
+            
+            let _ = try await SupabaseService.shared.saveDraft(draft)
+            
+            if !silent {
+                await MainActor.run {
+                    lastAutoSaveTime = Date()
+                    print("✅ 草稿自動保存成功")
+                }
+            }
+        } catch {
+            if !silent {
+                print("❌ 草稿自動保存失敗: \(error.localizedDescription)")
+            }
+        }
+        
+        isAutoSaving = false
+    }
+    
+    /// 保存草稿並關閉編輯器
+    private func saveDraftAndClose() async {
+        await autoSaveDraft(silent: false)
+        dismiss()
+    }
+    
+    /// 手動保存草稿
+    private func saveDraft() async {
+        guard !title.isEmpty else {
+            print("❌ 標題不能為空")
+            return
+        }
+        
+        await autoSaveDraft(silent: false)
     }
 }
 

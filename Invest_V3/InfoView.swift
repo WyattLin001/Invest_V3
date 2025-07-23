@@ -14,6 +14,7 @@ struct InfoView: View {
     @State private var showArticleEditor = false
     @State private var selectedArticle: Article?
     @State private var showArticleDetail = false
+    @State private var showDrafts = false
 
     var body: some View {
         NavigationView {
@@ -49,6 +50,12 @@ struct InfoView: View {
         .sheet(isPresented: $showArticleDetail) {
             if let article = selectedArticle {
                 ArticleDetailView(article: article)
+                    .onDisappear {
+                        // 從文章詳情返回時刷新文章列表，更新按讚數等統計資料
+                        Task {
+                            await viewModel.fetchArticles()
+                        }
+                    }
             }
         }
         .onAppear {
@@ -61,6 +68,9 @@ struct InfoView: View {
                 await viewModel.fetchArticles()
             }
         }
+        .sheet(isPresented: $showDrafts) {
+            DraftsView()
+        }
     }
     
     // MARK: - 頂部導航欄
@@ -72,6 +82,19 @@ struct InfoView: View {
                 .foregroundColor(.gray900)
             
             Spacer()
+            
+            // 草稿按鈕
+            Button(action: {
+                showDrafts = true
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 16))
+                    Text("草稿")
+                        .font(.subheadline)
+                }
+                .foregroundColor(.brandGreen)
+            }
         }
         .padding(.horizontal, DesignTokens.spacingMD)
         .frame(height: 44)

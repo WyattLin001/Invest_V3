@@ -870,6 +870,8 @@ class SupabaseService: ObservableObject {
             let bodyMD: String
             let category: String
             let isFree: Bool
+            let keywords: [String]
+            let sharesCount: Int
             let createdAt: Date
             let updatedAt: Date
             
@@ -882,6 +884,8 @@ class SupabaseService: ObservableObject {
                 case bodyMD = "body_md"
                 case category
                 case isFree = "is_free"
+                case keywords
+                case sharesCount = "shares_count"
                 case createdAt = "created_at"
                 case updatedAt = "updated_at"
             }
@@ -899,6 +903,8 @@ class SupabaseService: ObservableObject {
             bodyMD: bodyMD,
             category: category,
             isFree: isFree,
+            keywords: [], // Default empty keywords for direct article creation
+            sharesCount: 0,
             createdAt: Date(),
             updatedAt: Date()
         )
@@ -920,7 +926,7 @@ class SupabaseService: ObservableObject {
         
         let currentUser = try await getCurrentUserAsync()
         
-        struct ArticleInsertWithoutTags: Codable {
+        struct ArticleInsertWithKeywords: Codable {
             let title: String
             let author: String
             let authorId: String
@@ -929,6 +935,8 @@ class SupabaseService: ObservableObject {
             let bodyMD: String
             let category: String
             let isFree: Bool
+            let keywords: [String]
+            let sharesCount: Int
             let createdAt: Date
             let updatedAt: Date
             
@@ -941,6 +949,8 @@ class SupabaseService: ObservableObject {
                 case bodyMD = "body_md"
                 case category
                 case isFree = "is_free"
+                case keywords
+                case sharesCount = "shares_count"
                 case createdAt = "created_at"
                 case updatedAt = "updated_at"
             }
@@ -949,7 +959,7 @@ class SupabaseService: ObservableObject {
         // 生成文章摘要（取前200字）
         let summary = draft.summary.isEmpty ? String(draft.bodyMD.prefix(200)) : draft.summary
         
-        let articleData = ArticleInsertWithoutTags(
+        let articleData = ArticleInsertWithKeywords(
             title: draft.title,
             author: currentUser.displayName,
             authorId: currentUser.id.uuidString,
@@ -958,6 +968,8 @@ class SupabaseService: ObservableObject {
             bodyMD: draft.bodyMD,
             category: draft.category,
             isFree: draft.isFree,
+            keywords: draft.keywords,
+            sharesCount: 0,
             createdAt: draft.createdAt,
             updatedAt: Date()
         )
@@ -971,6 +983,138 @@ class SupabaseService: ObservableObject {
             .value
         
         return insertedArticle
+    }
+    
+    // MARK: - Draft Management
+    
+    /// 保存草稿到 Supabase
+    public func saveDraft(_ draft: ArticleDraft) async throws -> ArticleDraft {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let currentUser = try await getCurrentUserAsync()
+        
+        struct DraftInsert: Codable {
+            let id: String
+            let title: String
+            let subtitle: String?
+            let bodyMD: String
+            let category: String
+            let keywords: [String]
+            let isFree: Bool
+            let isUnlisted: Bool
+            let authorId: String
+            let createdAt: Date
+            let updatedAt: Date
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case title
+                case subtitle
+                case bodyMD = "body_md"
+                case category
+                case keywords
+                case isFree = "is_free"
+                case isUnlisted = "is_unlisted"
+                case authorId = "author_id"
+                case createdAt = "created_at"
+                case updatedAt = "updated_at"
+            }
+        }
+        
+        let draftData = DraftInsert(
+            id: draft.id.uuidString,
+            title: draft.title,
+            subtitle: draft.subtitle,
+            bodyMD: draft.bodyMD,
+            category: draft.category,
+            keywords: draft.keywords,
+            isFree: draft.isFree,
+            isUnlisted: draft.isUnlisted,
+            authorId: currentUser.id.uuidString,
+            createdAt: draft.createdAt,
+            updatedAt: Date()
+        )
+        
+        // 使用 upsert 來處理新增或更新
+        let _: [DraftInsert] = try await client
+            .from("article_drafts")
+            .upsert(draftData)
+            .execute()
+            .value
+            
+        // 返回更新後的草稿
+        var updatedDraft = draft
+        updatedDraft.updatedAt = Date()
+        return updatedDraft
+    }
+    
+    /// 從 Supabase 載入用戶的草稿列表
+    public func fetchUserDrafts() async throws -> [ArticleDraft] {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let currentUser = try await getCurrentUserAsync()
+        
+        struct DraftResponse: Codable {
+            let id: String
+            let title: String
+            let subtitle: String?
+            let bodyMD: String
+            let category: String
+            let keywords: [String]
+            let isFree: Bool
+            let isUnlisted: Bool
+            let authorId: String
+            let createdAt: Date
+            let updatedAt: Date
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case title
+                case subtitle
+                case bodyMD = "body_md"
+                case category
+                case keywords
+                case isFree = "is_free"
+                case isUnlisted = "is_unlisted"
+                case authorId = "author_id"
+                case createdAt = "created_at"
+                case updatedAt = "updated_at"
+            }
+        }
+        
+        let drafts: [DraftResponse] = try await client
+            .from("article_drafts")
+            .select()
+            .eq("author_id", value: currentUser.id.uuidString)
+            .order("updated_at", ascending: false)
+            .execute()
+            .value
+            
+        return drafts.map { draft in
+            ArticleDraft(
+                id: UUID(uuidString: draft.id) ?? UUID(),
+                title: draft.title,
+                subtitle: draft.subtitle,
+                bodyMD: draft.bodyMD,
+                category: draft.category,
+                keywords: draft.keywords,
+                isFree: draft.isFree,
+                isUnlisted: draft.isUnlisted,
+                createdAt: draft.createdAt,
+                updatedAt: draft.updatedAt
+            )
+        }
+    }
+    
+    /// 刪除草稿
+    public func deleteDraft(_ draftId: UUID) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        try await client
+            .from("article_drafts")
+            .delete()
+            .eq("id", value: draftId.uuidString)
+            .execute()
     }
     
     // 上傳圖片到 Supabase Storage

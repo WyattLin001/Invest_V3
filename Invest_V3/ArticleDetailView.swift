@@ -24,15 +24,20 @@ struct ArticleDetailView: View {
                             .font(.largeTitle.bold())
                             .multilineTextAlignment(.leading)
 
-                        // 作者與日期
+                        // 作者資訊區塊
+                        authorInfoBlock
+                        
+                        // 文章分類和狀態
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(article.author)
-                                    .font(.headline)
-                                Text(article.createdAt.formatted(date: .long, time: .shortened))
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
+                            Text(article.category)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.brandBlue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.brandBlue.opacity(0.1))
+                                .cornerRadius(16)
+                            
                             Spacer()
                             if !article.isFree {
                                 Label("付費文章", systemImage: "lock.fill")
@@ -51,6 +56,50 @@ struct ArticleDetailView: View {
                             .markdownTextStyle {
                                 FontSize(.em(1.0))
                             }
+                            // H1 標題樣式
+                            .markdownBlockStyle(\.heading1) { configuration in
+                                configuration.label
+                                    .font(.largeTitle)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.gray900)
+                                    .padding(.vertical, 8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .overlay(
+                                        Rectangle()
+                                            .frame(height: 2)
+                                            .foregroundColor(.brandGreen)
+                                            .offset(y: 20),
+                                        alignment: .bottom
+                                    )
+                            }
+                            // H2 標題樣式
+                            .markdownBlockStyle(\.heading2) { configuration in
+                                configuration.label
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.gray800)
+                                    .padding(.top, 16)
+                                    .padding(.bottom, 8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .overlay(
+                                        Rectangle()
+                                            .frame(height: 1)
+                                            .foregroundColor(.gray300)
+                                            .offset(y: 12),
+                                        alignment: .bottom
+                                    )
+                            }
+                            // H3 標題樣式
+                            .markdownBlockStyle(\.heading3) { configuration in
+                                configuration.label
+                                    .font(.title3)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.gray800)
+                                    .padding(.top, 14)
+                                    .padding(.bottom, 6)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            // 代碼區塊樣式
                             .markdownBlockStyle(\.codeBlock) { configuration in
                                 configuration.label
                                     .font(.system(.body, design: .monospaced))
@@ -58,6 +107,53 @@ struct ArticleDetailView: View {
                                     .background(Color.secondary.opacity(0.25))
                                     .cornerRadius(8)
                             }
+                            // 圖片樣式（支援來源標註）
+                            .markdownBlockStyle(\.image) { configuration in
+                                VStack(spacing: 8) {
+                                    configuration.label
+                                        .frame(maxWidth: .infinity)
+                                        .clipped()
+                                        .cornerRadius(8)
+                                        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                                    
+                                    // 如果有圖片標題（來源資訊），顯示在圖片下方
+                                    if let imageTitle = configuration.content.title, !imageTitle.isEmpty {
+                                        Text(imageTitle)
+                                            .font(.caption)
+                                            .foregroundColor(.gray600)
+                                            .italic()
+                                            .frame(maxWidth: .infinity, alignment: .center)
+                                            .padding(.horizontal, 16)
+                                    }
+                                }
+                            }
+                            // 列表樣式
+                            .markdownBlockStyle(\.listItem) { configuration in
+                                configuration.label
+                                    .padding(.vertical, 2)
+                            }
+                            // 引用樣式
+                            .markdownBlockStyle(\.blockquote) { configuration in
+                                configuration.label
+                                    .padding(.leading, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        HStack(spacing: 0) {
+                                            Rectangle()
+                                                .frame(width: 4)
+                                                .foregroundColor(.brandBlue)
+                                            Spacer()
+                                        }
+                                    )
+                                    .background(Color.brandBlue.opacity(0.05))
+                                    .cornerRadius(4)
+                            }
+                            .multilineTextAlignment(.leading)
+                        
+                        // 文章標籤區塊
+                        if !article.keywords.isEmpty {
+                            keywordsBlock
+                        }
                         
                         // 互動按鈕區域
                         interactionButtonsView
@@ -106,6 +202,100 @@ struct ArticleDetailView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - 作者資訊區塊
+    private var authorInfoBlock: some View {
+        HStack(spacing: 16) {
+            // 作者頭像（使用簡單的圓形背景）
+            Circle()
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.brandGreen, Color.brandGreen.opacity(0.7)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 50, height: 50)
+                .overlay(
+                    Text(String(article.author.prefix(1)))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                )
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(article.author)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.gray900)
+                
+                Text("投資專家")
+                    .font(.caption)
+                    .foregroundColor(.gray600)
+                
+                Text(article.createdAt.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            // 阅讀時間
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(article.readTime)
+                    .font(.caption)
+                    .foregroundColor(.gray600)
+                
+                Text("阅讀時間")
+                    .font(.caption2)
+                    .foregroundColor(.gray500)
+            }
+        }
+        .padding(16)
+        .background(Color.gray50)
+        .cornerRadius(12)
+    }
+    
+    // MARK: - 文章標籤區塊
+    private var keywordsBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "tag")
+                    .font(.subheadline)
+                    .foregroundColor(.brandGreen)
+                
+                Text("相關標籤")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.gray900)
+                
+                Spacer()
+            }
+            
+            // 標籤集合
+            LazyVGrid(columns: [
+                GridItem(.adaptive(minimum: 80), spacing: 8)
+            ], spacing: 8) {
+                ForEach(article.keywords, id: \.self) { keyword in
+                    Text(keyword)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.brandBlue)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.brandBlue.opacity(0.1))
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.brandBlue.opacity(0.3), lineWidth: 0.5)
+                        )
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.gray50)
+        .cornerRadius(12)
     }
     
     // MARK: - 互動統計視圖
