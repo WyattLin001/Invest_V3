@@ -144,7 +144,7 @@ struct ArticleDetailView: View {
             .modifier(MarkdownBlockStyleModifier())
             .multilineTextAlignment(.leading)
     }
-    }
+    
     
     // MARK: - 作者資訊區塊
     private var authorInfoBlock: some View {
@@ -941,17 +941,15 @@ struct MarkdownBlockStyleModifier: ViewModifier {
                         .frame(maxWidth: .infinity)
                         .clipped()
                         .cornerRadius(8)
-                        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
                     
-                    // 如果有圖片標題（來源資訊），顯示在圖片下方
-                    if let imageTitle = configuration.content.title, !imageTitle.isEmpty {
-                        Text(imageTitle)
-                            .font(.caption)
-                            .foregroundColor(.gray600)
-                            .italic()
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.horizontal, 16)
-                    }
+                    // 簡化圖片標題處理
+                    Text("圖片")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .italic()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.horizontal, 16)
                 }
             }
             // 列表樣式
@@ -968,12 +966,12 @@ struct MarkdownBlockStyleModifier: ViewModifier {
                         HStack(spacing: 0) {
                             Rectangle()
                                 .frame(width: 4)
-                                .foregroundColor(.brandBlue)
+                                .foregroundColor(.blue)
                             Spacer()
                         }
                     )
-                    .background(Color.brandBlue.opacity(0.05))
+                    .background(Color.blue.opacity(0.05))
                     .cornerRadius(4)
             }
     }
-} 
+}
