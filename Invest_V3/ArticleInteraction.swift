@@ -161,15 +161,21 @@ class ArticleInteractionViewModel: ObservableObject {
                 self.comments = [
                     ArticleComment(
                         id: UUID(),
-                        content: "這是一個測試留言",
+                        articleId: self.articleId,
+                        userId: UUID(),
                         userName: "測試用戶",
-                        createdAt: Date()
+                        content: "這是一個測試留言",
+                        createdAt: Date(),
+                        updatedAt: Date()
                     ),
                     ArticleComment(
                         id: UUID(),
-                        content: "非常好的文章！",
+                        articleId: self.articleId,
+                        userId: UUID(),
                         userName: "另一個用戶",
-                        createdAt: Date().addingTimeInterval(-3600)
+                        content: "非常好的文章！",
+                        createdAt: Date().addingTimeInterval(-3600),
+                        updatedAt: Date().addingTimeInterval(-3600)
                     )
                 ]
             }

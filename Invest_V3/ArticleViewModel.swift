@@ -43,10 +43,10 @@ class ArticleViewModel: ObservableObject {
                     likesCount: 15,
                     commentsCount: 5,
                     sharesCount: 2,
-                    keywords: ["測試", "投資"],
                     isFree: true,
                     createdAt: Date(),
-                    updatedAt: Date()
+                    updatedAt: Date(),
+                    keywords: ["測試", "投資"]
                 )
             ]
             filteredArticles = articles
