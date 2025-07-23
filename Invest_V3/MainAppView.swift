@@ -11,48 +11,25 @@ struct MainAppView: View {
     @State private var showConnectionToast = false
     @State private var toastMessage = ""
     
-    // Card View動畫控制
-    @State private var authCardOffset: CGFloat = 0
+    // 移除不再需要的動畫狀態
     
     var body: some View {
-        ZStack {
-            // 主應用內容 - 當用戶登入時顯示
+        Group {
             if authService.isAuthenticated {
+                // 已登入：顯示主應用
                 ContentView()
                     .environmentObject(authService)
                     .onAppear {
                         print("✅ 用戶已認證，顯示首頁")
                     }
+            } else {
+                // 未登入：顯示認證畫面
+                AuthenticationView()
+                    .environmentObject(authService)
             }
-            
-            // 認證卡片 - 始終存在，通過offset控制位置
-            AuthenticationView()
-                .environmentObject(authService)
-                .offset(y: authCardOffset)
-                .opacity(authService.isAuthenticated ? 0 : 1)
         }
         .onAppear {
             checkSupabaseConnection()
-            // 簡化初始狀態設定 - 避免動畫衝突
-            if authService.isAuthenticated {
-                // 已登入時，卡片隱藏
-                authCardOffset = 1000
-            } else {
-                // 未登入時，卡片顯示
-                authCardOffset = 0
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserSignedIn"))) { _ in
-            print("📱 收到登入成功通知，卡片隱藏")
-            withAnimation(.easeOut(duration: 0.3)) {
-                authCardOffset = 1000 // 簡單隱藏
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UserLoggedOut"))) { _ in
-            print("📱 收到登出通知，卡片顯示")
-            withAnimation(.easeIn(duration: 0.3)) {
-                authCardOffset = 0 // 簡單顯示
-            }
         }
         .toast(message: toastMessage, isShowing: $showConnectionToast)
     }

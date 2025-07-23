@@ -51,7 +51,8 @@ struct AuthenticationView: View {
                             .textFieldStyle(.roundedBorder)
                             .autocapitalization(.none)
                             .keyboardType(.emailAddress)
-                            .frame(width: 343, height: 40)
+                            .textContentType(.emailAddress)
+                            .frame(height: 40)
                     }
                     
                     // 密碼或用戶名輸入
@@ -77,7 +78,8 @@ struct AuthenticationView: View {
                         
                         SecureField("密碼", text: $password)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 343, height: 40)
+                            .textContentType(.password)
+                            .frame(height: 40)
                     }
                     
                     // 暱稱輸入（僅註冊時顯示）
