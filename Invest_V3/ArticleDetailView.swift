@@ -18,154 +18,7 @@ struct ArticleDetailView: View {
         NavigationView {
             ZStack {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // 標題
-                        Text(article.title)
-                            .font(.largeTitle.bold())
-                            .multilineTextAlignment(.leading)
-
-                        // 作者資訊區塊
-                        authorInfoBlock
-                        
-                        // 文章分類和狀態
-                        HStack {
-                            Text(article.category)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.brandBlue)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.brandBlue.opacity(0.1))
-                                .cornerRadius(16)
-                            
-                            Spacer()
-                            if !article.isFree {
-                                Label("付費文章", systemImage: "lock.fill")
-                                    .font(.caption)
-                                    .foregroundColor(.brandOrange)
-                            }
-                        }
-                        
-                        // 互動統計
-                        interactionStatsView
-                        
-                        Divider()
-
-                        // 文章內容
-                        Markdown(article.bodyMD ?? article.fullContent)
-                            .markdownTextStyle {
-                                FontSize(.em(1.0))
-                            }
-                            // H1 標題樣式
-                            .markdownBlockStyle(\.heading1) { configuration in
-                                configuration.label
-                                    .font(.largeTitle)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.gray900)
-                                    .padding(.vertical, 8)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .overlay(
-                                        Rectangle()
-                                            .frame(height: 2)
-                                            .foregroundColor(.brandGreen)
-                                            .offset(y: 20),
-                                        alignment: .bottom
-                                    )
-                            }
-                            // H2 標題樣式
-                            .markdownBlockStyle(\.heading2) { configuration in
-                                configuration.label
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.gray800)
-                                    .padding(.top, 16)
-                                    .padding(.bottom, 8)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .overlay(
-                                        Rectangle()
-                                            .frame(height: 1)
-                                            .foregroundColor(.gray300)
-                                            .offset(y: 12),
-                                        alignment: .bottom
-                                    )
-                            }
-                            // H3 標題樣式
-                            .markdownBlockStyle(\.heading3) { configuration in
-                                configuration.label
-                                    .font(.title3)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.gray800)
-                                    .padding(.top, 14)
-                                    .padding(.bottom, 6)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            // 代碼區塊樣式
-                            .markdownBlockStyle(\.codeBlock) { configuration in
-                                configuration.label
-                                    .font(.system(.body, design: .monospaced))
-                                    .padding(12)
-                                    .background(Color.secondary.opacity(0.25))
-                                    .cornerRadius(8)
-                            }
-                            // 圖片樣式（支援來源標註）
-                            .markdownBlockStyle(\.image) { configuration in
-                                VStack(spacing: 8) {
-                                    configuration.label
-                                        .frame(maxWidth: .infinity)
-                                        .clipped()
-                                        .cornerRadius(8)
-                                        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
-                                    
-                                    // 如果有圖片標題（來源資訊），顯示在圖片下方
-                                    if let imageTitle = configuration.content.title, !imageTitle.isEmpty {
-                                        Text(imageTitle)
-                                            .font(.caption)
-                                            .foregroundColor(.gray600)
-                                            .italic()
-                                            .frame(maxWidth: .infinity, alignment: .center)
-                                            .padding(.horizontal, 16)
-                                    }
-                                }
-                            }
-                            // 列表樣式
-                            .markdownBlockStyle(\.listItem) { configuration in
-                                configuration.label
-                                    .padding(.vertical, 2)
-                            }
-                            // 引用樣式
-                            .markdownBlockStyle(\.blockquote) { configuration in
-                                configuration.label
-                                    .padding(.leading, 16)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        HStack(spacing: 0) {
-                                            Rectangle()
-                                                .frame(width: 4)
-                                                .foregroundColor(.brandBlue)
-                                            Spacer()
-                                        }
-                                    )
-                                    .background(Color.brandBlue.opacity(0.05))
-                                    .cornerRadius(4)
-                            }
-                            .multilineTextAlignment(.leading)
-                        
-                        // 文章標籤區塊
-                        if !article.keywords.isEmpty {
-                            keywordsBlock
-                        }
-                        
-                        // 互動按鈕區域
-                        interactionButtonsView
-                        
-                        Divider()
-                        
-                        // 留言區域
-                        commentsSection
-                        
-                        Spacer(minLength: 100)
-                    }
-                    .padding()
+                    articleContentView
                 }
                 
                 // 留言輸入區域（固定在底部）
@@ -202,6 +55,169 @@ struct ArticleDetailView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - 文章內容視圖
+    private var articleContentView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // 標題
+            Text(article.title)
+                .font(.largeTitle.bold())
+                .multilineTextAlignment(.leading)
+
+            // 作者資訊區塊
+            authorInfoBlock
+            
+            // 文章分類和狀態
+            categoryAndStatusView
+            
+            // 互動統計
+            interactionStatsView
+            
+            Divider()
+
+            // 文章內容
+            markdownContentView
+            
+            // 文章標籤區塊
+            if !article.keywords.isEmpty {
+                keywordsBlock
+            }
+            
+            // 互動按鈕區域
+            interactionButtonsView
+            
+            Divider()
+            
+            // 留言區域
+            commentsSection
+            
+            Spacer(minLength: 100)
+        }
+        .padding()
+    }
+    
+    // MARK: - 文章分類和狀態視圖
+    private var categoryAndStatusView: some View {
+        HStack {
+            Text(article.category)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.brandBlue)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.brandBlue.opacity(0.1))
+                .cornerRadius(16)
+            
+            Spacer()
+            if !article.isFree {
+                Label("付費文章", systemImage: "lock.fill")
+                    .font(.caption)
+                    .foregroundColor(.brandOrange)
+            }
+        }
+    }
+    
+    // MARK: - Markdown 內容視圖
+    private var markdownContentView: some View {
+        Markdown(article.bodyMD ?? article.fullContent)
+            .markdownTextStyle {
+                FontSize(.em(1.0))
+            }
+            // H1 標題樣式
+            .markdownBlockStyle(\.heading1) { configuration in
+                configuration.label
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.gray900)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay(
+                        Rectangle()
+                            .frame(height: 2)
+                            .foregroundColor(.brandGreen)
+                            .offset(y: 20),
+                        alignment: .bottom
+                    )
+            }
+            // H2 標題樣式
+            .markdownBlockStyle(\.heading2) { configuration in
+                configuration.label
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.gray800)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay(
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(.gray300)
+                            .offset(y: 12),
+                        alignment: .bottom
+                    )
+            }
+            // H3 標題樣式
+            .markdownBlockStyle(\.heading3) { configuration in
+                configuration.label
+                    .font(.title3)
+                    .fontWeight(.medium)
+                    .foregroundColor(.gray800)
+                    .padding(.top, 14)
+                    .padding(.bottom, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            // 代碼區塊樣式
+            .markdownBlockStyle(\.codeBlock) { configuration in
+                configuration.label
+                    .font(.system(.body, design: .monospaced))
+                    .padding(12)
+                    .background(Color.secondary.opacity(0.25))
+                    .cornerRadius(8)
+            }
+            // 圖片樣式（支援來源標註）
+            .markdownBlockStyle(\.image) { configuration in
+                VStack(spacing: 8) {
+                    configuration.label
+                        .frame(maxWidth: .infinity)
+                        .clipped()
+                        .cornerRadius(8)
+                        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                    
+                    // 如果有圖片標題（來源資訊），顯示在圖片下方
+                    if let imageTitle = configuration.content.title, !imageTitle.isEmpty {
+                        Text(imageTitle)
+                            .font(.caption)
+                            .foregroundColor(.gray600)
+                            .italic()
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.horizontal, 16)
+                    }
+                }
+            }
+            // 列表樣式
+            .markdownBlockStyle(\.listItem) { configuration in
+                configuration.label
+                    .padding(.vertical, 2)
+            }
+            // 引用樣式
+            .markdownBlockStyle(\.blockquote) { configuration in
+                configuration.label
+                    .padding(.leading, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        HStack(spacing: 0) {
+                            Rectangle()
+                                .frame(width: 4)
+                                .foregroundColor(.brandBlue)
+                            Spacer()
+                        }
+                    )
+                    .background(Color.brandBlue.opacity(0.05))
+                    .cornerRadius(4)
+            }
+            .multilineTextAlignment(.leading)
+    }
     }
     
     // MARK: - 作者資訊區塊
