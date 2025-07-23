@@ -168,23 +168,18 @@ class NotificationService: NSObject, ObservableObject {
                 return
             }
             
+            // 使用正確的計數查詢方式
             let result = try await supabaseService.client
                 .from("notifications")
-                .select("count", head: true)
+                .select("*", head: false, count: .exact)
                 .eq("user_id", value: user.id)
                 .is("read_at", value: nil)
                 .execute()
             
-            // 解析 count 結果 - 直接使用 Data
+            // 從 count 屬性獲取數量
             await MainActor.run {
-                do {
-                    let decoder = JSONDecoder()
-                    let countArray = try decoder.decode([Int].self, from: result.data)
-                    self.unreadCount = countArray.first ?? 0
-                } catch {
-                    print("❌ 解析未讀數量失敗: \(error)")
-                    self.unreadCount = 0
-                }
+                self.unreadCount = result.count ?? 0
+                print("✅ [NotificationService] 載入未讀數量: \(self.unreadCount)")
             }
             
         } catch {

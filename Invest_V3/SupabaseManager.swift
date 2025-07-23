@@ -36,12 +36,10 @@ class SupabaseManager {
                                     processName.contains("PreviewsOSSupport") ||
                                     bundleID.contains("SwiftUIPreviewsApp")
         
-        // Debug 輸出
-        print("🔍 Preview Detection:")
-        print("  - Process Name: \(processName)")
-        print("  - Bundle ID: \(bundleID)")
-        print("  - XCODE_RUNNING_FOR_PREVIEWS: \(environment["XCODE_RUNNING_FOR_PREVIEWS"] ?? "nil")")
-        print("  - isSwiftUIPreviewProcess: \(isSwiftUIPreviewProcess)")
+        // Debug 輸出 (可選)
+        #if DEBUG
+        print("🔍 Preview Detection: \(isSwiftUIPreviewProcess ? "Preview Mode" : "Production Mode")")
+        #endif
         
         // 只有在真正的 SwiftUI Preview 進程中才返回 true
         return isSwiftUIPreviewProcess
@@ -75,7 +73,6 @@ class SupabaseManager {
         
         // 檢查是否在 Preview 模式
         let isPreviewMode = Self.isPreview
-        print("🔍 SupabaseManager: isPreviewMode = \(isPreviewMode)")
         
         if isPreviewMode {
             print("🔍 Preview mode detected - creating mock SupabaseClient")

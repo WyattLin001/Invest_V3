@@ -17,7 +17,6 @@ class SupabaseService: ObservableObject {
     var client: SupabaseClient {
         // 使用統一的 Preview 檢測邏輯
         let isPreviewMode = SupabaseManager.isPreview
-        print("🔍 SupabaseService.client: isPreviewMode = \(isPreviewMode)")
         
         // 如果在 Preview 模式，創建安全的模擬客戶端
         if isPreviewMode {
