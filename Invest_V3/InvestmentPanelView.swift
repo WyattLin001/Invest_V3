@@ -10,6 +10,17 @@ struct InvestmentPanelView: View {
     @Binding var showTradeSuccess: Bool
     @Binding var tradeSuccessMessage: String
     
+    // 新增即時股價相關狀態
+    @State private var currentPrice: Double = 0.0
+    @State private var priceLastUpdated: Date?
+    @State private var isPriceLoading = false
+    @State private var priceError: String?
+    @State private var estimatedShares: Double = 0.0
+    @State private var estimatedCost: Double = 0.0
+    @State private var showSellConfirmation = false
+    @State private var errorMessage: String?
+    @State private var showErrorAlert = false
+    
     let onExecuteTrade: () -> Void
     let onClose: () -> Void
     
@@ -122,6 +133,45 @@ struct InvestmentPanelView: View {
                         TextField("例如：AAPL", text: $stockSymbol)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                             .autocapitalization(.allCharacters)
+                            .onChange(of: stockSymbol) { _ in
+                                Task {
+                                    await fetchCurrentPrice()
+                                }
+                            }
+                        
+                        // 即時股價顯示
+                        if !stockSymbol.isEmpty {
+                            HStack {
+                                if isPriceLoading {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Text("正在獲取價格...")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                } else if let priceError = priceError {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .foregroundColor(.orange)
+                                    Text(priceError)
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                } else if currentPrice > 0 {
+                                    Image(systemName: "dollarsign.circle.fill")
+                                        .foregroundColor(.green)
+                                    Text("$\(String(format: "%.2f", currentPrice))")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    
+                                    if let lastUpdated = priceLastUpdated {
+                                        Text("更新於 \(DateFormatter.timeOnly.string(from: lastUpdated))")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                Spacer()
+                            }
+                            .padding(.top, 4)
+                        }
                     }
                     
                     // 交易動作選擇
@@ -146,10 +196,85 @@ struct InvestmentPanelView: View {
                         TextField(tradeAction == "buy" ? "輸入投資金額" : "輸入股數", text: $tradeAmount)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                             .keyboardType(.decimalPad)
+                            .onChange(of: tradeAmount) { _ in
+                                calculateEstimation()
+                            }
+                        
+                        // 預估購買資訊（僅在買入時顯示）
+                        if tradeAction == "buy" && !tradeAmount.isEmpty && currentPrice > 0 {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Image(systemName: "info.circle")
+                                        .foregroundColor(.blue)
+                                        .font(.caption)
+                                    Text("預估可購得：")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("\(String(format: "%.2f", estimatedShares)) 股")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                }
+                                
+                                HStack {
+                                    Text("含手續費約：")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("$\(String(format: "%.2f", estimatedCost))")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.orange)
+                                    Spacer()
+                                }
+                            }
+                            .padding(.top, 4)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                        }
+                        
+                        // 賣出時顯示持股資訊
+                        if tradeAction == "sell" && !stockSymbol.isEmpty {
+                            if let holding = portfolioManager.holdings.first(where: { $0.symbol == stockSymbol }) {
+                                HStack {
+                                    Image(systemName: "info.circle")
+                                        .foregroundColor(.blue)
+                                        .font(.caption)
+                                    Text("目前持股：")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("\(String(format: "%.2f", holding.shares)) 股")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                }
+                                .padding(.top, 4)
+                            } else {
+                                HStack {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .foregroundColor(.orange)
+                                        .font(.caption)
+                                    Text("目前無持股")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                    Spacer()
+                                }
+                                .padding(.top, 4)
+                            }
+                        }
                     }
                     
                     // 執行交易按鈕
-                    Button(action: onExecuteTrade) {
+                    Button(action: {
+                        if tradeAction == "sell" {
+                            showSellConfirmation = true
+                        } else {
+                            executeTradeWithValidation()
+                        }
+                    }) {
                         Text("\(tradeAction == "buy" ? "買入" : "賣出") \(stockSymbol.isEmpty ? "股票" : stockSymbol)")
                             .font(.headline)
                             .fontWeight(.semibold)
@@ -158,10 +283,10 @@ struct InvestmentPanelView: View {
                             .padding(.vertical, 14)
                             .background(
                                 RoundedRectangle(cornerRadius: 10)
-                                    .fill(stockSymbol.isEmpty || tradeAmount.isEmpty ? Color.gray : (tradeAction == "buy" ? Color.green : Color.red))
+                                    .fill(isTradeButtonDisabled ? Color.gray : (tradeAction == "buy" ? Color.green : Color.red))
                             )
                     }
-                    .disabled(stockSymbol.isEmpty || tradeAmount.isEmpty)
+                    .disabled(isTradeButtonDisabled)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -179,6 +304,118 @@ struct InvestmentPanelView: View {
         } message: {
             Text(tradeSuccessMessage)
         }
+        .alert("確認賣出", isPresented: $showSellConfirmation) {
+            Button("取消", role: .cancel) { }
+            Button("確定賣出", role: .destructive) {
+                executeTradeWithValidation()
+            }
+        } message: {
+            Text("您確定要賣出 \(tradeAmount) 股 \(stockSymbol) 嗎？")
+        }
+        .alert("交易失敗", isPresented: $showErrorAlert) {
+            Button("確定", role: .cancel) { }
+        } message: {
+            if let errorMessage = errorMessage {
+                Text(errorMessage)
+            }
+        }
+    }
+    
+    // MARK: - 輔助方法
+    
+    /// 檢查交易按鈕是否應該被禁用
+    private var isTradeButtonDisabled: Bool {
+        stockSymbol.isEmpty || tradeAmount.isEmpty || (tradeAction == "buy" && currentPrice <= 0)
+    }
+    
+    /// 獲取即時股價
+    private func fetchCurrentPrice() async {
+        guard !stockSymbol.trimmingCharacters(in: .whitespaces).isEmpty else {
+            await MainActor.run {
+                currentPrice = 0.0
+                priceError = nil
+                priceLastUpdated = nil
+            }
+            return
+        }
+        
+        await MainActor.run {
+            isPriceLoading = true
+            priceError = nil
+        }
+        
+        do {
+            // 使用 TradingAPIService 獲取即時股價
+            let stockPrice = try await TradingAPIService.shared.fetchStockPriceAuto(symbol: stockSymbol)
+            
+            await MainActor.run {
+                currentPrice = stockPrice.price
+                priceLastUpdated = stockPrice.lastUpdated
+                priceError = nil
+                isPriceLoading = false
+                calculateEstimation()
+            }
+            
+        } catch {
+            await MainActor.run {
+                currentPrice = 0.0
+                if let tradingError = error as? TradingAPIError {
+                    priceError = tradingError.localizedDescription
+                } else {
+                    priceError = "網路錯誤"
+                }
+                isPriceLoading = false
+            }
+        }
+    }
+    
+    /// 計算預估購買資訊
+    private func calculateEstimation() {
+        guard let amount = Double(tradeAmount), amount > 0, currentPrice > 0 else {
+            estimatedShares = 0.0
+            estimatedCost = 0.0
+            return
+        }
+        
+        if tradeAction == "buy" {
+            // 手續費假設為 0.1425%（台股一般手續費）
+            let feeRate = 0.001425
+            let fee = amount * feeRate
+            let availableAmount = amount - fee
+            estimatedShares = availableAmount / currentPrice
+            estimatedCost = amount // 包含手續費的總成本
+        }
+    }
+    
+    /// 執行交易並進行驗證
+    private func executeTradeWithValidation() {
+        // 驗證輸入
+        guard let amount = Double(tradeAmount), amount > 0 else {
+            showError("請輸入有效的金額")
+            return
+        }
+        
+        if tradeAction == "sell" {
+            // 檢查持股是否足夠
+            if let holding = portfolioManager.holdings.first(where: { $0.symbol == stockSymbol }) {
+                if holding.shares < amount {
+                    showError("持股不足，目前僅持有 \(String(format: "%.2f", holding.shares)) 股")
+                    return
+                }
+            } else {
+                showError("您目前沒有持有 \(stockSymbol) 股票")
+                return
+            }
+        }
+        
+        // 執行原始的交易邏輯
+        onExecuteTrade()
+    }
+    
+    /// 顯示錯誤訊息
+    private func showError(_ message: String) {
+        errorMessage = message
+        showErrorAlert = true
     }
 }
 
@@ -199,4 +436,14 @@ struct InvestmentPanelView: View {
         onExecuteTrade: { },
         onClose: { }
     )
+}
+
+// MARK: - Extensions
+
+extension DateFormatter {
+    static let timeOnly: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 }
