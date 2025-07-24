@@ -1,0 +1,272 @@
+[
+  {
+    "code": "2330",
+    "name": "台灣積體電路製造股份有限公司",
+    "full_code": "2330.TW",
+    "market": "上市",
+    "industry": "半導體業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2454",
+    "name": "聯發科技股份有限公司",
+    "full_code": "2454.TW",
+    "market": "上市",
+    "industry": "半導體業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2317",
+    "name": "鴻海精密工業股份有限公司",
+    "full_code": "2317.TW",
+    "market": "上市",
+    "industry": "電腦及週邊設備業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2881",
+    "name": "富邦金融控股股份有限公司",
+    "full_code": "2881.TW",
+    "market": "上市",
+    "industry": "金融保險業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2882",
+    "name": "國泰金融控股股份有限公司",
+    "full_code": "2882.TW",
+    "market": "上市",
+    "industry": "金融保險業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2886",
+    "name": "兆豐金融控股股份有限公司",
+    "full_code": "2886.TW",
+    "market": "上市",
+    "industry": "金融保險業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2891",
+    "name": "中國信託金融控股股份有限公司",
+    "full_code": "2891.TW",
+    "market": "上市",
+    "industry": "金融保險業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2308",
+    "name": "台達電子工業股份有限公司",
+    "full_code": "2308.TW",
+    "market": "上市",
+    "industry": "電子零組件業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2382",
+    "name": "廣達電腦股份有限公司",
+    "full_code": "2382.TW",
+    "market": "上市",
+    "industry": "電腦及週邊設備業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2412",
+    "name": "中華電信股份有限公司",
+    "full_code": "2412.TW",
+    "market": "上市",
+    "industry": "通信網路業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2303",
+    "name": "聯華電子股份有限公司",
+    "full_code": "2303.TW",
+    "market": "上市",
+    "industry": "半導體業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "3008",
+    "name": "大立光電股份有限公司",
+    "full_code": "3008.TW",
+    "market": "上市",
+    "industry": "光電業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2002",
+    "name": "中國鋼鐵股份有限公司",
+    "full_code": "2002.TW",
+    "market": "上市",
+    "industry": "鋼鐵工業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "1303",
+    "name": "南亞塑膠工業股份有限公司",
+    "full_code": "1303.TW",
+    "market": "上市",
+    "industry": "塑膠工業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "1301",
+    "name": "台灣塑膠工業股份有限公司",
+    "full_code": "1301.TW",
+    "market": "上市",
+    "industry": "塑膠工業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2207",
+    "name": "和泰汽車股份有限公司",
+    "full_code": "2207.TW",
+    "market": "上市",
+    "industry": "汽車工業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2357",
+    "name": "華碩電腦股份有限公司",
+    "full_code": "2357.TW",
+    "market": "上市",
+    "industry": "電腦及週邊設備業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2409",
+    "name": "友達光電股份有限公司",
+    "full_code": "2409.TW",
+    "market": "上市",
+    "industry": "光電業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2474",
+    "name": "可成科技股份有限公司",
+    "full_code": "2474.TW",
+    "market": "上市",
+    "industry": "電子零組件業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "6505",
+    "name": "台灣化學纖維股份有限公司",
+    "full_code": "6505.TW",
+    "market": "上市",
+    "industry": "化學工業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2912",
+    "name": "統一超商股份有限公司",
+    "full_code": "2912.TW",
+    "market": "上市",
+    "industry": "貿易百貨業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "3711",
+    "name": "日月光投資控股股份有限公司",
+    "full_code": "3711.TW",
+    "market": "上市",
+    "industry": "半導體業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2395",
+    "name": "研華股份有限公司",
+    "full_code": "2395.TW",
+    "market": "上市",
+    "industry": "電腦及週邊設備業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2379",
+    "name": "瑞昱半導體股份有限公司",
+    "full_code": "2379.TW",
+    "market": "上市",
+    "industry": "半導體業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2408",
+    "name": "南亞科技股份有限公司",
+    "full_code": "2408.TW",
+    "market": "上市",
+    "industry": "半導體業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "3034",
+    "name": "聯詠科技股份有限公司",
+    "full_code": "3034.TW",
+    "market": "上市",
+    "industry": "半導體業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "6446",
+    "name": "藥華醫藥股份有限公司",
+    "full_code": "6446.TW",
+    "market": "上市",
+    "industry": "生技醫療業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "6770",
+    "name": "力積電股份有限公司",
+    "full_code": "6770.TW",
+    "market": "上市",
+    "industry": "半導體業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "3037",
+    "name": "欣興電子股份有限公司",
+    "full_code": "3037.TW",
+    "market": "上市",
+    "industry": "電子零組件業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  },
+  {
+    "code": "2884",
+    "name": "玉山金融控股股份有限公司",
+    "full_code": "2884.TW",
+    "market": "上市",
+    "industry": "金融保險業",
+    "is_listed": true,
+    "exchange": "TWSE"
+  }
+]
