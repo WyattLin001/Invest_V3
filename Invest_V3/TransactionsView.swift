@@ -138,7 +138,7 @@ struct TransactionsView: View {
 
 // MARK: - 交易紀錄行視圖
 struct TransactionRowView: View {
-    let transaction: Transaction
+    let transaction: TransactionDisplay
     
     var body: some View {
         HStack(spacing: 12) {
@@ -207,8 +207,8 @@ struct TransactionRowView: View {
     }
 }
 
-// MARK: - 交易紀錄資料模型
-struct Transaction: Identifiable, Codable {
+// MARK: - 交易紀錄擴展模型
+struct TransactionDisplay: Identifiable {
     let id: UUID
     let symbol: String
     let type: TransactionType
@@ -227,6 +227,18 @@ struct Transaction: Identifiable, Codable {
         self.totalAmount = shares * price
         self.date = date
         self.groupId = groupId
+    }
+    
+    // 從 TransactionDetail 轉換
+    init(from detail: TransactionDetail) {
+        self.id = UUID() // TransactionDetail 可能沒有 UUID
+        self.symbol = detail.symbol
+        self.type = TransactionType(rawValue: detail.action.lowercased()) ?? .buy
+        self.shares = detail.quantity
+        self.price = detail.price
+        self.totalAmount = detail.quantity * detail.price
+        self.date = ISO8601DateFormatter().date(from: detail.executedAt) ?? Date()
+        self.groupId = nil
     }
 }
 
@@ -292,8 +304,8 @@ enum TransactionFilter: String, CaseIterable {
 // MARK: - 交易紀錄 ViewModel
 @MainActor
 class TransactionsViewModel: ObservableObject {
-    @Published var transactions: [Transaction] = []
-    @Published var filteredTransactions: [Transaction] = []
+    @Published var transactions: [TransactionDisplay] = []
+    @Published var filteredTransactions: [TransactionDisplay] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     
@@ -306,11 +318,15 @@ class TransactionsViewModel: ObservableObject {
             // 獲取當前用戶 ID - 實際應該從認證服務獲取
             let userId = getCurrentUserId()
             
-            // 嘗試從 API 獲取交易紀錄
-            let apiTransactions = try await TradingAPIService.shared.fetchTransactions(userId: userId)
+            // 嘗試從 API 獲取交易紀錄 (暫時使用模擬資料，因為 API 尚未完成)
+            // let apiTransactions = try await TradingAPIService.shared.fetchTransactions(userId: userId)
+            // transactions = apiTransactions.map { TransactionDisplay(from: $0) }
+            // filteredTransactions = transactions
             
-            transactions = apiTransactions
-            filteredTransactions = apiTransactions
+            // 目前使用模擬資料
+            let mockTransactions = generateMockTransactions()
+            transactions = mockTransactions
+            filteredTransactions = mockTransactions
             
         } catch {
             // 如果 API 失敗，使用模擬資料
@@ -353,10 +369,10 @@ class TransactionsViewModel: ObservableObject {
     }
     
     /// 生成模擬交易資料
-    private func generateMockTransactions() -> [Transaction] {
+    private func generateMockTransactions() -> [TransactionDisplay] {
         let symbols = ["AAPL", "TSLA", "NVDA", "GOOGL", "MSFT", "AMZN"]
         let calendar = Calendar.current
-        var transactions: [Transaction] = []
+        var transactions: [TransactionDisplay] = []
         
         for i in 0..<20 {
             let symbol = symbols.randomElement() ?? "AAPL"
@@ -366,7 +382,7 @@ class TransactionsViewModel: ObservableObject {
             let daysAgo = Int.random(in: 0...30)
             let date = calendar.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
             
-            let transaction = Transaction(
+            let transaction = TransactionDisplay(
                 symbol: symbol,
                 type: type,
                 shares: shares,

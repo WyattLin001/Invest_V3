@@ -200,71 +200,16 @@ struct InvestmentPanelView: View {
                                 calculateEstimation()
                             }
                         
-                        // 預估購買資訊（僅在買入時顯示）
-                        if tradeAction == "buy" && !tradeAmount.isEmpty && currentPrice > 0 {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Image(systemName: "info.circle")
-                                        .foregroundColor(.blue)
-                                        .font(.caption)
-                                    Text("預估可購得：")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("\(String(format: "%.2f", estimatedShares)) 股")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                }
-                                
-                                HStack {
-                                    Text("含手續費約：")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("$\(String(format: "%.2f", estimatedCost))")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.orange)
-                                    Spacer()
-                                }
-                            }
-                            .padding(.top, 4)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 8)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
-                        }
-                        
-                        // 賣出時顯示持股資訊
-                        if tradeAction == "sell" && !stockSymbol.isEmpty {
-                            if let holding = portfolioManager.holdings.first(where: { $0.symbol == stockSymbol }) {
-                                HStack {
-                                    Image(systemName: "info.circle")
-                                        .foregroundColor(.blue)
-                                        .font(.caption)
-                                    Text("目前持股：")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Text("\(String(format: "%.2f", holding.shares)) 股")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                }
-                                .padding(.top, 4)
-                            } else {
-                                HStack {
-                                    Image(systemName: "exclamationmark.triangle")
-                                        .foregroundColor(.orange)
-                                        .font(.caption)
-                                    Text("目前無持股")
-                                        .font(.caption)
-                                        .foregroundColor(.orange)
-                                    Spacer()
-                                }
-                                .padding(.top, 4)
-                            }
-                        }
+                        // 交易資訊提示
+                        TradeInfoView(
+                            tradeAction: tradeAction,
+                            tradeAmount: tradeAmount,
+                            stockSymbol: stockSymbol,
+                            currentPrice: currentPrice,
+                            estimatedShares: estimatedShares,
+                            estimatedCost: estimatedCost,
+                            portfolioManager: portfolioManager
+                        )
                     }
                     
                     // 執行交易按鈕
@@ -349,8 +294,8 @@ struct InvestmentPanelView: View {
             let stockPrice = try await TradingAPIService.shared.fetchStockPriceAuto(symbol: stockSymbol)
             
             await MainActor.run {
-                currentPrice = stockPrice.price
-                priceLastUpdated = stockPrice.lastUpdated
+                currentPrice = stockPrice.currentPrice
+                priceLastUpdated = ISO8601DateFormatter().date(from: stockPrice.timestamp) ?? Date()
                 priceError = nil
                 isPriceLoading = false
                 calculateEstimation()
@@ -439,6 +384,88 @@ struct InvestmentPanelView: View {
 }
 
 // MARK: - Extensions
+
+// MARK: - 子視圖組件
+
+struct TradeInfoView: View {
+    let tradeAction: String
+    let tradeAmount: String
+    let stockSymbol: String
+    let currentPrice: Double
+    let estimatedShares: Double
+    let estimatedCost: Double
+    let portfolioManager: ChatPortfolioManager
+    
+    var body: some View {
+        Group {
+            // 預估購買資訊（僅在買入時顯示）
+            if tradeAction == "buy" && !tradeAmount.isEmpty && currentPrice > 0 {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text("預估可購得：")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(String(format: "%.2f", estimatedShares)) 股")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        Spacer()
+                    }
+                    
+                    HStack {
+                        Text("含手續費約：")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("$\(String(format: "%.2f", estimatedCost))")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                        Spacer()
+                    }
+                }
+                .padding(.top, 4)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+            }
+            
+            // 賣出時顯示持股資訊
+            if tradeAction == "sell" && !stockSymbol.isEmpty {
+                if let holding = portfolioManager.holdings.first(where: { $0.symbol == stockSymbol }) {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text("目前持股：")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(String(format: "%.2f", holding.shares)) 股")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                } else {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                        Text("目前無持股")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+}
 
 extension DateFormatter {
     static let timeOnly: DateFormatter = {
