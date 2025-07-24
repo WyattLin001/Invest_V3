@@ -182,8 +182,7 @@ struct SearchResultRowView: View {
     
     var body: some View {
         Button(action: {
-            // 處理點擊搜尋結果
-            print("點擊搜尋結果: \(result.title)")
+            handleSearchResultTap()
         }) {
             HStack(spacing: 12) {
                 // 結果圖標
@@ -223,6 +222,34 @@ struct SearchResultRowView: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
+    
+    private func handleSearchResultTap() {
+        print("🔍 [SearchResult] 點擊搜尋結果: \(result.title) (類型: \(result.type))")
+        
+        // 根據結果類型處理點擊事件
+        switch result.type {
+        case .group:
+            if let groupId = result.relatedId, let uuid = UUID(uuidString: groupId) {
+                print("🔍 導航到群組: \(uuid)")
+                // TODO: 實現群組導航邏輯
+                // NavigationManager.shared.navigateToGroup(uuid)
+            }
+            
+        case .user:
+            if let userId = result.relatedId {
+                print("🔍 導航到用戶檔案: \(userId)")
+                // TODO: 實現用戶檔案導航邏輯
+                // NavigationManager.shared.navigateToUserProfile(userId)
+            }
+            
+        case .article:
+            if let articleId = result.relatedId {
+                print("🔍 導航到文章: \(articleId)")
+                // TODO: 實現文章導航邏輯
+                // NavigationManager.shared.navigateToArticle(articleId)
+            }
+        }
+    }
 }
 
 // MARK: - 搜尋範圍
@@ -252,6 +279,14 @@ struct SearchResult: Identifiable {
     let title: String
     let subtitle: String
     let type: SearchResultType
+    let relatedId: String? // 關聯的實際物件ID (群組ID、用戶ID、文章ID)
+    
+    init(title: String, subtitle: String, type: SearchResultType, relatedId: String? = nil) {
+        self.title = title
+        self.subtitle = subtitle
+        self.type = type
+        self.relatedId = relatedId
+    }
 }
 
 enum SearchResultType {
@@ -289,78 +324,97 @@ class SearchViewModel: ObservableObject {
     @Published var isSearching = false
     @Published var hasSearched = false
     
+    private let supabaseService = SupabaseService.shared
+    
     func search(query: String, scope: SearchScope) async {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         
         isSearching = true
         hasSearched = true
         
-        // 模擬網路延遲
-        try? await Task.sleep(nanoseconds: 800_000_000)
-        
-        // 模擬搜尋結果 - 實際應該從 Supabase 搜尋
-        var results: [SearchResult] = []
-        
-        let lowercasedQuery = query.lowercased()
-        
-        // 模擬群組搜尋結果
-        if scope == .all || scope == .groups {
-            if "科技股".contains(lowercasedQuery) || "tech".contains(lowercasedQuery) {
-                results.append(SearchResult(
-                    title: "科技股挑戰賽",
-                    subtitle: "主持人：投資大師Tom • 回報率：+18.5% • 25成員",
-                    type: .group
-                ))
+        do {
+            var results: [SearchResult] = []
+            
+            switch scope {
+            case .all:
+                // 綜合搜尋 - 搜尋所有類型
+                let (groups, users, articles) = try await supabaseService.searchAll(query: query)
+                
+                // 轉換群組結果
+                for group in groups {
+                    results.append(SearchResult(
+                        title: group.name,
+                        subtitle: "主持人：\(group.host) • \(group.memberCount) 成員",
+                        type: .group,
+                        relatedId: group.id.uuidString
+                    ))
+                }
+                
+                // 轉換用戶結果
+                for user in users {
+                    results.append(SearchResult(
+                        title: user.displayName,
+                        subtitle: user.bio ?? "投資愛好者",
+                        type: .user,
+                        relatedId: user.id.uuidString
+                    ))
+                }
+                
+                // 轉換文章結果
+                for article in articles {
+                    results.append(SearchResult(
+                        title: article.title,
+                        subtitle: article.summary.isEmpty ? "投資分析文章" : article.summary,
+                        type: .article,
+                        relatedId: article.id.uuidString
+                    ))
+                }
+                
+            case .groups:
+                // 只搜尋群組
+                let groups = try await supabaseService.searchGroups(query: query)
+                for group in groups {
+                    results.append(SearchResult(
+                        title: group.name,
+                        subtitle: "主持人：\(group.host) • \(group.memberCount) 成員",
+                        type: .group,
+                        relatedId: group.id.uuidString
+                    ))
+                }
+                
+            case .users:
+                // 只搜尋用戶
+                let users = try await supabaseService.searchUsers(query: query)
+                for user in users {
+                    results.append(SearchResult(
+                        title: user.displayName,
+                        subtitle: user.bio ?? "投資愛好者",
+                        type: .user,
+                        relatedId: user.id.uuidString
+                    ))
+                }
+                
+            case .articles:
+                // 只搜尋文章
+                let articles = try await supabaseService.searchArticles(query: query)
+                for article in articles {
+                    results.append(SearchResult(
+                        title: article.title,
+                        subtitle: article.summary.isEmpty ? "投資分析文章" : article.summary,
+                        type: .article,
+                        relatedId: article.id.uuidString
+                    ))
+                }
             }
             
-            if "價值投資".contains(lowercasedQuery) || "value".contains(lowercasedQuery) {
-                results.append(SearchResult(
-                    title: "價值投資學院",
-                    subtitle: "主持人：李分析師 • 回報率：+12.3% • 18成員",
-                    type: .group
-                ))
-            }
-        }
-        
-        // 模擬用戶搜尋結果
-        if scope == .all || scope == .users {
-            if "tom".contains(lowercasedQuery) || "投資大師".contains(lowercasedQuery) {
-                results.append(SearchResult(
-                    title: "投資大師Tom",
-                    subtitle: "本週排名第1 • 回報率：+18.5%",
-                    type: .user
-                ))
-            }
+            self.searchResults = results
+            print("🔍 [SearchViewModel] 搜尋 '\(query)' (\(scope.displayName)): 找到 \(results.count) 個結果")
             
-            if "lisa".contains(lowercasedQuery) || "環保".contains(lowercasedQuery) {
-                results.append(SearchResult(
-                    title: "環保投資者Lisa",
-                    subtitle: "本週排名第2 • 回報率：+12.3%",
-                    type: .user
-                ))
-            }
+        } catch {
+            print("❌ [SearchViewModel] 搜尋失敗: \(error.localizedDescription)")
+            self.searchResults = []
         }
         
-        // 模擬文章搜尋結果
-        if scope == .all || scope == .articles {
-            if "台積電".contains(lowercasedQuery) || "2330".contains(lowercasedQuery) {
-                results.append(SearchResult(
-                    title: "台積電Q4財報分析",
-                    subtitle: "深度解析台積電最新財報數據與未來展望",
-                    type: .article
-                ))
-            }
-            
-            if "投資策略".contains(lowercasedQuery) || "strategy".contains(lowercasedQuery) {
-                results.append(SearchResult(
-                    title: "2024年投資策略指南",
-                    subtitle: "專家分享新年度投資布局與風險控制",
-                    type: .article
-                ))
-            }
-        }
-        
-        self.searchResults = results
         isSearching = false
     }
 }

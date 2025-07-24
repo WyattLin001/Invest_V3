@@ -125,6 +125,92 @@ class SupabaseService: ObservableObject {
         return response
     }
     
+    // MARK: - Search Functions
+    
+    /// 搜尋投資群組
+    func searchGroups(query: String) async throws -> [InvestmentGroup] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return []
+        }
+        
+        let searchQuery = query.lowercased()
+        
+        // 搜尋群組名稱、主持人、分類或描述包含關鍵字的群組
+        let response: [InvestmentGroup] = try await client
+            .from("investment_groups")
+            .select()
+            .or("name.ilike.%\(searchQuery)%,host.ilike.%\(searchQuery)%,category.ilike.%\(searchQuery)%")
+            .execute()
+            .value
+        
+        print("🔍 [SupabaseService] 搜尋群組 '\(query)': 找到 \(response.count) 個結果")
+        return response
+    }
+    
+    /// 搜尋用戶檔案
+    func searchUsers(query: String) async throws -> [UserProfile] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return []
+        }
+        
+        let searchQuery = query.lowercased()
+        
+        // 搜尋用戶顯示名稱或用戶名包含關鍵字的用戶
+        let response: [UserProfile] = try await client
+            .from("user_profiles")
+            .select()
+            .or("display_name.ilike.%\(searchQuery)%,username.ilike.%\(searchQuery)%")
+            .limit(20) // 限制搜尋結果數量
+            .execute()
+            .value
+        
+        print("🔍 [SupabaseService] 搜尋用戶 '\(query)': 找到 \(response.count) 個結果")
+        return response
+    }
+    
+    /// 搜尋文章
+    func searchArticles(query: String) async throws -> [Article] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return []
+        }
+        
+        let searchQuery = query.lowercased()
+        
+        // 搜尋文章標題或內容包含關鍵字的文章
+        let response: [Article] = try await client
+            .from("articles")
+            .select()
+            .or("title.ilike.%\(searchQuery)%,body_md.ilike.%\(searchQuery)%,summary.ilike.%\(searchQuery)%")
+            .order("created_at", ascending: false)
+            .limit(20) // 限制搜尋結果數量
+            .execute()
+            .value
+        
+        print("🔍 [SupabaseService] 搜尋文章 '\(query)': 找到 \(response.count) 個結果")
+        return response
+    }
+    
+    /// 綜合搜尋 - 同時搜尋群組、用戶和文章
+    func searchAll(query: String) async throws -> (groups: [InvestmentGroup], users: [UserProfile], articles: [Article]) {
+        async let groupsTask = searchGroups(query: query)
+        async let usersTask = searchUsers(query: query)
+        async let articlesTask = searchArticles(query: query)
+        
+        let groups = try await groupsTask
+        let users = try await usersTask  
+        let articles = try await articlesTask
+        
+        print("🔍 [SupabaseService] 綜合搜尋 '\(query)': \(groups.count) 群組, \(users.count) 用戶, \(articles.count) 文章")
+        
+        return (groups: groups, users: users, articles: articles)
+    }
+    
     func fetchInvestmentGroup(id: UUID) async throws -> InvestmentGroup {
         try SupabaseManager.shared.ensureInitialized()
         
@@ -1424,8 +1510,13 @@ class SupabaseService: ObservableObject {
         print("🔥 準備獲取熱門關鍵字")
         
         do {
+            // 創建專門用於關鍵字查詢的輕量級模型
+            struct KeywordResponse: Codable {
+                let keywords: [String]
+            }
+            
             // 獲取所有文章的關鍵字
-            let articles: [Article] = try await client
+            let keywordResponses: [KeywordResponse] = try await client
                 .from("articles")
                 .select("keywords")
                 .execute()
@@ -1434,8 +1525,8 @@ class SupabaseService: ObservableObject {
             // 統計關鍵字出現頻率
             var keywordCount: [String: Int] = [:]
             
-            for article in articles {
-                for keyword in article.keywords {
+            for response in keywordResponses {
+                for keyword in response.keywords {
                     let trimmedKeyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmedKeyword.isEmpty {
                         keywordCount[trimmedKeyword, default: 0] += 1
@@ -4533,5 +4624,27 @@ extension SupabaseService {
             donationCount: response.count,
             lastDonationDate: lastDate
         )
+    }
+    
+    // MARK: - Avatar Upload
+    
+    /// 上傳用戶頭像到 Supabase Storage
+    public func uploadAvatar(_ imageData: Data, fileName: String) async throws -> String {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let path = "avatars/\(fileName)"
+        
+        // 上傳到 avatars bucket
+        try await client.storage
+            .from("avatars")
+            .upload(path: path, file: imageData, options: FileOptions(contentType: "image/jpeg"))
+        
+        // 獲取公開 URL
+        let publicURL = try client.storage
+            .from("avatars")
+            .getPublicURL(path: path)
+        
+        print("✅ [SupabaseService] 頭像上傳成功: \(publicURL.absoluteString)")
+        return publicURL.absoluteString
     }
 }
