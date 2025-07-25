@@ -1589,7 +1589,7 @@ class SupabaseService: ObservableObject {
     }
 
     // MARK: - Group Management
-    func createPortfolio(groupId: UUID, userId: UUID) async throws -> Portfolio {
+    func createPortfolio(groupId: UUID, userId: UUID) async throws -> UserPortfolio {
         try await SupabaseManager.shared.ensureInitialized()
         
         struct PortfolioInsert: Codable {
@@ -1622,7 +1622,7 @@ class SupabaseService: ObservableObject {
             lastUpdated: Date()
         )
         
-        let response: [Portfolio] = try await self.client
+        let response: [UserPortfolio] = try await self.client
             .from("portfolios")
             .insert(portfolioData)
             .select()
@@ -1673,7 +1673,7 @@ class SupabaseService: ObservableObject {
     
     private func updateGroupRankings(groupId: UUID) async throws {
         // 獲取群組內所有投資組合並按回報率排序
-        let response: [Portfolio] = try await client
+        let response: [UserPortfolio] = try await client
             .from("portfolios")
             .select()
             .eq("group_id", value: groupId)
@@ -1779,7 +1779,7 @@ class SupabaseService: ObservableObject {
     func fetchPortfolioWithPositions(groupId: UUID, userId: UUID) async throws -> PortfolioWithPositions {
         try SupabaseManager.shared.ensureInitialized()
         
-        let portfolios: [Portfolio] = try await client
+        let portfolios: [UserPortfolio] = try await client
             .from("portfolios")
             .select()
             .eq("group_id", value: groupId)
@@ -1791,7 +1791,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.dataNotFound
         }
         
-        let positions: [Position] = try await client
+        let positions: [UserPosition] = try await client
             .from("positions")
             .select()
             .eq("portfolio_id", value: portfolio.id)
@@ -1801,7 +1801,7 @@ class SupabaseService: ObservableObject {
         return PortfolioWithPositions(portfolio: portfolio, positions: positions)
     }
     
-    func updatePosition(position: Position) async throws {
+    func updatePosition(position: UserPosition) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
         struct PositionUpdate: Codable {
@@ -1835,7 +1835,7 @@ class SupabaseService: ObservableObject {
             .execute()
     }
     
-    func createPosition(portfolioId: UUID, symbol: String, shares: Double, price: Double) async throws -> Position {
+    func createPosition(portfolioId: UUID, symbol: String, shares: Double, price: Double) async throws -> UserPosition {
         try SupabaseManager.shared.ensureInitialized()
         
         struct PositionInsert: Codable {
@@ -1870,7 +1870,7 @@ class SupabaseService: ObservableObject {
             lastUpdated: Date()
         )
         
-        let response: [Position] = try await client
+        let response: [UserPosition] = try await client
             .from("positions")
             .insert(positionData)
             .select()
@@ -1998,7 +1998,7 @@ class SupabaseService: ObservableObject {
         
         let transactionData = TipTransactionInsert(
             userId: currentUser.id.uuidString,
-            transactionType: TransactionType.tip.rawValue,
+            transactionType: WalletTransactionType.tip.rawValue,
             amount: -Int(amountInNTD), // 負數表示支出，使用 NTD 金額
             description: "抖內禮物",
             status: TransactionStatus.confirmed.rawValue,
@@ -2242,7 +2242,7 @@ class SupabaseService: ObservableObject {
         
         // 4.5. 創建錢包交易記錄（提領記錄）
         try await createWalletTransaction(
-            type: TransactionType.deposit.rawValue, // 對錢包來說是入帳
+            type: WalletTransactionType.deposit.rawValue, // 對錢包來說是入帳
             amount: amount,
             description: "創作者收益提領",
             paymentMethod: "creator_earnings"
@@ -2314,7 +2314,7 @@ class SupabaseService: ObservableObject {
         
         // 5. 創建用戶的交易記錄（支出）
         try await createWalletTransaction(
-            type: TransactionType.groupEntryFee.rawValue,
+            type: WalletTransactionType.groupEntryFee.rawValue,
             amount: -Double(entryFee), // 負數表示支出
             description: "加入群組「\(group.name)」入會費",
             paymentMethod: "wallet"
@@ -2416,7 +2416,7 @@ class SupabaseService: ObservableObject {
         // 5. 創建用戶的交易記錄（支出）
         let tipDescription = message.isEmpty ? "群組「\(group.name)」內抖內" : "群組「\(group.name)」內抖內：\(message)"
         try await createWalletTransaction(
-            type: TransactionType.groupTip.rawValue,
+            type: WalletTransactionType.groupTip.rawValue,
             amount: -tipAmountInNTD, // 負數表示支出，使用 NTD 金額
             description: tipDescription,
             paymentMethod: "wallet"

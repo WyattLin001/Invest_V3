@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台灣股票即時搜尋</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .search-container {
+            max-width: 600px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .search-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .search-header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .search-header p {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 16px 20px 16px 50px;
+            font-size: 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.3s ease;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .search-input:focus {
+            border-color: #3498db;
+            box-shadow: 0 4px 20px rgba(52, 152, 219, 0.2);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #95a5a6;
+            font-size: 18px;
+        }
+
+        .loading-indicator {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .suggestions-container {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            border: 1px solid #e1e8ed;
+        }
+
+        .suggestion-item {
+            padding: 16px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #f8f9fa;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .suggestion-item.active {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .suggestion-main {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .suggestion-symbol {
+            font-weight: 600;
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 2px;
+        }
+
+        .suggestion-item.active .suggestion-symbol {
+            color: white;
+        }
+
+        .suggestion-name {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .suggestion-item.active .suggestion-name {
+            color: rgba(255,255,255,0.9);
+        }
+
+        .suggestion-full {
+            font-size: 14px;
+            color: #95a5a6;
+            margin-left: 10px;
+        }
+
+        .suggestion-item.active .suggestion-full {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .highlight {
+            background-color: #f1c40f;
+            color: #2c3e50;
+            padding: 1px 2px;
+            border-radius: 2px;
+            font-weight: 600;
+        }
+
+        .suggestion-item.active .highlight {
+            background-color: rgba(255,255,255,0.3);
+            color: white;
+        }
+
+        .no-results {
+            padding: 20px;
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .search-stats {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #95a5a6;
+            text-align: center;
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 600px) {
+            .search-container {
+                margin: 0 10px;
+            }
+            
+            .search-input {
+                padding: 14px 16px 14px 45px;
+                font-size: 16px; /* 防止 iOS 縮放 */
+            }
+            
+            .suggestions-container {
+                max-height: 300px;
+            }
+        }
+
+        /* 鍵盤導航提示 */
+        .keyboard-hint {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #bdc3c7;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <div class="search-header">
+            <h1>🔍 台灣股票搜尋</h1>
+            <p>輸入股票代號或公司名稱，例如：2330、台積電、0050、元大</p>
+        </div>
+
+        <div class="search-input-wrapper">
+            <div class="search-icon">🔍</div>
+            <input 
+                type="text" 
+                class="search-input" 
+                placeholder="請輸入股票代號或公司名稱..."
+                autocomplete="off"
+                spellcheck="false"
+            >
+            <div class="loading-indicator">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+
+        <div class="suggestions-container"></div>
+        
+        <div class="search-stats"></div>
+        <div class="keyboard-hint">
+            💡 使用 ↑↓ 鍵選擇，Enter 確認，ESC 關閉
+        </div>
+    </div>
+
+    <script>
+        class TaiwanStockSearch {
+            constructor() {
+                this.searchInput = document.querySelector('.search-input');
+                this.suggestionsContainer = document.querySelector('.suggestions-container');
+                this.loadingIndicator = document.querySelector('.loading-indicator');
+                this.searchStats = document.querySelector('.search-stats');
+                
+                this.debounceTimer = null;
+                this.currentQuery = '';
+                this.suggestions = [];
+                this.selectedIndex = -1;
+                this.isLoading = false;
+                
+                // 配置
+                this.debounceDelay = 250; // 防抖延遲
+                this.apiUrl = 'http://localhost:5001/api/taiwan-stocks/search'; // 替換為你的 API
+                this.maxResults = 20;
+                
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                // 輸入事件
+                this.searchInput.addEventListener('input', (e) => {
+                    this.handleInput(e.target.value);
+                });
+
+                // 鍵盤導航
+                this.searchInput.addEventListener('keydown', (e) => {
+                    this.handleKeydown(e);
+                });
+
+                // 失去焦點時隱藏建議
+                this.searchInput.addEventListener('blur', () => {
+                    // 延遲隱藏，讓點擊事件能正常觸發
+                    setTimeout(() => {
+                        this.hideSuggestions();
+                    }, 150);
+                });
+
+                // 獲得焦點時顯示之前的建議
+                this.searchInput.addEventListener('focus', () => {
+                    if (this.suggestions.length > 0 && this.currentQuery) {
+                        this.showSuggestions();
+                    }
+                });
+
+                // 點擊外部隱藏建議
+                document.addEventListener('click', (e) => {
+                    if (!this.searchInput.contains(e.target) && !this.suggestionsContainer.contains(e.target)) {
+                        this.hideSuggestions();
+                    }
+                });
+            }
+
+            handleInput(value) {
+                const query = value.trim();
+                
+                if (query !== this.currentQuery) {
+                    this.currentQuery = query;
+                    this.selectedIndex = -1;
+                    
+                    // 清除之前的定時器
+                    if (this.debounceTimer) {
+                        clearTimeout(this.debounceTimer);
+                    }
+                    
+                    if (query.length === 0) {
+                        this.hideSuggestions();
+                        this.updateStats();
+                        return;
+                    }
+                    
+                    // 設置防抖
+                    this.debounceTimer = setTimeout(() => {
+                        this.searchStocks(query);
+                    }, this.debounceDelay);
+                }
+            }
+
+            async searchStocks(query) {
+                if (this.isLoading) return;
+                
+                this.setLoading(true);
+                
+                try {
+                    const response = await fetch(`${this.apiUrl}?q=${encodeURIComponent(query)}&limit=${this.maxResults}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // 處理不同的 API 回應格式
+                    this.suggestions = this.normalizeApiResponse(data);
+                    this.renderSuggestions(query);
+                    this.updateStats(this.suggestions.length);
+                    
+                } catch (error) {
+                    console.error('搜尋失敗:', error);
+                    this.suggestions = [];
+                    this.renderError('搜尋失敗，請稍後重試');
+                    this.updateStats(0);
+                } finally {
+                    this.setLoading(false);
+                }
+            }
+
+            normalizeApiResponse(data) {
+                // 處理不同的 API 回應格式
+                if (Array.isArray(data)) {
+                    return data;
+                } else if (data.stocks && Array.isArray(data.stocks)) {
+                    return data.stocks;
+                } else if (data.data && Array.isArray(data.data)) {
+                    return data.data;
+                } else {
+                    return [];
+                }
+            }
+
+            renderSuggestions(query) {
+                if (this.suggestions.length === 0) {
+                    this.renderNoResults();
+                    return;
+                }
+
+                const html = this.suggestions.map((stock, index) => {
+                    const symbol = stock.symbol || stock.code || '';
+                    const name = stock.name || '';
+                    const fullText = `${symbol} ${name}`;
+                    
+                    return `
+                        <div class="suggestion-item" data-index="${index}" onclick="stockSearch.selectSuggestion(${index})">
+                            <div class="suggestion-main">
+                                <div class="suggestion-symbol">${this.highlightMatch(symbol, query)}</div>
+                                <div class="suggestion-name">${this.highlightMatch(name, query)}</div>
+                            </div>
+                            <div class="suggestion-full">${symbol}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                this.suggestionsContainer.innerHTML = html;
+                this.showSuggestions();
+            }
+
+            renderNoResults() {
+                this.suggestionsContainer.innerHTML = `
+                    <div class="no-results">
+                        <div>😔 找不到相關股票</div>
+                        <div style="margin-top: 8px; font-size: 11px;">
+                            試試輸入：2330、台積電、0050、元大
+                        </div>
+                    </div>
+                `;
+                this.showSuggestions();
+            }
+
+            renderError(message) {
+                this.suggestionsContainer.innerHTML = `
+                    <div class="no-results">
+                        <div>⚠️ ${message}</div>
+                    </div>
+                `;
+                this.showSuggestions();
+            }
+
+            highlightMatch(text, query) {
+                if (!query || !text) return text;
+                
+                const regex = new RegExp(`(${this.escapeRegex(query)})`, 'gi');
+                return text.replace(regex, '<span class="highlight">$1</span>');
+            }
+
+            escapeRegex(string) {
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            showSuggestions() {
+                this.suggestionsContainer.style.display = 'block';
+            }
+
+            hideSuggestions() {
+                this.suggestionsContainer.style.display = 'none';
+                this.selectedIndex = -1;
+                this.updateSelectedItem();
+            }
+
+            handleKeydown(e) {
+                if (!this.suggestions.length) return;
+
+                switch (e.key) {
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.selectedIndex = Math.min(this.selectedIndex + 1, this.suggestions.length - 1);
+                        this.updateSelectedItem();
+                        break;
+                        
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        this.selectedIndex = Math.max(this.selectedIndex - 1, -1);
+                        this.updateSelectedItem();
+                        break;
+                        
+                    case 'Enter':
+                        e.preventDefault();
+                        if (this.selectedIndex >= 0) {
+                            this.selectSuggestion(this.selectedIndex);
+                        }
+                        break;
+                        
+                    case 'Escape':
+                        this.hideSuggestions();
+                        this.searchInput.blur();
+                        break;
+                }
+            }
+
+            updateSelectedItem() {
+                const items = this.suggestionsContainer.querySelectorAll('.suggestion-item');
+                items.forEach((item, index) => {
+                    item.classList.toggle('active', index === this.selectedIndex);
+                });
+
+                // 滾動到選中項目
+                if (this.selectedIndex >= 0 && items[this.selectedIndex]) {
+                    items[this.selectedIndex].scrollIntoView({
+                        block: 'nearest',
+                        behavior: 'smooth'
+                    });
+                }
+            }
+
+            selectSuggestion(index) {
+                if (index < 0 || index >= this.suggestions.length) return;
+
+                const stock = this.suggestions[index];
+                const symbol = stock.symbol || stock.code || '';
+                const name = stock.name || '';
+                const fullText = `${symbol} ${name}`;
+
+                this.searchInput.value = fullText;
+                this.hideSuggestions();
+                
+                // 觸發自定義事件
+                this.searchInput.dispatchEvent(new CustomEvent('stockSelected', {
+                    detail: { stock, fullText }
+                }));
+
+                // 統計
+                this.updateStats(`已選擇: ${fullText}`);
+            }
+
+            setLoading(isLoading) {
+                this.isLoading = isLoading;
+                this.loadingIndicator.style.display = isLoading ? 'block' : 'none';
+            }
+
+            updateStats(count = null, message = null) {
+                if (message) {
+                    this.searchStats.textContent = message;
+                } else if (count !== null) {
+                    if (count === 0) {
+                        this.searchStats.textContent = '';
+                    } else {
+                        this.searchStats.textContent = `找到 ${count} 筆相關股票`;
+                    }
+                } else {
+                    this.searchStats.textContent = '';
+                }
+            }
+        }
+
+        // 初始化
+        const stockSearch = new TaiwanStockSearch();
+
+        // 監聽股票選擇事件
+        document.querySelector('.search-input').addEventListener('stockSelected', (e) => {
+            console.log('選擇的股票:', e.detail);
+            // 在這裡可以執行後續動作，如跳轉到股票詳情頁面
+        });
+    </script>
+</body>
+</html>

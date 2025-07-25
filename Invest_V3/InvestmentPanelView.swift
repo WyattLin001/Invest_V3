@@ -124,20 +124,27 @@ struct InvestmentPanelView: View {
                         .font(.headline)
                         .fontWeight(.semibold)
                     
-                    // 股票代號輸入
+                    // 股票代號輸入 - 使用智能搜尋組件
                     VStack(alignment: .leading, spacing: 8) {
                         Text("股票代號")
                             .font(.subheadline)
                             .fontWeight(.medium)
                         
-                        TextField("例如：AAPL", text: $stockSymbol)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .autocapitalization(.allCharacters)
-                            .onChange(of: stockSymbol) { _ in
-                                Task {
-                                    await fetchCurrentPrice()
-                                }
+                        StockSearchTextField(
+                            text: $stockSymbol,
+                            placeholder: "例如：2330 或 台積電"
+                        ) { selectedStock in
+                            // 當用戶選擇股票時的回調
+                            stockSymbol = selectedStock.code
+                            Task {
+                                await fetchCurrentPrice()
                             }
+                        }
+                        .onChange(of: stockSymbol) { _ in
+                            Task {
+                                await fetchCurrentPrice()
+                            }
+                        }
                         
                         // 即時股價顯示
                         if !stockSymbol.isEmpty {

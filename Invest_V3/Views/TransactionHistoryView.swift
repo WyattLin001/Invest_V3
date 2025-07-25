@@ -296,7 +296,7 @@ class TransactionHistoryViewModel: ObservableObject {
             WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.deposit.rawValue,
+                transactionType: WalletTransactionType.deposit.rawValue,
                 amount: 10000,
                 description: "創作者收益提領",
                 status: TransactionStatus.confirmed.rawValue,
@@ -309,7 +309,7 @@ class TransactionHistoryViewModel: ObservableObject {
             WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.groupEntryFee.rawValue,
+                transactionType: WalletTransactionType.groupEntryFee.rawValue,
                 amount: -500,
                 description: "加入「AI投資策略討論」群組",
                 status: TransactionStatus.confirmed.rawValue,
@@ -322,7 +322,7 @@ class TransactionHistoryViewModel: ObservableObject {
             WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.subscription.rawValue,
+                transactionType: WalletTransactionType.subscription.rawValue,
                 amount: 299,
                 description: "訂閱分潤收益 - 投資達人內容",
                 status: TransactionStatus.confirmed.rawValue,
@@ -335,7 +335,7 @@ class TransactionHistoryViewModel: ObservableObject {
             WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.tip.rawValue,
+                transactionType: WalletTransactionType.tip.rawValue,
                 amount: -100,
                 description: "抖內給「科技股分析專家」",
                 status: TransactionStatus.confirmed.rawValue,
@@ -348,7 +348,7 @@ class TransactionHistoryViewModel: ObservableObject {
             WalletTransaction(
                 id: UUID(),
                 userId: UUID(),
-                transactionType: TransactionType.groupTip.rawValue,
+                transactionType: WalletTransactionType.groupTip.rawValue,
                 amount: -200,
                 description: "群組內抖內給主持人",
                 status: TransactionStatus.confirmed.rawValue,

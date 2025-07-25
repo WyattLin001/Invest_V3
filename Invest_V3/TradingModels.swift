@@ -32,7 +32,7 @@ struct TradingStock: Codable, Identifiable {
 }
 
 // MARK: - 股票價格模型
-struct StockPrice: Codable {
+struct TradingStockPrice: Codable {
     let symbol: String
     let name: String
     let currentPrice: Double
@@ -40,6 +40,8 @@ struct StockPrice: Codable {
     let change: Double
     let changePercent: Double
     let timestamp: String
+    let currency: String?
+    let isTaiwanStock: Bool?
     
     enum CodingKeys: String, CodingKey {
         case symbol, name
@@ -47,7 +49,8 @@ struct StockPrice: Codable {
         case previousClose = "previous_close"
         case change
         case changePercent = "change_percent"
-        case timestamp
+        case timestamp, currency
+        case isTaiwanStock = "is_taiwan_stock"
     }
     
     var isUp: Bool { change > 0 }
@@ -60,6 +63,39 @@ struct StockPrice: Codable {
         } else {
             return "#6C757D" // 灰色 (平盤)
         }
+    }
+    
+    /// 格式化價格顯示
+    var formattedPrice: String {
+        let currencySymbol = getCurrencySymbol()
+        if isTaiwanStock == true {
+            return String(format: "%@ %.2f", currencySymbol, currentPrice)
+        } else {
+            return String(format: "%@ %.2f", currencySymbol, currentPrice)
+        }
+    }
+    
+    /// 格式化變動顯示
+    var formattedChange: String {
+        let sign = change >= 0 ? "+" : ""
+        return String(format: "%@%.2f (%.2f%%)", sign, change, changePercent)
+    }
+    
+    /// 獲取貨幣符號
+    func getCurrencySymbol() -> String {
+        switch currency {
+        case "TWD":
+            return "NT$"
+        case "USD":
+            return "$"
+        default:
+            return currency ?? "$"
+        }
+    }
+    
+    /// 是否為台股
+    var isFromTaiwan: Bool {
+        return isTaiwanStock == true || symbol.hasSuffix(".TW") || symbol.hasSuffix(".TWO")
     }
 }
 
@@ -159,6 +195,152 @@ struct UserRanking: Codable, Identifiable {
     }
 }
 
+// MARK: - 台股相關模型
+
+/// 台股清單項目
+struct TaiwanStockItem: Codable, Identifiable {
+    let id = UUID()
+    let symbol: String
+    let baseSymbol: String
+    let name: String
+    let displayName: String
+    
+    enum CodingKeys: String, CodingKey {
+        case symbol
+        case baseSymbol = "base_symbol"
+        case name
+        case displayName = "display_name"
+    }
+}
+
+/// 台股清單回應
+struct TaiwanStockListResponse: Codable {
+    let stocks: [TaiwanStockItem]
+    let totalCount: Int
+    let lastUpdated: String
+    
+    enum CodingKeys: String, CodingKey {
+        case stocks
+        case totalCount = "total_count"
+        case lastUpdated = "last_updated"
+    }
+}
+
+/// 完整台股清單項目
+struct CompleteTaiwanStockItem: Codable, Identifiable, Equatable {
+    let id = UUID()
+    let code: String
+    let name: String
+    let fullCode: String
+    let market: String
+    let industry: String
+    let isListed: Bool
+    let exchange: String
+    
+    // 可選的額外欄位（搜尋結果可能包含）
+    let change: String?
+    let closingPrice: String?
+    let tradeVolume: String?
+
+    enum CodingKeys: String, CodingKey {
+        case code
+        case name
+        case fullCode = "full_code"
+        case market
+        case industry
+        case isListed = "is_listed"
+        case exchange
+        case change
+        case closingPrice = "closing_price"
+        case tradeVolume = "trade_volume"
+    }
+
+    // 自定義初始化器處理 id
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        code = try container.decode(String.self, forKey: .code)
+        name = try container.decode(String.self, forKey: .name)
+        fullCode = try container.decode(String.self, forKey: .fullCode)
+        market = try container.decode(String.self, forKey: .market)
+        industry = try container.decode(String.self, forKey: .industry)
+        isListed = try container.decode(Bool.self, forKey: .isListed)
+        exchange = try container.decode(String.self, forKey: .exchange)
+        
+        // 可選欄位
+        change = try container.decodeIfPresent(String.self, forKey: .change)
+        closingPrice = try container.decodeIfPresent(String.self, forKey: .closingPrice)
+        tradeVolume = try container.decodeIfPresent(String.self, forKey: .tradeVolume)
+    }
+
+    // 可以加上明確 Equatable 規則（可選）
+    static func == (lhs: CompleteTaiwanStockItem, rhs: CompleteTaiwanStockItem) -> Bool {
+        return lhs.code == rhs.code
+    }
+}
+
+
+/// 分頁資訊
+struct PaginationInfo: Codable {
+    let page: Int
+    let perPage: Int
+    let totalCount: Int
+    let totalPages: Int
+    let hasNext: Bool
+    let hasPrev: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case page
+        case perPage = "per_page"
+        case totalCount = "total_count"
+        case totalPages = "total_pages"
+        case hasNext = "has_next"
+        case hasPrev = "has_prev"
+    }
+}
+
+/// 統計資訊
+struct StockStatistics: Codable {
+    let totalCount: Int
+    let listedCount: Int
+    let otcCount: Int
+    let industries: [String: Int]
+    
+    enum CodingKeys: String, CodingKey {
+        case totalCount = "total_count"
+        case listedCount = "listed_count"
+        case otcCount = "otc_count"
+        case industries
+    }
+}
+
+/// 完整台股清單回應
+struct CompleteTaiwanStockListResponse: Codable {
+    let stocks: [CompleteTaiwanStockItem]
+    let pagination: PaginationInfo
+    let statistics: StockStatistics
+    let filters: [String: String]
+    let lastUpdated: String
+    
+    enum CodingKeys: String, CodingKey {
+        case stocks, pagination, statistics, filters
+        case lastUpdated = "last_updated"
+    }
+}
+
+/// 台股搜尋回應
+struct TaiwanStockSearchResponse: Codable {
+    let stocks: [CompleteTaiwanStockItem]
+    let totalCount: Int
+    let query: String
+    let limit: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case stocks, query, limit
+        case totalCount = "total_count"
+    }
+}
+
 // MARK: - API 回應模型
 
 struct OTPResponse: Codable {
@@ -247,13 +429,19 @@ struct TransactionDetail: Codable {
     let tax: Double?
     let totalCost: Double?
     let totalReceived: Double?
-    let timestamp: String
+    let executedAt: String  // 改為 executedAt 以符合其他地方的使用
+    
+    // 向後兼容的計算屬性
+    var timestamp: String {
+        return executedAt
+    }
     
     enum CodingKeys: String, CodingKey {
-        case symbol, action, quantity, price, fee, tax, timestamp
+        case symbol, action, quantity, price, fee, tax
         case totalAmount = "total_amount"
         case totalCost = "total_cost"
         case totalReceived = "total_received"
+        case executedAt = "executed_at"
     }
 }
 

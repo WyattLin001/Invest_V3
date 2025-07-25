@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - 投資組合模型
-struct Portfolio: Identifiable, Codable {
+struct UserPortfolio: Identifiable, Codable {
     let id: UUID
     let userId: UUID
     let groupId: UUID? // 新增 groupId 以關聯投資群組
@@ -55,7 +55,7 @@ struct Portfolio: Identifiable, Codable {
     }
 }
 
-struct Position: Codable, Identifiable {
+struct UserPosition: Codable, Identifiable {
     let id: UUID
     let portfolioId: UUID
     let symbol: String
@@ -78,8 +78,8 @@ struct Position: Codable, Identifiable {
 }
 
 struct PortfolioWithPositions: Codable, Identifiable {
-    var portfolio: Portfolio
-    var positions: [Position]
+    var portfolio: UserPortfolio
+    var positions: [UserPosition]
     
     var id: UUID { portfolio.id }
     
@@ -97,15 +97,15 @@ struct PortfolioWithPositions: Codable, Identifiable {
     }
     
     // 新增 memberwise initializer
-    init(portfolio: Portfolio, positions: [Position]) {
+    init(portfolio: UserPortfolio, positions: [UserPosition]) {
         self.portfolio = portfolio
         self.positions = positions
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        portfolio = try container.decode(Portfolio.self, forKey: .portfolio)
-        positions = try container.decode([Position].self, forKey: .positions)
+        portfolio = try container.decode(UserPortfolio.self, forKey: .portfolio)
+        positions = try container.decode([UserPosition].self, forKey: .positions)
     }
     
     func encode(to encoder: Encoder) throws {

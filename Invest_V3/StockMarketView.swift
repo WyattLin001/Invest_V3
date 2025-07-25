@@ -165,7 +165,7 @@ struct StockListRow: View {
 struct StockDetailView: View {
     let stock: TradingStock
     @ObservedObject private var tradingService = TradingService.shared
-    @State private var stockPrice: StockPrice?
+    @State private var stockPrice: TradingStockPrice?
     @State private var isLoading = true
     @State private var showTradeSheet = false
     @State private var tradeAction: TradeAction = .buy
@@ -257,7 +257,7 @@ struct StockDetailView: View {
     }
     
     // MARK: - 價格資訊區域
-    private func priceInfoSection(price: StockPrice) -> some View {
+    private func priceInfoSection(price: TradingStockPrice) -> some View {
         VStack(spacing: 16) {
             // 當前價格
             VStack(spacing: 8) {

@@ -99,18 +99,23 @@ struct PortfolioHolding: Identifiable, Codable {
     let id: UUID
     let userId: UUID
     let symbol: String
-    let quantity: Int
+    let shares: Double  // 改為 shares 以符合其他地方的使用
     let averagePrice: Double
     let currentPrice: Double
     let lastUpdated: Date
     
+    // 向後兼容的計算屬性
+    var quantity: Int {
+        return Int(shares)
+    }
+    
     // 計算屬性
     var totalValue: Double {
-        return Double(quantity) * currentPrice
+        return shares * currentPrice
     }
     
     var totalCost: Double {
-        return Double(quantity) * averagePrice
+        return shares * averagePrice
     }
     
     var unrealizedGainLoss: Double {
@@ -125,7 +130,7 @@ struct PortfolioHolding: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
-        case symbol, quantity
+        case symbol, shares
         case averagePrice = "average_price"
         case currentPrice = "current_price"
         case lastUpdated = "last_updated"

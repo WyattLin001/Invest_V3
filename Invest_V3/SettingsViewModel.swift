@@ -2,6 +2,7 @@ import SwiftUI
 import Foundation
 import PhotosUI
 
+
 @MainActor
 class SettingsViewModel: ObservableObject {
     @Published var userProfile: UserProfile?
@@ -12,7 +13,8 @@ class SettingsViewModel: ObservableObject {
     @Published var qrCodeImage: UIImage?
     @Published var profileImage: UIImage?
     @Published var nickname = "投資新手"
-    @Published var friends: [Friend] = []
+    // 暫時移除 friends 屬性以避免模型衝突 - Friend.swift 和 FriendModels.swift 之間的名稱衝突
+    // @Published var friends: [Friend] = []
     
     // 設定選項
     @Published var notificationsEnabled = true
@@ -81,6 +83,37 @@ class SettingsViewModel: ObservableObject {
         guard let cgImage = context.createCGImage(scaledQrImage, from: scaledQrImage.extent) else { return }
         
         self.qrCodeImage = UIImage(cgImage: cgImage)
+    }
+    
+    // MARK: - 處理選中的圖片
+    func processSelectedImage(_ image: UIImage) async {
+        do {
+            // 驗證圖片
+            let validationResult = ImageValidator.validateImage(image)
+            guard validationResult.isValid else {
+                await MainActor.run {
+                    self.errorMessage = validationResult.errorMessage
+                }
+                return
+            }
+            
+            // 裁切並調整圖片大小到 512x512
+            let processedImage = await resizeAndCropImage(image, to: CGSize(width: 512, height: 512))
+            
+            // 更新 UI
+            await MainActor.run {
+                self.profileImage = processedImage
+            }
+            
+            // 上傳到後端
+            await updateAvatar(image: processedImage)
+            
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "處理圖片時發生錯誤: \(error.localizedDescription)"
+                print("❌ [SettingsViewModel] 圖片處理失敗: \(error)")
+            }
+        }
     }
     
     // MARK: - 從 PhotosPicker 載入並處理圖片
@@ -166,13 +199,37 @@ class SettingsViewModel: ObservableObject {
             print("✅ [SettingsViewModel] 頭像已處理，大小: \(imageData.count) bytes")
             print("✅ [SettingsViewModel] 圖片尺寸: \(image.size)")
             
-            // TODO: 實際上傳到 Supabase Storage
-            // let avatarUrl = try await supabaseService.uploadAvatar(imageData, userId: userId)
-            // await updateUserProfile(avatarUrl: avatarUrl)
+            // 實際上傳到 Supabase Storage
+            do {
+                let fileName = "avatar_\(userId)_\(Date().timeIntervalSince1970).jpg"
+                let avatarUrl = try await supabaseService.uploadAvatar(imageData, fileName: fileName)
+                await updateUserProfileAvatar(avatarUrl: avatarUrl)
+                print("✅ [SettingsViewModel] 頭像上傳成功: \(avatarUrl)")
+            } catch {
+                print("⚠️ [SettingsViewModel] 頭像上傳失敗，僅保存本地: \(error)")
+                // 上傳失敗時仍保留本地圖片
+            }
             
         } catch {
             errorMessage = "更新頭像失敗: \(error.localizedDescription)"
             print("❌ [SettingsViewModel] 頭像上傳失敗: \(error)")
+        }
+    }
+    
+    // MARK: - 更新用戶頭像URL
+    private func updateUserProfileAvatar(avatarUrl: String) async {
+        do {
+            // 更新本地用戶資料
+            self.userProfile?.avatarUrl = avatarUrl
+            
+            // TODO: 實際更新到 Supabase user_profiles 表
+            // try await supabaseService.updateUserProfile(avatarUrl: avatarUrl)
+            
+            print("✅ [SettingsViewModel] 用戶頭像URL已更新: \(avatarUrl)")
+            
+        } catch {
+            errorMessage = "更新用戶頭像失敗: \(error.localizedDescription)"
+            print("❌ [SettingsViewModel] 頭像URL更新失敗: \(error)")
         }
     }
     

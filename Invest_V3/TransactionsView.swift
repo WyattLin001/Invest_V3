@@ -88,7 +88,7 @@ struct TransactionsView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(viewModel.filteredTransactions) { transaction in
-                    TransactionRowView(transaction: transaction)
+                    TradingTransactionRowView(transaction: transaction)
                     
                     if transaction.id != viewModel.filteredTransactions.last?.id {
                         Divider()
@@ -137,7 +137,7 @@ struct TransactionsView: View {
 }
 
 // MARK: - 交易紀錄行視圖
-struct TransactionRowView: View {
+struct TradingTransactionRowView: View {
     let transaction: TransactionDisplay
     
     var body: some View {
@@ -211,14 +211,14 @@ struct TransactionRowView: View {
 struct TransactionDisplay: Identifiable {
     let id: UUID
     let symbol: String
-    let type: TransactionType
+    let type: TradingTransactionType
     let shares: Double
     let price: Double
     let totalAmount: Double
     let date: Date
     let groupId: UUID?
     
-    init(id: UUID = UUID(), symbol: String, type: TransactionType, shares: Double, price: Double, date: Date = Date(), groupId: UUID? = nil) {
+    init(id: UUID = UUID(), symbol: String, type: TradingTransactionType, shares: Double, price: Double, date: Date = Date(), groupId: UUID? = nil) {
         self.id = id
         self.symbol = symbol
         self.type = type
@@ -233,16 +233,16 @@ struct TransactionDisplay: Identifiable {
     init(from detail: TransactionDetail) {
         self.id = UUID() // TransactionDetail 可能沒有 UUID
         self.symbol = detail.symbol
-        self.type = TransactionType(rawValue: detail.action.lowercased()) ?? .buy
-        self.shares = detail.quantity
+        self.type = TradingTransactionType(rawValue: detail.action.lowercased()) ?? .buy
+        self.shares = Double(detail.quantity)
         self.price = detail.price
-        self.totalAmount = detail.quantity * detail.price
+        self.totalAmount = Double(detail.quantity) * detail.price
         self.date = ISO8601DateFormatter().date(from: detail.executedAt) ?? Date()
         self.groupId = nil
     }
 }
 
-enum TransactionType: String, CaseIterable, Codable {
+enum TradingTransactionType: String, CaseIterable, Codable {
     case buy = "buy"
     case sell = "sell"
     
@@ -376,7 +376,7 @@ class TransactionsViewModel: ObservableObject {
         
         for i in 0..<20 {
             let symbol = symbols.randomElement() ?? "AAPL"
-            let type: TransactionType = Bool.random() ? .buy : .sell
+            let type: TradingTransactionType = Bool.random() ? .buy : .sell
             let shares = Double.random(in: 1...10)
             let price = Double.random(in: 100...400)
             let daysAgo = Int.random(in: 0...30)

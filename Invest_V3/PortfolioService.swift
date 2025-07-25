@@ -16,13 +16,13 @@ class PortfolioService: ObservableObject {
     // MARK: - 投資組合管理
     
     /// 獲取用戶投資組合
-    func fetchUserPortfolio(userId: UUID) async throws -> Portfolio {
+    func fetchUserPortfolio(userId: UUID) async throws -> UserPortfolio {
         guard let client = supabaseClient else {
             throw PortfolioServiceError.clientNotInitialized
         }
         
         // 獲取用戶投資組合基本資訊
-        let portfolioResponse: [Portfolio] = try await client
+        let portfolioResponse: [UserPortfolio] = try await client
             .from("user_portfolios")
             .select()
             .eq("user_id", value: userId)
@@ -184,14 +184,14 @@ class PortfolioService: ObservableObject {
     
     // MARK: - 私有方法
     
-    private func createInitialPortfolio(userId: UUID) async throws -> Portfolio {
+    private func createInitialPortfolio(userId: UUID) async throws -> UserPortfolio {
         guard let client = supabaseClient else {
             throw PortfolioServiceError.clientNotInitialized
         }
         
         let initialCash: Double = 1_000_000 // 100萬虛擬資金
         
-        let portfolio = Portfolio(
+        let portfolio = UserPortfolio(
             id: UUID(),
             userId: userId,
             groupId: nil, // 新增 groupId，初始為 nil

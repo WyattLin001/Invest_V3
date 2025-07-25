@@ -37,34 +37,44 @@ class NotificationService: NSObject, ObservableObject {
     
     // MARK: - 權限管理
     
-    /// 請求推播通知權限
     func requestPermission() async -> Bool {
         do {
+            // 1. 詢問系統是否授權
             let granted = try await notificationCenter.requestAuthorization(options: [
-                .alert, .sound, .badge, .provisional
+                .alert, .sound, .badge
             ])
-            
-            await MainActor.run {
-                self.isAuthorized = granted
-            }
-            
+
+            // 2. 印出目前權限狀態
+            let settings = await notificationCenter.notificationSettings()
+            print("🔍 [NotificationService] 現在通知授權狀態: \(settings.authorizationStatus.rawValue)")
+
+            // 3. 若授權成功，註冊 remote 通知（不能少）
             if granted {
-                await registerForRemoteNotifications()
-                print("✅ [NotificationService] 推播通知權限已授權")
-            } else {
-                print("❌ [NotificationService] 推播通知權限被拒絕")
+                await MainActor.run {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
             }
-            
-            return granted
-            
-        } catch {
-            print("❌ [NotificationService] 請求權限失敗: \(error)")
+
+            // 4. 為了避免 SwiftUI ViewModel 爆炸，我們延遲更新 isAuthorized
             await MainActor.run {
-                self.isAuthorized = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    self.isAuthorized = granted
+                }
+            }
+
+            return granted
+
+        } catch {
+            print("❌ [NotificationService] 請求推播權限失敗: \(error)")
+            await MainActor.run {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    self.isAuthorized = false
+                }
             }
             return false
         }
     }
+
     
     /// 檢查當前權限狀態
     func checkAuthorizationStatus() {
@@ -77,12 +87,7 @@ class NotificationService: NSObject, ObservableObject {
         }
     }
     
-    /// 註冊遠端推播
-    private func registerForRemoteNotifications() async {
-        DispatchQueue.main.async {
-            UIApplication.shared.registerForRemoteNotifications()
-        }
-    }
+
     
     /// 設定 Device Token
     func setDeviceToken(_ tokenData: Data) {

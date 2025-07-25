@@ -7,24 +7,40 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195"
+            uuid = "2E89C324-978A-4BBA-87F0-E45ED0076A92"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Invest_V3/MediumStyleEditor.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "20"
+            endingLineNumber = "20"
+            landmarkName = "ImageSource"
+            landmarkType = "13">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "5A825975-EFC3-462D-A0B4-58518AB1F4D8"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "Invest_V3/SettingsViewModel.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "15"
-            endingLineNumber = "15"
+            startingLineNumber = "11"
+            endingLineNumber = "11"
             landmarkName = "SettingsViewModel"
             landmarkType = "3">
             <Locations>
                <Location
-                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 4f00f9f78958badf"
+                  uuid = "5A825975-EFC3-462D-A0B4-58518AB1F4D8 - d2feb6a3eb77ed9d"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "property wrapper backing initializer of Invest_V3.SettingsViewModel.friends : Swift.Array&lt;Invest_V3.Friend&gt;"
+                  symbolName = "property wrapper backing initializer of Invest_V3.SettingsViewModel.showImagePicker : Swift.Bool"
                   moduleName = "Invest_V3.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
@@ -34,11 +50,11 @@
                   endingLineNumber = "0">
                </Location>
                <Location
-                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - d8e0eb82ef14f456"
+                  uuid = "5A825975-EFC3-462D-A0B4-58518AB1F4D8 - a6d5d916e703e01e"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "Invest_V3.SettingsViewModel.friends.getter : Swift.Array&lt;Invest_V3.Friend&gt;"
+                  symbolName = "Invest_V3.SettingsViewModel.showImagePicker.getter : Swift.Bool"
                   moduleName = "Invest_V3.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
@@ -48,11 +64,11 @@
                   endingLineNumber = "0">
                </Location>
                <Location
-                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 128cedc72922d862"
+                  uuid = "5A825975-EFC3-462D-A0B4-58518AB1F4D8 - 5458bc9e3e5e382a"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "Invest_V3.SettingsViewModel.friends.setter : Swift.Array&lt;Invest_V3.Friend&gt;"
+                  symbolName = "Invest_V3.SettingsViewModel.showImagePicker.setter : Swift.Bool"
                   moduleName = "Invest_V3.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
@@ -62,11 +78,11 @@
                   endingLineNumber = "0">
                </Location>
                <Location
-                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 9f374c48dc3b0151"
+                  uuid = "5A825975-EFC3-462D-A0B4-58518AB1F4D8 - 3a943321c763c619"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "Invest_V3.SettingsViewModel.friends.modify : Swift.Array&lt;Invest_V3.Friend&gt;"
+                  symbolName = "Invest_V3.SettingsViewModel.showImagePicker.modify : Swift.Bool"
                   moduleName = "Invest_V3.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
@@ -76,11 +92,11 @@
                   endingLineNumber = "0">
                </Location>
                <Location
-                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 8c15a8b9310bb20a"
+                  uuid = "5A825975-EFC3-462D-A0B4-58518AB1F4D8 - 5f7b16cf2c94aa33"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "Invest_V3.SettingsViewModel.$friends.getter : Combine.Published&lt;Swift.Array&lt;Invest_V3.Friend&gt;&gt;.Publisher"
+                  symbolName = "Invest_V3.SettingsViewModel.$showImagePicker.getter : Combine.Published&lt;Swift.Bool&gt;.Publisher"
                   moduleName = "Invest_V3.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/Invest_V3/SettingsViewModel.swift"
@@ -90,11 +106,11 @@
                   endingLineNumber = "0">
                </Location>
                <Location
-                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - 3136b2682f2d5982"
+                  uuid = "5A825975-EFC3-462D-A0B4-58518AB1F4D8 - 39f0162ec88c904b"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "Invest_V3.SettingsViewModel.$friends.setter : Combine.Published&lt;Swift.Array&lt;Invest_V3.Friend&gt;&gt;.Publisher"
+                  symbolName = "Invest_V3.SettingsViewModel.$showImagePicker.setter : Combine.Published&lt;Swift.Bool&gt;.Publisher"
                   moduleName = "Invest_V3.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/%3Cstdin%3E"
@@ -104,11 +120,11 @@
                   endingLineNumber = "0">
                </Location>
                <Location
-                  uuid = "CC633336-EA4E-4349-B0D1-D853EA7E3195 - c7fba78e0e9af6f1"
+                  uuid = "5A825975-EFC3-462D-A0B4-58518AB1F4D8 - b5e581b4c26ddeba"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "Invest_V3.SettingsViewModel.$friends.modify : Combine.Published&lt;Swift.Array&lt;Invest_V3.Friend&gt;&gt;.Publisher"
+                  symbolName = "Invest_V3.SettingsViewModel.$showImagePicker.modify : Combine.Published&lt;Swift.Bool&gt;.Publisher"
                   moduleName = "Invest_V3.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/linjiaqi/Downloads/Invest_V3/%3Cstdin%3E"

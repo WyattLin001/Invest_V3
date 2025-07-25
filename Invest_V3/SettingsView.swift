@@ -12,6 +12,7 @@ import SwiftUI
 import UIKit
 import PhotosUI
 
+
 struct SettingsView: View {
     @EnvironmentObject private var authService: AuthenticationService
     @StateObject private var viewModel = SettingsViewModel()
@@ -21,6 +22,7 @@ struct SettingsView: View {
     @State private var showLoginSheet = false // 用於顯示登入畫面
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showLogoutAlert = false
+    @State private var nicknameInput = ""
 
     var body: some View {
         NavigationView {
@@ -152,8 +154,8 @@ struct SettingsView: View {
 
     private var profileSection: some View {
         VStack(spacing: DesignTokens.spacingMD) {
-            // 頭像
-            Button(action: { showImagePicker = true }) {
+            // 頭像顯示區域
+            VStack {
                 ZStack {
                     if let image = viewModel.profileImage {
                         Image(uiImage: image)
@@ -185,16 +187,32 @@ struct SettingsView: View {
                         )
                         .offset(x: 25, y: 25)
                 }
+                
+                // 圖片來源選擇器
+                ImageSourcePicker(selectedImage: Binding(
+                    get: { viewModel.profileImage },
+                    set: { newImage in
+                        if let newImage = newImage {
+                            Task {
+                                await viewModel.processSelectedImage(newImage)
+                            }
+                        }
+                    }
+                ))
+                .padding(.top, 8)
             }
             .accessibilityLabel("修改頭像")
             .accessibilityHint("點擊選擇新的頭像圖片")
             
             // 暱稱
-            TextField("顯示名稱", text: $viewModel.nickname)
+            TextField("顯示名稱", text: $nicknameInput)
+                .onChange(of: nicknameInput) { viewModel.nickname = $0 }
+                .onAppear { nicknameInput = viewModel.nickname }
                 .textFieldStyle(.roundedBorder)
-                .font(.bodyText) // 使用自定義字體
+                .font(.bodyText)
                 .accessibilityLabel("用戶顯示名稱")
                 .accessibilityHint("輸入您想要顯示的暱稱")
+
             
             // ID 和 QR code
             HStack {
@@ -259,6 +277,14 @@ struct SettingsView: View {
                 }
             }
             
+            // 暫時移除好友列表 UI - 等待 Friend 模型衝突解決
+            Text("好友功能暫時不可用")
+                .font(.bodyText)
+                .foregroundColor(.gray600)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, DesignTokens.spacingLG)
+            
+            /*
             if viewModel.friends.isEmpty {
                 Text("暫無好友")
                     .font(.bodyText) // 使用自定義字體
@@ -293,6 +319,7 @@ struct SettingsView: View {
                     .padding(.vertical, DesignTokens.spacingXS)
                 }
             }
+            */
         }
         .brandCardStyle()
     }

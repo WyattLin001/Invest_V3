@@ -73,14 +73,14 @@ class ChatPortfolioManager: ObservableObject {
         if let index = holdings.firstIndex(where: { $0.symbol == symbol }) {
             // 更新現有持股
             let existingHolding = holdings[index]
-            let newQuantity = existingHolding.quantity + Int(shares)
-            let newAveragePrice = ((Double(existingHolding.quantity) * existingHolding.averagePrice) + (shares * price)) / Double(newQuantity)
+            let newShares = existingHolding.shares + shares
+            let newAveragePrice = ((existingHolding.shares * existingHolding.averagePrice) + (shares * price)) / newShares
             
             holdings[index] = PortfolioHolding(
                 id: existingHolding.id,
                 userId: currentUser,
                 symbol: symbol,
-                quantity: newQuantity,
+                shares: newShares,
                 averagePrice: newAveragePrice,
                 currentPrice: price,
                 lastUpdated: Date()
@@ -91,7 +91,7 @@ class ChatPortfolioManager: ObservableObject {
                 id: UUID(),
                 userId: currentUser,
                 symbol: symbol,
-                quantity: Int(shares),
+                shares: shares,
                 averagePrice: price,
                 currentPrice: price,
                 lastUpdated: Date()
@@ -122,12 +122,12 @@ class ChatPortfolioManager: ObservableObject {
             holdings.remove(at: index)
         } else {
             // 部分賣出
-            let newQuantity = holding.quantity - Int(shares)
+            let newShares = holding.shares - shares
             holdings[index] = PortfolioHolding(
                 id: holding.id,
                 userId: holding.userId,
                 symbol: symbol,
-                quantity: newQuantity,
+                shares: newShares,
                 averagePrice: holding.averagePrice,
                 currentPrice: price,
                 lastUpdated: Date()

@@ -30,8 +30,8 @@ struct WalletTransaction: Identifiable, Codable {
     }
     
     // 計算屬性用於向後兼容
-    var type: TransactionType {
-        TransactionType(rawValue: transactionType) ?? .deposit
+    var type: WalletTransactionType {
+        WalletTransactionType(rawValue: transactionType) ?? .deposit
     }
     
     var transactionStatus: TransactionStatus {
@@ -64,8 +64,8 @@ struct WalletTransaction: Identifiable, Codable {
     }
 }
 
-// MARK: - 交易類型
-enum TransactionType: String, Codable, CaseIterable {
+// MARK: - 錢包交易類型
+enum WalletTransactionType: String, Codable, CaseIterable {
     case deposit = "deposit"        // 儲值
     case withdrawal = "withdrawal"  // 提領
     case giftPurchase = "gift_purchase"  // 購買禮物

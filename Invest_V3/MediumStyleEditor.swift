@@ -3,6 +3,7 @@ import UIKit
 import PhotosUI
 import Supabase
 
+
 // MARK: - Medium 風格編輯器
 struct MediumStyleEditor: View {
     @State private var title: String = ""
@@ -15,6 +16,9 @@ struct MediumStyleEditor: View {
     @State private var showPreview: Bool = false
     @State private var showPhotoPicker: Bool = false
     @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
+    @State private var showImageAttributionPicker: Bool = false
+    @State private var pendingImage: UIImage?
+    @State private var selectedImageAttribution: ImageAttribution?
     @State private var titleCharacterCount: Int = 0
     @State private var isPublishing: Bool = false
     @State private var showSaveDraftAlert = false
@@ -150,8 +154,20 @@ struct MediumStyleEditor: View {
             print("📸 開始處理圖片...")
             
             Task {
-                await processSelectedImage(item)
+                await processSelectedImageWithAttribution(item)
             }
+        }
+        .sheet(isPresented: $showImageAttributionPicker) {
+            ImageSourceAttributionPicker(selectedAttribution: Binding(
+                get: { selectedImageAttribution },
+                set: { attribution in
+                    selectedImageAttribution = attribution
+                    if let image = pendingImage {
+                        insertImageWithAttribution(image, attribution: attribution)
+                        pendingImage = nil
+                    }
+                }
+            ))
         }
     }
     
@@ -253,10 +269,77 @@ struct MediumStyleEditor: View {
         )
     }
     
+    // 生成圖片的一致性ID（基於圖片數據的哈希）
+    private func generateImageId(from image: UIImage) -> String {
+        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+            return UUID().uuidString // 備選方案
+        }
+        
+        // 使用圖片數據的簡單哈希作為ID
+        let hash = imageData.reduce(0) { result, byte in
+            result &+ Int(byte)
+        }
+        return "img_\(hash)_\(imageData.count)"
+    }
+    
+    // 插入帶來源標註的圖片
+    private func insertImageWithAttribution(_ image: UIImage, attribution: ImageAttribution?) {
+        // 生成基於圖片內容的一致性ID
+        let imageId = generateImageId(from: image)
+        
+        // 如果有標註，保存到管理器
+        if let attribution = attribution {
+            ImageAttributionManager.shared.setAttribution(for: imageId, attribution: attribution)
+            print("✅ 已為圖片 \(imageId) 設置來源標註: \(attribution.displayText)")
+        }
+        
+        // 通知 RichTextView 插入圖片
+        NotificationCenter.default.post(
+            name: NSNotification.Name("InsertImageWithAttribution"),
+            object: ["image": image, "imageId": imageId, "attribution": attribution as Any]
+        )
+        
+        // 如果 RichTextView 不支持新的通知，使用舊的方式
+        NotificationCenter.default.post(
+            name: NSNotification.Name("InsertImage"),
+            object: image
+        )
+    }
+    
     // 支援的圖片格式
     private let supportedImageFormats = ["jpg", "jpeg", "png", "gif", "webp", "tiff", "bmp", "heic"]
     
-    // 處理選擇的圖片
+    // 處理選擇的圖片（帶來源標註）
+    private func processSelectedImageWithAttribution(_ item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            await showImageError("無法載入圖片數據")
+            return
+        }
+        
+        // 檢查文件格式
+        let fileName = item.itemIdentifier ?? "unknown"
+        let fileExtension = fileName.lowercased().components(separatedBy: ".").last ?? ""
+        
+        if !supportedImageFormats.contains(fileExtension) && !isValidImageData(data) {
+            await showImageError("不支援的圖片格式。支援格式：\(supportedImageFormats.joined(separator: ", "))")
+            return
+        }
+        
+        guard let image = UIImage(data: data) else {
+            await showImageError("無法處理此圖片，請確認圖片格式是否正確")
+            return
+        }
+        
+        await MainActor.run {
+            print("📸 成功處理圖片：\(fileName)")
+            self.pendingImage = image
+            self.showImageAttributionPicker = true
+            // 處理完成後清空選擇
+            selectedPhotosPickerItems.removeAll()
+        }
+    }
+    
+    // 處理選擇的圖片（舊版本，保留兼容性）
     private func processSelectedImage(_ item: PhotosPickerItem) async {
         guard let data = try? await item.loadTransferable(type: Data.self) else {
             await showImageError("無法載入圖片數據")
@@ -367,7 +450,9 @@ struct MediumStyleEditor: View {
             if let attachment = segment.attachment,
                let image = attachment.image ?? attachment.image(forBounds: attachment.bounds, textContainer: nil, characterIndex: 0),
                let data = image.jpegData(compressionQuality: 0.8) {
-                let fileName = UUID().uuidString + ".jpg"
+                // 使用一致的圖片ID生成方法
+                let imageId = generateImageId(from: image)
+                let fileName = imageId + ".jpg"
                 print("📸 嘗試上傳圖片: \(fileName)，大小: \(data.count) bytes")
                 
                 do {
@@ -375,7 +460,20 @@ struct MediumStyleEditor: View {
                     let contentType = detectContentType(from: data)
                     let url = try await SupabaseService.shared.uploadArticleImageWithContentType(data, fileName: fileName, contentType: contentType)
                     print("✅ 圖片上傳成功: \(url)")
-                    markdown += "![](\(url))"
+                    
+                    // 檢查是否有來源標註
+                    if let attribution = ImageAttributionManager.shared.getAttribution(for: imageId) {
+                        // 使用 EnhancedImageInserter 來生成帶標註的 Markdown
+                        print("📝 為圖片 \(imageId) 生成帶標註的 Markdown: \(attribution.displayText)")
+                        markdown += EnhancedImageInserter.insertImageWithAttribution(
+                            imageUrl: url,
+                            attribution: attribution,
+                            altText: ""
+                        )
+                    } else {
+                        print("ℹ️ 圖片 \(imageId) 沒有來源標註，使用默認格式")
+                        markdown += "![](\(url))"
+                    }
                 } catch {
                     print("❌ 圖片上傳失敗: \(error.localizedDescription)")
                     // 如果上傳失敗，插入本地佔位符
