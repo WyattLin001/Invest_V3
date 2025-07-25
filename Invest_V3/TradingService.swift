@@ -221,7 +221,7 @@ class TradingService: ObservableObject {
     // MARK: - 交易操作
     
     /// 獲取股票即時價格
-    func getStockPrice(symbol: String) async throws -> StockPrice {
+    func getStockPrice(symbol: String) async throws -> TradingStockPrice {
         let url = URL(string: "\(baseURL)/api/stocks/\(symbol)")!
         let request = createAuthorizedRequest(url: url)
         
@@ -229,14 +229,16 @@ class TradingService: ObservableObject {
         let result = try JSONDecoder().decode(StockPriceResponse.self, from: data)
         
         if result.success {
-            return StockPrice(
+            return TradingStockPrice(
                 symbol: result.symbol,
                 name: result.name,
                 currentPrice: result.currentPrice,
                 previousClose: result.previousClose,
                 change: result.change,
                 changePercent: result.changePercent,
-                timestamp: result.timestamp
+                timestamp: result.timestamp,
+                currency: "TWD",
+                isTaiwanStock: true
             )
         } else {
             throw TradingError.apiError(result.error ?? "獲取股價失敗")

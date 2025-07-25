@@ -1001,7 +1001,7 @@ def get_transactions():
 
 if __name__ == '__main__':
     import os
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))  # 改為 5001 避免與 macOS AirPlay 衝突
     debug = os.environ.get('FLASK_ENV') != 'production'
     
     logger.info(f"🚀 Flask API 服務器啟動 - Port: {port}, Debug: {debug}")
