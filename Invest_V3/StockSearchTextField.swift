@@ -33,69 +33,90 @@ struct StockSearchTextField: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 輸入框
-            HStack {
-                TextField(placeholder, text: $text)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .focused($isTextFieldFocused)
-                    .autocapitalization(.allCharacters)
-                    .accessibilityLabel("股票搜尋輸入框")
-                    .accessibilityHint("輸入股票代號或公司名稱進行搜尋")
-                    .onChange(of: text) { newValue in
-                        handleTextChange(newValue)
-                    }
-                    .onSubmit {
-                        selectCurrentSuggestion()
-                    }
-                    // 新增鍵盤導航支持
-                    .onKeyPress(.upArrow) {
-                        if showSuggestions && !suggestions.isEmpty {
-                            selectedIndex = max(selectedIndex - 1, -1)
+        ZStack(alignment: .topLeading) {
+            VStack(alignment: .leading, spacing: 0) {
+                // 輸入框
+                HStack {
+                    TextField(placeholder, text: $text)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .focused($isTextFieldFocused)
+                        .autocapitalization(.allCharacters)
+                        .accessibilityLabel("股票搜尋輸入框")
+                        .accessibilityHint("輸入股票代號或公司名稱進行搜尋")
+                        .onChange(of: text) { newValue in
+                            handleTextChange(newValue)
+                        }
+                        .onSubmit {
+                            selectCurrentSuggestion()
+                        }
+                        // 新增鍵盤導航支持
+                        .onKeyPress(.upArrow) {
+                            if showSuggestions && !suggestions.isEmpty {
+                                selectedIndex = max(selectedIndex - 1, -1)
+                                return .handled
+                            }
+                            return .ignored
+                        }
+                        .onKeyPress(.downArrow) {
+                            if showSuggestions && !suggestions.isEmpty {
+                                selectedIndex = min(selectedIndex + 1, suggestions.count - 1)
+                                return .handled
+                            }
+                            return .ignored
+                        }
+                        .onKeyPress(.escape) {
+                            showSuggestions = false
+                            isTextFieldFocused = false
                             return .handled
                         }
-                        return .ignored
-                    }
-                    .onKeyPress(.downArrow) {
-                        if showSuggestions && !suggestions.isEmpty {
-                            selectedIndex = min(selectedIndex + 1, suggestions.count - 1)
-                            return .handled
+                    
+                    // 清除按鈕和搜尋指示器
+                    HStack(spacing: 4) {
+                        if isSearching {
+                            ProgressView()
+                                .scaleEffect(0.8)
                         }
-                        return .ignored
+                        
+                        if !text.isEmpty {
+                            Button(action: {
+                                text = ""
+                                suggestions = []
+                                showSuggestions = false
+                                searchError = nil
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                                    .scaleEffect(0.8)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
                     }
-                    .onKeyPress(.escape) {
-                        showSuggestions = false
-                        isTextFieldFocused = false
-                        return .handled
-                    }
+                    .padding(.trailing, 8)
+                }
                 
-                // 搜尋指示器
-                if isSearching {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .padding(.trailing, 8)
+                // 保留空間給建議列表，避免佈局跳動
+                if showSuggestions && isTextFieldFocused {
+                    Spacer()
+                        .frame(height: min(CGFloat(suggestions.count * 60), 200))
                 }
             }
             
-            // 建議列表
+            // 建議列表 - 使用獨立的 ZStack 層
             if showSuggestions && isTextFieldFocused {
-                suggestionsList
-                    .animation(.easeInOut(duration: 0.2), value: suggestions)
+                VStack(spacing: 0) {
+                    // 佔位符，對齊到輸入框下方
+                    Spacer()
+                        .frame(height: 44) // TextField 的大約高度
+                    
+                    suggestionsList
+                        .zIndex(1000) // 高 z-index 確保在最上層
+                        .animation(.easeInOut(duration: 0.2), value: suggestions)
+                }
             }
         }
         .onTapGesture {
             isTextFieldFocused = true
         }
-        // 點擊外部關閉建議列表
-        .background(
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if showSuggestions {
-                        showSuggestions = false
-                    }
-                }
-        )
     }
     
     // MARK: - 建議列表視圖
@@ -122,9 +143,15 @@ struct StockSearchTextField: View {
                 .frame(maxHeight: 200)
             }
         }
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(8)
-        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(.systemGray4), lineWidth: 0.5)
+        )
         .padding(.top, 4)
     }
     
@@ -278,9 +305,13 @@ struct StockSearchTextField: View {
         guard index >= 0 && index < suggestions.count else { return }
         
         let selectedStock = suggestions[index]
-        text = selectedStock.code
+        
+        // 優化用戶體驗：顯示完整的股票代號和名稱
+        text = "\(selectedStock.code) \(selectedStock.name)"
         showSuggestions = false
-        isTextFieldFocused = false
+        
+        // 保持焦點讓用戶可以繼續編輯（可選）
+        // isTextFieldFocused = false
         
         // 調用回調
         onStockSelected?(selectedStock)
