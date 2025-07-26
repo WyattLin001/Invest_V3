@@ -13,8 +13,9 @@ struct Invest_V3App: App {
     
     var body: some Scene {
         WindowGroup {
-            // 使用新的啟動管理器
+            // 使用新的啟動管理器，並注入主題管理器
             AppContainer()
+                .withThemeManager()
         }
     }
 }

@@ -254,6 +254,7 @@ struct AppContainer: View {
                     .environmentObject(AuthenticationService.shared)
                     .environmentObject(UserProfileService.shared)
                     .environmentObject(PortfolioService.shared)
+                    .environmentObject(ThemeManager.shared)
                     .environmentObject(StockService.shared)
                     .environmentObject(NotificationService.shared)
                     .environmentObject(FriendService.shared)

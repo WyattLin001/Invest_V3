@@ -20,103 +20,99 @@ struct InvestmentPanelView: View {
     @State private var showSellConfirmation = false
     @State private var errorMessage: String?
     @State private var showErrorAlert = false
+    @State private var selectedStockName: String = "" // 儲存選擇的股票名稱
+    @State private var showClearPortfolioConfirmation = false // 清空投資組合確認對話框
     
     let onExecuteTrade: () -> Void
     let onClose: () -> Void
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                // 投資組合標題
-                VStack(spacing: 8) {
-                    Text("投資組合")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
+            ScrollView {
+                VStack(spacing: 20) {
+                    // 投資組合標題
+                    VStack(spacing: 8) {
+                        Text("投資組合")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .adaptiveTextColor()
 
-                    
-                    Divider()
-                        .background(Color(.separator))
-                }
-                .padding(.top, 20)
-                
-                // 投資組合圓形圖表
-                VStack(spacing: 16) {
-                    ZStack {
-                        // 背景圓圈
-                        Circle()
-                            .stroke(Color(.systemGray6), lineWidth: 8)
-                            .frame(width: 120, height: 120)
                         
-                        // 動態投資比例圓圈
-                        if !portfolioManager.holdings.isEmpty {
-                            ForEach(Array(portfolioManager.portfolioPercentages.enumerated()), id: \.offset) { index, item in
-                                let (symbol, percentage, color) = item
-                                let percentagePrefix = portfolioManager.portfolioPercentages.prefix(index)
-                                let startAngle = percentagePrefix.reduce(0.0) { result, item in
-                                    return result + item.1
-                                }
-                                let endAngle = startAngle + percentage
-                                
-                                Circle()
-                                    .trim(from: startAngle, to: endAngle)
-                                    .stroke(color, lineWidth: 8)
-                                    .frame(width: 120, height: 120)
-                                    .rotationEffect(.degrees(-90))
-                            }
-                        }
-                        
-                        // 中心總金額
-                        VStack(spacing: 2) {
-                            Text("總投資")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text("$\(Int(portfolioManager.totalPortfolioValue))")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.primary)
-                        }
+                        Divider()
+                            .dividerStyle()
                     }
+                    .padding(.top, 20)
                     
-                    // 投資組合明細
-                    if portfolioManager.holdings.isEmpty {
-                        Text("尚未進行任何投資")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .padding(.vertical, 20)
-                    } else {
-                        LazyVStack(spacing: 8) {
-                            ForEach(portfolioManager.holdings, id: \.id) { holding in
-                                let value = holding.totalValue
-                                let percentage = portfolioManager.portfolioPercentages.first { $0.0 == holding.symbol }?.1 ?? 0
-                                
-                                HStack {
-                                    Text(holding.symbol)
-                                        .font(.headline)
-                                        .fontWeight(.semibold)
+                    // 投資組合圓形圖表 - 使用 DynamicPieChart
+                    VStack(spacing: 16) {
+                        DynamicPieChart(data: portfolioManager.pieChartData, size: 120)
+                        
+                        // 投資組合明細
+                        if portfolioManager.holdings.isEmpty {
+                            Text("尚未進行任何投資")
+                                .font(.body)
+                                .adaptiveTextColor(primary: false)
+                                .padding(.vertical, 20)
+                        } else {
+                            // 股票列表標題
+                            HStack {
+                                Text("持股明細")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .adaptiveTextColor(primary: false)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 4)
+                            
+                            // 股票列表 - 使用固定高度避免滾動衝突
+                            LazyVStack(spacing: 8) {
+                                ForEach(portfolioManager.holdings, id: \.id) { holding in
+                                    let value = holding.totalValue
+                                    let percentage = portfolioManager.portfolioPercentages.first { $0.0 == holding.symbol }?.1 ?? 0
                                     
-                                    Spacer()
-                                    
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text("$\(Int(value))")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                        Text("\(Int(percentage * 100))%")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+                                    HStack {
+                                        // 股票顏色指示器
+                                        Circle()
+                                            .fill(StockColorPalette.colorForStock(symbol: holding.symbol))
+                                            .frame(width: 12, height: 12)
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack(spacing: 4) {
+                                                Text(holding.symbol)
+                                                    .font(.headline)
+                                                    .fontWeight(.semibold)
+                                                
+                                                Text(holding.name)
+                                                    .font(.subheadline)
+                                                    .adaptiveTextColor(primary: false)
+                                            }
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        VStack(alignment: .trailing, spacing: 2) {
+                                            Text("$\(Int(value))")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                            Text("\(Int(percentage * 100))%")
+                                                .font(.caption)
+                                                .adaptiveTextColor(primary: false)
+                                        }
                                     }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.surfaceSecondary)
+                                    .cornerRadius(8)
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
                             }
+                            .background(Color.surfacePrimary)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(DesignTokens.borderColor, lineWidth: DesignTokens.borderWidthThin)
+                            )
                         }
-                        .frame(maxHeight: 150)
                     }
-                }
-                
-                Spacer()
                 
                 // 交易區域
                 VStack(spacing: 16) {
@@ -136,11 +132,12 @@ struct InvestmentPanelView: View {
                         ) { selectedStock in
                             // 當用戶選擇股票時的回調
                             stockSymbol = selectedStock.code
+                            selectedStockName = selectedStock.name // 同時保存股票名稱
                             Task {
                                 await fetchCurrentPrice()
                             }
                         }
-                        .onChange(of: stockSymbol) { _ in
+                        .onChange(of: stockSymbol) { newValue in
                             Task {
                                 await fetchCurrentPrice()
                             }
@@ -239,16 +236,45 @@ struct InvestmentPanelView: View {
                             )
                     }
                     .disabled(isTradeButtonDisabled)
+                    
+                    // 測試按鈕：清空投資組合
+                    Divider()
+                        .padding(.vertical, 8)
+                    
+                    VStack(spacing: 8) {
+                        Text("測試功能")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Button(action: {
+                            clearPortfolioWithConfirmation()
+                        }) {
+                            Text("🧹 清空投資組合")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.orange)
+                                )
+                        }
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
+                }
+                .padding(.horizontal, 20)
             }
+            .adaptiveBackground()
             .navigationTitle("投資面板")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
                 trailing: Button("關閉") {
                     onClose()
                 }
+                .adaptiveTextColor()
             )
         }
         .alert("交易成功", isPresented: $showTradeSuccess) {
@@ -271,9 +297,20 @@ struct InvestmentPanelView: View {
                 Text(errorMessage)
             }
         }
+        .alert("清空投資組合", isPresented: $showClearPortfolioConfirmation) {
+            Button("取消", role: .cancel) { }
+            Button("確定清空", role: .destructive) {
+                portfolioManager.clearCurrentUserPortfolio()
+                tradeSuccessMessage = "投資組合已清空，虛擬資金已重置為 NT$1,000,000"
+                showTradeSuccess = true
+            }
+        } message: {
+            Text("⚠️ 此操作將清空您的所有投資記錄並重置虛擬資金，此操作無法復原。\n\n確定要繼續嗎？")
+        }
     }
     
     // MARK: - 輔助方法
+    
     
     /// 檢查交易按鈕是否應該被禁用
     private var isTradeButtonDisabled: Bool {
@@ -360,14 +397,56 @@ struct InvestmentPanelView: View {
             }
         }
         
-        // 執行原始的交易邏輯
-        onExecuteTrade()
+        // 執行交易邏輯，傳遞選擇的股票名稱
+        if tradeAction == "buy" {
+            let success = portfolioManager.buyStock(
+                symbol: stockSymbol, 
+                shares: amount / currentPrice, 
+                price: currentPrice,
+                stockName: selectedStockName.isEmpty ? nil : selectedStockName
+            )
+            
+            if success {
+                // 交易成功
+                tradeSuccessMessage = "成功購買 \(String(format: "%.2f", amount / currentPrice)) 股 \(stockSymbol)"
+                showTradeSuccess = true
+                // 清空輸入
+                stockSymbol = ""
+                tradeAmount = ""
+                selectedStockName = ""
+            } else {
+                showError("交易失敗，請檢查餘額是否足夠")
+            }
+        } else {
+            let success = portfolioManager.sellStock(
+                symbol: stockSymbol,
+                shares: amount,
+                price: currentPrice
+            )
+            
+            if success {
+                // 交易成功
+                tradeSuccessMessage = "成功賣出 \(String(format: "%.2f", amount)) 股 \(stockSymbol)"
+                showTradeSuccess = true
+                // 清空輸入
+                stockSymbol = ""
+                tradeAmount = ""
+                selectedStockName = ""
+            } else {
+                showError("交易失敗，請檢查持股是否足夠")
+            }
+        }
     }
     
     /// 顯示錯誤訊息
     private func showError(_ message: String) {
         errorMessage = message
         showErrorAlert = true
+    }
+    
+    /// 顯示清空投資組合確認對話框
+    private func clearPortfolioWithConfirmation() {
+        showClearPortfolioConfirmation = true
     }
 }
 
@@ -414,18 +493,18 @@ struct TradeInfoView: View {
                             .font(.caption)
                         Text("預估可購得：")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .adaptiveTextColor(primary: false)
                         Text("\(String(format: "%.2f", estimatedShares)) 股")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                            .adaptiveTextColor()
                         Spacer()
                     }
                     
                     HStack {
                         Text("含手續費約：")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .adaptiveTextColor(primary: false)
                         Text("$\(String(format: "%.2f", estimatedCost))")
                             .font(.caption)
                             .fontWeight(.semibold)
@@ -436,7 +515,7 @@ struct TradeInfoView: View {
                 .padding(.top, 4)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 8)
-                .background(Color(.systemGray6))
+                .background(Color.surfaceSecondary)
                 .cornerRadius(8)
             }
             
@@ -449,11 +528,11 @@ struct TradeInfoView: View {
                             .font(.caption)
                         Text("目前持股：")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .adaptiveTextColor(primary: false)
                         Text("\(String(format: "%.2f", holding.shares)) 股")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                            .adaptiveTextColor()
                         Spacer()
                     }
                     .padding(.top, 4)

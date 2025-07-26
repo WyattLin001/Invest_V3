@@ -206,14 +206,14 @@ struct TournamentSelectionView: View {
                 Spacer()
                 
                 // 獎金池
-                Label("$\(tournament.prizePool, specifier: "%.0f")", systemImage: "dollarsign.circle.fill")
+                Label(String(format: "$%.0f", tournament.prizePool), systemImage: "dollarsign.circle.fill")
                     .font(.caption)
                     .adaptiveTextColor(primary: false)
                 
                 Spacer()
                 
                 // 初始資金
-                Label("$\(tournament.initialBalance / 10000, specifier: "%.0f")萬", systemImage: "banknote.fill")
+                Label(String(format: "$%.0f萬", tournament.initialBalance / 10000), systemImage: "banknote.fill")
                     .font(.caption)
                     .adaptiveTextColor(primary: false)
             }
@@ -288,7 +288,7 @@ struct TournamentSelectionView: View {
         .padding()
         .background(Color.surfacePrimary)
         .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.05), radius: CGFloat(4), x: CGFloat(0), y: CGFloat(2))
     }
     
     // MARK: - 快速篩選按鈕

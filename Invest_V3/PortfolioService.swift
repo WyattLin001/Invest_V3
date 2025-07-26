@@ -182,6 +182,94 @@ class PortfolioService: ObservableObject {
         return portfolioItems
     }
     
+    // MARK: - 投資組合刪除與清理
+    
+    /// 刪除指定投資組合的所有資料
+    /// - Parameter portfolioId: 要刪除的投資組合 ID
+    func deletePortfolio(portfolioId: UUID) async throws {
+        guard let client = supabaseClient else {
+            throw PortfolioServiceError.clientNotInitialized
+        }
+        
+        print("🗑️ [PortfolioService] 開始刪除投資組合: \(portfolioId)")
+        
+        // 步驟 1: 刪除所有相關的持倉記錄 (user_positions)
+        do {
+            try await client
+                .from("user_positions")
+                .delete()
+                .eq("portfolio_id", value: portfolioId)
+                .execute()
+            print("✅ [PortfolioService] 已刪除持倉記錄")
+        } catch {
+            print("❌ [PortfolioService] 刪除持倉記錄失敗: \(error)")
+            throw PortfolioServiceError.deletionFailed("刪除持倉記錄失敗")
+        }
+        
+        // 步驟 2: 刪除所有相關的交易記錄 (portfolio_transactions)
+        do {
+            // 先獲取投資組合資訊以取得 user_id
+            let portfolioResponse: [UserPortfolio] = try await client
+                .from("user_portfolios")
+                .select()
+                .eq("id", value: portfolioId)
+                .execute()
+                .value
+            
+            if let portfolio = portfolioResponse.first {
+                try await client
+                    .from("portfolio_transactions")
+                    .delete()
+                    .eq("user_id", value: portfolio.userId)
+                    .execute()
+                print("✅ [PortfolioService] 已刪除交易記錄")
+            }
+        } catch {
+            print("❌ [PortfolioService] 刪除交易記錄失敗: \(error)")
+            throw PortfolioServiceError.deletionFailed("刪除交易記錄失敗")
+        }
+        
+        // 步驟 3: 刪除投資組合主記錄 (user_portfolios)
+        do {
+            try await client
+                .from("user_portfolios")
+                .delete()
+                .eq("id", value: portfolioId)
+                .execute()
+            print("✅ [PortfolioService] 已刪除投資組合主記錄")
+        } catch {
+            print("❌ [PortfolioService] 刪除投資組合主記錄失敗: \(error)")
+            throw PortfolioServiceError.deletionFailed("刪除投資組合主記錄失敗")
+        }
+        
+        print("🎉 [PortfolioService] 投資組合刪除完成: \(portfolioId)")
+    }
+    
+    /// 清空指定用戶的投資組合
+    /// - Parameter userId: 用戶 ID
+    func clearUserPortfolio(userId: UUID) async throws {
+        guard let client = supabaseClient else {
+            throw PortfolioServiceError.clientNotInitialized
+        }
+        
+        print("🧹 [PortfolioService] 開始清空用戶投資組合: \(userId)")
+        
+        // 獲取用戶的所有投資組合
+        let portfolioResponse: [UserPortfolio] = try await client
+            .from("user_portfolios")
+            .select()
+            .eq("user_id", value: userId)
+            .execute()
+            .value
+        
+        // 逐一刪除每個投資組合
+        for portfolio in portfolioResponse {
+            try await deletePortfolio(portfolioId: portfolio.id)
+        }
+        
+        print("🎉 [PortfolioService] 用戶投資組合清空完成: \(userId)")
+    }
+
     // MARK: - 私有方法
     
     private func createInitialPortfolio(userId: UUID) async throws -> UserPortfolio {
@@ -256,6 +344,7 @@ enum PortfolioServiceError: Error, LocalizedError {
     case insufficientFunds
     case invalidTransaction
     case stockNotFound
+    case deletionFailed(String)
     
     var errorDescription: String? {
         switch self {
@@ -267,6 +356,8 @@ enum PortfolioServiceError: Error, LocalizedError {
             return "無效的交易"
         case .stockNotFound:
             return "找不到股票"
+        case .deletionFailed(let message):
+            return "刪除失敗: \(message)"
         }
     }
 }

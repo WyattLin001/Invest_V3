@@ -182,12 +182,12 @@ struct TournamentRankingsView: View {
                     .font(.headline)
                     .adaptiveTextColor()
                 
-                Text("$\(participant.virtualBalance, specifier: "%.0f")")
+                Text(String(format: "$%.0f", participant.virtualBalance))
                     .font(.title3)
                     .fontWeight(.bold)
                     .adaptiveTextColor()
                 
-                Text("報酬率：\(participant.returnRate >= 0 ? "+" : "")\(participant.returnRate * 100, specifier: "%.2f")%")
+                Text(String(format: "報酬率：%@%.2f%%", participant.returnRate >= 0 ? "+" : "", participant.returnRate * 100))
                     .font(.caption)
                     .foregroundColor(participant.returnRate >= 0 ? .success : .danger)
             }
@@ -197,7 +197,7 @@ struct TournamentRankingsView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 performanceBadge(participant.performanceLevel)
                 
-                Text("勝率 \(participant.winRate * 100, specifier: "%.0f")%")
+                Text(String(format: "勝率 %.0f%%", participant.winRate * 100))
                     .font(.caption)
                     .adaptiveTextColor(primary: false)
             }
@@ -250,7 +250,7 @@ struct TournamentRankingsView: View {
                         .font(.caption2)
                         .adaptiveTextColor(primary: false)
                     
-                    Text("勝率 \(participant.winRate * 100, specifier: "%.0f")%")
+                    Text(String(format: "勝率 %.0f%%", participant.winRate * 100))
                         .font(.caption2)
                         .adaptiveTextColor(primary: false)
                 }
@@ -260,7 +260,7 @@ struct TournamentRankingsView: View {
             
             // 績效信息
             VStack(alignment: .trailing, spacing: 2) {
-                Text("$\(participant.virtualBalance, specifier: "%.0f")")
+                Text(String(format: "$%.0f", participant.virtualBalance))
                     .font(.subheadline)
                     .fontWeight(.bold)
                     .adaptiveTextColor()
@@ -270,7 +270,7 @@ struct TournamentRankingsView: View {
                         .foregroundColor(participant.rankChangeColor)
                         .font(.caption2)
                     
-                    Text("\(participant.returnRate >= 0 ? "+" : "")\(participant.returnRate * 100, specifier: "%.2f")%")
+                    Text(String(format: "%@%.2f%%", participant.returnRate >= 0 ? "+" : "", participant.returnRate * 100))
                         .font(.caption)
                         .foregroundColor(participant.returnRate >= 0 ? .success : .danger)
                 }
@@ -279,7 +279,7 @@ struct TournamentRankingsView: View {
         .padding()
         .background(Color.surfacePrimary)
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .shadow(color: Color.black.opacity(0.05), radius: CGFloat(2), x: CGFloat(0), y: CGFloat(1))
     }
     
     // MARK: - 活動卡片
@@ -324,7 +324,7 @@ struct TournamentRankingsView: View {
                             .background(Color.brandGreen.opacity(0.1))
                             .cornerRadius(4)
                         
-                        Text("$\(amount, specifier: "%.0f")")
+                        Text(String(format: "$%.0f", amount))
                             .font(.caption)
                             .fontWeight(.medium)
                             .adaptiveTextColor()
@@ -337,7 +337,7 @@ struct TournamentRankingsView: View {
         .padding()
         .background(Color.surfacePrimary)
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .shadow(color: Color.black.opacity(0.05), radius: CGFloat(2), x: CGFloat(0), y: CGFloat(1))
     }
     
     // MARK: - 輔助視圖
@@ -418,10 +418,10 @@ struct TournamentRankingsView: View {
         let formatter = DateFormatter()
         let calendar = Calendar.current
         
-        if calendar.isToday(timestamp) {
+        if calendar.isDate(timestamp, inSameDayAs: Date()) {
             formatter.dateFormat = "HH:mm"
             return "今天 \(formatter.string(from: timestamp))"
-        } else if calendar.isYesterday(timestamp) {
+        } else if calendar.isDate(timestamp, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()) {
             formatter.dateFormat = "HH:mm"
             return "昨天 \(formatter.string(from: timestamp))"
         } else {

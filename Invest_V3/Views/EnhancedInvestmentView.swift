@@ -181,7 +181,7 @@ struct InvestmentHomeView: View {
             }
             
             HStack(alignment: .bottom, spacing: DesignTokens.spacingSM) {
-                Text("$\(portfolioData.totalValue, specifier: "%.0f")")
+                Text(String(format: "$%.0f", portfolioData.totalValue))
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .adaptiveTextColor()
@@ -192,13 +192,13 @@ struct InvestmentHomeView: View {
                             .foregroundColor(portfolioData.dailyChange >= 0 ? .success : .danger)
                             .font(.caption)
                         
-                        Text("$\(abs(portfolioData.dailyChange), specifier: "%.2f")")
+                        Text(String(format: "$%.2f", abs(portfolioData.dailyChange)))
                             .foregroundColor(portfolioData.dailyChange >= 0 ? .success : .danger)
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
                     
-                    Text("(\(portfolioData.dailyChangePercentage >= 0 ? "+" : "")\(portfolioData.dailyChangePercentage, specifier: "%.2f")%)")
+                    Text(String(format: "(%@%.2f%%)", portfolioData.dailyChangePercentage >= 0 ? "+" : "", portfolioData.dailyChangePercentage))
                         .foregroundColor(portfolioData.dailyChange >= 0 ? .success : .danger)
                         .font(.caption)
                 }
@@ -208,11 +208,11 @@ struct InvestmentHomeView: View {
                 .background(Color.divider)
             
             HStack {
-                portfolioMetric("現金", "$\(portfolioData.cashBalance, specifier: "%.0f")")
+                portfolioMetric("現金", String(format: "$%.0f", portfolioData.cashBalance))
                 Spacer()
-                portfolioMetric("已投資", "$\(portfolioData.investedAmount, specifier: "%.0f")")
+                portfolioMetric("已投資", String(format: "$%.0f", portfolioData.investedAmount))
                 Spacer()
-                portfolioMetric("總報酬率", "\(portfolioData.totalReturnPercentage >= 0 ? "+" : "")\(portfolioData.totalReturnPercentage, specifier: "%.2f")%")
+                portfolioMetric("總報酬率", String(format: "%@%.2f%%", portfolioData.totalReturnPercentage >= 0 ? "+" : "", portfolioData.totalReturnPercentage))
             }
         }
         .brandCardStyle()
@@ -241,7 +241,7 @@ struct InvestmentHomeView: View {
                             
                             Spacer()
                             
-                            Text("\(allocation.percentage, specifier: "%.1f")%")
+                            Text(String(format: "%.1f%%", allocation.percentage))
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                                 .adaptiveTextColor(primary: false)
@@ -339,13 +339,13 @@ struct InvestmentHomeView: View {
             Spacer()
             
             VStack(alignment: .trailing, spacing: 2) {
-                Text("$\(holding.currentValue, specifier: "%.0f")")
+                Text(String(format: "$%.0f", holding.totalValue))
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .adaptiveTextColor()
-                Text("\(holding.returnPercentage >= 0 ? "+" : "")\(holding.returnPercentage, specifier: "%.2f")%")
+                Text(String(format: "%@%.2f%%", holding.unrealizedGainLossPercent >= 0 ? "+" : "", holding.unrealizedGainLossPercent))
                     .font(.caption)
-                    .foregroundColor(holding.returnPercentage >= 0 ? .success : .danger)
+                    .foregroundColor(holding.unrealizedGainLossPercent >= 0 ? .success : .danger)
             }
         }
         .padding(.vertical, 4)
@@ -356,7 +356,7 @@ struct InvestmentHomeView: View {
             Text(period)
                 .font(.caption)
                 .adaptiveTextColor(primary: false)
-            Text("\(returnValue >= 0 ? "+" : "")\(returnValue, specifier: "%.2f")%")
+            Text(String(format: "%@%.2f%%", returnValue >= 0 ? "+" : "", returnValue))
                 .font(.subheadline)
                 .fontWeight(.bold)
                 .foregroundColor(returnValue >= 0 ? .success : .danger)
@@ -462,7 +462,7 @@ struct TournamentDetailView: View {
             HStack {
                 Label("\(tournament.currentParticipants)/\(tournament.maxParticipants)", systemImage: "person.2.fill")
                 Spacer()
-                Label("$\(tournament.prizePool, specifier: "%.0f")", systemImage: "dollarsign.circle.fill")
+                Label(String(format: "$%.0f", tournament.prizePool), systemImage: "dollarsign.circle.fill")
                 Spacer()
                 Label(tournament.type.duration, systemImage: "clock.fill")
             }

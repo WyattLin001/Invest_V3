@@ -230,14 +230,15 @@ struct AnalysisRow: View {
 struct AssetAllocationCard: View {
     @ObservedObject private var tradingService = TradingService.shared
     
+    private var allocationData: [PieChartData] {
+        return AssetAllocationCalculator.calculateAllocation(from: tradingService.portfolio)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("資產分配")
                 .font(.headline)
                 .fontWeight(.bold)
-            
-            // 動態圓餅圖
-            let allocationData = AssetAllocationCalculator.calculateAllocation(from: tradingService.portfolio)
             
             if allocationData.isEmpty {
                 // 空狀態
@@ -396,6 +397,15 @@ struct PortfolioPositionRow: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack {
+                // 股票顏色指示器
+                Circle()
+                    .fill(StockColorPalette.colorForStock(symbol: position.symbol))
+                    .frame(width: 16, height: 16)
+                    .overlay(
+                        Circle()
+                            .stroke(Color(.systemBackground), lineWidth: 2)
+                    )
+                
                 VStack(alignment: .leading, spacing: 4) {
                     Text(position.symbol)
                         .font(.headline)

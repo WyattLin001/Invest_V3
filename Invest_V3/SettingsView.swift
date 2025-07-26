@@ -439,16 +439,100 @@ struct SettingsView: View {
             Text("應用設定")
                 .font(.sectionHeader) // 使用自定義字體
                 .fontWeight(.semibold)
-                .foregroundColor(.gray900)
+                .adaptiveTextColor()
             
-            VStack(spacing: DesignTokens.spacingSM) {
-                Text("其他應用設定功能開發中")
-                    .font(.bodyText)
-                    .foregroundColor(.gray600)
-                    .padding(.vertical, DesignTokens.spacingSM)
+            VStack(spacing: 0) {
+                // 主題設置
+                themeSettingRow
+                
+                Divider()
+                    .dividerStyle()
+                
+                // 其他設定項目預留位置
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("其他設定")
+                            .font(.bodyText)
+                            .adaptiveTextColor()
+                        Text("更多功能開發中")
+                            .font(.caption)
+                            .adaptiveTextColor(primary: false)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .adaptiveTextColor(primary: false)
+                }
+                .padding(.vertical, DesignTokens.spacingMD)
+                .contentShape(Rectangle())
             }
         }
         .brandCardStyle()
+    }
+    
+    // MARK: - 主題設置行
+    private var themeSettingRow: some View {
+        VStack(spacing: DesignTokens.spacingSM) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("深色模式")
+                        .font(.bodyText)
+                        .adaptiveTextColor()
+                    Text("選擇應用程式的外觀主題")
+                        .font(.caption)
+                        .adaptiveTextColor(primary: false)
+                }
+                Spacer()
+                // 當前主題顯示
+                Text(ThemeManager.shared.currentMode.displayName)
+                    .font(.caption)
+                    .adaptiveTextColor(primary: false)
+                Image(systemName: ThemeManager.shared.currentMode.iconName)
+                    .font(.caption)
+                    .adaptiveTextColor(primary: false)
+            }
+            .padding(.vertical, DesignTokens.spacingMD)
+            
+            // 主題選擇器
+            HStack(spacing: DesignTokens.spacingSM) {
+                ForEach(ThemeManager.ThemeMode.allCases) { mode in
+                    themeOptionButton(for: mode)
+                }
+            }
+        }
+    }
+    
+    // MARK: - 主題選項按鈕
+    private func themeOptionButton(for mode: ThemeManager.ThemeMode) -> some View {
+        Button(action: {
+            withAnimation(DesignTokens.themeTransition) {
+                ThemeManager.shared.setTheme(mode)
+            }
+        }) {
+            VStack(spacing: DesignTokens.spacingXS) {
+                Image(systemName: mode.iconName)
+                    .font(.title3)
+                    .foregroundColor(ThemeManager.shared.currentMode == mode ? .white : .systemLabel)
+                
+                Text(mode.displayName)
+                    .font(.caption)
+                    .foregroundColor(ThemeManager.shared.currentMode == mode ? .white : .systemLabel)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, DesignTokens.spacingSM)
+            .background(
+                RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
+                    .fill(ThemeManager.shared.currentMode == mode ? Color.brandGreen : Color.surfaceSecondary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
+                    .stroke(
+                        ThemeManager.shared.currentMode == mode ? Color.brandGreen : DesignTokens.borderColor,
+                        lineWidth: DesignTokens.borderWidthThin
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
     
     private var subscriptionSection: some View {

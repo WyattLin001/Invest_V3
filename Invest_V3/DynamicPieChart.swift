@@ -99,10 +99,33 @@ struct DynamicPieChart: View {
                 
                 context.fill(path, with: .color(fillColor))
                 
-                // 添加邊框
-                context.stroke(path, with: .color(Color(.systemBackground)), lineWidth: 2)
+                // 添加較粗的背景顏色邊框以突出分段（深色模式適配）
+                context.stroke(path, with: .color(Color.systemBackground), lineWidth: 4)
                 
                 startAngle = endAngle
+                
+            }
+            
+            // 如果只有一個項目且不是100%，添加剩餘部分
+            if data.count == 1 && data.first?.percentage != 100 {
+                let remainingPercentage = 100 - (data.first?.percentage ?? 0)
+                let remainingAngle = (remainingPercentage / 100) * 360
+                let remainingEndAngle = startAngle + remainingAngle
+                
+                let remainingPath = Path { path in
+                    path.move(to: center)
+                    path.addArc(
+                        center: center,
+                        radius: radius,
+                        startAngle: .degrees(startAngle),
+                        endAngle: .degrees(remainingEndAngle),
+                        clockwise: false
+                    )
+                    path.closeSubpath()
+                }
+                
+                context.fill(remainingPath, with: .color(Color(.systemGray5)))
+                context.stroke(remainingPath, with: .color(Color.systemBackground), lineWidth: 4)
             }
         }
     }
@@ -150,11 +173,24 @@ struct DynamicLegendItem: View {
 struct AssetAllocationCalculator {
     static func calculateAllocation(from portfolio: TradingPortfolio?) -> [PieChartData] {
         guard let portfolio = portfolio else {
-            return [PieChartData(category: "現金", value: 100, color: Color.brandGreen)]
+            return [PieChartData(category: "現金", value: 100, color: StockColorPalette.cashColor)]
         }
         
         var allocations: [PieChartData] = []
         let totalValue = portfolio.totalAssets
+        
+        // 添加個別股票
+        for position in portfolio.positions {
+            let percentage = (position.marketValue / totalValue) * 100
+            let stockColor = StockColorPalette.colorForStock(symbol: position.symbol)
+            
+            allocations.append(PieChartData(
+                category: position.name,
+                value: percentage,
+                color: stockColor
+            ))
+            
+        }
         
         // 現金比例
         let cashPercentage = (portfolio.cashBalance / totalValue) * 100
@@ -162,69 +198,68 @@ struct AssetAllocationCalculator {
             allocations.append(PieChartData(
                 category: "現金",
                 value: cashPercentage,
-                color: Color.brandGreen
+                color: StockColorPalette.cashColor
             ))
         }
         
-        // 股票分類
-        var stockCategories: [String: Double] = [:]
-        var categoryColors: [String: Color] = [
-            "科技股": .blue,
-            "金融股": .orange,
-            "傳統產業": .purple,
-            "生技醫療": .pink,
-            "其他": .gray
-        ]
-        
-        for position in portfolio.positions {
-            let category = categorizeStock(position.symbol)
-            let percentage = (position.marketValue / totalValue) * 100
-            stockCategories[category, default: 0] += percentage
-        }
-        
-        // 轉換為 PieChartData
-        for (category, percentage) in stockCategories.sorted(by: { $0.value > $1.value }) {
-            if percentage > 0 {
-                allocations.append(PieChartData(
-                    category: category,
-                    value: percentage,
-                    color: categoryColors[category] ?? .gray
-                ))
-            }
-        }
-        
-        return allocations
+        // 按價值大小排序
+        return allocations.sorted { $0.value > $1.value }
     }
     
-    private static func categorizeStock(_ symbol: String) -> String {
-        // 根據股票代碼分類（簡化版本）
-        switch symbol.prefix(2) {
-        case "23", "24", "25", "26": // 科技股相關代碼
-            return "科技股"
-        case "28", "29": // 金融股相關代碼
-            return "金融股"
-        case "41", "42": // 生技醫療相關代碼
-            return "生技醫療"
-        default:
-            if symbol.hasPrefix("AA") || symbol.hasPrefix("GO") || symbol.hasPrefix("NV") {
-                return "科技股"
-            } else if symbol.hasPrefix("MS") || symbol.hasPrefix("JP") {
-                return "金融股"
-            } else {
-                return "其他"
-            }
-        }
+}
+
+// MARK: - 股票顏色調色盤 (重構為混合動態系統)
+struct StockColorPalette {
+    
+    /// 混合顏色提供者（單例）
+    private static let colorProvider = HybridColorProvider.shared
+    
+    /// 現金顏色（向後兼容）
+    static let cashColor = HybridColorProvider.shared.colorForCash()
+    
+    /// 為股票獲取顏色
+    /// - Parameter symbol: 股票代號
+    /// - Returns: 對應的顏色
+    static func colorForStock(symbol: String) -> Color {
+        return colorProvider.colorForStock(symbol: symbol)
+    }
+    
+    /// 獲取所有股票的顏色列表
+    static var allStockColors: [(symbol: String, color: Color)] {
+        return colorProvider.getAllColors()
+    }
+    
+    /// 清除動態生成的顏色緩存（調試用）
+    static func clearDynamicColors() {
+        colorProvider.clearDynamicColors()
     }
 }
 
 #Preview {
     let sampleData = [
-        PieChartData(category: "現金", value: 45.5, color: Color.brandGreen),
-        PieChartData(category: "科技股", value: 30.2, color: .blue),
-        PieChartData(category: "金融股", value: 15.8, color: .orange),
-        PieChartData(category: "其他", value: 8.5, color: .purple)
+        PieChartData(category: "台灣50", value: 90.9, color: StockColorPalette.colorForStock(symbol: "0050")),
+        PieChartData(category: "台積電", value: 9.1, color: StockColorPalette.colorForStock(symbol: "2330"))
     ]
     
-    return DynamicPieChart(data: sampleData, size: 180)
-        .padding()
+    return VStack(spacing: 20) {
+        Text("投資組合預覽")
+            .font(.headline)
+        
+        DynamicPieChart(data: sampleData, size: 180)
+        
+        // 顯示顏色對應
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Circle().fill(StockColorPalette.colorForStock(symbol: "0050")).frame(width: 12, height: 12)
+                Text("0050 台灣50 - 藍色")
+                    .font(.caption)
+            }
+            HStack {
+                Circle().fill(StockColorPalette.colorForStock(symbol: "2330")).frame(width: 12, height: 12)
+                Text("2330 台積電 - 紅色")
+                    .font(.caption)
+            }
+        }
+    }
+    .padding()
 }

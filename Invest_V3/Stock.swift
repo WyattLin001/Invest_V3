@@ -99,6 +99,7 @@ struct PortfolioHolding: Identifiable, Codable {
     let id: UUID
     let userId: UUID
     let symbol: String
+    let name: String    // 公司名稱
     let shares: Double  // 改為 shares 以符合其他地方的使用
     let averagePrice: Double
     let currentPrice: Double
@@ -130,7 +131,7 @@ struct PortfolioHolding: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
-        case symbol, shares
+        case symbol, name, shares
         case averagePrice = "average_price"
         case currentPrice = "current_price"
         case lastUpdated = "last_updated"

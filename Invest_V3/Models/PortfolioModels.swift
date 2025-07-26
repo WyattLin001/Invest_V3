@@ -247,7 +247,7 @@ struct Achievement: Identifiable, Codable {
     }
 }
 
-// MARK: - 模擬數據
+// MARK: - 模擬數據 - 使用實際的 PortfolioHolding 定義
 struct MockPortfolioData {
     static let sampleData = PortfolioData(
         totalValue: 1250000,
@@ -266,49 +266,54 @@ struct MockPortfolioData {
     
     static let sampleHoldings: [PortfolioHolding] = [
         PortfolioHolding(
+            id: UUID(),
+            userId: UUID(),
             symbol: "2330",
             name: "台積電",
             shares: 100,
-            avgPrice: 580.0,
+            averagePrice: 580.0,
             currentPrice: 620.0,
-            currentValue: 62000,
-            returnPercentage: 6.90
+            lastUpdated: Date()
         ),
         PortfolioHolding(
+            id: UUID(),
+            userId: UUID(),
             symbol: "0050",
             name: "台灣50",
             shares: 200,
-            avgPrice: 140.0,
+            averagePrice: 140.0,
             currentPrice: 145.0,
-            currentValue: 29000,
-            returnPercentage: 3.57
+            lastUpdated: Date()
         ),
         PortfolioHolding(
+            id: UUID(),
+            userId: UUID(),
             symbol: "2454",
             name: "聯發科",
             shares: 50,
-            avgPrice: 800.0,
+            averagePrice: 800.0,
             currentPrice: 850.0,
-            currentValue: 42500,
-            returnPercentage: 6.25
+            lastUpdated: Date()
         ),
         PortfolioHolding(
+            id: UUID(),
+            userId: UUID(),
             symbol: "2317",
             name: "鴻海",
             shares: 300,
-            avgPrice: 110.0,
+            averagePrice: 110.0,
             currentPrice: 115.0,
-            currentValue: 34500,
-            returnPercentage: 4.55
+            lastUpdated: Date()
         ),
         PortfolioHolding(
+            id: UUID(),
+            userId: UUID(),
             symbol: "2881",
             name: "富邦金",
             shares: 400,
-            avgPrice: 70.0,
+            averagePrice: 70.0,
             currentPrice: 75.0,
-            currentValue: 30000,
-            returnPercentage: 7.14
+            lastUpdated: Date()
         )
     ]
     

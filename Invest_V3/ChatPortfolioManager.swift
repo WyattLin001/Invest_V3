@@ -37,6 +37,24 @@ class ChatPortfolioManager: ObservableObject {
         }
     }
     
+    /// 為 DynamicPieChart 提供數據
+    var pieChartData: [PieChartData] {
+        let total = totalPortfolioValue
+        guard total > 0 else {
+            return [PieChartData(category: "無投資", value: 100, color: .gray)]
+        }
+        
+        return holdings.map { holding in
+            let percentage = (holding.totalValue / total) * 100
+            let color = StockColorPalette.colorForStock(symbol: holding.symbol)
+            return PieChartData(
+                category: "\(holding.symbol) \(holding.name)",
+                value: percentage,
+                color: color
+            )
+        }.sorted { $0.value > $1.value } // 按比例大小排序
+    }
+    
     private func colorForSymbol(_ symbol: String) -> Color {
         switch symbol {
         case "AAPL": return .blue
@@ -61,7 +79,7 @@ class ChatPortfolioManager: ObservableObject {
         return shares <= Double(holding.quantity)
     }
     
-    func buyStock(symbol: String, shares: Double, price: Double) -> Bool {
+    func buyStock(symbol: String, shares: Double, price: Double, stockName: String? = nil) -> Bool {
         let totalCost = shares * price
         
         guard canBuy(symbol: symbol, amount: totalCost) else {
@@ -80,6 +98,7 @@ class ChatPortfolioManager: ObservableObject {
                 id: existingHolding.id,
                 userId: currentUser,
                 symbol: symbol,
+                name: stockName ?? existingHolding.name, // 優先使用傳入的名稱，否則保持原有名稱
                 shares: newShares,
                 averagePrice: newAveragePrice,
                 currentPrice: price,
@@ -91,6 +110,7 @@ class ChatPortfolioManager: ObservableObject {
                 id: UUID(),
                 userId: currentUser,
                 symbol: symbol,
+                name: stockName ?? getStockName(for: symbol), // 優先使用傳入的名稱，否則使用字典查找
                 shares: shares,
                 averagePrice: price,
                 currentPrice: price,
@@ -127,6 +147,7 @@ class ChatPortfolioManager: ObservableObject {
                 id: holding.id,
                 userId: holding.userId,
                 symbol: symbol,
+                name: holding.name,
                 shares: newShares,
                 averagePrice: holding.averagePrice,
                 currentPrice: price,
@@ -140,6 +161,30 @@ class ChatPortfolioManager: ObservableObject {
     }
     
     // MARK: - Utility Methods
+    
+    /// 獲取股票名稱（模擬數據）
+    private func getStockName(for symbol: String) -> String {
+        let stockNames: [String: String] = [
+            "2330": "台積電",
+            "2317": "鴻海",
+            "2454": "聯發科",
+            "2881": "富邦金",
+            "2882": "國泰金",
+            "2886": "兆豐金",
+            "2891": "中信金",
+            "6505": "台塑化",
+            "3008": "大立光",
+            "2308": "台達電",
+            "0050": "台灣50",
+            "2002": "中興", // 新增中興
+            "AAPL": "Apple Inc",
+            "TSLA": "Tesla Inc",
+            "NVDA": "NVIDIA Corp",
+            "GOOGL": "Alphabet Inc",
+            "MSFT": "Microsoft Corp"
+        ]
+        return stockNames[symbol] ?? symbol
+    }
     
     private func getCurrentUser() -> UUID {
         // 從 UserDefaults 獲取當前用戶 ID
@@ -180,5 +225,34 @@ class ChatPortfolioManager: ObservableObject {
     func resetMonthlyBalance() {
         virtualBalance = 1_000_000
         savePortfolio()
+    }
+    
+    // MARK: - Portfolio Management
+    
+    /// 清空當前用戶的投資組合 (測試用)
+    func clearCurrentUserPortfolio() {
+        print("🧹 [ChatPortfolioManager] 開始清空當前用戶投資組合")
+        
+        // 清空本地數據
+        holdings.removeAll()
+        totalInvested = 0
+        virtualBalance = 1_000_000 // 重置為初始資金
+        
+        // 清空 UserDefaults
+        UserDefaults.standard.removeObject(forKey: "chat_portfolio_holdings")
+        UserDefaults.standard.removeObject(forKey: "chat_total_invested")
+        UserDefaults.standard.set(virtualBalance, forKey: "chat_virtual_balance")
+        
+        print("✅ [ChatPortfolioManager] 當前用戶投資組合已清空")
+        print("💰 [ChatPortfolioManager] 重置虛擬資金: NT$\(String(format: "%.0f", virtualBalance))")
+    }
+    
+    /// 獲取投資組合統計資訊
+    func getPortfolioStats() -> (totalHoldings: Int, totalValue: Double, availableBalance: Double) {
+        return (
+            totalHoldings: holdings.count,
+            totalValue: totalPortfolioValue,
+            availableBalance: availableBalance
+        )
     }
 }

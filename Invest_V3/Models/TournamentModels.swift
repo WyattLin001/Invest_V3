@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 // MARK: - 錦標賽類型
-enum TournamentType: String, CaseIterable, Identifiable {
+enum TournamentType: String, CaseIterable, Identifiable, Codable {
     case daily = "daily"
     case weekly = "weekly"
     case monthly = "monthly"
@@ -89,7 +89,7 @@ enum TournamentType: String, CaseIterable, Identifiable {
 }
 
 // MARK: - 錦標賽狀態
-enum TournamentStatus: String, CaseIterable {
+enum TournamentStatus: String, CaseIterable, Codable {
     case upcoming = "upcoming"    // 即將開始
     case active = "active"        // 進行中
     case ended = "ended"          // 已結束
@@ -178,8 +178,8 @@ struct Tournament: Identifiable, Codable {
         }
         
         let days = Int(timeInterval) / 86400
-        let hours = Int(timeInterval % 86400) / 3600
-        let minutes = Int(timeInterval % 3600) / 60
+        let hours = Int(timeInterval.truncatingRemainder(dividingBy: 86400)) / 3600
+        let minutes = Int(timeInterval.truncatingRemainder(dividingBy: 3600)) / 60
         
         if days > 0 {
             return "\(days)天\(hours)小時"

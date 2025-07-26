@@ -120,6 +120,7 @@ struct TradingPortfolio: Codable {
 struct PortfolioPosition: Codable, Identifiable {
     let id = UUID()
     let symbol: String
+    let name: String
     let quantity: Int
     let averageCost: Double
     let currentPrice: Double
@@ -129,7 +130,7 @@ struct PortfolioPosition: Codable, Identifiable {
     let market: String
     
     private enum CodingKeys: String, CodingKey {
-        case symbol, quantity
+        case symbol, name, quantity
         case averageCost = "average_cost"
         case currentPrice = "current_price"
         case marketValue = "market_value"

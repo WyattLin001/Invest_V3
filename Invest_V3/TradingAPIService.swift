@@ -427,6 +427,7 @@ struct FlaskPortfolioResponse: Codable {
 /// Flask 持倉回應
 struct FlaskPositionResponse: Codable {
     let symbol: String
+    let name: String
     let shares: Double
     let average_price: Double
     let current_price: Double

@@ -93,7 +93,7 @@ struct PersonalPerformanceView: View {
                         .font(.caption)
                         .adaptiveTextColor(primary: false)
                     
-                    Text("\(performanceData.totalReturn >= 0 ? "+" : "")\(performanceData.totalReturn * 100, specifier: "%.2f")%")
+                    Text(String(format: "%@%.2f%%", performanceData.totalReturn >= 0 ? "+" : "", performanceData.totalReturn * 100))
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundColor(performanceData.totalReturn >= 0 ? .success : .danger)
@@ -106,7 +106,7 @@ struct PersonalPerformanceView: View {
                         .font(.caption)
                         .adaptiveTextColor(primary: false)
                     
-                    Text("\(performanceData.annualizedReturn >= 0 ? "+" : "")\(performanceData.annualizedReturn * 100, specifier: "%.2f")%")
+                    Text(String(format: "%@%.2f%%", performanceData.annualizedReturn >= 0 ? "+" : "", performanceData.annualizedReturn * 100))
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(performanceData.annualizedReturn >= 0 ? .success : .danger)
@@ -117,11 +117,11 @@ struct PersonalPerformanceView: View {
                 .background(Color.divider)
             
             HStack {
-                performanceMetric("勝率", "\(performanceData.winRate * 100, specifier: "%.0f")%", .brandGreen)
+                performanceMetric("勝率", String(format: "%.0f%%", performanceData.winRate * 100), .brandGreen)
                 Spacer()
                 performanceMetric("交易次數", "\(performanceData.totalTrades)", .brandBlue)
                 Spacer()
-                performanceMetric("平均持有", "\(performanceData.avgHoldingDays, specifier: "%.0f")天", .brandOrange)
+                performanceMetric("平均持有", String(format: "%.0f天", performanceData.avgHoldingDays), .brandOrange)
             }
         }
         .brandCardStyle()
@@ -189,10 +189,10 @@ struct PersonalPerformanceView: View {
         VStack(spacing: DesignTokens.spacingMD) {
             // 關鍵指標
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: DesignTokens.spacingSM) {
-                metricCard("最大回撤", "\(performanceData.maxDrawdown * 100, specifier: "%.2f")%", .danger)
+                metricCard("最大回撤", String(format: "%.2f%%", performanceData.maxDrawdown * 100), .danger)
                 metricCard("夏普比率", performanceData.sharpeRatio != nil ? String(format: "%.2f", performanceData.sharpeRatio!) : "N/A", .brandBlue)
                 metricCard("獲利交易", "\(performanceData.profitableTrades)", .success)
-                metricCard("風險評分", "\(performanceData.riskScore, specifier: "%.1f")/10", .warning)
+                metricCard("風險評分", String(format: "%.1f/10", performanceData.riskScore), .warning)
             }
             
             Spacer()
@@ -243,12 +243,12 @@ struct PersonalPerformanceView: View {
                 .adaptiveTextColor()
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: DesignTokens.spacingSM) {
-                detailedMetric("總報酬", "\(performanceData.totalReturn >= 0 ? "+" : "")\(performanceData.totalReturn * 100, specifier: "%.2f")%")
-                detailedMetric("年化報酬", "\(performanceData.annualizedReturn >= 0 ? "+" : "")\(performanceData.annualizedReturn * 100, specifier: "%.2f")%")
-                detailedMetric("最大回撤", "\(performanceData.maxDrawdown * 100, specifier: "%.2f")%")
+                detailedMetric("總報酬", String(format: "%@%.2f%%", performanceData.totalReturn >= 0 ? "+" : "", performanceData.totalReturn * 100))
+                detailedMetric("年化報酬", String(format: "%@%.2f%%", performanceData.annualizedReturn >= 0 ? "+" : "", performanceData.annualizedReturn * 100))
+                detailedMetric("最大回撤", String(format: "%.2f%%", performanceData.maxDrawdown * 100))
                 detailedMetric("夏普比率", performanceData.sharpeRatio != nil ? String(format: "%.2f", performanceData.sharpeRatio!) : "N/A")
-                detailedMetric("勝率", "\(performanceData.winRate * 100, specifier: "%.0f")%")
-                detailedMetric("平均持有", "\(performanceData.avgHoldingDays, specifier: "%.0f")天")
+                detailedMetric("勝率", String(format: "%.0f%%", performanceData.winRate * 100))
+                detailedMetric("平均持有", String(format: "%.0f天", performanceData.avgHoldingDays))
             }
         }
         .brandCardStyle()
@@ -309,7 +309,7 @@ struct PersonalPerformanceView: View {
                     
                     Spacer()
                     
-                    Text("前 \(100 - Int(rankingPoint.percentile), specifier: "%.0f")%")
+                    Text("前 \(Int(100 - rankingPoint.percentile))%")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.success)
@@ -498,7 +498,7 @@ struct PersonalPerformanceView: View {
         .padding()
         .background(Color.surfacePrimary)
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .shadow(color: Color.black.opacity(0.05), radius: CGFloat(2), x: CGFloat(0), y: CGFloat(1))
     }
     
     // MARK: - 輔助方法
@@ -584,12 +584,12 @@ struct PerformanceShareSheet: View {
                 
                 // 分享預覽
                 VStack(spacing: 16) {
-                    Text("總報酬率 \(performanceData.totalReturn >= 0 ? "+" : "")\(performanceData.totalReturn * 100, specifier: "%.2f")%")
+                    Text(String(format: "總報酬率 %@%.2f%%", performanceData.totalReturn >= 0 ? "+" : "", performanceData.totalReturn * 100))
                         .font(.title)
                         .fontWeight(.bold)
                         .foregroundColor(performanceData.totalReturn >= 0 ? .success : .danger)
                     
-                    Text("勝率 \(performanceData.winRate * 100, specifier: "%.0f")% • \(performanceData.totalTrades) 筆交易")
+                    Text(String(format: "勝率 %.0f%% • %d 筆交易", performanceData.winRate * 100, performanceData.totalTrades))
                         .font(.subheadline)
                         .adaptiveTextColor(primary: false)
                 }

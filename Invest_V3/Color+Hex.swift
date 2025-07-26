@@ -28,23 +28,43 @@ extension Color {
     
     // MARK: - Semantic Colors (支援深色模式)
     
-    /// 背景 Layer 0 - 最淺灰色
-    static let gray50 = Color(light: "#FAFAFA", dark: "#0A0A0A")
+    /// 背景 Layer 0 - 最淺灰色 (主要背景)
+    static let gray50 = Color(light: "#FAFAFA", dark: "#000000")
     
-    /// 背景 Layer 1
-    static let gray100 = Color(light: "#F7F7F7", dark: "#121212")
+    /// 背景 Layer 1 - 卡片背景
+    static let gray100 = Color(light: "#F7F7F7", dark: "#1C1C1E")
     
-    /// 背景 Layer 2  
-    static let gray200 = Color(light: "#EEEEEE", dark: "#1E1E1E")
+    /// 背景 Layer 2 - 次要背景
+    static let gray200 = Color(light: "#EEEEEE", dark: "#2C2C2E")
     
-    /// 主要文本
-    static let gray900 = Color(light: "#1E1E1E", dark: "#E0E0E0")
+    /// 背景 Layer 3 - 三級背景
+    static let gray250 = Color(light: "#E5E5E7", dark: "#3A3A3C")
+    
+    /// 分隔線/邊框
+    static let gray300 = Color(light: "#D1D1D6", dark: "#48484A")
+    
+    /// 背景 Layer 4 - 四級背景 (重複定義，保持一致)
+    static let gray400 = Color(light: "#C7C7CC", dark: "#58585A")
+    
+    /// 背景 Layer 5 - 五級背景 (重複定義，保持一致)
+    static let gray500 = Color(light: "#AEAEB2", dark: "#68686A")
+    
+    /// 背景 Layer 6 - 六級背景
+    static let gray700 = Color(light: "#6D6D70", dark: "#AEAEB2")
+    
+    /// 背景 Layer 7 - 七級背景
+    static let gray800 = Color(light: "#48484A", dark: "#C7C7CC")
     
     /// 次要文本
-    static let gray600 = Color(light: "#6C757D", dark: "#9E9E9E")
+    static let gray600 = Color(light: "#8E8E93", dark: "#8E8E93")
     
-    /// 分隔線
-    static let gray300 = Color(light: "#DEE2E6", dark: "#424242")
+    /// 分隔線顏色 - 支援深色模式
+    static var divider: Color {
+        Color(light: "#E1E5E9", dark: "#3A3A3C")
+    }
+    
+    /// 主要文本
+    static let gray900 = Color(light: "#1D1D1F", dark: "#F2F2F7")
     
     // MARK: - Text Colors (語義化文字顏色)
     
@@ -57,17 +77,13 @@ extension Color {
     /// 第三級文字顏色 - 支援深色模式
     static let textTertiary = Color(light: "#999999", dark: "#666666")
     
-    /// 灰色400
-    static let gray400 = Color(hex: "#CED4DA")
+    // MARK: - Additional Brand Colors
     
-    /// 灰色500 - 中等灰色文本
-    static let gray500 = Color(hex: "#6C757D")
+    /// 品牌紫色 - 用於史詩級成就
+    static let brandPurple = Color(hex: "#9C27B0")
     
-    /// 灰色700
-    static let gray700 = Color(hex: "#495057")
-    
-    /// 灰色800 - 深色文本
-    static let gray800 = Color(hex: "#343A40")
+    /// 品牌金色 - 用於傳奇級成就
+    static let brandGold = Color(hex: "#FFD700")
     
     // MARK: - Status Colors
     
@@ -93,6 +109,75 @@ extension Color {
     
     /// 投資背景色
     static let investBackground = Color(hex: "#F5F5F5")
+    
+    // MARK: - Surface Colors (表面顏色，深色模式適配)
+    
+    /// 主要表面顏色 (卡片、彈窗背景)
+    static var surfacePrimary: Color {
+        Color(light: "#FFFFFF", dark: "#1C1C1E")
+    }
+    
+    /// 次要表面顏色 (次要卡片背景)
+    static var surfaceSecondary: Color {
+        Color(light: "#F2F2F7", dark: "#2C2C2E")
+    }
+    
+    /// 三級表面顏色 (輸入框背景)
+    static var surfaceTertiary: Color {
+        Color(light: "#FFFFFF", dark: "#3A3A3C")
+    }
+    
+    /// 群組背景顏色 (列表背景)
+    static var surfaceGrouped: Color {
+        Color(light: "#F2F2F7", dark: "#000000")
+    }
+    
+    /// 覆蓋層顏色 (遮罩背景)
+    static var surfaceOverlay: Color {
+        Color(light: "#000000", dark: "#000000").opacity(0.4)
+    }
+    
+    // MARK: - System Colors (系統顏色適配)
+    
+    /// 系統背景顏色
+    static var systemBackground: Color {
+        Color(.systemBackground)
+    }
+    
+    /// 系統次要背景顏色
+    static var systemSecondaryBackground: Color {
+        Color(.secondarySystemBackground)
+    }
+    
+    /// 系統三級背景顏色
+    static var systemTertiaryBackground: Color {
+        Color(.tertiarySystemBackground)
+    }
+    
+    /// 系統群組背景顏色
+    static var systemGroupedBackground: Color {
+        Color(.systemGroupedBackground)
+    }
+    
+    /// 系統標籤顏色
+    static var systemLabel: Color {
+        Color(.label)
+    }
+    
+    /// 系統次要標籤顏色
+    static var systemSecondaryLabel: Color {
+        Color(.secondaryLabel)
+    }
+    
+    /// 系統三級標籤顏色
+    static var systemTertiaryLabel: Color {
+        Color(.tertiaryLabel)
+    }
+    
+    /// 系統分隔線顏色
+    static var systemSeparator: Color {
+        Color(.separator)
+    }
     
     // MARK: - Helper Initializers
     
@@ -146,20 +231,21 @@ extension Color {
 // MARK: - View Modifiers
 
 extension View {
-    /// 應用品牌卡片樣式 (Elevation 1)
+    /// 應用品牌卡片樣式 (深色模式適配)
     func brandCardStyle() -> some View {
-        self
-            .background(Color(.systemBackground))
+        let shadow = DesignTokens.cardShadow
+        return self
+            .background(Color.surfacePrimary)
             .cornerRadius(DesignTokens.cornerRadius)
             .shadow(
-                color: Color.black.opacity(DesignTokens.shadowOpacity),
-                radius: DesignTokens.shadowRadius,
-                x: DesignTokens.shadowOffset.width,
-                y: DesignTokens.shadowOffset.height
+                color: DesignTokens.shadowColor.opacity(shadow.opacity),
+                radius: shadow.radius,
+                x: shadow.offset.width,
+                y: shadow.offset.height
             )
     }
     
-    /// 應用品牌按鈕樣式
+    /// 應用品牌按鈕樣式 (深色模式適配)
     func brandButtonStyle(
         backgroundColor: Color = .brandGreen,
         foregroundColor: Color = .white,
@@ -173,6 +259,62 @@ extension View {
             .cornerRadius(DesignTokens.cornerRadius)
             .opacity(isDisabled ? 0.3 : 1.0)
             .disabled(isDisabled)
+    }
+    
+    /// 投資面板樣式 (深色模式適配)
+    func investmentPanelStyle() -> some View {
+        self
+            .background(DesignTokens.portfolioBackgroundColor)
+            .cornerRadius(DesignTokens.cornerRadiusLG)
+            .shadow(
+                color: DesignTokens.shadowColor.opacity(DesignTokens.shadowOpacityAdaptive),
+                radius: DesignTokens.shadowRadius,
+                x: DesignTokens.shadowOffset.width,
+                y: DesignTokens.shadowOffset.height
+            )
+    }
+    
+    /// 圖表容器樣式 (深色模式適配)
+    func chartContainerStyle() -> some View {
+        self
+            .background(DesignTokens.chartBackgroundColor)
+            .cornerRadius(DesignTokens.cornerRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
+                    .stroke(DesignTokens.borderColor, lineWidth: DesignTokens.borderWidthThin)
+            )
+    }
+    
+    /// 分隔線樣式
+    func dividerStyle() -> some View {
+        self
+            .frame(height: DesignTokens.borderWidthThin)
+            .background(DesignTokens.dividerColor)
+    }
+    
+    /// 浮動按鈕樣式 (深色模式適配)
+    func floatingButtonStyle() -> some View {
+        let fabShadow = DesignTokens.fabShadow
+        return self
+            .background(Color.brandGreen)
+            .foregroundColor(.white)
+            .clipShape(Circle())
+            .shadow(
+                color: DesignTokens.shadowColor.opacity(fabShadow.opacity),
+                radius: fabShadow.radius,
+                x: fabShadow.offset.width,
+                y: fabShadow.offset.height
+            )
+    }
+    
+    /// 主題敏感的文字顏色
+    func adaptiveTextColor(primary: Bool = true) -> some View {
+        self.foregroundColor(primary ? .systemLabel : .systemSecondaryLabel)
+    }
+    
+    /// 主題敏感的背景顏色
+    func adaptiveBackground() -> some View {
+        self.background(Color.systemBackground)
     }
     
     /// 自定義圓角 - 支援指定特定角落
