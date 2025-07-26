@@ -4877,7 +4877,7 @@ extension SupabaseService {
             }
             
             // 加入錦標賽
-            let participantData: [String: Any] = [
+            let participantData = [
                 "tournament_id": tournamentId.uuidString,
                 "user_id": currentUser.id.uuidString,
                 "user_name": currentUser.displayName,

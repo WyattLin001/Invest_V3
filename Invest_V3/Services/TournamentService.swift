@@ -8,85 +8,7 @@
 import Foundation
 import Combine
 
-// MARK: - API Response Models
-struct TournamentResponse: Codable {
-    let id: String
-    let name: String
-    let description: String
-    let type: String
-    let status: String
-    let startDate: String
-    let endDate: String
-    let initialBalance: Double
-    let prizePool: Double
-    let currentParticipants: Int
-    let maxParticipants: Int
-    let createdAt: String
-    let updatedAt: String
-}
-
-struct TournamentParticipantResponse: Codable {
-    let id: String
-    let tournamentId: String
-    let userId: String
-    let userName: String
-    let currentRank: Int
-    let previousRank: Int?
-    let virtualBalance: Double
-    let returnRate: Double
-    let winRate: Double
-    let totalTrades: Int
-    let profitableTrades: Int
-    let performanceLevel: String
-    let joinedAt: String
-    let lastActive: String
-}
-
-struct TournamentActivityResponse: Codable {
-    let id: String
-    let tournamentId: String
-    let userId: String
-    let userName: String
-    let activityType: String
-    let description: String
-    let amount: Double?
-    let symbol: String?
-    let timestamp: String
-}
-
-struct PersonalPerformanceResponse: Codable {
-    let userId: String
-    let totalReturn: Double
-    let annualizedReturn: Double
-    let maxDrawdown: Double
-    let sharpeRatio: Double?
-    let winRate: Double
-    let totalTrades: Int
-    let profitableTrades: Int
-    let avgHoldingDays: Double
-    let riskScore: Double
-    let achievements: [AchievementResponse]
-    let rankingHistory: [RankingPointResponse]
-}
-
-struct AchievementResponse: Codable {
-    let id: String
-    let name: String
-    let description: String
-    let icon: String
-    let rarity: String
-    let isUnlocked: Bool
-    let progress: Double
-    let unlockedAt: String?
-}
-
-struct RankingPointResponse: Codable {
-    let id: String
-    let date: String
-    let rank: Int
-    let totalParticipants: Int
-    let percentile: Double
-}
+// MARK: - API Response Models (moved to SupabaseService.swift to avoid duplication)
 
 // MARK: - API Error Types
 enum TournamentAPIError: Error, LocalizedError {
@@ -416,7 +338,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     }
     
     deinit {
-        stopRealtimeUpdates()
+        // 在 deinit 中無法調用 @MainActor 方法，需要直接清理
+        refreshTimer?.invalidate()
+        refreshTimer = nil
         print("📊 [TournamentService] 服務已釋放，即時更新已停止")
     }
 }

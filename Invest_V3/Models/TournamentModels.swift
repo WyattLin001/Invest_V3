@@ -568,6 +568,120 @@ struct PerformanceMetrics: Codable {
     }
 }
 
+// MARK: - 個人績效
+struct PersonalPerformance: Codable {
+    let totalReturn: Double
+    let annualizedReturn: Double
+    let maxDrawdown: Double
+    let sharpeRatio: Double?
+    let winRate: Double
+    let totalTrades: Int
+    let profitableTrades: Int
+    let avgHoldingDays: Double
+    let riskScore: Double
+    let performanceHistory: [PerformancePoint]
+    let rankingHistory: [RankingPoint]
+    let achievements: [Achievement]
+    
+    enum CodingKeys: String, CodingKey {
+        case totalReturn = "total_return"
+        case annualizedReturn = "annualized_return"
+        case maxDrawdown = "max_drawdown"
+        case sharpeRatio = "sharpe_ratio"
+        case winRate = "win_rate"
+        case totalTrades = "total_trades"
+        case profitableTrades = "profitable_trades"
+        case avgHoldingDays = "avg_holding_days"
+        case riskScore = "risk_score"
+        case performanceHistory = "performance_history"
+        case rankingHistory = "ranking_history"
+        case achievements
+    }
+}
+
+// MARK: - 績效歷史點
+struct PerformancePoint: Codable {
+    let date: Date
+    let value: Double
+    let returnRate: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case date
+        case value
+        case returnRate = "return_rate"
+    }
+}
+
+// MARK: - 排名歷史點
+struct RankingPoint: Codable {
+    let date: Date
+    let rank: Int
+    let totalParticipants: Int
+    let percentile: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case date
+        case rank
+        case totalParticipants = "total_participants"
+        case percentile
+    }
+}
+
+// MARK: - 成就
+struct Achievement: Codable {
+    let id: UUID
+    let name: String
+    let description: String
+    let icon: String
+    let rarity: AchievementRarity
+    let earnedAt: Date?
+    let progress: Double
+    let isUnlocked: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, icon, rarity, progress, isUnlocked
+        case earnedAt = "earned_at"
+    }
+    
+    enum AchievementRarity: String, CaseIterable, Codable {
+        case bronze = "bronze"
+        case silver = "silver"
+        case gold = "gold"
+        case platinum = "platinum"
+        case diamond = "diamond"
+        
+        var displayName: String {
+            switch self {
+            case .bronze:
+                return "銅牌"
+            case .silver:
+                return "銀牌"
+            case .gold:
+                return "金牌"
+            case .platinum:
+                return "白金"
+            case .diamond:
+                return "鑽石"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .bronze:
+                return Color(hex: "#CD7F32")
+            case .silver:
+                return Color(hex: "#C0C0C0")
+            case .gold:
+                return Color(hex: "#FFD700")
+            case .platinum:
+                return Color(hex: "#E5E4E2")
+            case .diamond:
+                return Color(hex: "#B9F2FF")
+            }
+        }
+    }
+}
+
 // MARK: - 用戶稱號
 struct UserTitle: Identifiable, Codable {
     let id: UUID
