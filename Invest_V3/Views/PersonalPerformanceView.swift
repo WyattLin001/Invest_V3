@@ -8,11 +8,16 @@
 import SwiftUI
 
 struct PersonalPerformanceView: View {
+    private let tournamentService = ServiceConfiguration.makeTournamentService()
     @State private var selectedTimeframe: PerformanceTimeframe = .month
-    @State private var performanceData = MockPortfolioData.samplePerformance
+    @State private var performanceData: PersonalPerformance = MockPortfolioData.samplePerformance
     @State private var isRefreshing = false
     @State private var showingShareSheet = false
     @State private var selectedTab: PerformanceTab = .overview
+    @State private var showingError = false
+    
+    // 模擬當前用戶ID - 在實際應用中應從用戶會話中獲取
+    private let currentUserId = UUID()
     
     var body: some View {
         ScrollView {
@@ -56,6 +61,11 @@ struct PersonalPerformanceView: View {
         }
         .adaptiveBackground()
         .navigationBarTitleDisplayMode(.large)
+        .onAppear {
+            Task {
+                await loadPerformanceData()
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
@@ -71,6 +81,11 @@ struct PersonalPerformanceView: View {
         }
         .sheet(isPresented: $showingShareSheet) {
             PerformanceShareSheet(performanceData: performanceData)
+        }
+        .alert("錯誤", isPresented: $showingError) {
+            Button("確定") { }
+        } message: {
+            Text("載入績效資料時發生錯誤，請稍後再試")
         }
     }
     
@@ -508,10 +523,17 @@ struct PersonalPerformanceView: View {
         return formatter.string(from: date)
     }
     
+    private func loadPerformanceData() async {
+        do {
+            performanceData = try await tournamentService.fetchPersonalPerformance(userId: currentUserId)
+        } catch {
+            showingError = true
+        }
+    }
+    
     private func refreshPerformanceData() async {
         isRefreshing = true
-        // TODO: 實際的績效數據刷新邏輯
-        try? await Task.sleep(nanoseconds: 1_500_000_000)
+        await loadPerformanceData()
         isRefreshing = false
     }
 }

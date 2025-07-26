@@ -8,12 +8,15 @@
 import SwiftUI
 
 struct TournamentRankingsView: View {
+    private let tournamentService = ServiceConfiguration.makeTournamentService()
     @State private var selectedSegment: RankingSegment = .rankings
-    @State private var selectedTournament: Tournament? = Tournament.sampleData.first
-    @State private var participants = TournamentParticipant.sampleData
+    @State private var selectedTournament: Tournament?
+    @State private var participants: [TournamentParticipant] = []
     @State private var activities: [TournamentActivity] = []
+    @State private var tournaments: [Tournament] = []
     @State private var isRefreshing = false
     @State private var showingTournamentPicker = false
+    @State private var showingError = false
     
     var body: some View {
         VStack {
@@ -37,13 +40,27 @@ struct TournamentRankingsView: View {
         }
         .adaptiveBackground()
         .onAppear {
-            loadMockActivities()
+            Task {
+                await loadInitialData()
+            }
         }
         .sheet(isPresented: $showingTournamentPicker) {
             TournamentPickerSheet(
-                tournaments: Tournament.sampleData,
+                tournaments: tournaments,
                 selectedTournament: $selectedTournament
             )
+        }
+        .alert("錯誤", isPresented: $showingError) {
+            Button("確定") { }
+        } message: {
+            Text("載入排行榜資料時發生錯誤，請稍後再試")
+        }
+        .onChange(of: selectedTournament) { _, newTournament in
+            if let tournament = newTournament {
+                Task {
+                    await loadTournamentData(tournament.id)
+                }
+            }
         }
     }
     
@@ -431,57 +448,59 @@ struct TournamentRankingsView: View {
     }
     
     // MARK: - 數據操作
+    private func loadInitialData() async {
+        do {
+            tournaments = try await tournamentService.fetchTournaments()
+            if selectedTournament == nil {
+                selectedTournament = tournaments.first
+            }
+            
+            if let tournament = selectedTournament {
+                await loadTournamentData(tournament.id)
+            }
+        } catch {
+            showingError = true
+        }
+    }
+    
+    private func loadTournamentData(_ tournamentId: UUID) async {
+        do {
+            async let participantsTask = tournamentService.fetchTournamentParticipants(tournamentId: tournamentId)
+            async let activitiesTask = tournamentService.fetchTournamentActivities(tournamentId: tournamentId)
+            
+            participants = try await participantsTask
+            activities = try await activitiesTask
+        } catch {
+            showingError = true
+        }
+    }
+    
     private func refreshRankings() async {
         isRefreshing = true
-        // TODO: 實際的排名數據刷新邏輯
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        
+        if let tournament = selectedTournament {
+            do {
+                participants = try await tournamentService.fetchTournamentParticipants(tournamentId: tournament.id)
+            } catch {
+                showingError = true
+            }
+        }
+        
         isRefreshing = false
     }
     
     private func refreshActivities() async {
         isRefreshing = true
-        // TODO: 實際的活動數據刷新邏輯
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        loadMockActivities()
+        
+        if let tournament = selectedTournament {
+            do {
+                activities = try await tournamentService.fetchTournamentActivities(tournamentId: tournament.id)
+            } catch {
+                showingError = true
+            }
+        }
+        
         isRefreshing = false
-    }
-    
-    private func loadMockActivities() {
-        activities = [
-            TournamentActivity(
-                id: UUID(),
-                tournamentId: selectedTournament?.id ?? UUID(),
-                userId: UUID(),
-                userName: "投資大師",
-                activityType: .trade,
-                description: "買入 100 股",
-                amount: 58000,
-                symbol: "2330",
-                timestamp: Calendar.current.date(byAdding: .minute, value: -15, to: Date()) ?? Date()
-            ),
-            TournamentActivity(
-                id: UUID(),
-                tournamentId: selectedTournament?.id ?? UUID(),
-                userId: UUID(),
-                userName: "穩健投資人",
-                activityType: .rankChange,
-                description: "排名上升至第 3 名",
-                amount: nil,
-                symbol: nil,
-                timestamp: Calendar.current.date(byAdding: .hour, value: -1, to: Date()) ?? Date()
-            ),
-            TournamentActivity(
-                id: UUID(),
-                tournamentId: selectedTournament?.id ?? UUID(),
-                userId: UUID(),
-                userName: "新手投資者",
-                activityType: .milestone,
-                description: "達成首次獲利里程碑",
-                amount: 5000,
-                symbol: nil,
-                timestamp: Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date()
-            )
-        ]
     }
 }
 

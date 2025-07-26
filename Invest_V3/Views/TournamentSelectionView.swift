@@ -10,10 +10,12 @@ import SwiftUI
 struct TournamentSelectionView: View {
     @Binding var selectedTournament: Tournament?
     @Binding var showingDetail: Bool
-    @State private var tournaments = Tournament.sampleData
+    private let tournamentService = ServiceConfiguration.makeTournamentService()
+    @State private var tournaments: [Tournament] = []
     @State private var selectedType: TournamentType? = nil
     @State private var searchText = ""
     @State private var isRefreshing = false
+    @State private var showingError = false
     
     var body: some View {
         ScrollView {
@@ -30,8 +32,18 @@ struct TournamentSelectionView: View {
             .padding()
         }
         .adaptiveBackground()
+        .onAppear {
+            Task {
+                await loadTournaments()
+            }
+        }
         .refreshable {
             await refreshTournaments()
+        }
+        .alert("錯誤", isPresented: $showingError) {
+            Button("確定") { }
+        } message: {
+            Text("載入錦標賽資料時發生錯誤，請稍後再試")
         }
     }
     
@@ -244,7 +256,9 @@ struct TournamentSelectionView: View {
             HStack {
                 if tournament.isJoinable {
                     Button("加入錦標賽") {
-                        // TODO: 加入錦標賽邏輯
+                        Task {
+                            await joinTournament(tournament)
+                        }
                     }
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -374,12 +388,31 @@ struct TournamentSelectionView: View {
         }
     }
     
-    // MARK: - 數據刷新
+    // MARK: - 數據操作
+    private func loadTournaments() async {
+        do {
+            tournaments = try await tournamentService.fetchTournaments()
+        } catch {
+            showingError = true
+        }
+    }
+    
     private func refreshTournaments() async {
         isRefreshing = true
-        // TODO: 實際的數據刷新邏輯
-        try? await Task.sleep(nanoseconds: 1_500_000_000) // 模擬網路請求
+        await loadTournaments()
         isRefreshing = false
+    }
+    
+    private func joinTournament(_ tournament: Tournament) async {
+        do {
+            let success = try await tournamentService.joinTournament(tournamentId: tournament.id)
+            if success {
+                // 刷新錦標賽數據
+                await loadTournaments()
+            }
+        } catch {
+            showingError = true
+        }
     }
 }
 
