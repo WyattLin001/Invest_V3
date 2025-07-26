@@ -259,7 +259,7 @@ struct InvestmentHomeView: View {
                 .font(.caption)
                 .adaptiveTextColor(primary: false)
             
-            Text(String(format: "$%,.0f", portfolioManager.totalPortfolioValue))
+            Text(formatCurrency(portfolioManager.totalPortfolioValue))
                 .font(.title2)
                 .fontWeight(.bold)
                 .adaptiveTextColor()
@@ -285,7 +285,7 @@ struct InvestmentHomeView: View {
                         .foregroundColor(totalGainLoss >= 0 ? .success : .danger)
                         .font(.caption)
                     
-                    Text(String(format: "$%,.0f", abs(totalGainLoss)))
+                    Text(formatCurrency(abs(totalGainLoss)))
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(totalGainLoss >= 0 ? .success : .danger)
@@ -380,7 +380,7 @@ struct InvestmentHomeView: View {
             HStack {
                 Group {
                     Text("代號")
-                        .frame(width: 60, alignment: .leading)
+                        .frame(width: 80, alignment: .leading)
                     Text("股數")
                         .frame(width: 60, alignment: .trailing)
                     Text("股價")
@@ -425,7 +425,7 @@ struct InvestmentHomeView: View {
                         .adaptiveTextColor(primary: false)
                         .lineLimit(1)
                 }
-                .frame(width: 60, alignment: .leading)
+                .frame(width: 80, alignment: .leading)
                 
                 // 股數
                 Text(String(format: "%.0f", holding.shares))
@@ -434,7 +434,7 @@ struct InvestmentHomeView: View {
                     .frame(width: 60, alignment: .trailing)
                 
                 // 股價
-                Text(String(format: "$%.0f", holding.currentPrice))
+                Text(formatPrice(holding.currentPrice))
                     .font(.caption)
                     .adaptiveTextColor()
                     .frame(width: 60, alignment: .trailing)
@@ -444,7 +444,7 @@ struct InvestmentHomeView: View {
                     HStack(spacing: 2) {
                         Image(systemName: dailyChange >= 0 ? "arrow.up" : "arrow.down")
                             .font(.caption2)
-                        Text(String(format: "$%.0f", abs(dailyChange)))
+                        Text(formatPrice(abs(dailyChange)))
                             .font(.caption2)
                     }
                     .foregroundColor(dailyChange >= 0 ? .success : .danger)
@@ -456,7 +456,7 @@ struct InvestmentHomeView: View {
                 .frame(width: 70, alignment: .trailing)
                 
                 // 總價值
-                Text(String(format: "$%,.0f", holding.totalValue))
+                Text(formatCurrency(holding.totalValue))
                     .font(.caption)
                     .fontWeight(.medium)
                     .adaptiveTextColor()
@@ -464,7 +464,7 @@ struct InvestmentHomeView: View {
                 
                 // 損益
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text(String(format: "$%,.0f", holding.unrealizedGainLoss))
+                    Text(formatCurrency(holding.unrealizedGainLoss))
                         .font(.caption2)
                         .foregroundColor(holding.unrealizedGainLoss >= 0 ? .success : .danger)
                     
@@ -827,7 +827,7 @@ struct InvestmentHomeView: View {
             Spacer()
             
             VStack(alignment: .trailing, spacing: 2) {
-                Text(String(format: "$%.0f", holding.totalValue))
+                Text(formatCurrency(holding.totalValue))
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .adaptiveTextColor()
@@ -858,6 +858,38 @@ struct InvestmentHomeView: View {
         // TODO: 實際的數據刷新邏輯
         try? await Task.sleep(nanoseconds: 1_000_000_000) // 模擬網路請求
         isRefreshing = false
+    }
+    
+    // MARK: - 格式化輔助函數
+    
+    /// 格式化貨幣顯示
+    private func formatCurrency(_ value: Double) -> String {
+        if value == 0 {
+            return "$0"
+        }
+        
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "$"
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 0
+        
+        return formatter.string(from: NSNumber(value: value)) ?? "$0"
+    }
+    
+    /// 格式化價格顯示（較小數字，保留小數點）
+    private func formatPrice(_ value: Double) -> String {
+        if value == 0 {
+            return "$0"
+        }
+        
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "$"
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        
+        return formatter.string(from: NSNumber(value: value)) ?? "$0"
     }
 }
 
@@ -1014,98 +1046,6 @@ struct TournamentDetailView: View {
     }
 }
 
-// MARK: - 共用組件
-
-/// 交易資訊顯示組件
-struct TradeInfoView: View {
-    let tradeAction: String
-    let tradeAmount: String
-    let stockSymbol: String
-    let currentPrice: Double
-    let estimatedShares: Double
-    let estimatedCost: Double
-    let portfolioManager: ChatPortfolioManager
-    
-    var body: some View {
-        Group {
-            // 預估購買資訊（僅在買入時顯示）
-            if tradeAction == "buy" && !tradeAmount.isEmpty && currentPrice > 0 {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.blue)
-                            .font(.caption)
-                        Text("預估可購得：")
-                            .font(.caption)
-                            .adaptiveTextColor(primary: false)
-                        Text("\(String(format: "%.2f", estimatedShares)) 股")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .adaptiveTextColor()
-                        Spacer()
-                    }
-                    
-                    HStack {
-                        Text("含手續費約：")
-                            .font(.caption)
-                            .adaptiveTextColor(primary: false)
-                        Text("$\(String(format: "%.2f", estimatedCost))")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.orange)
-                        Spacer()
-                    }
-                }
-                .padding(.top, 4)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
-                .background(Color.surfaceSecondary)
-                .cornerRadius(8)
-            }
-            
-            // 賣出時顯示持股資訊
-            if tradeAction == "sell" && !stockSymbol.isEmpty {
-                if let holding = portfolioManager.holdings.first(where: { $0.symbol == stockSymbol }) {
-                    HStack {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.blue)
-                            .font(.caption)
-                        Text("目前持股：")
-                            .font(.caption)
-                            .adaptiveTextColor(primary: false)
-                        Text("\(String(format: "%.2f", holding.shares)) 股")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .adaptiveTextColor()
-                        Spacer()
-                    }
-                    .padding(.top, 4)
-                } else {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
-                            .font(.caption)
-                        Text("目前無持股")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                        Spacer()
-                    }
-                    .padding(.top, 4)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Extensions
-
-extension DateFormatter {
-    static let timeOnly: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-}
 
 // MARK: - 預覽
 #Preview {
