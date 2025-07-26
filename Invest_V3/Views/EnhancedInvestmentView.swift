@@ -134,7 +134,12 @@ enum InvestmentTab: String, CaseIterable, Identifiable {
 // MARK: - 投資組合總覽視圖（整合交易功能）
 struct InvestmentHomeView: View {
     @EnvironmentObject private var themeManager: ThemeManager
-    @ObservedObject private var portfolioManager = ChatPortfolioManager.shared
+    
+    init() {
+        self._portfolioManager = ObservedObject(wrappedValue: ChatPortfolioManager.shared)
+    }
+    
+    @ObservedObject private var portfolioManager: ChatPortfolioManager
     
     // 交易相關狀態
     @State private var stockSymbol: String = ""
