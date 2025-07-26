@@ -214,11 +214,9 @@ extension View {
 }
 
 /// 主題自適應修飾器
-struct ThemeAdaptiveModifier<Content: View>: ViewModifier {
-    typealias Body = some View
-    
+struct ThemeAdaptiveModifier<ContentView: View>: ViewModifier {
     @EnvironmentObject private var themeManager: ThemeManager
-    let contentBuilder: (Bool) -> Content
+    let contentBuilder: (Bool) -> ContentView
     
     func body(content: Content) -> some View {
         contentBuilder(themeManager.isDarkMode)

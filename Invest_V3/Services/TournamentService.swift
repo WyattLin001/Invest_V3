@@ -371,15 +371,10 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     }
     
     private func convertToPersonalPerformance(_ response: PersonalPerformanceResponse) -> PersonalPerformance? {
-        guard let userId = UUID(uuidString: response.userId) else {
-            return nil
-        }
-        
         let achievements = response.achievements.compactMap { convertToAchievement($0) }
         let rankingHistory = response.rankingHistory.compactMap { convertToRankingPoint($0) }
         
         return PersonalPerformance(
-            userId: userId,
             totalReturn: response.totalReturn,
             annualizedReturn: response.annualizedReturn,
             maxDrawdown: response.maxDrawdown,
@@ -389,9 +384,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             profitableTrades: response.profitableTrades,
             avgHoldingDays: response.avgHoldingDays,
             riskScore: response.riskScore,
-            achievements: achievements,
             performanceHistory: [], // 預設值，API 回應中暫無此欄位
-            rankingHistory: rankingHistory
+            rankingHistory: rankingHistory,
+            achievements: achievements
         )
     }
     
@@ -409,9 +404,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             description: response.description,
             icon: response.icon,
             rarity: rarity,
-            isUnlocked: response.isUnlocked,
+            earnedAt: unlockedAt,
             progress: response.progress,
-            earnedAt: unlockedAt
+            isUnlocked: response.isUnlocked
         )
     }
     
