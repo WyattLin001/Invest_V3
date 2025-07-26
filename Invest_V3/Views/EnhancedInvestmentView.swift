@@ -131,26 +131,46 @@ enum InvestmentTab: String, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - 投資組合總覽視圖
+// MARK: - 投資組合總覽視圖（整合交易功能）
 struct InvestmentHomeView: View {
     @EnvironmentObject private var themeManager: ThemeManager
-    @State private var portfolioData = MockPortfolioData.sampleData
+    @ObservedObject private var portfolioManager = ChatPortfolioManager.shared
+    
+    // 交易相關狀態
+    @State private var stockSymbol: String = ""
+    @State private var tradeAmount: String = ""
+    @State private var tradeAction: String = "buy"
+    @State private var showTradeSuccess = false
+    @State private var tradeSuccessMessage = ""
+    
+    // 即時股價相關狀態
+    @State private var currentPrice: Double = 0.0
+    @State private var priceLastUpdated: Date?
+    @State private var isPriceLoading = false
+    @State private var priceError: String?
+    @State private var estimatedShares: Double = 0.0
+    @State private var estimatedCost: Double = 0.0
+    @State private var showSellConfirmation = false
+    @State private var errorMessage: String?
+    @State private var showErrorAlert = false
+    @State private var selectedStockName: String = ""
+    @State private var showClearPortfolioConfirmation = false
     @State private var isRefreshing = false
     
     var body: some View {
         ScrollView {
             LazyVStack(spacing: DesignTokens.spacingMD) {
-                // 總覽卡片
+                // 投資組合總覽卡片
                 portfolioSummaryCard
                 
-                // 資產配置圖表
-                assetAllocationCard
+                // 動態圓餅圖和持股明細
+                portfolioVisualizationCard
                 
-                // 持股明細
-                holdingsListCard
+                // 交易區域
+                tradingCard
                 
-                // 近期表現
-                recentPerformanceCard
+                // 管理功能
+                managementCard
             }
             .padding()
         }
@@ -158,14 +178,45 @@ struct InvestmentHomeView: View {
         .refreshable {
             await refreshPortfolioData()
         }
+        .alert("交易成功", isPresented: $showTradeSuccess) {
+            Button("確定", role: .cancel) { }
+        } message: {
+            Text(tradeSuccessMessage)
+        }
+        .alert("確認賣出", isPresented: $showSellConfirmation) {
+            Button("取消", role: .cancel) { }
+            Button("確定賣出", role: .destructive) {
+                executeTradeWithValidation()
+            }
+        } message: {
+            Text("您確定要賣出 \(tradeAmount) 股 \(stockSymbol) 嗎？")
+        }
+        .alert("交易失敗", isPresented: $showErrorAlert) {
+            Button("確定", role: .cancel) { }
+        } message: {
+            if let errorMessage = errorMessage {
+                Text(errorMessage)
+            }
+        }
+        .alert("清空投資組合", isPresented: $showClearPortfolioConfirmation) {
+            Button("取消", role: .cancel) { }
+            Button("確定清空", role: .destructive) {
+                portfolioManager.clearCurrentUserPortfolio()
+                tradeSuccessMessage = "投資組合已清空，虛擬資金已重置為 NT$1,000,000"
+                showTradeSuccess = true
+            }
+        } message: {
+            Text("⚠️ 此操作將清空您的所有投資記錄並重置虛擬資金，此操作無法復原。\n\n確定要繼續嗎？")
+        }
     }
     
     // MARK: - 投資組合總覽卡片
     private var portfolioSummaryCard: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
             HStack {
-                Text("投資組合總值")
-                    .font(.headline)
+                Text("投資組合")
+                    .font(.title2)
+                    .fontWeight(.bold)
                     .adaptiveTextColor()
                 
                 Spacer()
@@ -177,134 +228,427 @@ struct InvestmentHomeView: View {
                         .foregroundColor(.brandGreen)
                         .opacity(isRefreshing ? 0.5 : 1.0)
                         .rotationEffect(.degrees(isRefreshing ? 360 : 0))
-                }
-            }
-            
-            HStack(alignment: .bottom, spacing: DesignTokens.spacingSM) {
-                Text(String(format: "$%.0f", portfolioData.totalValue))
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .adaptiveTextColor()
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Image(systemName: portfolioData.dailyChange >= 0 ? "arrow.up" : "arrow.down")
-                            .foregroundColor(portfolioData.dailyChange >= 0 ? .success : .danger)
-                            .font(.caption)
-                        
-                        Text(String(format: "$%.2f", abs(portfolioData.dailyChange)))
-                            .foregroundColor(portfolioData.dailyChange >= 0 ? .success : .danger)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                    }
-                    
-                    Text(String(format: "(%@%.2f%%)", portfolioData.dailyChangePercentage >= 0 ? "+" : "", portfolioData.dailyChangePercentage))
-                        .foregroundColor(portfolioData.dailyChange >= 0 ? .success : .danger)
-                        .font(.caption)
+                        .animation(.linear(duration: 1.0).repeatForever(autoreverses: false), value: isRefreshing)
                 }
             }
             
             Divider()
                 .background(Color.divider)
             
-            HStack {
-                portfolioMetric("現金", String(format: "$%.0f", portfolioData.cashBalance))
-                Spacer()
-                portfolioMetric("已投資", String(format: "$%.0f", portfolioData.investedAmount))
-                Spacer()
-                portfolioMetric("總報酬率", String(format: "%@%.2f%%", portfolioData.totalReturnPercentage >= 0 ? "+" : "", portfolioData.totalReturnPercentage))
-            }
-        }
-        .brandCardStyle()
-    }
-    
-    // MARK: - 資產配置卡片
-    private var assetAllocationCard: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
-            Text("資產配置")
-                .font(.headline)
-                .adaptiveTextColor()
-            
-            // TODO: 添加圓餅圖組件
-            HStack {
-                // 臨時的資產配置顯示
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(portfolioData.allocations.prefix(5), id: \.symbol) { allocation in
-                        HStack {
-                            Circle()
-                                .fill(StockColorPalette.colorForStock(symbol: allocation.symbol))
-                                .frame(width: 12, height: 12)
-                            
-                            Text(allocation.name)
-                                .font(.subheadline)
-                                .adaptiveTextColor()
-                            
-                            Spacer()
-                            
-                            Text(String(format: "%.1f%%", allocation.percentage))
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .adaptiveTextColor(primary: false)
-                        }
+            HStack(alignment: .bottom, spacing: DesignTokens.spacingSM) {
+                Text(String(format: "$%.0f", portfolioManager.totalPortfolioValue))
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .adaptiveTextColor()
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Image(systemName: portfolioManager.totalDailyChange >= 0 ? "arrow.up" : "arrow.down")
+                            .foregroundColor(portfolioManager.totalDailyChange >= 0 ? .success : .danger)
+                            .font(.caption)
+                        
+                        Text(String(format: "$%.2f", abs(portfolioManager.totalDailyChange)))
+                            .foregroundColor(portfolioManager.totalDailyChange >= 0 ? .success : .danger)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
                     }
+                    
+                    Text(String(format: "(%.2f%%)", abs(portfolioManager.totalDailyChangePercent * 100)))
+                        .foregroundColor(portfolioManager.totalDailyChange >= 0 ? .success : .danger)
+                        .font(.caption)
                 }
                 
                 Spacer()
-                
-                // 圓餅圖佔位符
-                Circle()
-                    .stroke(Color.divider, lineWidth: 1)
-                    .frame(width: 100, height: 100)
-                    .overlay(
-                        Text("圖表")
-                            .font(.caption)
-                            .adaptiveTextColor(primary: false)
-                    )
             }
         }
         .brandCardStyle()
     }
     
-    // MARK: - 持股明細卡片
-    private var holdingsListCard: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+    // MARK: - 投資組合視覺化卡片（圓餅圖 + 持股明細）
+    private var portfolioVisualizationCard: some View {
+        VStack(spacing: DesignTokens.spacingMD) {
+            // 動態圓餅圖
+            VStack(spacing: 16) {
+                DynamicPieChart(data: portfolioManager.pieChartData, size: 120)
+                
+                // 投資組合明細
+                if portfolioManager.holdings.isEmpty {
+                    Text("尚未進行任何投資")
+                        .font(.body)
+                        .adaptiveTextColor(primary: false)
+                        .padding(.vertical, 20)
+                } else {
+                    // 股票列表標題
+                    HStack {
+                        Text("持股明細")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .adaptiveTextColor(primary: false)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 4)
+                    
+                    // 股票列表
+                    LazyVStack(spacing: 8) {
+                        ForEach(portfolioManager.holdings, id: \.id) { holding in
+                            let value = holding.totalValue
+                            let percentage = portfolioManager.portfolioPercentages.first { $0.0 == holding.symbol }?.1 ?? 0
+                            
+                            HStack {
+                                // 股票顏色指示器
+                                Circle()
+                                    .fill(HybridColorProvider.shared.colorForStock(symbol: holding.symbol))
+                                    .frame(width: 12, height: 12)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Text(holding.symbol)
+                                            .font(.headline)
+                                            .fontWeight(.semibold)
+                                        
+                                        Text(holding.name)
+                                            .font(.subheadline)
+                                            .adaptiveTextColor(primary: false)
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text("$\(Int(value))")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    Text("\(Int(percentage * 100))%")
+                                        .font(.caption)
+                                        .adaptiveTextColor(primary: false)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.surfaceSecondary)
+                            .cornerRadius(8)
+                        }
+                    }
+                    .background(Color.surfacePrimary)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(DesignTokens.borderColor, lineWidth: DesignTokens.borderWidthThin)
+                    )
+                }
+            }
+        }
+        .brandCardStyle()
+    }
+    
+    // MARK: - 交易區域卡片
+    private var tradingCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
             HStack {
-                Text("持股明細")
-                    .font(.headline)
+                Text("進行交易")
+                    .font(.title3)
+                    .fontWeight(.bold)
                     .adaptiveTextColor()
                 
                 Spacer()
-                
-                Button("查看全部") {
-                    // TODO: 導航至完整持股列表
-                }
-                .font(.caption)
-                .foregroundColor(.brandGreen)
             }
             
-            LazyVStack(spacing: 8) {
-                ForEach(portfolioData.holdings.prefix(5), id: \.symbol) { holding in
-                    holdingRow(holding)
+            Divider()
+                .background(Color.divider)
+            
+            // 股票代號輸入 - 使用智能搜尋組件
+            VStack(alignment: .leading, spacing: 8) {
+                Text("股票代號")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .adaptiveTextColor()
+                
+                StockSearchTextField(
+                    text: $stockSymbol,
+                    placeholder: "例如：2330 或 台積電"
+                ) { selectedStock in
+                    stockSymbol = selectedStock.code
+                    selectedStockName = selectedStock.name
+                    Task {
+                        await fetchCurrentPrice()
+                    }
+                }
+                .onChange(of: stockSymbol) { newValue in
+                    Task {
+                        await fetchCurrentPrice()
+                    }
+                }
+                
+                // 即時股價顯示
+                if !stockSymbol.isEmpty {
+                    HStack {
+                        if isPriceLoading {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("正在獲取價格...")
+                                .font(.caption)
+                                .adaptiveTextColor(primary: false)
+                        } else if let priceError = priceError {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundColor(.orange)
+                            Text(priceError)
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        } else if currentPrice > 0 {
+                            Image(systemName: "dollarsign.circle.fill")
+                                .foregroundColor(.success)
+                            Text("$\(String(format: "%.2f", currentPrice))")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .adaptiveTextColor()
+                            
+                            if let lastUpdated = priceLastUpdated {
+                                Text("更新於 \(DateFormatter.timeOnly.string(from: lastUpdated))")
+                                    .font(.caption2)
+                                    .adaptiveTextColor(primary: false)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                }
+            }
+            
+            // 交易動作選擇
+            VStack(alignment: .leading, spacing: 8) {
+                Text("交易動作")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .adaptiveTextColor()
+                
+                Picker("交易動作", selection: $tradeAction) {
+                    Text("買入").tag("buy")
+                    Text("賣出").tag("sell")
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                .tint(.brandGreen)
+            }
+            
+            // 金額輸入
+            VStack(alignment: .leading, spacing: 8) {
+                Text(tradeAction == "buy" ? "投資金額 ($)" : "賣出股數")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .adaptiveTextColor()
+                
+                TextField(tradeAction == "buy" ? "輸入投資金額" : "輸入股數", text: $tradeAmount)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.decimalPad)
+                    .onChange(of: tradeAmount) { _ in
+                        calculateEstimation()
+                    }
+                
+                // 交易資訊提示
+                TradeInfoView(
+                    tradeAction: tradeAction,
+                    tradeAmount: tradeAmount,
+                    stockSymbol: stockSymbol,
+                    currentPrice: currentPrice,
+                    estimatedShares: estimatedShares,
+                    estimatedCost: estimatedCost,
+                    portfolioManager: portfolioManager
+                )
+            }
+            
+            // 執行交易按鈕
+            Button(action: {
+                if tradeAction == "sell" {
+                    showSellConfirmation = true
+                } else {
+                    executeTradeWithValidation()
+                }
+            }) {
+                Text("\(tradeAction == "buy" ? "買入" : "賣出") \(stockSymbol.isEmpty ? "股票" : stockSymbol)")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(isTradeButtonDisabled ? Color.gray : (tradeAction == "buy" ? Color.success : Color.danger))
+                    )
+            }
+            .disabled(isTradeButtonDisabled)
+        }
+        .brandCardStyle()
+    }
+    
+    // MARK: - 管理功能卡片
+    private var managementCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+            HStack {
+                Text("投資組合管理")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .adaptiveTextColor()
+                
+                Spacer()
+            }
+            
+            Divider()
+                .background(Color.divider)
+            
+            VStack(spacing: 8) {
+                Text("測試功能")
+                    .font(.caption)
+                    .adaptiveTextColor(primary: false)
+                
+                Button(action: {
+                    showClearPortfolioConfirmation = true
+                }) {
+                    Text("🧹 清空投資組合")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.orange)
+                        )
                 }
             }
         }
         .brandCardStyle()
     }
     
-    // MARK: - 近期表現卡片
-    private var recentPerformanceCard: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
-            Text("近期表現")
-                .font(.headline)
-                .adaptiveTextColor()
+    // MARK: - 計算與驗證邏輯
+    
+    /// 檢查交易按鈕是否應該被禁用
+    private var isTradeButtonDisabled: Bool {
+        stockSymbol.isEmpty || tradeAmount.isEmpty || (tradeAction == "buy" && currentPrice <= 0)
+    }
+    
+    /// 獲取即時股價
+    private func fetchCurrentPrice() async {
+        guard !stockSymbol.trimmingCharacters(in: .whitespaces).isEmpty else {
+            await MainActor.run {
+                currentPrice = 0.0
+                priceError = nil
+                priceLastUpdated = nil
+            }
+            return
+        }
+        
+        await MainActor.run {
+            isPriceLoading = true
+            priceError = nil
+        }
+        
+        do {
+            let stockPrice = try await TradingAPIService.shared.fetchStockPriceAuto(symbol: stockSymbol)
             
-            HStack(spacing: DesignTokens.spacingMD) {
-                performanceMetric("7天", portfolioData.weeklyReturn)
-                performanceMetric("30天", portfolioData.monthlyReturn)
-                performanceMetric("90天", portfolioData.quarterlyReturn)
+            await MainActor.run {
+                currentPrice = stockPrice.currentPrice
+                priceLastUpdated = ISO8601DateFormatter().date(from: stockPrice.timestamp) ?? Date()
+                priceError = nil
+                isPriceLoading = false
+                calculateEstimation()
+            }
+            
+        } catch {
+            await MainActor.run {
+                currentPrice = 0.0
+                if let tradingError = error as? TradingAPIError {
+                    priceError = tradingError.localizedDescription
+                } else {
+                    priceError = "網路錯誤"
+                }
+                isPriceLoading = false
             }
         }
-        .brandCardStyle()
+    }
+    
+    /// 計算預估購買資訊
+    private func calculateEstimation() {
+        guard let amount = Double(tradeAmount), amount > 0, currentPrice > 0 else {
+            estimatedShares = 0.0
+            estimatedCost = 0.0
+            return
+        }
+        
+        if tradeAction == "buy" {
+            let feeRate = 0.001425
+            let fee = amount * feeRate
+            let availableAmount = amount - fee
+            estimatedShares = availableAmount / currentPrice
+            estimatedCost = amount
+        }
+    }
+    
+    /// 執行交易並進行驗證
+    private func executeTradeWithValidation() {
+        guard let amount = Double(tradeAmount), amount > 0 else {
+            showError("請輸入有效的金額")
+            return
+        }
+        
+        if tradeAction == "sell" {
+            if let holding = portfolioManager.holdings.first(where: { $0.symbol == stockSymbol }) {
+                if holding.shares < amount {
+                    showError("持股不足，目前僅持有 \(String(format: "%.2f", holding.shares)) 股")
+                    return
+                }
+            } else {
+                showError("您目前沒有持有 \(stockSymbol) 股票")
+                return
+            }
+        }
+        
+        if tradeAction == "buy" {
+            let success = portfolioManager.buyStock(
+                symbol: stockSymbol, 
+                shares: amount / currentPrice, 
+                price: currentPrice,
+                stockName: selectedStockName.isEmpty ? nil : selectedStockName
+            )
+            
+            if success {
+                tradeSuccessMessage = "成功購買 \(String(format: "%.2f", amount / currentPrice)) 股 \(stockSymbol)"
+                showTradeSuccess = true
+                clearTradeInputs()
+            } else {
+                showError("交易失敗，請檢查餘額是否足夠")
+            }
+        } else {
+            let success = portfolioManager.sellStock(
+                symbol: stockSymbol,
+                shares: amount,
+                price: currentPrice
+            )
+            
+            if success {
+                tradeSuccessMessage = "成功賣出 \(String(format: "%.2f", amount)) 股 \(stockSymbol)"
+                showTradeSuccess = true
+                clearTradeInputs()
+            } else {
+                showError("交易失敗，請檢查持股是否足夠")
+            }
+        }
+    }
+    
+    /// 顯示錯誤訊息
+    private func showError(_ message: String) {
+        errorMessage = message
+        showErrorAlert = true
+    }
+    
+    /// 清空交易輸入
+    private func clearTradeInputs() {
+        stockSymbol = ""
+        tradeAmount = ""
+        selectedStockName = ""
+        currentPrice = 0.0
+        priceLastUpdated = nil
+        priceError = nil
+        estimatedShares = 0.0
+        estimatedCost = 0.0
     }
     
     // MARK: - 輔助視圖
@@ -524,6 +868,96 @@ struct TournamentDetailView: View {
         }
         .brandCardStyle()
     }
+}
+
+// MARK: - 交易資訊視圖組件
+struct TradeInfoView: View {
+    let tradeAction: String
+    let tradeAmount: String
+    let stockSymbol: String
+    let currentPrice: Double
+    let estimatedShares: Double
+    let estimatedCost: Double
+    let portfolioManager: ChatPortfolioManager
+    
+    var body: some View {
+        Group {
+            // 預估購買資訊（僅在買入時顯示）
+            if tradeAction == "buy" && !tradeAmount.isEmpty && currentPrice > 0 {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.brandBlue)
+                            .font(.caption)
+                        Text("預估可購得：")
+                            .font(.caption)
+                            .adaptiveTextColor(primary: false)
+                        Text("\(String(format: "%.2f", estimatedShares)) 股")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .adaptiveTextColor()
+                        Spacer()
+                    }
+                    
+                    HStack {
+                        Text("含手續費約：")
+                            .font(.caption)
+                            .adaptiveTextColor(primary: false)
+                        Text("$\(String(format: "%.2f", estimatedCost))")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.brandOrange)
+                        Spacer()
+                    }
+                }
+                .padding(.top, 4)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+                .background(Color.surfaceSecondary)
+                .cornerRadius(8)
+            }
+            
+            // 賣出時顯示持股資訊
+            if tradeAction == "sell" && !stockSymbol.isEmpty {
+                if let holding = portfolioManager.holdings.first(where: { $0.symbol == stockSymbol }) {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.brandBlue)
+                            .font(.caption)
+                        Text("目前持股：")
+                            .font(.caption)
+                            .adaptiveTextColor(primary: false)
+                        Text("\(String(format: "%.2f", holding.shares)) 股")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .adaptiveTextColor()
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                } else {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.brandOrange)
+                            .font(.caption)
+                        Text("目前無持股")
+                            .font(.caption)
+                            .foregroundColor(.brandOrange)
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Date Formatter Extension
+extension DateFormatter {
+    static let timeOnly: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 }
 
 // MARK: - 預覽

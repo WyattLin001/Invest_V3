@@ -98,20 +98,20 @@ struct ChatView: View {
         .sheet(isPresented: $viewModel.showInviteSheet) { inviteSheetView }
         .sheet(isPresented: $viewModel.showDonationLeaderboard) { donationLeaderboardView }
         .sheet(isPresented: $viewModel.showInvestmentPanel) {
-            InvestmentPanelView(
-                portfolioManager: ChatPortfolioManager.shared,
-                stockSymbol: $viewModel.stockSymbol,
-                tradeAmount: $viewModel.tradeAmount,
-                tradeAction: $viewModel.tradeAction,
-                showTradeSuccess: $viewModel.showTradeSuccess,
-                tradeSuccessMessage: $viewModel.tradeSuccessMessage,
-                onExecuteTrade: {
-                    viewModel.executeTrade()
-                },
-                onClose: {
-                    viewModel.showInvestmentPanel = false
-                }
-            )
+            NavigationView {
+                EnhancedInvestmentView()
+                    .navigationBarTitleDisplayMode(.large)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("關閉") {
+                                viewModel.showInvestmentPanel = false
+                            }
+                            .foregroundColor(.brandGreen)
+                        }
+                    }
+            }
+            .environmentObject(ThemeManager.shared)
+            .presentationDetents([.large])
         }
     }
     
