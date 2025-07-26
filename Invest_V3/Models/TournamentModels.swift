@@ -8,6 +8,85 @@
 import Foundation
 import SwiftUI
 
+// MARK: - 錦標賽過濾類型
+
+/// 錦標賽過濾選項，包含所有類型和精選
+enum TournamentFilter: String, CaseIterable, Identifiable {
+    case featured = "featured"      // 精選錦標賽
+    case all = "all"               // 所有錦標賽
+    case daily = "daily"           // 日賽
+    case weekly = "weekly"         // 週賽
+    case monthly = "monthly"       // 月賽
+    case quarterly = "quarterly"   // 季賽
+    case yearly = "yearly"         // 年賽
+    case special = "special"       // 特別賽事
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .featured:
+            return "精選"
+        case .all:
+            return "所有錦標賽"
+        case .daily:
+            return "日賽"
+        case .weekly:
+            return "週賽"
+        case .monthly:
+            return "月賽"
+        case .quarterly:
+            return "季賽"
+        case .yearly:
+            return "年賽"
+        case .special:
+            return "特別賽事"
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .featured:
+            return "star.fill"
+        case .all:
+            return "grid.circle.fill"
+        case .daily:
+            return "sun.max.fill"
+        case .weekly:
+            return "calendar.circle.fill"
+        case .monthly:
+            return "calendar.badge.clock"
+        case .quarterly:
+            return "chart.line.uptrend.xyaxis"
+        case .yearly:
+            return "crown.fill"
+        case .special:
+            return "bolt.fill"
+        }
+    }
+    
+    var accentColor: Color {
+        switch self {
+        case .featured:
+            return .orange
+        case .all:
+            return .blue
+        case .daily:
+            return .yellow
+        case .weekly:
+            return .green
+        case .monthly:
+            return .blue
+        case .quarterly:
+            return .purple
+        case .yearly:
+            return .red
+        case .special:
+            return .pink
+        }
+    }
+}
+
 // MARK: - 錦標賽類型
 enum TournamentType: String, CaseIterable, Identifiable, Codable {
     case daily = "daily"
@@ -210,7 +289,7 @@ struct Tournament: Identifiable, Codable, Equatable {
     }
     
     var isActive: Bool {
-        return status == .active
+        return status == .ongoing
     }
     
     var timeRemaining: String {
@@ -440,6 +519,8 @@ struct TournamentActivity: Identifiable, Codable {
 }
 
 // MARK: - 公開投資組合
+// 注意：此結構依賴於 PortfolioHolding（定義在 Stock.swift 中）
+/*
 struct PublicPortfolio: Identifiable, Codable {
     let id: UUID
     let userId: UUID
@@ -458,6 +539,7 @@ struct PublicPortfolio: Identifiable, Codable {
         case lastUpdated = "last_updated"
     }
 }
+*/
 
 // MARK: - 績效指標
 struct PerformanceMetrics: Codable {
@@ -549,10 +631,11 @@ extension Tournament {
             id: UUID(),
             name: "11月月賽挑戰",
             type: .monthly,
-            status: .active,
+            status: .ongoing,
             startDate: Calendar.current.date(byAdding: .day, value: -10, to: Date()) ?? Date(),
             endDate: Calendar.current.date(byAdding: .day, value: 20, to: Date()) ?? Date(),
             description: "月度模擬交易競賽，考驗短期波段操作能力",
+            shortDescription: "月度模擬交易競賽，考驗短期波段操作能力",
             initialBalance: 1000000,
             maxParticipants: 500,
             currentParticipants: 387,
@@ -568,7 +651,8 @@ extension Tournament {
                 "單一股票持倉上限：30%"
             ],
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
+            isFeatured: false
         ),
         Tournament(
             id: UUID(),
@@ -578,6 +662,7 @@ extension Tournament {
             startDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
             endDate: Calendar.current.date(byAdding: .day, value: 95, to: Date()) ?? Date(),
             description: "季度長期競賽，檢驗投資策略的持續性",
+            shortDescription: "季度長期競賽，檢驗投資策略的持續性",
             initialBalance: 1000000,
             maxParticipants: 200,
             currentParticipants: 156,
@@ -593,7 +678,8 @@ extension Tournament {
                 "單一股票持倉上限：25%"
             ],
             createdAt: Date(),
-            updatedAt: Date()
+            updatedAt: Date(),
+            isFeatured: true
         )
     ]
 }

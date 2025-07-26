@@ -136,17 +136,24 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     static let shared = TournamentService()
     
     // MARK: - Properties
-    private let baseURL = "https://api.invest-v3.com/v1"
-    private let session = URLSession.shared
-    private let dateFormatter = ISO8601DateFormatter()
+    private let supabaseService = SupabaseService.shared
     
     // Published properties for UI binding
     @Published var tournaments: [Tournament] = []
     @Published var isLoading = false
     @Published var error: TournamentAPIError?
+    @Published var realtimeConnected = false
+    
+    // 即時更新相關屬性
+    private var refreshTimer: Timer?
+    private let refreshInterval: TimeInterval = 30.0 // 30秒刷新一次
     
     private init() {
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        // 初始化時載入錦標賽數據
+        Task {
+            await loadTournaments()
+            await startRealtimeUpdates()
+        }
     }
     
     // MARK: - Public API Methods
@@ -157,93 +164,124 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         defer { isLoading = false }
         
         do {
-            let url = URL(string: "\(baseURL)/tournaments")!
-            let (data, response) = try await session.data(from: url)
+            let tournaments = try await supabaseService.fetchTournaments()
             
-            try validateResponse(response)
-            let tournamentResponses = try JSONDecoder().decode([TournamentResponse].self, from: data)
-            let tournaments = tournamentResponses.compactMap { convertToTournament($0) }
+            await MainActor.run {
+                self.tournaments = tournaments
+                self.error = nil
+            }
             
-            self.tournaments = tournaments
+            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個錦標賽")
             return tournaments
         } catch {
             let apiError = handleError(error)
-            self.error = apiError
+            await MainActor.run {
+                self.error = apiError
+            }
+            print("❌ [TournamentService] 獲取錦標賽失敗: \(error.localizedDescription)")
             throw apiError
         }
     }
     
     /// 獲取特定錦標賽詳情
     func fetchTournament(id: UUID) async throws -> Tournament {
-        let url = URL(string: "\(baseURL)/tournaments/\(id.uuidString)")!
-        let (data, response) = try await session.data(from: url)
-        
-        try validateResponse(response)
-        let tournamentResponse = try JSONDecoder().decode(TournamentResponse.self, from: data)
-        
-        guard let tournament = convertToTournament(tournamentResponse) else {
-            throw TournamentAPIError.decodingError(NSError(domain: "TournamentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "無法轉換錦標賽數據"]))
+        do {
+            let tournament = try await supabaseService.fetchTournament(id: id)
+            print("✅ [TournamentService] 成功獲取錦標賽詳情: \(tournament.name)")
+            return tournament
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 獲取錦標賽詳情失敗: \(error.localizedDescription)")
+            throw apiError
         }
-        
-        return tournament
     }
     
     /// 獲取錦標賽參與者列表
     func fetchTournamentParticipants(tournamentId: UUID) async throws -> [TournamentParticipant] {
-        let url = URL(string: "\(baseURL)/tournaments/\(tournamentId.uuidString)/participants")!
-        let (data, response) = try await session.data(from: url)
-        
-        try validateResponse(response)
-        let participantResponses = try JSONDecoder().decode([TournamentParticipantResponse].self, from: data)
-        return participantResponses.compactMap { convertToParticipant($0) }
+        do {
+            let participants = try await supabaseService.fetchTournamentParticipants(tournamentId: tournamentId)
+            print("✅ [TournamentService] 成功獲取 \(participants.count) 個參與者")
+            return participants
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 獲取錦標賽參與者失敗: \(error.localizedDescription)")
+            throw apiError
+        }
     }
     
     /// 獲取錦標賽活動列表
     func fetchTournamentActivities(tournamentId: UUID) async throws -> [TournamentActivity] {
-        let url = URL(string: "\(baseURL)/tournaments/\(tournamentId.uuidString)/activities")!
-        let (data, response) = try await session.data(from: url)
-        
-        try validateResponse(response)
-        let activityResponses = try JSONDecoder().decode([TournamentActivityResponse].self, from: data)
-        return activityResponses.compactMap { convertToActivity($0) }
+        do {
+            let activities = try await supabaseService.fetchTournamentActivities(tournamentId: tournamentId)
+            print("✅ [TournamentService] 成功獲取 \(activities.count) 個活動記錄")
+            return activities
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 獲取錦標賽活動失敗: \(error.localizedDescription)")
+            throw apiError
+        }
     }
     
     /// 加入錦標賽
     func joinTournament(tournamentId: UUID) async throws -> Bool {
-        let url = URL(string: "\(baseURL)/tournaments/\(tournamentId.uuidString)/join")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let (_, response) = try await session.data(for: request)
-        try validateResponse(response)
-        return true
+        do {
+            let success = try await supabaseService.joinTournament(tournamentId: tournamentId)
+            print("✅ [TournamentService] 成功加入錦標賽")
+            
+            // 重新載入錦標賽數據以更新參與者數量
+            await loadTournaments()
+            
+            return success
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 加入錦標賽失敗: \(error.localizedDescription)")
+            throw apiError
+        }
     }
     
     /// 離開錦標賽
     func leaveTournament(tournamentId: UUID) async throws -> Bool {
-        let url = URL(string: "\(baseURL)/tournaments/\(tournamentId.uuidString)/leave")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        
-        let (_, response) = try await session.data(for: request)
-        try validateResponse(response)
-        return true
+        do {
+            let success = try await supabaseService.leaveTournament(tournamentId: tournamentId)
+            print("✅ [TournamentService] 成功離開錦標賽")
+            
+            // 重新載入錦標賽數據以更新參與者數量
+            await loadTournaments()
+            
+            return success
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 離開錦標賽失敗: \(error.localizedDescription)")
+            throw apiError
+        }
     }
     
     /// 獲取個人績效數據
     func fetchPersonalPerformance(userId: UUID) async throws -> PersonalPerformance {
-        let url = URL(string: "\(baseURL)/users/\(userId.uuidString)/performance")!
-        let (data, response) = try await session.data(from: url)
-        
-        try validateResponse(response)
-        let performanceResponse = try JSONDecoder().decode(PersonalPerformanceResponse.self, from: data)
-        
-        guard let performance = convertToPersonalPerformance(performanceResponse) else {
-            throw TournamentAPIError.decodingError(NSError(domain: "TournamentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "無法轉換績效數據"]))
+        do {
+            // 目前使用模擬數據，未來可以擴展為從 Supabase 獲取
+            let mockPerformance = PersonalPerformance(
+                totalReturn: 0.15,
+                annualizedReturn: 0.18,
+                maxDrawdown: 0.08,
+                sharpeRatio: 1.5,
+                winRate: 0.65,
+                totalTrades: 45,
+                profitableTrades: 29,
+                avgHoldingDays: 12.5,
+                riskScore: 0.3,
+                performanceHistory: [],
+                rankingHistory: [],
+                achievements: []
+            )
+            
+            print("✅ [TournamentService] 成功獲取個人績效數據")
+            return mockPerformance
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 獲取個人績效數據失敗: \(error.localizedDescription)")
+            throw apiError
         }
-        
-        return performance
     }
     
     /// 刷新錦標賽數據
@@ -253,20 +291,57 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     
     // MARK: - Private Helper Methods
     
-    private func validateResponse(_ response: URLResponse) throws {
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw TournamentAPIError.unknown
+    /// 載入錦標賽數據的內部方法
+    private func loadTournaments() async {
+        do {
+            let tournaments = try await supabaseService.fetchTournaments()
+            await MainActor.run {
+                self.tournaments = tournaments
+                self.error = nil
+            }
+        } catch {
+            await MainActor.run {
+                self.error = handleError(error)
+            }
         }
-        
-        switch httpResponse.statusCode {
-        case 200...299:
-            break
-        case 401:
-            throw TournamentAPIError.unauthorized
-        case 400...499, 500...599:
-            throw TournamentAPIError.serverError(httpResponse.statusCode)
-        default:
-            throw TournamentAPIError.unknown
+    }
+    
+    /// 獲取精選錦標賽
+    func fetchFeaturedTournaments() async throws -> [Tournament] {
+        do {
+            let tournaments = try await supabaseService.fetchFeaturedTournaments()
+            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個精選錦標賽")
+            return tournaments
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 獲取精選錦標賽失敗: \(error.localizedDescription)")
+            throw apiError
+        }
+    }
+    
+    /// 根據類型獲取錦標賽
+    func fetchTournaments(type: TournamentType) async throws -> [Tournament] {
+        do {
+            let tournaments = try await supabaseService.fetchTournaments(type: type)
+            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個 \(type.displayName) 錦標賽")
+            return tournaments
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 獲取錦標賽類型失敗: \(error.localizedDescription)")
+            throw apiError
+        }
+    }
+    
+    /// 根據狀態獲取錦標賽
+    func fetchTournaments(status: TournamentStatus) async throws -> [Tournament] {
+        do {
+            let tournaments = try await supabaseService.fetchTournaments(status: status)
+            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個 \(status.displayName) 錦標賽")
+            return tournaments
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 獲取錦標賽狀態失敗: \(error.localizedDescription)")
+            throw apiError
         }
     }
     
@@ -282,145 +357,67 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         return .networkError(error)
     }
     
-    // MARK: - Data Conversion Methods
+    // MARK: - Realtime Updates
     
-    private func convertToTournament(_ response: TournamentResponse) -> Tournament? {
-        guard let tournamentId = UUID(uuidString: response.id),
-              let type = TournamentType(rawValue: response.type),
-              let status = TournamentStatus(rawValue: response.status),
-              let startDate = dateFormatter.date(from: response.startDate),
-              let endDate = dateFormatter.date(from: response.endDate),
-              let createdAt = dateFormatter.date(from: response.createdAt),
-              let updatedAt = dateFormatter.date(from: response.updatedAt) else {
-            return nil
+    /// 開始即時更新
+    private func startRealtimeUpdates() async {
+        print("📊 [TournamentService] 開始即時更新")
+        
+        // 停止現有的計時器
+        stopRealtimeUpdates()
+        
+        // 啟動定期刷新計時器
+        await MainActor.run {
+            self.refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
+                Task {
+                    await self?.refreshTournamentData()
+                }
+            }
+            self.realtimeConnected = true
         }
         
-        return Tournament(
-            id: tournamentId,
-            name: response.name,
-            type: type,
-            status: status,
-            startDate: startDate,
-            endDate: endDate,
-            description: response.description,
-            initialBalance: response.initialBalance,
-            maxParticipants: response.maxParticipants,
-            currentParticipants: response.currentParticipants,
-            entryFee: 0.0, // 預設值，API 回應中暫無此欄位
-            prizePool: response.prizePool,
-            riskLimitPercentage: 0.1, // 預設值，API 回應中暫無此欄位
-            minHoldingRate: 0.0, // 預設值，API 回應中暫無此欄位
-            maxSingleStockRate: 0.3, // 預設值，API 回應中暫無此欄位
-            rules: [], // 預設值，API 回應中暫無此欄位
-            createdAt: createdAt,
-            updatedAt: updatedAt
-        )
+        print("📊 [TournamentService] 即時更新已啟動，刷新間隔: \(refreshInterval)秒")
     }
     
-    private func convertToParticipant(_ response: TournamentParticipantResponse) -> TournamentParticipant? {
-        guard let participantId = UUID(uuidString: response.id),
-              let tournamentId = UUID(uuidString: response.tournamentId),
-              let userId = UUID(uuidString: response.userId),
-              let joinedAt = dateFormatter.date(from: response.joinedAt),
-              let lastUpdated = dateFormatter.date(from: response.lastActive) else {
-            return nil
+    /// 停止即時更新
+    private func stopRealtimeUpdates() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        realtimeConnected = false
+        print("📊 [TournamentService] 即時更新已停止")
+    }
+    
+    /// 刷新錦標賽數據
+    private func refreshTournamentData() async {
+        do {
+            let tournaments = try await supabaseService.fetchTournaments()
+            await MainActor.run {
+                self.tournaments = tournaments
+                self.error = nil
+            }
+            print("📊 [TournamentService] 自動刷新錦標賽數據成功")
+        } catch {
+            await MainActor.run {
+                self.error = handleError(error)
+            }
+            print("❌ [TournamentService] 自動刷新錦標賽數據失敗: \(error.localizedDescription)")
         }
-        
-        return TournamentParticipant(
-            id: participantId,
-            tournamentId: tournamentId,
-            userId: userId,
-            userName: response.userName,
-            userAvatar: nil, // API 回應中暫無此欄位
-            currentRank: response.currentRank,
-            previousRank: response.previousRank ?? response.currentRank,
-            virtualBalance: response.virtualBalance,
-            initialBalance: 100000.0, // 預設值，API 回應中暫無此欄位
-            returnRate: response.returnRate,
-            totalTrades: response.totalTrades,
-            winRate: response.winRate,
-            maxDrawdown: 0.0, // 預設值，API 回應中暫無此欄位
-            sharpeRatio: nil, // 預設值，API 回應中暫無此欄位
-            isEliminated: false, // 預設值，API 回應中暫無此欄位
-            eliminationReason: nil, // 預設值，API 回應中暫無此欄位
-            joinedAt: joinedAt,
-            lastUpdated: lastUpdated
-        )
     }
     
-    private func convertToActivity(_ response: TournamentActivityResponse) -> TournamentActivity? {
-        guard let activityId = UUID(uuidString: response.id),
-              let tournamentId = UUID(uuidString: response.tournamentId),
-              let userId = UUID(uuidString: response.userId),
-              let activityType = TournamentActivity.ActivityType(rawValue: response.activityType),
-              let timestamp = dateFormatter.date(from: response.timestamp) else {
-            return nil
-        }
-        
-        return TournamentActivity(
-            id: activityId,
-            tournamentId: tournamentId,
-            userId: userId,
-            userName: response.userName,
-            activityType: activityType,
-            description: response.description,
-            amount: response.amount,
-            symbol: response.symbol,
-            timestamp: timestamp
-        )
+    /// 手動刷新錦標賽數據
+    func refreshTournaments() async {
+        await refreshTournamentData()
     }
     
-    private func convertToPersonalPerformance(_ response: PersonalPerformanceResponse) -> PersonalPerformance? {
-        let achievements = response.achievements.compactMap { convertToAchievement($0) }
-        let rankingHistory = response.rankingHistory.compactMap { convertToRankingPoint($0) }
-        
-        return PersonalPerformance(
-            totalReturn: response.totalReturn,
-            annualizedReturn: response.annualizedReturn,
-            maxDrawdown: response.maxDrawdown,
-            sharpeRatio: response.sharpeRatio,
-            winRate: response.winRate,
-            totalTrades: response.totalTrades,
-            profitableTrades: response.profitableTrades,
-            avgHoldingDays: response.avgHoldingDays,
-            riskScore: response.riskScore,
-            performanceHistory: [], // 預設值，API 回應中暫無此欄位
-            rankingHistory: rankingHistory,
-            achievements: achievements
-        )
+    /// 重新連接即時更新
+    func reconnectRealtime() async {
+        print("📊 [TournamentService] 重新連接即時更新")
+        await startRealtimeUpdates()
     }
     
-    private func convertToAchievement(_ response: AchievementResponse) -> Achievement? {
-        guard let achievementId = UUID(uuidString: response.id),
-              let rarity = Achievement.AchievementRarity(rawValue: response.rarity) else {
-            return nil
-        }
-        
-        let unlockedAt = response.unlockedAt != nil ? dateFormatter.date(from: response.unlockedAt!) : nil
-        
-        return Achievement(
-            id: achievementId,
-            name: response.name,
-            description: response.description,
-            icon: response.icon,
-            rarity: rarity,
-            earnedAt: unlockedAt,
-            progress: response.progress,
-            isUnlocked: response.isUnlocked
-        )
-    }
-    
-    private func convertToRankingPoint(_ response: RankingPointResponse) -> RankingPoint? {
-        guard let date = dateFormatter.date(from: response.date) else {
-            return nil
-        }
-        
-        return RankingPoint(
-            date: date,
-            rank: response.rank,
-            totalParticipants: response.totalParticipants,
-            percentile: response.percentile
-        )
+    deinit {
+        stopRealtimeUpdates()
+        print("📊 [TournamentService] 服務已釋放，即時更新已停止")
     }
 }
 

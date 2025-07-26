@@ -4710,6 +4710,481 @@ extension SupabaseService {
             throw error
         }
     }
+    
+    // MARK: - Tournament Methods
+    
+    /// 獲取所有錦標賽
+    public func fetchTournaments() async throws -> [Tournament] {
+        print("📊 [SupabaseService] 獲取所有錦標賽")
+        
+        do {
+            let tournamentResponses: [TournamentResponse] = try await client
+                .from("tournaments")
+                .select()
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            
+            let tournaments = tournamentResponses.compactMap { response in
+                convertTournamentResponseToTournament(response)
+            }
+            
+            print("✅ [SupabaseService] 成功獲取 \(tournaments.count) 個錦標賽")
+            return tournaments
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取錦標賽失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 獲取特定錦標賽詳情
+    public func fetchTournament(id: UUID) async throws -> Tournament {
+        print("📊 [SupabaseService] 獲取錦標賽詳情: \(id)")
+        
+        do {
+            let tournamentResponses: [TournamentResponse] = try await client
+                .from("tournaments")
+                .select()
+                .eq("id", value: id)
+                .limit(1)
+                .execute()
+                .value
+            
+            guard let response = tournamentResponses.first,
+                  let tournament = convertTournamentResponseToTournament(response) else {
+                throw NSError(domain: "TournamentService", code: 404, userInfo: [NSLocalizedDescriptionKey: "錦標賽不存在"])
+            }
+            
+            print("✅ [SupabaseService] 成功獲取錦標賽: \(tournament.name)")
+            return tournament
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取錦標賽詳情失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 獲取精選錦標賽
+    public func fetchFeaturedTournaments() async throws -> [Tournament] {
+        print("📊 [SupabaseService] 獲取精選錦標賽")
+        
+        do {
+            let tournamentResponses: [TournamentResponse] = try await client
+                .from("tournaments")
+                .select()
+                .eq("is_featured", value: true)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            
+            let tournaments = tournamentResponses.compactMap { response in
+                convertTournamentResponseToTournament(response)
+            }
+            
+            print("✅ [SupabaseService] 成功獲取 \(tournaments.count) 個精選錦標賽")
+            return tournaments
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取精選錦標賽失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 根據類型獲取錦標賽
+    public func fetchTournaments(type: TournamentType) async throws -> [Tournament] {
+        print("📊 [SupabaseService] 獲取錦標賽類型: \(type.rawValue)")
+        
+        do {
+            let tournamentResponses: [TournamentResponse] = try await client
+                .from("tournaments")
+                .select()
+                .eq("type", value: type.rawValue)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            
+            let tournaments = tournamentResponses.compactMap { response in
+                convertTournamentResponseToTournament(response)
+            }
+            
+            print("✅ [SupabaseService] 成功獲取 \(tournaments.count) 個 \(type.displayName) 錦標賽")
+            return tournaments
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取錦標賽類型失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 根據狀態獲取錦標賽
+    public func fetchTournaments(status: TournamentStatus) async throws -> [Tournament] {
+        print("📊 [SupabaseService] 獲取錦標賽狀態: \(status.rawValue)")
+        
+        do {
+            let tournamentResponses: [TournamentResponse] = try await client
+                .from("tournaments")
+                .select()
+                .eq("status", value: status.rawValue)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            
+            let tournaments = tournamentResponses.compactMap { response in
+                convertTournamentResponseToTournament(response)
+            }
+            
+            print("✅ [SupabaseService] 成功獲取 \(tournaments.count) 個 \(status.displayName) 錦標賽")
+            return tournaments
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取錦標賽狀態失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 加入錦標賽
+    public func joinTournament(tournamentId: UUID) async throws -> Bool {
+        print("📊 [SupabaseService] 加入錦標賽: \(tournamentId)")
+        
+        guard let currentUser = getCurrentUser() else {
+            throw NSError(domain: "TournamentService", code: 401, userInfo: [NSLocalizedDescriptionKey: "用戶未登入"])
+        }
+        
+        do {
+            // 檢查錦標賽是否存在且可加入
+            let tournament = try await fetchTournament(id: tournamentId)
+            
+            guard tournament.status == .enrolling else {
+                throw NSError(domain: "TournamentService", code: 400, userInfo: [NSLocalizedDescriptionKey: "錦標賽不在報名期間"])
+            }
+            
+            guard tournament.currentParticipants < tournament.maxParticipants else {
+                throw NSError(domain: "TournamentService", code: 400, userInfo: [NSLocalizedDescriptionKey: "錦標賽名額已滿"])
+            }
+            
+            // 檢查是否已經參加
+            let existingParticipants: [TournamentParticipantResponse] = try await client
+                .from("tournament_participants")
+                .select()
+                .eq("tournament_id", value: tournamentId)
+                .eq("user_id", value: currentUser.id)
+                .execute()
+                .value
+            
+            if !existingParticipants.isEmpty {
+                throw NSError(domain: "TournamentService", code: 400, userInfo: [NSLocalizedDescriptionKey: "您已經參加了這個錦標賽"])
+            }
+            
+            // 加入錦標賽
+            let participantData: [String: Any] = [
+                "tournament_id": tournamentId.uuidString,
+                "user_id": currentUser.id.uuidString,
+                "user_name": currentUser.displayName,
+                "user_avatar": currentUser.avatarUrl ?? "",
+                "virtual_balance": tournament.initialBalance,
+                "initial_balance": tournament.initialBalance
+            ]
+            
+            try await client
+                .from("tournament_participants")
+                .insert(participantData)
+                .execute()
+            
+            print("✅ [SupabaseService] 成功加入錦標賽: \(tournament.name)")
+            return true
+            
+        } catch {
+            print("❌ [SupabaseService] 加入錦標賽失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 離開錦標賽
+    public func leaveTournament(tournamentId: UUID) async throws -> Bool {
+        print("📊 [SupabaseService] 離開錦標賽: \(tournamentId)")
+        
+        guard let currentUser = getCurrentUser() else {
+            throw NSError(domain: "TournamentService", code: 401, userInfo: [NSLocalizedDescriptionKey: "用戶未登入"])
+        }
+        
+        do {
+            try await client
+                .from("tournament_participants")
+                .delete()
+                .eq("tournament_id", value: tournamentId)
+                .eq("user_id", value: currentUser.id)
+                .execute()
+            
+            print("✅ [SupabaseService] 成功離開錦標賽")
+            return true
+            
+        } catch {
+            print("❌ [SupabaseService] 離開錦標賽失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 獲取錦標賽參與者列表
+    public func fetchTournamentParticipants(tournamentId: UUID) async throws -> [TournamentParticipant] {
+        print("📊 [SupabaseService] 獲取錦標賽參與者: \(tournamentId)")
+        
+        do {
+            let participantResponses: [TournamentParticipantResponse] = try await client
+                .from("tournament_participants")
+                .select()
+                .eq("tournament_id", value: tournamentId)
+                .order("current_rank", ascending: true)
+                .execute()
+                .value
+            
+            let participants = participantResponses.compactMap { response in
+                convertParticipantResponseToParticipant(response)
+            }
+            
+            print("✅ [SupabaseService] 成功獲取 \(participants.count) 個參與者")
+            return participants
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取錦標賽參與者失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 獲取錦標賽活動記錄
+    public func fetchTournamentActivities(tournamentId: UUID) async throws -> [TournamentActivity] {
+        print("📊 [SupabaseService] 獲取錦標賽活動記錄: \(tournamentId)")
+        
+        do {
+            let activityResponses: [TournamentActivityResponse] = try await client
+                .from("tournament_activities")
+                .select()
+                .eq("tournament_id", value: tournamentId)
+                .order("timestamp", ascending: false)
+                .limit(50)
+                .execute()
+                .value
+            
+            let activities = activityResponses.compactMap { response in
+                convertActivityResponseToActivity(response)
+            }
+            
+            print("✅ [SupabaseService] 成功獲取 \(activities.count) 個活動記錄")
+            return activities
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取錦標賽活動記錄失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    // MARK: - Tournament Data Conversion Methods
+    
+    private func convertTournamentResponseToTournament(_ response: TournamentResponse) -> Tournament? {
+        guard let tournamentId = UUID(uuidString: response.id),
+              let type = TournamentType(rawValue: response.type),
+              let status = TournamentStatus(rawValue: response.status) else {
+            return nil
+        }
+        
+        let dateFormatter = ISO8601DateFormatter()
+        
+        guard let startDate = dateFormatter.date(from: response.startDate),
+              let endDate = dateFormatter.date(from: response.endDate),
+              let createdAt = dateFormatter.date(from: response.createdAt),
+              let updatedAt = dateFormatter.date(from: response.updatedAt) else {
+            return nil
+        }
+        
+        return Tournament(
+            id: tournamentId,
+            name: response.name,
+            type: type,
+            status: status,
+            startDate: startDate,
+            endDate: endDate,
+            description: response.description,
+            shortDescription: response.shortDescription ?? String(response.description.prefix(100)),
+            initialBalance: response.initialBalance,
+            maxParticipants: response.maxParticipants,
+            currentParticipants: response.currentParticipants,
+            entryFee: response.entryFee ?? 0.0,
+            prizePool: response.prizePool,
+            riskLimitPercentage: response.riskLimitPercentage ?? 10.0,
+            minHoldingRate: response.minHoldingRate ?? 0.0,
+            maxSingleStockRate: response.maxSingleStockRate ?? 30.0,
+            rules: response.rules ?? [],
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            isFeatured: response.isFeatured ?? false
+        )
+    }
+    
+    private func convertParticipantResponseToParticipant(_ response: TournamentParticipantResponse) -> TournamentParticipant? {
+        guard let participantId = UUID(uuidString: response.id),
+              let tournamentId = UUID(uuidString: response.tournamentId),
+              let userId = UUID(uuidString: response.userId) else {
+            return nil
+        }
+        
+        let dateFormatter = ISO8601DateFormatter()
+        
+        guard let joinedAt = dateFormatter.date(from: response.joinedAt),
+              let lastUpdated = dateFormatter.date(from: response.lastActive) else {
+            return nil
+        }
+        
+        return TournamentParticipant(
+            id: participantId,
+            tournamentId: tournamentId,
+            userId: userId,
+            userName: response.userName,
+            userAvatar: response.userAvatar,
+            currentRank: response.currentRank,
+            previousRank: response.previousRank ?? response.currentRank,
+            virtualBalance: response.virtualBalance,
+            initialBalance: response.initialBalance ?? 1000000.0,
+            returnRate: response.returnRate,
+            totalTrades: response.totalTrades,
+            winRate: response.winRate,
+            maxDrawdown: response.maxDrawdown ?? 0.0,
+            sharpeRatio: response.sharpeRatio,
+            isEliminated: response.isEliminated ?? false,
+            eliminationReason: response.eliminationReason,
+            joinedAt: joinedAt,
+            lastUpdated: lastUpdated
+        )
+    }
+    
+    private func convertActivityResponseToActivity(_ response: TournamentActivityResponse) -> TournamentActivity? {
+        guard let activityId = UUID(uuidString: response.id),
+              let tournamentId = UUID(uuidString: response.tournamentId),
+              let userId = UUID(uuidString: response.userId),
+              let activityType = TournamentActivity.ActivityType(rawValue: response.activityType) else {
+            return nil
+        }
+        
+        let dateFormatter = ISO8601DateFormatter()
+        
+        guard let timestamp = dateFormatter.date(from: response.timestamp) else {
+            return nil
+        }
+        
+        return TournamentActivity(
+            id: activityId,
+            tournamentId: tournamentId,
+            userId: userId,
+            userName: response.userName,
+            activityType: activityType,
+            description: response.description,
+            amount: response.amount,
+            symbol: response.symbol,
+            timestamp: timestamp
+        )
+    }
+}
+
+// MARK: - Tournament Response Models
+
+struct TournamentResponse: Codable {
+    let id: String
+    let name: String
+    let description: String
+    let shortDescription: String?
+    let type: String
+    let status: String
+    let startDate: String
+    let endDate: String
+    let initialBalance: Double
+    let maxParticipants: Int
+    let currentParticipants: Int
+    let entryFee: Double?
+    let prizePool: Double
+    let riskLimitPercentage: Double?
+    let minHoldingRate: Double?
+    let maxSingleStockRate: Double?
+    let rules: [String]?
+    let isFeatured: Bool?
+    let createdAt: String
+    let updatedAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, type, status, rules
+        case shortDescription = "short_description"
+        case startDate = "start_date"
+        case endDate = "end_date"
+        case initialBalance = "initial_balance"
+        case maxParticipants = "max_participants"
+        case currentParticipants = "current_participants"
+        case entryFee = "entry_fee"
+        case prizePool = "prize_pool"
+        case riskLimitPercentage = "risk_limit_percentage"
+        case minHoldingRate = "min_holding_rate"
+        case maxSingleStockRate = "max_single_stock_rate"
+        case isFeatured = "is_featured"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct TournamentParticipantResponse: Codable {
+    let id: String
+    let tournamentId: String
+    let userId: String
+    let userName: String
+    let userAvatar: String?
+    let currentRank: Int
+    let previousRank: Int?
+    let virtualBalance: Double
+    let initialBalance: Double?
+    let returnRate: Double
+    let totalTrades: Int
+    let winRate: Double
+    let maxDrawdown: Double?
+    let sharpeRatio: Double?
+    let isEliminated: Bool?
+    let eliminationReason: String?
+    let joinedAt: String
+    let lastActive: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, isEliminated, eliminationReason
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case userName = "user_name"
+        case userAvatar = "user_avatar"
+        case currentRank = "current_rank"
+        case previousRank = "previous_rank"
+        case virtualBalance = "virtual_balance"
+        case initialBalance = "initial_balance"
+        case returnRate = "return_rate"
+        case totalTrades = "total_trades"
+        case winRate = "win_rate"
+        case maxDrawdown = "max_drawdown"
+        case sharpeRatio = "sharpe_ratio"
+        case joinedAt = "joined_at"
+        case lastActive = "last_updated"
+    }
+}
+
+struct TournamentActivityResponse: Codable {
+    let id: String
+    let tournamentId: String
+    let userId: String
+    let userName: String
+    let activityType: String
+    let description: String
+    let amount: Double?
+    let symbol: String?
+    let timestamp: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, description, amount, symbol, timestamp
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case userName = "user_name"
+        case activityType = "activity_type"
+    }
 }
 
 // MARK: - Statistics Models
