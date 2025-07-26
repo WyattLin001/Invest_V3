@@ -128,6 +128,40 @@ struct PortfolioHolding: Identifiable, Codable {
         return (unrealizedGainLoss / totalCost) * 100
     }
     
+    // MARK: - 新增日漲跌和權重計算屬性
+    
+    /// 模擬日漲跌金額（用於展示目的）
+    var mockDailyChangeAmount: Double {
+        // 基於股票代號生成一致的模擬數據
+        let seed = Double(symbol.hash % 1000) / 1000.0
+        let changePercent = (seed - 0.5) * 6.0 // -3% to +3%
+        return currentPrice * (changePercent / 100.0)
+    }
+    
+    /// 模擬日漲跌百分比
+    var mockDailyChangePercent: Double {
+        let seed = Double(symbol.hash % 1000) / 1000.0
+        return (seed - 0.5) * 6.0 // -3% to +3%
+    }
+    
+    /// 獲取中文股票名稱（為知名股票提供中文名）
+    var displayName: String {
+        let taiwanStockNames: [String: String] = [
+            "2330": "台積電",
+            "2317": "鴻海",
+            "2454": "聯發科",
+            "2881": "富邦金",
+            "6505": "台塑化",
+            "2412": "中華電",
+            "2382": "廣達",
+            "2308": "台達電",
+            "2303": "聯電",
+            "1303": "南亞"
+        ]
+        
+        return taiwanStockNames[symbol] ?? name
+    }
+    
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"

@@ -37,6 +37,41 @@ class ChatPortfolioManager: ObservableObject {
         }
     }
     
+    // MARK: - 新增投資組合統計計算屬性
+    
+    /// 總未實現損益（所有持股的盈虧總和）
+    var totalUnrealizedGainLoss: Double {
+        return holdings.reduce(0) { $0 + $1.unrealizedGainLoss }
+    }
+    
+    /// 總未實現損益百分比
+    var totalUnrealizedGainLossPercent: Double {
+        let totalCost = holdings.reduce(0) { $0 + $1.totalCost }
+        guard totalCost > 0 else { return 0 }
+        return (totalUnrealizedGainLoss / totalCost) * 100
+    }
+    
+    /// 投資組合多樣性（持股數量）
+    var portfolioDiversityCount: Int {
+        return holdings.count
+    }
+    
+    /// 模擬日漲跌數據（用於展示目的）
+    var mockDailyChanges: [String: (amount: Double, percent: Double)] {
+        var changes: [String: (amount: Double, percent: Double)] = [:]
+        
+        for holding in holdings {
+            // 模擬日漲跌数据（基于股票代码的種子值生成一致的随機值）
+            let seed = Double(holding.symbol.hash % 1000) / 1000.0 // 0.0 to 1.0
+            let changePercent = (seed - 0.5) * 6.0 // -3% to +3% 的變化範圍
+            let changeAmount = holding.currentPrice * (changePercent / 100.0)
+            
+            changes[holding.symbol] = (amount: changeAmount, percent: changePercent)
+        }
+        
+        return changes
+    }
+    
     /// 為 DynamicPieChart 提供數據
     var pieChartData: [PieChartData] {
         let total = totalPortfolioValue

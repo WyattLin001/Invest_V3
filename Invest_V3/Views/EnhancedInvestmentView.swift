@@ -165,8 +165,8 @@ struct InvestmentHomeView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: DesignTokens.spacingMD) {
-                // 投資組合總覽卡片
-                portfolioSummaryCard
+                // 投資組合統計卡片組
+                portfolioStatsCards
                 
                 // 動態圓餅圖和持股明細
                 portfolioVisualizationCard
@@ -215,9 +215,10 @@ struct InvestmentHomeView: View {
         }
     }
     
-    // MARK: - 投資組合總覽卡片
-    private var portfolioSummaryCard: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+    // MARK: - 投資組合統計卡片組
+    private var portfolioStatsCards: some View {
+        VStack(spacing: DesignTokens.spacingSM) {
+            // 標題列與刷新按鈕
             HStack {
                 Text("投資組合")
                     .font(.title2)
@@ -237,116 +238,251 @@ struct InvestmentHomeView: View {
                 }
             }
             
-            Divider()
-                .background(Color.divider)
+            // 三個統計卡片
+            HStack(spacing: DesignTokens.spacingSM) {
+                // 投資組合總價值
+                portfolioValueCard
+                
+                // 總損益
+                totalProfitLossCard
+                
+                // 投資組合多樣性
+                portfolioDiversityCard
+            }
+        }
+    }
+    
+    // MARK: - 投資組合總價值卡片
+    private var portfolioValueCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("投資組合總價值")
+                .font(.caption)
+                .adaptiveTextColor(primary: false)
             
-            HStack(alignment: .bottom, spacing: DesignTokens.spacingSM) {
-                Text(String(format: "$%.0f", portfolioManager.totalPortfolioValue))
-                    .font(.largeTitle)
+            Text(String(format: "$%,.0f", portfolioManager.totalPortfolioValue))
+                .font(.title2)
+                .fontWeight(.bold)
+                .adaptiveTextColor()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .brandCardStyle()
+    }
+    
+    // MARK: - 總損益卡片
+    private var totalProfitLossCard: some View {
+        let totalGainLoss = portfolioManager.totalUnrealizedGainLoss
+        let totalGainLossPercent = portfolioManager.totalUnrealizedGainLossPercent
+        
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("總損益")
+                .font(.caption)
+                .adaptiveTextColor(primary: false)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Image(systemName: totalGainLoss >= 0 ? "arrow.up" : "arrow.down")
+                        .foregroundColor(totalGainLoss >= 0 ? .success : .danger)
+                        .font(.caption)
+                    
+                    Text(String(format: "$%,.0f", abs(totalGainLoss)))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(totalGainLoss >= 0 ? .success : .danger)
+                }
+                
+                Text(String(format: "%@%.2f%% 總報酬率", totalGainLoss >= 0 ? "+" : "", totalGainLossPercent))
+                    .font(.caption2)
+                    .foregroundColor(totalGainLoss >= 0 ? .success : .danger)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .brandCardStyle()
+    }
+    
+    // MARK: - 投資組合多樣性卡片
+    private var portfolioDiversityCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("投資組合多樣性")
+                .font(.caption)
+                .adaptiveTextColor(primary: false)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(portfolioManager.portfolioDiversityCount)")
+                    .font(.title2)
                     .fontWeight(.bold)
                     .adaptiveTextColor()
                 
-                let dailyChange = portfolioManager.totalPortfolioValue - portfolioManager.totalInvested
-                let changePercent = portfolioManager.totalInvested > 0 ? (dailyChange / portfolioManager.totalInvested) : 0
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Image(systemName: dailyChange >= 0 ? "arrow.up" : "arrow.down")
-                            .foregroundColor(dailyChange >= 0 ? .success : .danger)
-                            .font(.caption)
-                        
-                        Text(String(format: "$%.2f", abs(dailyChange)))
-                            .foregroundColor(dailyChange >= 0 ? .success : .danger)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                    }
-                    
-                    Text(String(format: "(%.2f%%)", abs(changePercent * 100)))
-                        .foregroundColor(dailyChange >= 0 ? .success : .danger)
-                        .font(.caption)
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .foregroundColor(.brandBlue)
+                        .font(.caption2)
+                    Text("檔持有的")
+                        .font(.caption2)
+                        .adaptiveTextColor(primary: false)
                 }
-                
-                Spacer()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .brandCardStyle()
+    }
+    
+    // MARK: - 投資組合視覺化卡片（圓餅圖 + 專業持股表格）
+    private var portfolioVisualizationCard: some View {
+        VStack(spacing: DesignTokens.spacingMD) {
+            // 動態圓餅圖
+            DynamicPieChart(data: portfolioManager.pieChartData, size: 120)
+            
+            // 投資組合明細
+            if portfolioManager.holdings.isEmpty {
+                Text("尚未進行任何投資")
+                    .font(.body)
+                    .adaptiveTextColor(primary: false)
+                    .padding(.vertical, 20)
+            } else {
+                professionalHoldingsTable
             }
         }
         .brandCardStyle()
     }
     
-    // MARK: - 投資組合視覺化卡片（圓餅圖 + 持股明細）
-    private var portfolioVisualizationCard: some View {
-        VStack(spacing: DesignTokens.spacingMD) {
-            // 動態圓餅圖
-            VStack(spacing: 16) {
-                DynamicPieChart(data: portfolioManager.pieChartData, size: 120)
-                
-                // 投資組合明細
-                if portfolioManager.holdings.isEmpty {
-                    Text("尚未進行任何投資")
-                        .font(.body)
-                        .adaptiveTextColor(primary: false)
-                        .padding(.vertical, 20)
-                } else {
-                    // 股票列表標題
-                    HStack {
-                        Text("持股明細")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .adaptiveTextColor(primary: false)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 4)
-                    
-                    // 股票列表
-                    LazyVStack(spacing: 8) {
-                        ForEach(portfolioManager.holdings, id: \.id) { holding in
-                            let value = holding.totalValue
-                            let percentage = portfolioManager.portfolioPercentages.first { $0.0 == holding.symbol }?.1 ?? 0
-                            
-                            HStack {
-                                // 股票顏色指示器
-                                Circle()
-                                    .fill(StockColorPalette.colorForStock(symbol: holding.symbol))
-                                    .frame(width: 12, height: 12)
-                                
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(spacing: 4) {
-                                        Text(holding.symbol)
-                                            .font(.headline)
-                                            .fontWeight(.semibold)
-                                        
-                                        Text(holding.name)
-                                            .font(.subheadline)
-                                            .adaptiveTextColor(primary: false)
-                                    }
-                                }
-                                
-                                Spacer()
-                                
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    Text("$\(String(format: "%.0f", value))")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                    Text("\(String(format: "%.0f", percentage * 100))%")
-                                        .font(.caption)
-                                        .adaptiveTextColor(primary: false)
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.surfaceSecondary)
-                            .cornerRadius(8)
-                        }
-                    }
-                    .background(Color.surfacePrimary)
-                    .cornerRadius(12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(DesignTokens.borderColor, lineWidth: DesignTokens.borderWidthThin)
-                    )
+    // MARK: - 專業持股明細表格
+    private var professionalHoldingsTable: some View {
+        VStack(spacing: 12) {
+            // 表格標題
+            HStack {
+                Text("目前持股")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .adaptiveTextColor()
+                Spacer()
+            }
+            
+            // 表頭
+            tableHeader
+            
+            // 表格內容
+            LazyVStack(spacing: 8) {
+                ForEach(portfolioManager.holdings, id: \.id) { holding in
+                    professionalHoldingRow(holding)
+                        .background(Color.surfaceSecondary)
+                        .cornerRadius(8)
                 }
             }
         }
-        .brandCardStyle()
+    }
+    
+    // MARK: - 表頭
+    private var tableHeader: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Group {
+                    Text("代號")
+                        .frame(width: 60, alignment: .leading)
+                    Text("股數")
+                        .frame(width: 60, alignment: .trailing)
+                    Text("股價")
+                        .frame(width: 60, alignment: .trailing)
+                    Text("日漲跌")
+                        .frame(width: 70, alignment: .trailing)
+                    Text("總價值")
+                        .frame(width: 70, alignment: .trailing)
+                    Text("損益")
+                        .frame(width: 70, alignment: .trailing)
+                    Text("配置")
+                        .frame(width: 50, alignment: .trailing)
+                }
+                .font(.caption)
+                .fontWeight(.semibold)
+                .adaptiveTextColor(primary: false)
+            }
+            .padding(.horizontal, 12)
+            
+            Divider()
+                .background(Color.divider)
+        }
+    }
+    
+    // MARK: - 專業持股列
+    private func professionalHoldingRow(_ holding: PortfolioHolding) -> some View {
+        let percentage = portfolioManager.portfolioPercentages.first { $0.0 == holding.symbol }?.1 ?? 0
+        let dailyChange = holding.mockDailyChangeAmount
+        let dailyChangePercent = holding.mockDailyChangePercent
+        
+        return VStack(spacing: 8) {
+            // 主要資訊列
+            HStack {
+                // 代號和名稱
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(holding.symbol)
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .adaptiveTextColor()
+                    Text(holding.displayName)
+                        .font(.caption2)
+                        .adaptiveTextColor(primary: false)
+                        .lineLimit(1)
+                }
+                .frame(width: 60, alignment: .leading)
+                
+                // 股數
+                Text(String(format: "%.0f", holding.shares))
+                    .font(.caption)
+                    .adaptiveTextColor()
+                    .frame(width: 60, alignment: .trailing)
+                
+                // 股價
+                Text(String(format: "$%.0f", holding.currentPrice))
+                    .font(.caption)
+                    .adaptiveTextColor()
+                    .frame(width: 60, alignment: .trailing)
+                
+                // 日漲跌
+                VStack(alignment: .trailing, spacing: 1) {
+                    HStack(spacing: 2) {
+                        Image(systemName: dailyChange >= 0 ? "arrow.up" : "arrow.down")
+                            .font(.caption2)
+                        Text(String(format: "$%.0f", abs(dailyChange)))
+                            .font(.caption2)
+                    }
+                    .foregroundColor(dailyChange >= 0 ? .success : .danger)
+                    
+                    Text(String(format: "%@%.2f%%", dailyChange >= 0 ? "+" : "", dailyChangePercent))
+                        .font(.caption2)
+                        .foregroundColor(dailyChange >= 0 ? .success : .danger)
+                }
+                .frame(width: 70, alignment: .trailing)
+                
+                // 總價值
+                Text(String(format: "$%,.0f", holding.totalValue))
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .adaptiveTextColor()
+                    .frame(width: 70, alignment: .trailing)
+                
+                // 損益
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(String(format: "$%,.0f", holding.unrealizedGainLoss))
+                        .font(.caption2)
+                        .foregroundColor(holding.unrealizedGainLoss >= 0 ? .success : .danger)
+                    
+                    Text(String(format: "%@%.1f%%", holding.unrealizedGainLoss >= 0 ? "+" : "", holding.unrealizedGainLossPercent))
+                        .font(.caption2)
+                        .foregroundColor(holding.unrealizedGainLoss >= 0 ? .success : .danger)
+                }
+                .frame(width: 70, alignment: .trailing)
+                
+                // 配置比例
+                Text(String(format: "%.1f%%", percentage * 100))
+                    .font(.caption)
+                    .adaptiveTextColor(primary: false)
+                    .frame(width: 50, alignment: .trailing)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
     }
     
     // MARK: - 交易區域卡片
@@ -878,6 +1014,98 @@ struct TournamentDetailView: View {
     }
 }
 
+// MARK: - 共用組件
+
+/// 交易資訊顯示組件
+struct TradeInfoView: View {
+    let tradeAction: String
+    let tradeAmount: String
+    let stockSymbol: String
+    let currentPrice: Double
+    let estimatedShares: Double
+    let estimatedCost: Double
+    let portfolioManager: ChatPortfolioManager
+    
+    var body: some View {
+        Group {
+            // 預估購買資訊（僅在買入時顯示）
+            if tradeAction == "buy" && !tradeAmount.isEmpty && currentPrice > 0 {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text("預估可購得：")
+                            .font(.caption)
+                            .adaptiveTextColor(primary: false)
+                        Text("\(String(format: "%.2f", estimatedShares)) 股")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .adaptiveTextColor()
+                        Spacer()
+                    }
+                    
+                    HStack {
+                        Text("含手續費約：")
+                            .font(.caption)
+                            .adaptiveTextColor(primary: false)
+                        Text("$\(String(format: "%.2f", estimatedCost))")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                        Spacer()
+                    }
+                }
+                .padding(.top, 4)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+                .background(Color.surfaceSecondary)
+                .cornerRadius(8)
+            }
+            
+            // 賣出時顯示持股資訊
+            if tradeAction == "sell" && !stockSymbol.isEmpty {
+                if let holding = portfolioManager.holdings.first(where: { $0.symbol == stockSymbol }) {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.blue)
+                            .font(.caption)
+                        Text("目前持股：")
+                            .font(.caption)
+                            .adaptiveTextColor(primary: false)
+                        Text("\(String(format: "%.2f", holding.shares)) 股")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .adaptiveTextColor()
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                } else {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                        Text("目前無持股")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Extensions
+
+extension DateFormatter {
+    static let timeOnly: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+}
 
 // MARK: - 預覽
 #Preview {
