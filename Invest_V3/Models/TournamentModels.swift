@@ -90,18 +90,21 @@ enum TournamentType: String, CaseIterable, Identifiable, Codable {
 
 // MARK: - 錦標賽狀態
 enum TournamentStatus: String, CaseIterable, Codable {
-    case upcoming = "upcoming"    // 即將開始
-    case active = "active"        // 進行中
-    case ended = "ended"          // 已結束
-    case cancelled = "cancelled"  // 已取消
+    case upcoming = "upcoming"      // 即將開始
+    case enrolling = "enrolling"    // 報名中
+    case ongoing = "ongoing"        // 進行中
+    case finished = "finished"      // 已結束
+    case cancelled = "cancelled"    // 已取消
     
     var displayName: String {
         switch self {
         case .upcoming:
             return "即將開始"
-        case .active:
+        case .enrolling:
+            return "報名中"
+        case .ongoing:
             return "進行中"
-        case .ended:
+        case .finished:
             return "已結束"
         case .cancelled:
             return "已取消"
@@ -111,14 +114,24 @@ enum TournamentStatus: String, CaseIterable, Codable {
     var color: Color {
         switch self {
         case .upcoming:
-            return .brandBlue
-        case .active:
-            return .brandGreen
-        case .ended:
-            return .gray600
+            return .blue
+        case .enrolling:
+            return .green
+        case .ongoing:
+            return .orange
+        case .finished:
+            return .gray
         case .cancelled:
-            return .danger
+            return .red
         }
+    }
+    
+    var canEnroll: Bool {
+        return self == .enrolling
+    }
+    
+    var canParticipate: Bool {
+        return self == .ongoing
     }
 }
 
@@ -131,7 +144,8 @@ struct Tournament: Identifiable, Codable, Equatable {
     let startDate: Date
     let endDate: Date
     let description: String
-    let initialBalance: Double
+    let shortDescription: String     // 簡短描述，用於卡片顯示
+    let initialBalance: Double       // 改名為 startingCapital 以保持一致性
     let maxParticipants: Int
     let currentParticipants: Int
     let entryFee: Double
@@ -142,9 +156,39 @@ struct Tournament: Identifiable, Codable, Equatable {
     let rules: [String]
     let createdAt: Date
     let updatedAt: Date
+    let isFeatured: Bool             // 是否為精選錦標賽
+    
+    // 便利計算屬性
+    var startingCapital: Double {
+        return initialBalance
+    }
+    
+    var participationPercentage: Double {
+        guard maxParticipants > 0 else { return 0 }
+        return min(100.0, Double(currentParticipants) / Double(maxParticipants) * 100.0)
+    }
+    
+    var isEnrollmentFull: Bool {
+        return currentParticipants >= maxParticipants
+    }
+    
+    var daysRemaining: Int {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        switch status {
+        case .enrolling, .upcoming:
+            return calendar.dateComponents([.day], from: now, to: startDate).day ?? 0
+        case .ongoing:
+            return calendar.dateComponents([.day], from: now, to: endDate).day ?? 0
+        case .finished, .cancelled:
+            return 0
+        }
+    }
     
     enum CodingKeys: String, CodingKey {
         case id, name, type, status, description, rules
+        case shortDescription = "short_description"
         case startDate = "start_date"
         case endDate = "end_date"
         case initialBalance = "initial_balance"
@@ -157,6 +201,7 @@ struct Tournament: Identifiable, Codable, Equatable {
         case maxSingleStockRate = "max_single_stock_rate"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case isFeatured = "is_featured"
     }
     
     // MARK: - 計算屬性
@@ -596,4 +641,182 @@ extension TournamentParticipant {
             lastUpdated: Date()
         )
     ]
+}
+
+// MARK: - Mock Data for TournamentCardView
+
+extension Tournament {
+    static var mockEnrollingTournament: Tournament {
+        Tournament(
+            id: UUID(),
+            name: "Monthly Masters Championship",
+            type: .monthly,
+            status: .enrolling,
+            startDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
+            endDate: Calendar.current.date(byAdding: .day, value: 35, to: Date()) ?? Date(),
+            description: "The premier monthly trading competition featuring professional traders from across Taiwan. Test your strategies against the best and win substantial prizes.",
+            shortDescription: "The premier monthly trading competition. Compete with the best traders!",
+            initialBalance: 1000000,
+            maxParticipants: 2000,
+            currentParticipants: 1247,
+            entryFee: 0,
+            prizePool: 500000,
+            riskLimitPercentage: 15.0,
+            minHoldingRate: 70.0,
+            maxSingleStockRate: 25.0,
+            rules: [
+                "30-day duration",
+                "Max 25% single stock allocation", 
+                "Min 70% position requirement",
+                "Risk limit: 15% max drawdown"
+            ],
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFeatured: true
+        )
+    }
+    
+    static var mockOngoingTournament: Tournament {
+        Tournament(
+            id: UUID(),
+            name: "Weekly Warriors",
+            type: .weekly,
+            status: .ongoing,
+            startDate: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
+            endDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
+            description: "One week to prove your trading strategy. Perfect for swing traders looking for quick action.",
+            shortDescription: "One week to prove your trading strategy. Perfect for swing traders.",
+            initialBalance: 1000000,
+            maxParticipants: 300,
+            currentParticipants: 156,
+            entryFee: 0,
+            prizePool: 100000,
+            riskLimitPercentage: 20.0,
+            minHoldingRate: 60.0,
+            maxSingleStockRate: 30.0,
+            rules: [
+                "7-day duration",
+                "Max 30% single stock allocation",
+                "Min 60% position requirement"
+            ],
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFeatured: false
+        )
+    }
+    
+    static var mockFinishedTournament: Tournament {
+        Tournament(
+            id: UUID(),
+            name: "Daily Lightning Challenge",
+            type: .daily,
+            status: .finished,
+            startDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
+            endDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
+            description: "Fast-paced single day trading competition designed for day traders who thrive under pressure.",
+            shortDescription: "Fast-paced single day trading competition. Test your day trading skills!",
+            initialBalance: 1000000,
+            maxParticipants: 500,
+            currentParticipants: 342,
+            entryFee: 0,
+            prizePool: 50000,
+            riskLimitPercentage: 10.0,
+            minHoldingRate: 0.0,
+            maxSingleStockRate: 10.0,
+            rules: [
+                "Single day duration",
+                "Max 10% single stock allocation",
+                "No overnight positions"
+            ],
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFeatured: false
+        )
+    }
+    
+    static var mockSpecialTournament: Tournament {
+        Tournament(
+            id: UUID(),
+            name: "Fed Decision Flash Tournament",
+            type: .special,
+            status: .enrolling,
+            startDate: Calendar.current.date(byAdding: .hour, value: 2, to: Date()) ?? Date(),
+            endDate: Calendar.current.date(byAdding: .hour, value: 4, to: Date()) ?? Date(),
+            description: "Special 2-hour tournament during Fed interest rate announcement. High volatility, high rewards.",
+            shortDescription: "Special 2-hour tournament during Fed interest rate announcement.",
+            initialBalance: 1000000,
+            maxParticipants: 1000,
+            currentParticipants: 0,
+            entryFee: 0,
+            prizePool: 200000,
+            riskLimitPercentage: 25.0,
+            minHoldingRate: 0.0,
+            maxSingleStockRate: 50.0,
+            rules: [
+                "2-hour duration only",
+                "High volatility event",
+                "No position limits",
+                "All positions must close before end"
+            ],
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFeatured: true
+        )
+    }
+    
+    static var mockYearlyTournament: Tournament {
+        Tournament(
+            id: UUID(),
+            name: "Annual Championship 2024",
+            type: .yearly,
+            status: .ongoing,
+            startDate: Calendar.current.date(byAdding: .month, value: -6, to: Date()) ?? Date(),
+            endDate: Calendar.current.date(byAdding: .month, value: 6, to: Date()) ?? Date(),
+            description: "The ultimate year-long trading championship. Prove your long-term strategy and compete for the biggest prizes.",
+            shortDescription: "The ultimate year-long trading championship. Prove your long-term strategy.",
+            initialBalance: 1000000,
+            maxParticipants: 5000,
+            currentParticipants: 2156,
+            entryFee: 0,
+            prizePool: 5000000,
+            riskLimitPercentage: 30.0,
+            minHoldingRate: 80.0,
+            maxSingleStockRate: 20.0,
+            rules: [
+                "Full year duration",
+                "Quarterly checkpoint evaluations",
+                "Progressive elimination system",
+                "Max 20% single stock allocation"
+            ],
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFeatured: true
+        )
+    }
+    
+    /// 獲取所有模擬錦標賽
+    static var allMockTournaments: [Tournament] {
+        return [
+            mockEnrollingTournament,
+            mockOngoingTournament,
+            mockFinishedTournament,
+            mockSpecialTournament,
+            mockYearlyTournament
+        ]
+    }
+    
+    /// 獲取精選錦標賽
+    static var featuredMockTournaments: [Tournament] {
+        return allMockTournaments.filter { $0.isFeatured }
+    }
+    
+    /// 根據類型獲取模擬錦標賽
+    static func mockTournaments(for type: TournamentType) -> [Tournament] {
+        return allMockTournaments.filter { $0.type == type }
+    }
+    
+    /// 根據狀態獲取模擬錦標賽
+    static func mockTournaments(for status: TournamentStatus) -> [Tournament] {
+        return allMockTournaments.filter { $0.status == status }
+    }
 }
