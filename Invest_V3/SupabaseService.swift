@@ -4647,4 +4647,77 @@ extension SupabaseService {
         print("✅ [SupabaseService] 頭像上傳成功: \(publicURL.absoluteString)")
         return publicURL.absoluteString
     }
+    
+    // MARK: - Statistics & Analytics
+    
+    /// 獲取活躍用戶數量
+    /// 用於統計橫幅顯示活躍交易者數量
+    public func fetchActiveUsersCount() async throws -> Int {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("📊 [SupabaseService] 開始獲取活躍用戶數量...")
+        
+        do {
+            // 查詢用戶表獲取總用戶數
+            let response: PostgrestResponse = try await client
+                .from("user_profiles")
+                .select("id", head: false, count: .exact)
+                .execute()
+            
+            let count = response.count ?? 0
+            print("📊 [SupabaseService] 活躍用戶數量: \(count)")
+            
+            return count
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取活躍用戶數量失敗: \(error.localizedDescription)")
+            
+            // 如果是網路錯誤，拋出具體錯誤
+            if error.localizedDescription.contains("network") {
+                throw SupabaseError.networkError
+            }
+            
+            throw SupabaseError.unknown("獲取用戶統計失敗: \(error.localizedDescription)")
+        }
+    }
+    
+    /// 獲取平台統計概覽
+    /// 包含總用戶數、今日活躍用戶、總交易量等
+    public func fetchPlatformStatistics() async throws -> PlatformStatistics {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("📊 [SupabaseService] 開始獲取平台統計...")
+        
+        // 並行獲取多個統計數據
+        async let totalUsersTask = fetchActiveUsersCount()
+        
+        // 這裡可以添加更多統計查詢
+        // async let totalTransactionsTask = fetchTotalTransactions()
+        // async let dailyActiveUsersTask = fetchDailyActiveUsers()
+        
+        do {
+            let totalUsers = try await totalUsersTask
+            
+            return PlatformStatistics(
+                totalUsers: totalUsers,
+                dailyActiveUsers: totalUsers, // 暫時使用相同數值
+                totalTransactions: 0, // 待實現
+                lastUpdated: Date()
+            )
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取平台統計失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+}
+
+// MARK: - Statistics Models
+
+/// 平台統計數據模型
+struct PlatformStatistics {
+    let totalUsers: Int
+    let dailyActiveUsers: Int
+    let totalTransactions: Int
+    let lastUpdated: Date
 }

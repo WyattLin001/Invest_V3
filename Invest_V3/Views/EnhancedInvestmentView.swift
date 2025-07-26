@@ -20,18 +20,30 @@ struct EnhancedInvestmentView: View {
     @State private var showingTournamentDetail = false
     @State private var selectedTournament: Tournament?
     
+    // 統計管理器
+    @ObservedObject private var statisticsManager = StatisticsManager.shared
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
             NavigationView {
-                InvestmentHomeView()
-                    .navigationTitle("投資總覽")
-                    .navigationBarTitleDisplayMode(.large)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            settingsButton
-                        }
+                VStack(spacing: 0) {
+                    // 統計橫幅
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared
+                    )
+                    
+                    // 主要內容
+                    InvestmentHomeView()
+                }
+                .navigationTitle("投資總覽")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        settingsButton
                     }
+                }
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -41,9 +53,18 @@ struct EnhancedInvestmentView: View {
             
             // 2. 交易記錄
             NavigationView {
-                InvestmentRecordsView()
-                    .navigationTitle("交易記錄")
-                    .navigationBarTitleDisplayMode(.large)
+                VStack(spacing: 0) {
+                    // 統計橫幅
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared
+                    )
+                    
+                    // 主要內容
+                    InvestmentRecordsView()
+                }
+                .navigationTitle("交易記錄")
+                .navigationBarTitleDisplayMode(.large)
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -53,10 +74,19 @@ struct EnhancedInvestmentView: View {
             
             // 3. 錦標賽選擇
             NavigationView {
-                TournamentSelectionView(
-                    selectedTournament: $selectedTournament,
-                    showingDetail: $showingTournamentDetail
-                )
+                VStack(spacing: 0) {
+                    // 統計橫幅
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared
+                    )
+                    
+                    // 主要內容
+                    TournamentSelectionView(
+                        selectedTournament: $selectedTournament,
+                        showingDetail: $showingTournamentDetail
+                    )
+                }
                 .navigationTitle("錦標賽")
                 .navigationBarTitleDisplayMode(.large)
             }
@@ -68,9 +98,18 @@ struct EnhancedInvestmentView: View {
             
             // 4. 排行榜與動態
             NavigationView {
-                TournamentRankingsView()
-                    .navigationTitle("排行榜")
-                    .navigationBarTitleDisplayMode(.large)
+                VStack(spacing: 0) {
+                    // 統計橫幅
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared
+                    )
+                    
+                    // 主要內容
+                    TournamentRankingsView()
+                }
+                .navigationTitle("排行榜")
+                .navigationBarTitleDisplayMode(.large)
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -80,9 +119,18 @@ struct EnhancedInvestmentView: View {
             
             // 5. 個人績效
             NavigationView {
-                PersonalPerformanceView()
-                    .navigationTitle("我的績效")
-                    .navigationBarTitleDisplayMode(.large)
+                VStack(spacing: 0) {
+                    // 統計橫幅
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared
+                    )
+                    
+                    // 主要內容
+                    PersonalPerformanceView()
+                }
+                .navigationTitle("我的績效")
+                .navigationBarTitleDisplayMode(.large)
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
