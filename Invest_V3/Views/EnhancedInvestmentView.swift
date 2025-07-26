@@ -21,56 +21,76 @@ struct EnhancedInvestmentView: View {
     @State private var selectedTournament: Tournament?
     
     var body: some View {
-        NavigationView {
-            TabView(selection: $selectedTab) {
-                // 1. 投資組合總覽
+        TabView(selection: $selectedTab) {
+            // 1. 投資組合總覽
+            NavigationView {
                 InvestmentHomeView()
-                    .tabItem {
-                        Label("投資總覽", systemImage: "chart.pie.fill")
+                    .navigationTitle("投資總覽")
+                    .navigationBarTitleDisplayMode(.large)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            settingsButton
+                        }
                     }
-                    .tag(InvestmentTab.home)
-                
-                // 2. 交易記錄
+            }
+            .navigationViewStyle(StackNavigationViewStyle())
+            .tabItem {
+                Label("投資總覽", systemImage: "chart.pie.fill")
+            }
+            .tag(InvestmentTab.home)
+            
+            // 2. 交易記錄
+            NavigationView {
                 InvestmentRecordsView()
-                    .tabItem {
-                        Label("交易記錄", systemImage: "list.bullet.clipboard")
-                    }
-                    .tag(InvestmentTab.records)
-                
-                // 3. 錦標賽選擇
+                    .navigationTitle("交易記錄")
+                    .navigationBarTitleDisplayMode(.large)
+            }
+            .navigationViewStyle(StackNavigationViewStyle())
+            .tabItem {
+                Label("交易記錄", systemImage: "list.bullet.clipboard")
+            }
+            .tag(InvestmentTab.records)
+            
+            // 3. 錦標賽選擇
+            NavigationView {
                 TournamentSelectionView(
                     selectedTournament: $selectedTournament,
                     showingDetail: $showingTournamentDetail
                 )
-                .tabItem {
-                    Label("錦標賽", systemImage: "trophy.fill")
-                }
-                .tag(InvestmentTab.tournaments)
-                
-                // 4. 排行榜與動態
+                .navigationTitle("錦標賽")
+                .navigationBarTitleDisplayMode(.large)
+            }
+            .navigationViewStyle(StackNavigationViewStyle())
+            .tabItem {
+                Label("錦標賽", systemImage: "trophy.fill")
+            }
+            .tag(InvestmentTab.tournaments)
+            
+            // 4. 排行榜與動態
+            NavigationView {
                 TournamentRankingsView()
-                    .tabItem {
-                        Label("排行榜", systemImage: "list.number")
-                    }
-                    .tag(InvestmentTab.rankings)
-                
-                // 5. 個人績效
+                    .navigationTitle("排行榜")
+                    .navigationBarTitleDisplayMode(.large)
+            }
+            .navigationViewStyle(StackNavigationViewStyle())
+            .tabItem {
+                Label("排行榜", systemImage: "list.number")
+            }
+            .tag(InvestmentTab.rankings)
+            
+            // 5. 個人績效
+            NavigationView {
                 PersonalPerformanceView()
-                    .tabItem {
-                        Label("我的績效", systemImage: "chart.bar.fill")
-                    }
-                    .tag(InvestmentTab.performance)
+                    .navigationTitle("我的績效")
+                    .navigationBarTitleDisplayMode(.large)
             }
-            .tint(.brandGreen)
-            .navigationTitle(selectedTab.navigationTitle)
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    settingsButton
-                }
+            .navigationViewStyle(StackNavigationViewStyle())
+            .tabItem {
+                Label("我的績效", systemImage: "chart.bar.fill")
             }
+            .tag(InvestmentTab.performance)
         }
-        .navigationViewStyle(StackNavigationViewStyle())
+        .tint(.brandGreen)
         .sheet(isPresented: $showingTournamentDetail) {
             if let tournament = selectedTournament {
                 TournamentDetailView(tournament: tournament)
@@ -380,19 +400,17 @@ struct InvestmentHomeView: View {
             HStack {
                 Group {
                     Text("代號")
-                        .frame(width: 80, alignment: .leading)
+                        .frame(width: 50, alignment: .leading)
                     Text("股數")
-                        .frame(width: 60, alignment: .trailing)
-                    Text("股價")
-                        .frame(width: 60, alignment: .trailing)
-                    Text("日漲跌")
-                        .frame(width: 70, alignment: .trailing)
-                    Text("總價值")
-                        .frame(width: 70, alignment: .trailing)
-                    Text("損益")
-                        .frame(width: 70, alignment: .trailing)
-                    Text("配置")
                         .frame(width: 50, alignment: .trailing)
+                    Text("股價")
+                        .frame(width: 50, alignment: .trailing)
+                    Text("日漲跌")
+                        .frame(width: 50, alignment: .trailing)
+                    Text("總價值")
+                        .frame(width: 60, alignment: .trailing)
+                    Text("損益")
+                        .frame(width: 60, alignment: .trailing)
                 }
                 .font(.caption)
                 .fontWeight(.semibold)
@@ -414,30 +432,30 @@ struct InvestmentHomeView: View {
         return VStack(spacing: 8) {
             // 主要資訊列
             HStack {
-                // 代號和名稱
+                // 代號和名稱 (更大空間)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(holding.symbol)
                         .font(.subheadline)
                         .fontWeight(.bold)
                         .adaptiveTextColor()
                     Text(holding.displayName)
-                        .font(.caption2)
+                        .font(.caption)
                         .adaptiveTextColor(primary: false)
                         .lineLimit(1)
                 }
-                .frame(width: 80, alignment: .leading)
+                .frame(width: 50, alignment: .leading)
                 
                 // 股數
                 Text(String(format: "%.0f", holding.shares))
                     .font(.caption)
                     .adaptiveTextColor()
-                    .frame(width: 60, alignment: .trailing)
+                    .frame(width: 50, alignment: .trailing)
                 
                 // 股價
                 Text(formatPrice(holding.currentPrice))
                     .font(.caption)
                     .adaptiveTextColor()
-                    .frame(width: 60, alignment: .trailing)
+                    .frame(width: 50, alignment: .trailing)
                 
                 // 日漲跌
                 VStack(alignment: .trailing, spacing: 1) {
@@ -453,14 +471,14 @@ struct InvestmentHomeView: View {
                         .font(.caption2)
                         .foregroundColor(dailyChange >= 0 ? .success : .danger)
                 }
-                .frame(width: 70, alignment: .trailing)
+                .frame(width: 50, alignment: .trailing)
                 
                 // 總價值
                 Text(formatCurrency(holding.totalValue))
                     .font(.caption)
                     .fontWeight(.medium)
                     .adaptiveTextColor()
-                    .frame(width: 70, alignment: .trailing)
+                    .frame(width: 60, alignment: .trailing)
                 
                 // 損益
                 VStack(alignment: .trailing, spacing: 1) {
@@ -472,13 +490,7 @@ struct InvestmentHomeView: View {
                         .font(.caption2)
                         .foregroundColor(holding.unrealizedGainLoss >= 0 ? .success : .danger)
                 }
-                .frame(width: 70, alignment: .trailing)
-                
-                // 配置比例
-                Text(String(format: "%.1f%%", percentage * 100))
-                    .font(.caption)
-                    .adaptiveTextColor(primary: false)
-                    .frame(width: 50, alignment: .trailing)
+                .frame(width: 60, alignment: .trailing)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
