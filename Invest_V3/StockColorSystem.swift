@@ -61,8 +61,8 @@ class DynamicColorGenerator {
     private let lightnessRange: ClosedRange<Double>
     
     init(existingColors: [Color] = [], 
-         saturationRange: ClosedRange<Double> = ColorConfiguration.currentSaturationRange,
-         lightnessRange: ClosedRange<Double> = ColorConfiguration.currentLightnessRange) {
+         saturationRange: ClosedRange<Double> = ColorConfiguration.lightSaturationRange,
+         lightnessRange: ClosedRange<Double> = ColorConfiguration.lightLightnessRange) {
         self.existingColors = existingColors
         self.saturationRange = saturationRange
         self.lightnessRange = lightnessRange

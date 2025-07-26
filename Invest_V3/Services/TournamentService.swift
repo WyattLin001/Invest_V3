@@ -289,22 +289,31 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
               let type = TournamentType(rawValue: response.type),
               let status = TournamentStatus(rawValue: response.status),
               let startDate = dateFormatter.date(from: response.startDate),
-              let endDate = dateFormatter.date(from: response.endDate) else {
+              let endDate = dateFormatter.date(from: response.endDate),
+              let createdAt = dateFormatter.date(from: response.createdAt),
+              let updatedAt = dateFormatter.date(from: response.updatedAt) else {
             return nil
         }
         
         return Tournament(
             id: tournamentId,
             name: response.name,
-            description: response.description,
             type: type,
             status: status,
             startDate: startDate,
             endDate: endDate,
+            description: response.description,
             initialBalance: response.initialBalance,
-            prizePool: response.prizePool,
+            maxParticipants: response.maxParticipants,
             currentParticipants: response.currentParticipants,
-            maxParticipants: response.maxParticipants
+            entryFee: 0.0, // 預設值，API 回應中暫無此欄位
+            prizePool: response.prizePool,
+            riskLimitPercentage: 0.1, // 預設值，API 回應中暫無此欄位
+            minHoldingRate: 0.0, // 預設值，API 回應中暫無此欄位
+            maxSingleStockRate: 0.3, // 預設值，API 回應中暫無此欄位
+            rules: [], // 預設值，API 回應中暫無此欄位
+            createdAt: createdAt,
+            updatedAt: updatedAt
         )
     }
     
@@ -312,9 +321,8 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         guard let participantId = UUID(uuidString: response.id),
               let tournamentId = UUID(uuidString: response.tournamentId),
               let userId = UUID(uuidString: response.userId),
-              let performanceLevel = PerformanceLevel(rawValue: response.performanceLevel),
               let joinedAt = dateFormatter.date(from: response.joinedAt),
-              let lastActive = dateFormatter.date(from: response.lastActive) else {
+              let lastUpdated = dateFormatter.date(from: response.lastActive) else {
             return nil
         }
         
@@ -323,16 +331,20 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             tournamentId: tournamentId,
             userId: userId,
             userName: response.userName,
+            userAvatar: nil, // API 回應中暫無此欄位
             currentRank: response.currentRank,
-            previousRank: response.previousRank,
+            previousRank: response.previousRank ?? response.currentRank,
             virtualBalance: response.virtualBalance,
+            initialBalance: 100000.0, // 預設值，API 回應中暫無此欄位
             returnRate: response.returnRate,
-            winRate: response.winRate,
             totalTrades: response.totalTrades,
-            profitableTrades: response.profitableTrades,
-            performanceLevel: performanceLevel,
+            winRate: response.winRate,
+            maxDrawdown: 0.0, // 預設值，API 回應中暫無此欄位
+            sharpeRatio: nil, // 預設值，API 回應中暫無此欄位
+            isEliminated: false, // 預設值，API 回應中暫無此欄位
+            eliminationReason: nil, // 預設值，API 回應中暫無此欄位
             joinedAt: joinedAt,
-            lastActive: lastActive
+            lastUpdated: lastUpdated
         )
     }
     
@@ -340,7 +352,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         guard let activityId = UUID(uuidString: response.id),
               let tournamentId = UUID(uuidString: response.tournamentId),
               let userId = UUID(uuidString: response.userId),
-              let activityType = ActivityType(rawValue: response.activityType),
+              let activityType = TournamentActivity.ActivityType(rawValue: response.activityType),
               let timestamp = dateFormatter.date(from: response.timestamp) else {
             return nil
         }
@@ -378,13 +390,14 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             avgHoldingDays: response.avgHoldingDays,
             riskScore: response.riskScore,
             achievements: achievements,
+            performanceHistory: [], // 預設值，API 回應中暫無此欄位
             rankingHistory: rankingHistory
         )
     }
     
     private func convertToAchievement(_ response: AchievementResponse) -> Achievement? {
         guard let achievementId = UUID(uuidString: response.id),
-              let rarity = AchievementRarity(rawValue: response.rarity) else {
+              let rarity = Achievement.AchievementRarity(rawValue: response.rarity) else {
             return nil
         }
         
@@ -398,18 +411,16 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             rarity: rarity,
             isUnlocked: response.isUnlocked,
             progress: response.progress,
-            unlockedAt: unlockedAt
+            earnedAt: unlockedAt
         )
     }
     
     private func convertToRankingPoint(_ response: RankingPointResponse) -> RankingPoint? {
-        guard let rankingId = UUID(uuidString: response.id),
-              let date = dateFormatter.date(from: response.date) else {
+        guard let date = dateFormatter.date(from: response.date) else {
             return nil
         }
         
         return RankingPoint(
-            id: rankingId,
             date: date,
             rank: response.rank,
             totalParticipants: response.totalParticipants,

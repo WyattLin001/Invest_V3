@@ -140,11 +140,11 @@ struct TournamentSelectionView: View {
             Text(type.displayName)
                 .font(.caption)
                 .fontWeight(.medium)
-                .foregroundColor(selectedType == type ? .white : .adaptiveTextColor)
+                .foregroundColor(selectedType == type ? .white : .primary)
             
             Text(type.duration)
                 .font(.caption2)
-                .foregroundColor(selectedType == type ? .white.opacity(0.8) : .adaptiveTextColor.opacity(0.6))
+                .foregroundColor(selectedType == type ? .white.opacity(0.8) : .secondary)
         }
         .frame(width: 80, height: 80)
         .background(

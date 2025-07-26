@@ -215,6 +215,8 @@ extension View {
 
 /// 主題自適應修飾器
 struct ThemeAdaptiveModifier<Content: View>: ViewModifier {
+    typealias Body = some View
+    
     @EnvironmentObject private var themeManager: ThemeManager
     let contentBuilder: (Bool) -> Content
     

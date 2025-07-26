@@ -123,7 +123,7 @@ enum TournamentStatus: String, CaseIterable, Codable {
 }
 
 // MARK: - 錦標賽模型
-struct Tournament: Identifiable, Codable {
+struct Tournament: Identifiable, Codable, Equatable {
     let id: UUID
     let name: String
     let type: TournamentType
