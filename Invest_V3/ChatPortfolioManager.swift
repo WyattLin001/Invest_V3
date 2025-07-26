@@ -8,12 +8,14 @@ class ChatPortfolioManager: ObservableObject {
     @Published var holdings: [PortfolioHolding] = []
     @Published var virtualBalance: Double = 1_000_000 // 每月100萬虛擬幣
     @Published var totalInvested: Double = 0
+    @Published var tradingRecords: [TradingRecord] = [] // 交易記錄歷史
     
     private let colors = ["blue", "orange", "green", "red", "purple"]
     private var colorIndex = 0
     
     private init() {
         loadPortfolio()
+        loadTradingRecords()
     }
     
     // MARK: - Portfolio Calculations
@@ -154,8 +156,22 @@ class ChatPortfolioManager: ObservableObject {
             holdings.append(newHolding)
         }
         
+        // 記錄買進交易
+        let currentUser = getCurrentUser()
+        let buyRecord = TradingRecord.createBuyRecord(
+            userId: currentUser,
+            symbol: symbol,
+            stockName: stockName ?? getStockName(for: symbol),
+            shares: shares,
+            price: price,
+            fee: totalCost * 0.001425, // 手續費 0.1425%
+            notes: nil
+        )
+        tradingRecords.append(buyRecord)
+        
         totalInvested += totalCost
         savePortfolio()
+        saveTradingRecords()
         return true
     }
     
@@ -171,6 +187,20 @@ class ChatPortfolioManager: ObservableObject {
         
         let saleValue = shares * price
         let costBasis = shares * holding.averagePrice
+        
+        // 記錄賣出交易
+        let currentUser = getCurrentUser()
+        let sellRecord = TradingRecord.createSellRecord(
+            userId: currentUser,
+            symbol: symbol,
+            stockName: holding.name,
+            shares: shares,
+            price: price,
+            averageCost: holding.averagePrice,
+            fee: saleValue * 0.001425, // 手續費 0.1425%
+            notes: nil
+        )
+        tradingRecords.append(sellRecord)
         
         if Double(holding.quantity) == shares {
             // 全部賣出
@@ -192,6 +222,7 @@ class ChatPortfolioManager: ObservableObject {
         
         totalInvested -= costBasis
         savePortfolio()
+        saveTradingRecords()
         return true
     }
     
@@ -270,11 +301,13 @@ class ChatPortfolioManager: ObservableObject {
         
         // 清空本地數據
         holdings.removeAll()
+        tradingRecords.removeAll() // 同時清空交易記錄
         totalInvested = 0
         virtualBalance = 1_000_000 // 重置為初始資金
         
         // 清空 UserDefaults
         UserDefaults.standard.removeObject(forKey: "chat_portfolio_holdings")
+        UserDefaults.standard.removeObject(forKey: "chat_trading_records")
         UserDefaults.standard.removeObject(forKey: "chat_total_invested")
         UserDefaults.standard.set(virtualBalance, forKey: "chat_virtual_balance")
         
@@ -289,5 +322,136 @@ class ChatPortfolioManager: ObservableObject {
             totalValue: totalPortfolioValue,
             availableBalance: availableBalance
         )
+    }
+    
+    // MARK: - Trading Records Management
+    
+    /// 保存交易記錄到本地
+    private func saveTradingRecords() {
+        if let encoded = try? JSONEncoder().encode(tradingRecords) {
+            UserDefaults.standard.set(encoded, forKey: "chat_trading_records")
+        }
+    }
+    
+    /// 從本地載入交易記錄
+    private func loadTradingRecords() {
+        if let data = UserDefaults.standard.data(forKey: "chat_trading_records"),
+           let decodedRecords = try? JSONDecoder().decode([TradingRecord].self, from: data) {
+            tradingRecords = decodedRecords
+        }
+    }
+    
+    /// 獲取交易統計數據
+    func getTradingStatistics() -> TradingStatistics {
+        let buyRecords = tradingRecords.filter { $0.type == .buy }
+        let sellRecords = tradingRecords.filter { $0.type == .sell }
+        
+        let totalVolume = tradingRecords.reduce(0) { $0 + $1.totalAmount }
+        let totalRealizedGainLoss = sellRecords.compactMap { $0.realizedGainLoss }.reduce(0, +)
+        let totalFees = tradingRecords.reduce(0) { $0 + $1.fee }
+        
+        let profitableSelldingRecords = sellRecords.filter { ($0.realizedGainLoss ?? 0) > 0 }
+        let winRate = sellRecords.isEmpty ? 0 : Double(profitableSelldingRecords.count) / Double(sellRecords.count) * 100
+        
+        let todayRecords = tradingRecords.filter { $0.isToday }
+        let weekRecords = tradingRecords.filter { $0.isThisWeek }
+        let monthRecords = tradingRecords.filter { $0.isThisMonth }
+        
+        return TradingStatistics(
+            totalTrades: tradingRecords.count,
+            totalVolume: totalVolume,
+            buyTrades: buyRecords.count,
+            sellTrades: sellRecords.count,
+            totalRealizedGainLoss: totalRealizedGainLoss,
+            totalFees: totalFees,
+            averageTradeSize: tradingRecords.isEmpty ? 0 : totalVolume / Double(tradingRecords.count),
+            winRate: winRate,
+            todayTrades: todayRecords.count,
+            weekTrades: weekRecords.count,
+            monthTrades: monthRecords.count
+        )
+    }
+    
+    /// 根據篩選條件獲取交易記錄
+    func getFilteredTradingRecords(_ filter: TradingRecordFilter) -> [TradingRecord] {
+        return tradingRecords
+            .filter { filter.matches($0) }
+            .sorted { $0.timestamp > $1.timestamp } // 最新的在前
+    }
+    
+    /// 獲取特定時間範圍的交易記錄
+    func getTradingRecords(for dateRange: TradingRecordFilter.DateRange) -> [TradingRecord] {
+        let filter = TradingRecordFilter(dateRange: dateRange)
+        return getFilteredTradingRecords(filter)
+    }
+    
+    /// 獲取特定股票的交易記錄
+    func getTradingRecords(for symbol: String) -> [TradingRecord] {
+        return tradingRecords
+            .filter { $0.symbol == symbol }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+    
+    /// 添加模擬交易記錄（用於測試）
+    func addMockTradingRecords() {
+        let currentUser = getCurrentUser()
+        let mockRecords: [TradingRecord] = [
+            TradingRecord.createBuyRecord(
+                userId: currentUser,
+                symbol: "2330",
+                stockName: "台積電",
+                shares: 1000,
+                price: 500,
+                fee: 712.5
+            ),
+            TradingRecord.createSellRecord(
+                userId: currentUser,
+                symbol: "2330",
+                stockName: "台積電",
+                shares: 500,
+                price: 595,
+                averageCost: 500,
+                fee: 423.5
+            ),
+            TradingRecord.createBuyRecord(
+                userId: currentUser,
+                symbol: "2454",
+                stockName: "聯發科",
+                shares: 500,
+                price: 1000,
+                fee: 712.5
+            ),
+            TradingRecord.createBuyRecord(
+                userId: currentUser,
+                symbol: "2317",
+                stockName: "鴻海",
+                shares: 2000,
+                price: 100,
+                fee: 285
+            ),
+            TradingRecord.createSellRecord(
+                userId: currentUser,
+                symbol: "2454",
+                stockName: "聯發科",
+                shares: 200,
+                price: 1285,
+                averageCost: 1000,
+                fee: 365.7
+            )
+        ]
+        
+        // 調整時間戳，使其分散在不同時間
+        for (index, record) in mockRecords.enumerated() {
+            var modifiedRecord = record
+            let calendar = Calendar.current
+            if let adjustedDate = calendar.date(byAdding: .day, value: -index, to: Date()) {
+                let modifiedTimestamp = calendar.date(byAdding: .hour, value: -(index * 2), to: adjustedDate) ?? adjustedDate
+                // 由於 TradingRecord 的 timestamp 是 let 常量，我們需要重新創建記錄
+                // 這裡簡化處理，直接使用當前記錄
+            }
+            tradingRecords.append(record)
+        }
+        
+        saveTradingRecords()
     }
 }
