@@ -99,12 +99,12 @@ struct TradingStatsCard: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.surfacePrimary)
+                .fill(Color(.secondarySystemBackground))
                 .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.divider, lineWidth: 0.5)
+                .stroke(Color(.separator), lineWidth: 0.5)
         )
     }
     
@@ -134,7 +134,7 @@ struct TradingStatsCard: View {
             HStack {
                 Text(type.title)
                     .font(.caption)
-                    .foregroundColor(.textSecondary)
+                    .foregroundColor(.secondary)
                 Spacer()
             }
             
@@ -143,12 +143,12 @@ struct TradingStatsCard: View {
                 if isLoading {
                     ProgressView()
                         .scaleEffect(0.8)
-                        .tint(.textPrimary)
+                        .tint(.primary)
                 } else {
                     Text(value)
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.textPrimary)
+                        .foregroundColor(.primary)
                         .contentTransition(.numericText())
                 }
                 Spacer()
@@ -162,7 +162,7 @@ struct TradingStatsCard: View {
         HStack {
             Text(subtitle ?? "")
                 .font(.caption2)
-                .foregroundColor(.textSecondary)
+                .foregroundColor(.secondary)
             Spacer()
         }
     }
@@ -212,9 +212,9 @@ struct TrendIndicator {
         
         var color: Color {
             switch self {
-            case .up: return .success
-            case .down: return .danger
-            case .flat: return .textSecondary
+            case .up: return .green
+            case .down: return .red
+            case .flat: return .secondary
             }
         }
     }
@@ -379,13 +379,13 @@ struct CompactTradingStatsCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(type.title)
                     .font(.caption)
-                    .foregroundColor(.textSecondary)
+                    .foregroundColor(.secondary)
                 
                 HStack {
                     Text(value)
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.textPrimary)
+                        .foregroundColor(.primary)
                     
                     if let trend = trend {
                         Image(systemName: trend.iconName)
@@ -401,7 +401,7 @@ struct CompactTradingStatsCard: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.surfacePrimary)
+                .fill(Color(.secondarySystemBackground))
         )
     }
 }
@@ -450,5 +450,5 @@ struct CompactTradingStatsCard: View {
             .padding()
         }
     }
-    .background(Color.backgroundPrimary)
+    .background(Color(.systemBackground))
 }

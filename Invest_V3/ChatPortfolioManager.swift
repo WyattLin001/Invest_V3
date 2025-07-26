@@ -157,7 +157,6 @@ class ChatPortfolioManager: ObservableObject {
         }
         
         // 記錄買進交易
-        let currentUser = getCurrentUser()
         let buyRecord = TradingRecord.createBuyRecord(
             userId: currentUser,
             symbol: symbol,
