@@ -241,20 +241,23 @@ struct InvestmentHomeView: View {
                     .fontWeight(.bold)
                     .adaptiveTextColor()
                 
+                let dailyChange = portfolioManager.totalPortfolioValue - portfolioManager.totalInvested
+                let changePercent = portfolioManager.totalInvested > 0 ? (dailyChange / portfolioManager.totalInvested) : 0
+                
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
-                        Image(systemName: portfolioManager.totalDailyChange >= 0 ? "arrow.up" : "arrow.down")
-                            .foregroundColor(portfolioManager.totalDailyChange >= 0 ? .success : .danger)
+                        Image(systemName: dailyChange >= 0 ? "arrow.up" : "arrow.down")
+                            .foregroundColor(dailyChange >= 0 ? .success : .danger)
                             .font(.caption)
                         
-                        Text(String(format: "$%.2f", abs(portfolioManager.totalDailyChange)))
-                            .foregroundColor(portfolioManager.totalDailyChange >= 0 ? .success : .danger)
+                        Text(String(format: "$%.2f", abs(dailyChange)))
+                            .foregroundColor(dailyChange >= 0 ? .success : .danger)
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
                     
-                    Text(String(format: "(%.2f%%)", abs(portfolioManager.totalDailyChangePercent * 100)))
-                        .foregroundColor(portfolioManager.totalDailyChange >= 0 ? .success : .danger)
+                    Text(String(format: "(%.2f%%)", abs(changePercent * 100)))
+                        .foregroundColor(dailyChange >= 0 ? .success : .danger)
                         .font(.caption)
                 }
                 
@@ -297,7 +300,7 @@ struct InvestmentHomeView: View {
                             HStack {
                                 // 股票顏色指示器
                                 Circle()
-                                    .fill(HybridColorProvider.shared.colorForStock(symbol: holding.symbol))
+                                    .fill(StockColorPalette.colorForStock(symbol: holding.symbol))
                                     .frame(width: 12, height: 12)
                                 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -315,10 +318,10 @@ struct InvestmentHomeView: View {
                                 Spacer()
                                 
                                 VStack(alignment: .trailing, spacing: 2) {
-                                    Text("$\(Int(value))")
+                                    Text("$\(String(format: "%.0f", value))")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
-                                    Text("\(Int(percentage * 100))%")
+                                    Text("\(String(format: "%.0f", percentage * 100))%")
                                         .font(.caption)
                                         .adaptiveTextColor(primary: false)
                                 }
@@ -870,95 +873,6 @@ struct TournamentDetailView: View {
     }
 }
 
-// MARK: - 交易資訊視圖組件
-struct TradeInfoView: View {
-    let tradeAction: String
-    let tradeAmount: String
-    let stockSymbol: String
-    let currentPrice: Double
-    let estimatedShares: Double
-    let estimatedCost: Double
-    let portfolioManager: ChatPortfolioManager
-    
-    var body: some View {
-        Group {
-            // 預估購買資訊（僅在買入時顯示）
-            if tradeAction == "buy" && !tradeAmount.isEmpty && currentPrice > 0 {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.brandBlue)
-                            .font(.caption)
-                        Text("預估可購得：")
-                            .font(.caption)
-                            .adaptiveTextColor(primary: false)
-                        Text("\(String(format: "%.2f", estimatedShares)) 股")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .adaptiveTextColor()
-                        Spacer()
-                    }
-                    
-                    HStack {
-                        Text("含手續費約：")
-                            .font(.caption)
-                            .adaptiveTextColor(primary: false)
-                        Text("$\(String(format: "%.2f", estimatedCost))")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.brandOrange)
-                        Spacer()
-                    }
-                }
-                .padding(.top, 4)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
-                .background(Color.surfaceSecondary)
-                .cornerRadius(8)
-            }
-            
-            // 賣出時顯示持股資訊
-            if tradeAction == "sell" && !stockSymbol.isEmpty {
-                if let holding = portfolioManager.holdings.first(where: { $0.symbol == stockSymbol }) {
-                    HStack {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(.brandBlue)
-                            .font(.caption)
-                        Text("目前持股：")
-                            .font(.caption)
-                            .adaptiveTextColor(primary: false)
-                        Text("\(String(format: "%.2f", holding.shares)) 股")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .adaptiveTextColor()
-                        Spacer()
-                    }
-                    .padding(.top, 4)
-                } else {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.brandOrange)
-                            .font(.caption)
-                        Text("目前無持股")
-                            .font(.caption)
-                            .foregroundColor(.brandOrange)
-                        Spacer()
-                    }
-                    .padding(.top, 4)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Date Formatter Extension
-extension DateFormatter {
-    static let timeOnly: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-}
 
 // MARK: - 預覽
 #Preview {
