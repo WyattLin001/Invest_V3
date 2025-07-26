@@ -64,8 +64,11 @@ class StatisticsManager: ObservableObject {
     }
     
     deinit {
-        stopPeriodicUpdates()
+        // 在 deinit 中無法調用 @MainActor 方法，需要直接清理
+        updateTimer?.invalidate()
+        updateTimer = nil
         NotificationCenter.default.removeObserver(self)
+        print("📊 [StatisticsManager] 已釋放資源")
     }
     
     // MARK: - Public Methods
