@@ -955,17 +955,378 @@ struct InvestmentHomeView: View {
 
 // MARK: - 交易記錄視圖
 struct InvestmentRecordsView: View {
+    @ObservedObject private var portfolioManager = ChatPortfolioManager.shared
+    @State private var searchText = ""
+    @State private var selectedTradingType: TradingType? = nil
+    @State private var selectedDateRange: TradingRecordFilter.DateRange = .month
+    @State private var showingFilterOptions = false
+    @State private var isRefreshing = false
+    
+    // 篩選條件
+    private var currentFilter: TradingRecordFilter {
+        TradingRecordFilter(
+            searchText: searchText,
+            tradingType: selectedTradingType,
+            dateRange: selectedDateRange
+        )
+    }
+    
+    // 篩選後的交易記錄
+    private var filteredRecords: [TradingRecord] {
+        portfolioManager.getFilteredTradingRecords(currentFilter)
+    }
+    
+    // 交易統計
+    private var tradingStatistics: TradingStatistics {
+        portfolioManager.getTradingStatistics()
+    }
+    
     var body: some View {
-        VStack {
-            Text("交易記錄")
-                .font(.title2)
-                .adaptiveTextColor()
-            Text("TODO: 實現交易歷史記錄列表")
-                .font(.caption)
-                .adaptiveTextColor(primary: false)
-                .padding()
+        ScrollView {
+            LazyVStack(spacing: DesignTokens.spacingMD) {
+                // 統計卡片區域
+                statisticsSection
+                
+                // 搜尋和篩選區域
+                searchAndFilterSection
+                
+                // 交易記錄列表
+                recordsSection
+            }
+            .padding()
         }
         .adaptiveBackground()
+        .refreshable {
+            await refreshData()
+        }
+        .onAppear {
+            // 如果沒有交易記錄，添加一些模擬數據
+            if portfolioManager.tradingRecords.isEmpty {
+                portfolioManager.addMockTradingRecords()
+            }
+        }
+    }
+    
+    // MARK: - Statistics Section
+    
+    private var statisticsSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            HStack {
+                Text("交易統計")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .adaptiveTextColor()
+                
+                Spacer()
+                
+                // 刷新按鈕
+                Button(action: {
+                    Task { await refreshData() }
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .foregroundColor(.brandGreen)
+                        .rotationEffect(.degrees(isRefreshing ? 360 : 0))
+                        .animation(.linear(duration: 1.0).repeatForever(autoreverses: false), value: isRefreshing)
+                }
+            }
+            
+            // 統計卡片網格
+            TradingStatsGrid(statistics: tradingStatistics, isLoading: isRefreshing)
+        }
+    }
+    
+    // MARK: - Search and Filter Section
+    
+    private var searchAndFilterSection: some View {
+        VStack(spacing: DesignTokens.spacingSM) {
+            // 搜尋框
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.textSecondary)
+                
+                TextField("代號或公司名稱", text: $searchText)
+                    .textFieldStyle(PlainTextFieldStyle())
+                
+                if !searchText.isEmpty {
+                    Button(action: {
+                        searchText = ""
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.textSecondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.surfaceSecondary)
+            )
+            
+            // 篩選選項
+            HStack(spacing: 12) {
+                // 交易類型篩選
+                Menu {
+                    Button("全部類型") {
+                        selectedTradingType = nil
+                    }
+                    
+                    ForEach(TradingType.allCases, id: \.self) { type in
+                        Button(type.displayName) {
+                            selectedTradingType = type
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(selectedTradingType?.displayName ?? "所有類型")
+                            .font(.subheadline)
+                        Image(systemName: "chevron.down")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.textPrimary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.surfaceSecondary)
+                    )
+                }
+                
+                // 日期範圍篩選
+                Menu {
+                    ForEach(TradingRecordFilter.DateRange.allCases, id: \.self) { range in
+                        Button(range.displayName) {
+                            selectedDateRange = range
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(selectedDateRange.displayName)
+                            .font(.subheadline)
+                        Image(systemName: "chevron.down")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.textPrimary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.surfaceSecondary)
+                    )
+                }
+                
+                Spacer()
+                
+                // 進階篩選按鈕
+                Button(action: {
+                    showingFilterOptions.toggle()
+                }) {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .font(.title3)
+                        .foregroundColor(.brandGreen)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Records Section
+    
+    private var recordsSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            // 標題和記錄數量
+            HStack {
+                Text("交易歷史記錄")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .adaptiveTextColor()
+                
+                Spacer()
+                
+                Text("\(filteredRecords.count) 筆記錄")
+                    .font(.caption)
+                    .foregroundColor(.textSecondary)
+            }
+            
+            if filteredRecords.isEmpty {
+                // 空狀態
+                emptyStateView
+            } else {
+                // 記錄列表
+                recordsList
+            }
+        }
+    }
+    
+    // MARK: - Empty State
+    
+    private var emptyStateView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "chart.line.downtrend.xyaxis")
+                .font(.system(size: 48))
+                .foregroundColor(.textSecondary.opacity(0.5))
+            
+            Text("暫無交易記錄")
+                .font(.headline)
+                .foregroundColor(.textSecondary)
+            
+            Text("您的交易記錄將在這裡顯示")
+                .font(.caption)
+                .foregroundColor(.textSecondary)
+                .multilineTextAlignment(.center)
+            
+            Button("添加模擬數據") {
+                portfolioManager.addMockTradingRecords()
+            }
+            .font(.subheadline)
+            .foregroundColor(.brandGreen)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+    
+    // MARK: - Records List
+    
+    private var recordsList: some View {
+        VStack(spacing: 8) {
+            // 表頭
+            recordsTableHeader
+            
+            // 記錄列表
+            ForEach(filteredRecords, id: \.id) { record in
+                TradingRecordRow(record: record)
+                    .background(Color.surfacePrimary)
+                    .cornerRadius(8)
+            }
+        }
+    }
+    
+    // MARK: - Table Header
+    
+    private var recordsTableHeader: some View {
+        HStack {
+            Group {
+                Text("日期/時間")
+                    .frame(width: 80, alignment: .leading)
+                Text("代號")
+                    .frame(width: 60, alignment: .leading)
+                Text("類型")
+                    .frame(width: 50, alignment: .center)
+                Text("數量")
+                    .frame(width: 60, alignment: .trailing)
+                Text("價格")
+                    .frame(width: 60, alignment: .trailing)
+                Text("總額")
+                    .frame(width: 70, alignment: .trailing)
+                Text("損益")
+                    .frame(width: 60, alignment: .trailing)
+            }
+            .font(.caption)
+            .fontWeight(.semibold)
+            .foregroundColor(.textSecondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.surfaceSecondary)
+        .cornerRadius(6)
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func refreshData() async {
+        isRefreshing = true
+        // 模擬數據刷新
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        isRefreshing = false
+    }
+}
+
+// MARK: - 交易記錄行組件
+
+struct TradingRecordRow: View {
+    let record: TradingRecord
+    
+    var body: some View {
+        HStack {
+            // 日期時間
+            VStack(alignment: .leading, spacing: 2) {
+                Text(record.formattedDate)
+                    .font(.caption2)
+                    .foregroundColor(.textPrimary)
+                Text(record.formattedTime)
+                    .font(.caption2)
+                    .foregroundColor(.textSecondary)
+            }
+            .frame(width: 80, alignment: .leading)
+            
+            // 股票代號和名稱
+            VStack(alignment: .leading, spacing: 2) {
+                Text(record.symbol)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.textPrimary)
+                Text(record.stockName)
+                    .font(.caption2)
+                    .foregroundColor(.textSecondary)
+                    .lineLimit(1)
+            }
+            .frame(width: 60, alignment: .leading)
+            
+            // 交易類型標籤
+            Text(record.type.displayName)
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundColor(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(record.type == .buy ? Color.success : Color.danger)
+                )
+                .frame(width: 50, alignment: .center)
+            
+            // 數量
+            Text(String(format: "%.0f", record.shares))
+                .font(.caption)
+                .foregroundColor(.textPrimary)
+                .frame(width: 60, alignment: .trailing)
+            
+            // 價格
+            Text(String(format: "$%.0f", record.price))
+                .font(.caption)
+                .foregroundColor(.textPrimary)
+                .frame(width: 60, alignment: .trailing)
+            
+            // 總額
+            Text(String(format: "$%,.0f", record.totalAmount))
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.textPrimary)
+                .frame(width: 70, alignment: .trailing)
+            
+            // 損益（僅賣出顯示）
+            Group {
+                if let gainLoss = record.realizedGainLoss {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(String(format: "$%,.0f", gainLoss))
+                            .font(.caption2)
+                            .foregroundColor(gainLoss >= 0 ? .success : .danger)
+                        
+                        if let percent = record.realizedGainLossPercent {
+                            Text(String(format: "%@%.1f%%", gainLoss >= 0 ? "+" : "", percent))
+                                .font(.caption2)
+                                .foregroundColor(gainLoss >= 0 ? .success : .danger)
+                        }
+                    }
+                } else {
+                    Text("-")
+                        .font(.caption)
+                        .foregroundColor(.textSecondary)
+                }
+            }
+            .frame(width: 60, alignment: .trailing)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 }
 
