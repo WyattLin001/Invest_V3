@@ -19,6 +19,9 @@ struct EnhancedInvestmentView: View {
     @State private var selectedTab: InvestmentTab = .home
     @State private var showingTournamentDetail = false
     @State private var selectedTournament: Tournament?
+    @State private var showingTournamentSelection = false
+    @State private var participatedTournaments: [Tournament] = []
+    @State private var currentActiveTournament: Tournament?
     
     // 統計管理器
     @ObservedObject private var statisticsManager = StatisticsManager.shared
@@ -43,7 +46,7 @@ struct EnhancedInvestmentView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        settingsButton
+                        tournamentSelectionButton
                     }
                 }
             }
@@ -144,15 +147,60 @@ struct EnhancedInvestmentView: View {
                     .environmentObject(themeManager)
             }
         }
+        .sheet(isPresented: $showingTournamentSelection) {
+            TournamentSelectionSheet(
+                participatedTournaments: $participatedTournaments,
+                currentActiveTournament: $currentActiveTournament
+            )
+            .environmentObject(themeManager)
+        }
+        .onAppear {
+            initializeDefaultTournament()
+        }
     }
     
     // MARK: - 工具欄按鈕
-    private var settingsButton: some View {
+    private var tournamentSelectionButton: some View {
         Button(action: {
-            // TODO: 導航至設置頁面
+            showingTournamentSelection = true
         }) {
             Image(systemName: "gearshape.fill")
                 .foregroundColor(.brandGreen)
+        }
+    }
+    
+    // MARK: - 初始化與數據處理
+    private func initializeDefaultTournament() {
+        // 創建默認2025年度錦標賽
+        let default2025Tournament = Tournament(
+            id: UUID(),
+            name: "2025年度錦標賽",
+            shortDescription: "全年投資競賽挑戰",
+            description: "2025年度錦標賽是全年最盛大的投資競賽，所有用戶自動參加",
+            type: .yearly,
+            status: .ongoing,
+            startDate: Calendar.current.date(from: DateComponents(year: 2025, month: 1, day: 1)) ?? Date(),
+            endDate: Calendar.current.date(from: DateComponents(year: 2025, month: 12, day: 31)) ?? Date(),
+            registrationDeadline: Calendar.current.date(from: DateComponents(year: 2025, month: 12, day: 30)) ?? Date(),
+            prizePool: 10000000, // 1000萬獎金池
+            maxParticipants: 100000,
+            currentParticipants: 85432,
+            rules: [
+                "使用平台提供的虛擬資金進行投資",
+                "比賽期間為2025年1月1日至12月31日",
+                "以總投資報酬率為評分標準",
+                "禁止使用外部工具或不當手段",
+                "遵守平台交易規則和時間限制"
+            ],
+            features: ["全年競賽", "豐富獎金", "自動參加"],
+            difficulty: "適合所有等級",
+            requirements: ["無特殊要求", "自動參加"]
+        )
+        
+        // 如果還沒有參加任何錦標賽，自動加入2025年度錦標賽
+        if participatedTournaments.isEmpty {
+            participatedTournaments = [default2025Tournament]
+            currentActiveTournament = default2025Tournament
         }
     }
 }
@@ -214,6 +262,7 @@ struct InvestmentHomeView: View {
     @State private var tradeAction: String = "buy"
     @State private var showTradeSuccess = false
     @State private var tradeSuccessMessage = ""
+    @State private var showingTournamentTrading = false
     
     // 即時股價相關狀態
     @State private var currentPrice: Double = 0.0
@@ -238,8 +287,8 @@ struct InvestmentHomeView: View {
                 // 動態圓餅圖和持股明細
                 portfolioVisualizationCard
                 
-                // 交易區域
-                tradingCard
+                // 交易區域（錦標賽交易）
+                tournamentTradingCard
                 
                 // 管理功能
                 managementCard
@@ -544,7 +593,94 @@ struct InvestmentHomeView: View {
         }
     }
     
-    // MARK: - 交易區域卡片
+    // MARK: - 錦標賽交易區域卡片
+    private var tournamentTradingCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+            HStack {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .foregroundColor(.brandGreen)
+                    .font(.title3)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("投資交易")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .adaptiveTextColor()
+                    
+                    if let tournament = currentActiveTournament {
+                        HStack(spacing: 4) {
+                            Text("當前參與:")
+                                .font(.caption)
+                                .adaptiveTextColor(primary: false)
+                            Text(tournament.name)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.brandGreen)
+                            Text("已參加")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.brandGreen)
+                                .cornerRadius(4)
+                        }
+                    }
+                }
+                
+                Spacer()
+            }
+            
+            Divider()
+                .background(Color.divider)
+            
+            // 錦標賽交易按鈕
+            Button(action: {
+                showingTournamentTrading = true
+            }) {
+                HStack {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.title3)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("模擬股票交易")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        if let tournament = currentActiveTournament {
+                            Text("參與 \(tournament.name)")
+                                .font(.subheadline)
+                        } else {
+                            Text("開始投資競賽")
+                                .font(.subheadline)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .foregroundColor(.white)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.brandGreen)
+                )
+            }
+            .sheet(isPresented: $showingTournamentTrading) {
+                TournamentTradingSelectionSheet(
+                    participatedTournaments: participatedTournaments,
+                    currentActiveTournament: $currentActiveTournament,
+                    showingTournamentSelection: $showingTournamentSelection
+                )
+                .environmentObject(themeManager)
+            }
+        }
+        .brandCardStyle()
+    }
+    
+    // MARK: - 原始交易區域卡片（保留）
     private var tradingCard: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
             HStack {
@@ -1463,6 +1599,295 @@ struct TournamentDetailView: View {
             }
         }
         .brandCardStyle()
+    }
+}
+
+// MARK: - 錦標賽選擇 Sheet
+struct TournamentSelectionSheet: View {
+    @Binding var participatedTournaments: [Tournament]
+    @Binding var currentActiveTournament: Tournament?
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                if participatedTournaments.isEmpty {
+                    // 空狀態
+                    VStack(spacing: 16) {
+                        Image(systemName: "trophy.slash")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        
+                        Text("尚未參加任何錦標賽")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text("所有用戶會自動參加2025年度錦標賽")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(participatedTournaments, id: \.id) { tournament in
+                                TournamentSelectionRow(
+                                    tournament: tournament,
+                                    isSelected: currentActiveTournament?.id == tournament.id,
+                                    onSelect: {
+                                        currentActiveTournament = tournament
+                                        dismiss()
+                                    }
+                                )
+                            }
+                        }
+                        .padding()
+                    }
+                }
+                
+                Spacer()
+            }
+            .navigationTitle("選擇錦標賽")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 錦標賽選擇行
+struct TournamentSelectionRow: View {
+    let tournament: Tournament
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: tournament.type.iconName)
+                            .foregroundColor(.brandGreen)
+                            .font(.title3)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tournament.name)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            
+                            Text(tournament.shortDescription)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.brandGreen)
+                                .font(.title2)
+                        }
+                    }
+                    
+                    HStack {
+                        Label("\(tournament.currentParticipants) 參與者", systemImage: "person.2.fill")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Text("已參加")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.brandGreen)
+                            .cornerRadius(6)
+                    }
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? Color.brandGreen.opacity(0.1) : Color.surfaceSecondary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.brandGreen : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - 錦標賽交易選擇 Sheet
+struct TournamentTradingSelectionSheet: View {
+    let participatedTournaments: [Tournament]
+    @Binding var currentActiveTournament: Tournament?
+    @Binding var showingTournamentSelection: Bool
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // 當前錦標賽狀態
+                if let tournament = currentActiveTournament {
+                    currentTournamentSection(tournament)
+                } else {
+                    noTournamentSection
+                }
+                
+                // 交易按鈕區域
+                tradingActionsSection
+                
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("選擇錦標賽交易")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("關閉") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func currentTournamentSection(_ tournament: Tournament) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("當前錦標賽")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: tournament.type.iconName)
+                        .foregroundColor(.brandGreen)
+                        .font(.title2)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(tournament.name)
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                        
+                        Text(tournament.shortDescription)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Text("已參加")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.brandGreen)
+                        .cornerRadius(8)
+                }
+                
+                HStack {
+                    Label("\(tournament.currentParticipants) 參與者", systemImage: "person.2.fill")
+                    Spacer()
+                    Label(String(format: "$%.0f 獎金池", tournament.prizePool), systemImage: "dollarsign.circle.fill")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.surfaceSecondary)
+            )
+        }
+    }
+    
+    private var noTournamentSection: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundColor(.orange)
+            
+            Text("請先選擇錦標賽")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            Text("您需要先選擇要參與的錦標賽才能進行交易")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+    }
+    
+    private var tradingActionsSection: some View {
+        VStack(spacing: 16) {
+            if currentActiveTournament != nil {
+                // 開始交易按鈕
+                Button(action: {
+                    // TODO: 導航到實際的交易界面
+                    dismiss()
+                }) {
+                    HStack {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.title3)
+                        
+                        Text("開始股票交易")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                        
+                        Image(systemName: "arrow.right")
+                            .font(.subheadline)
+                    }
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.brandGreen)
+                    )
+                }
+            }
+            
+            // 切換錦標賽按鈕
+            Button(action: {
+                showingTournamentSelection = true
+                dismiss()
+            }) {
+                HStack {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.title3)
+                    
+                    Text("切換錦標賽")
+                        .font(.headline)
+                        .fontWeight(.medium)
+                    
+                    Spacer()
+                }
+                .foregroundColor(.brandGreen)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.brandGreen.opacity(0.1))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.brandGreen, lineWidth: 1)
+                )
+            }
+        }
     }
 }
 
