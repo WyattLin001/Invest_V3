@@ -294,6 +294,22 @@ class TradingService: ObservableObject {
         
         defer { isLoading = false }
         
+        // 前端預驗證（可選，提供更好的用戶體驗）
+        let totalAmount = Double(quantity) * price
+        let suggestion = TradingConstants.getSellSuggestion(
+            requestedQuantity: quantity,
+            availableQuantity: Int.max, // 這裡假設後端會驗證實際持股
+            price: price
+        )
+        
+        // 檢查是否為明顯的不合理交易
+        switch suggestion {
+        case .rejected(_, let reason, _):
+            throw TradingError.sellValidationError(reason)
+        default:
+            break
+        }
+        
         let url = URL(string: "\(baseURL)/api/trade/sell")!
         var request = createAuthorizedRequest(url: url)
         request.httpMethod = "POST"
@@ -313,8 +329,23 @@ class TradingService: ObservableObject {
             throw TradingError.invalidResponse
         }
         
-        guard httpResponse.statusCode == 200 else {
-            throw TradingError.serverError(httpResponse.statusCode)
+        // 改善錯誤處理，提供更具體的錯誤信息
+        if httpResponse.statusCode != 200 {
+            // 嘗試解析錯誤響應
+            if let errorData = try? JSONDecoder().decode(TradeErrorResponse.self, from: data) {
+                switch errorData.errorCode {
+                case "INSUFFICIENT_HOLDINGS":
+                    throw TradingError.insufficientHoldings(errorData.message)
+                case "MINIMUM_AMOUNT_NOT_MET":
+                    throw TradingError.minimumAmountNotMet(errorData.message)
+                case "INVALID_QUANTITY":
+                    throw TradingError.invalidQuantity(errorData.message)
+                default:
+                    throw TradingError.apiError(errorData.message)
+                }
+            } else {
+                throw TradingError.serverError(httpResponse.statusCode)
+            }
         }
         
         let result = try JSONDecoder().decode(TradeResponse.self, from: data)
@@ -325,7 +356,8 @@ class TradingService: ObservableObject {
             await loadPortfolio()
             await loadTransactions()
         } else {
-            throw TradingError.apiError(result.error ?? "賣出失敗")
+            // 解析具體的交易失敗原因
+            throw TradingError.tradeExecutionFailed(result.error ?? "賣出失敗")
         }
     }
     
@@ -367,6 +399,13 @@ enum TradingError: Error, LocalizedError {
     case apiError(String)
     case networkError
     
+    // 賣出相關錯誤
+    case sellValidationError(String)
+    case insufficientHoldings(String)
+    case minimumAmountNotMet(String)
+    case invalidQuantity(String)
+    case tradeExecutionFailed(String)
+    
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
@@ -377,6 +416,52 @@ enum TradingError: Error, LocalizedError {
             return message
         case .networkError:
             return "網路連接錯誤"
+        case .sellValidationError(let message):
+            return "賣出驗證失敗: \(message)"
+        case .insufficientHoldings(let message):
+            return "持股不足: \(message)"
+        case .minimumAmountNotMet(let message):
+            return "金額過小: \(message)"
+        case .invalidQuantity(let message):
+            return "股數無效: \(message)"
+        case .tradeExecutionFailed(let message):
+            return "交易執行失敗: \(message)"
+        }
+    }
+    
+    /// 獲取用戶友好的錯誤提示和建議
+    var userFriendlyMessage: String {
+        switch self {
+        case .insufficientHoldings:
+            return "您的持股數量不足，請檢查持股狀況後再試"
+        case .minimumAmountNotMet:
+            return "交易金額過小，建議增加賣出數量或選擇價格較高的時機"
+        case .invalidQuantity:
+            return "請輸入有效的股數（必須為正整數）"
+        case .sellValidationError:
+            return "賣出條件不符，請檢查股數和價格設定"
+        case .tradeExecutionFailed:
+            return "交易執行遇到問題，請稍後再試或聯繫客服"
+        default:
+            return errorDescription ?? "發生未知錯誤"
+        }
+    }
+    
+    /// 建議的解決方案
+    var suggestions: [String] {
+        switch self {
+        case .insufficientHoldings:
+            return ["檢查您的持股餘額", "減少賣出數量", "確認股票代碼正確"]
+        case .minimumAmountNotMet:
+            return ["增加賣出股數", "等待更好的價格時機", "考慮一次性賣出更多"]
+        case .invalidQuantity:
+            return ["輸入正整數股數", "確保股數大於 0", "檢查數字格式"]
+        case .sellValidationError:
+            return ["檢查股數和價格設定", "使用智能建議功能", "聯繫客服協助"]
+        case .tradeExecutionFailed:
+            return ["稍後重試", "檢查網路連接", "聯繫客服支援"]
+        default:
+            return ["稍後重試", "檢查網路連接"]
         }
     }
 }

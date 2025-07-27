@@ -5295,3 +5295,469 @@ struct PlatformStatistics {
     let totalTransactions: Int
     let lastUpdated: Date
 }
+
+// MARK: - Friends System Extensions
+
+extension SupabaseService {
+    
+    // MARK: - 好友管理
+    
+    /// 獲取用戶的好友列表
+    func fetchFriends() async throws -> [Friend] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let currentUser = try await getCurrentUserAsync()
+        
+        let friendships: [FriendshipResponse] = try await client
+            .from("friendships")
+            .select("""
+                id,
+                user_id,
+                friend_id,
+                friendship_date,
+                friend_profiles:user_profiles!friendships_friend_id_fkey(
+                    id,
+                    user_name,
+                    display_name,
+                    avatar_url,
+                    bio,
+                    investment_style,
+                    performance_score,
+                    total_return,
+                    risk_level,
+                    is_online,
+                    last_active_date
+                )
+            """)
+            .eq("user_id", value: currentUser.id.uuidString)
+            .order("friendship_date", ascending: false)
+            .execute()
+            .value
+        
+        let friends = try friendships.compactMap { friendship -> Friend? in
+            guard let friendProfile = friendship.friendProfiles else { return nil }
+            
+            return Friend(
+                id: UUID(uuidString: friendProfile.id) ?? UUID(),
+                userId: friendProfile.id,
+                userName: friendProfile.userName,
+                displayName: friendProfile.displayName,
+                avatarUrl: friendProfile.avatarUrl,
+                bio: friendProfile.bio,
+                isOnline: friendProfile.isOnline,
+                lastActiveDate: ISO8601DateFormatter().date(from: friendProfile.lastActiveDate) ?? Date(),
+                friendshipDate: ISO8601DateFormatter().date(from: friendship.friendshipDate) ?? Date(),
+                investmentStyle: InvestmentStyle(rawValue: friendProfile.investmentStyle ?? ""),
+                performanceScore: friendProfile.performanceScore,
+                totalReturn: friendProfile.totalReturn,
+                riskLevel: RiskLevel(rawValue: friendProfile.riskLevel) ?? .moderate
+            )
+        }
+        
+        print("✅ [FriendsService] 載入 \(friends.count) 位好友")
+        return friends
+    }
+    
+    /// 搜尋用戶
+    func searchUsers(query: String, investmentStyle: InvestmentStyle? = nil, riskLevel: RiskLevel? = nil) async throws -> [FriendSearchResult] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let currentUser = try await getCurrentUserAsync()
+        
+        var queryBuilder = client
+            .from("user_profiles")
+            .select()
+            .neq("id", value: currentUser.id.uuidString)
+        
+        // 添加搜尋條件
+        if !query.isEmpty {
+            queryBuilder = queryBuilder.or("user_name.ilike.%\(query)%,display_name.ilike.%\(query)%")
+        }
+        
+        if let style = investmentStyle {
+            queryBuilder = queryBuilder.eq("investment_style", value: style.rawValue)
+        }
+        
+        if let risk = riskLevel {
+            queryBuilder = queryBuilder.eq("risk_level", value: risk.rawValue)
+        }
+        
+        let profiles: [UserProfileResponse] = try await queryBuilder
+            .limit(20)
+            .execute()
+            .value
+        
+        // 檢查哪些用戶已經是好友或有待處理的請求
+        let friendIds = try await getFriendIds(userId: currentUser.id)
+        let pendingRequestIds = try await getPendingRequestIds(userId: currentUser.id)
+        
+        let searchResults = profiles.map { profile in
+            FriendSearchResult(
+                id: UUID(uuidString: profile.id) ?? UUID(),
+                userId: profile.id,
+                userName: profile.userName,
+                displayName: profile.displayName,
+                avatarUrl: profile.avatarUrl,
+                bio: profile.bio,
+                investmentStyle: InvestmentStyle(rawValue: profile.investmentStyle ?? ""),
+                performanceScore: profile.performanceScore,
+                totalReturn: profile.totalReturn,
+                mutualFriendsCount: 0, // TODO: 實現共同好友計算
+                isAlreadyFriend: friendIds.contains(profile.id),
+                hasPendingRequest: pendingRequestIds.contains(profile.id)
+            )
+        }
+        
+        return searchResults
+    }
+    
+    /// 發送好友請求
+    func sendFriendRequest(to userId: String, message: String? = nil) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let currentUser = try await getCurrentUserAsync()
+        
+        // 檢查是否已經是好友
+        let existingFriendship = try await checkFriendshipExists(userId1: currentUser.id.uuidString, userId2: userId)
+        if existingFriendship {
+            throw SupabaseError.unknown("已經是好友")
+        }
+        
+        // 檢查是否已經有待處理的請求
+        let existingRequest = try await checkPendingRequest(fromUserId: currentUser.id.uuidString, toUserId: userId)
+        if existingRequest {
+            throw SupabaseError.unknown("已經發送過好友請求")
+        }
+        
+        let requestData = FriendRequestInsert(
+            id: UUID().uuidString,
+            fromUserId: currentUser.id.uuidString,
+            fromUserName: currentUser.username,
+            fromUserDisplayName: currentUser.displayName,
+            fromUserAvatarUrl: currentUser.avatarUrl,
+            toUserId: userId,
+            message: message,
+            requestDate: Date(),
+            status: .pending
+        )
+        
+        let _: [FriendRequestInsert] = try await client
+            .from("friend_requests")
+            .insert(requestData)
+            .select()
+            .execute()
+            .value
+        
+        print("✅ [FriendsService] 好友請求已發送")
+    }
+    
+    /// 接受好友請求
+    func acceptFriendRequest(_ requestId: UUID) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        // 更新請求狀態
+        let _: [FriendRequestUpdate] = try await client
+            .from("friend_requests")
+            .update(FriendRequestUpdate(status: .accepted))
+            .eq("id", value: requestId.uuidString)
+            .select()
+            .execute()
+            .value
+        
+        // 獲取請求詳情以創建雙向好友關係
+        let requests: [FriendRequestResponse] = try await client
+            .from("friend_requests")
+            .select()
+            .eq("id", value: requestId.uuidString)
+            .execute()
+            .value
+        
+        guard let request = requests.first else {
+            throw SupabaseError.unknown("找不到好友請求")
+        }
+        
+        // 創建雙向好友關係
+        let friendships = [
+            FriendshipInsert(
+                id: UUID().uuidString,
+                userId: request.fromUserId,
+                friendId: request.toUserId,
+                friendshipDate: Date()
+            ),
+            FriendshipInsert(
+                id: UUID().uuidString,
+                userId: request.toUserId,
+                friendId: request.fromUserId,
+                friendshipDate: Date()
+            )
+        ]
+        
+        let _: [FriendshipInsert] = try await client
+            .from("friendships")
+            .insert(friendships)
+            .select()
+            .execute()
+            .value
+        
+        print("✅ [FriendsService] 好友請求已接受，好友關係建立")
+    }
+    
+    /// 拒絕好友請求
+    func declineFriendRequest(_ requestId: UUID) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let _: [FriendRequestUpdate] = try await client
+            .from("friend_requests")
+            .update(FriendRequestUpdate(status: .declined))
+            .eq("id", value: requestId.uuidString)
+            .select()
+            .execute()
+            .value
+        
+        print("✅ [FriendsService] 好友請求已拒絕")
+    }
+    
+    /// 獲取好友請求列表
+    func fetchFriendRequests() async throws -> [FriendRequest] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let currentUser = try await getCurrentUserAsync()
+        
+        let requests: [FriendRequestResponse] = try await client
+            .from("friend_requests")
+            .select()
+            .eq("to_user_id", value: currentUser.id.uuidString)
+            .order("request_date", ascending: false)
+            .execute()
+            .value
+        
+        let friendRequests = try requests.map { request in
+            FriendRequest(
+                id: UUID(uuidString: request.id) ?? UUID(),
+                fromUserId: request.fromUserId,
+                fromUserName: request.fromUserName,
+                fromUserDisplayName: request.fromUserDisplayName,
+                fromUserAvatarUrl: request.fromUserAvatarUrl,
+                toUserId: request.toUserId,
+                message: request.message,
+                requestDate: ISO8601DateFormatter().date(from: request.requestDate) ?? Date(),
+                status: FriendRequest.FriendRequestStatus(rawValue: request.status) ?? .pending
+            )
+        }
+        
+        return friendRequests
+    }
+    
+    /// 獲取好友動態
+    func fetchFriendActivities() async throws -> [FriendActivity] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let currentUser = try await getCurrentUserAsync()
+        
+        // 獲取好友ID列表
+        let friendIds = try await getFriendIds(userId: currentUser.id)
+        
+        if friendIds.isEmpty {
+            return []
+        }
+        
+        let activities: [FriendActivityResponse] = try await client
+            .from("friend_activities")
+            .select()
+            .in("user_id", values: friendIds)
+            .order("timestamp", ascending: false)
+            .limit(50)
+            .execute()
+            .value
+        
+        let friendActivities = try activities.map { activity in
+            FriendActivity(
+                id: UUID(uuidString: activity.id) ?? UUID(),
+                friendId: activity.userId,
+                friendName: activity.userName,
+                activityType: FriendActivity.ActivityType(rawValue: activity.activityType) ?? .trade,
+                description: activity.description,
+                timestamp: ISO8601DateFormatter().date(from: activity.timestamp) ?? Date(),
+                data: activity.data.flatMap { dataStr in
+                    try? JSONDecoder().decode(FriendActivity.ActivityData.self, from: dataStr.data(using: .utf8) ?? Data())
+                }
+            )
+        }
+        
+        return friendActivities
+    }
+    
+    // MARK: - 輔助方法
+    
+    private func getFriendIds(userId: UUID) async throws -> [String] {
+        let friendships: [FriendshipResponse] = try await client
+            .from("friendships")
+            .select("friend_id")
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+            .value
+        
+        return friendships.map { $0.friendId }
+    }
+    
+    private func getPendingRequestIds(userId: UUID) async throws -> [String] {
+        let requests: [FriendRequestResponse] = try await client
+            .from("friend_requests")
+            .select("to_user_id")
+            .eq("from_user_id", value: userId.uuidString)
+            .eq("status", value: "pending")
+            .execute()
+            .value
+        
+        return requests.map { $0.toUserId }
+    }
+    
+    private func checkFriendshipExists(userId1: String, userId2: String) async throws -> Bool {
+        let friendships: [FriendshipResponse] = try await client
+            .from("friendships")
+            .select("id")
+            .eq("user_id", value: userId1)
+            .eq("friend_id", value: userId2)
+            .execute()
+            .value
+        
+        return !friendships.isEmpty
+    }
+    
+    private func checkPendingRequest(fromUserId: String, toUserId: String) async throws -> Bool {
+        let requests: [FriendRequestResponse] = try await client
+            .from("friend_requests")
+            .select("id")
+            .eq("from_user_id", value: fromUserId)
+            .eq("to_user_id", value: toUserId)
+            .eq("status", value: "pending")
+            .execute()
+            .value
+        
+        return !requests.isEmpty
+    }
+}
+
+// MARK: - Friends System Database Models
+
+struct FriendshipResponse: Codable {
+    let id: String
+    let userId: String
+    let friendId: String
+    let friendshipDate: String
+    let friendProfiles: UserProfileResponse?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case friendId = "friend_id"
+        case friendshipDate = "friendship_date"
+        case friendProfiles = "friend_profiles"
+    }
+}
+
+struct FriendshipInsert: Codable {
+    let id: String
+    let userId: String
+    let friendId: String
+    let friendshipDate: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case friendId = "friend_id"
+        case friendshipDate = "friendship_date"
+    }
+}
+
+struct FriendRequestResponse: Codable {
+    let id: String
+    let fromUserId: String
+    let fromUserName: String
+    let fromUserDisplayName: String
+    let fromUserAvatarUrl: String?
+    let toUserId: String
+    let message: String?
+    let requestDate: String
+    let status: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, message, status
+        case fromUserId = "from_user_id"
+        case fromUserName = "from_user_name"
+        case fromUserDisplayName = "from_user_display_name"
+        case fromUserAvatarUrl = "from_user_avatar_url"
+        case toUserId = "to_user_id"
+        case requestDate = "request_date"
+    }
+}
+
+struct FriendRequestInsert: Codable {
+    let id: String
+    let fromUserId: String
+    let fromUserName: String
+    let fromUserDisplayName: String
+    let fromUserAvatarUrl: String?
+    let toUserId: String
+    let message: String?
+    let requestDate: Date
+    let status: FriendRequest.FriendRequestStatus
+    
+    enum CodingKeys: String, CodingKey {
+        case id, message, status
+        case fromUserId = "from_user_id"
+        case fromUserName = "from_user_name"
+        case fromUserDisplayName = "from_user_display_name"
+        case fromUserAvatarUrl = "from_user_avatar_url"
+        case toUserId = "to_user_id"
+        case requestDate = "request_date"
+    }
+}
+
+struct FriendRequestUpdate: Codable {
+    let status: FriendRequest.FriendRequestStatus
+}
+
+struct UserProfileResponse: Codable {
+    let id: String
+    let userName: String
+    let displayName: String
+    let avatarUrl: String?
+    let bio: String?
+    let investmentStyle: String?
+    let performanceScore: Double
+    let totalReturn: Double
+    let riskLevel: String
+    let isOnline: Bool
+    let lastActiveDate: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, bio
+        case userName = "user_name"
+        case displayName = "display_name"
+        case avatarUrl = "avatar_url"
+        case investmentStyle = "investment_style"
+        case performanceScore = "performance_score"
+        case totalReturn = "total_return"
+        case riskLevel = "risk_level"
+        case isOnline = "is_online"
+        case lastActiveDate = "last_active_date"
+    }
+}
+
+struct FriendActivityResponse: Codable {
+    let id: String
+    let userId: String
+    let userName: String
+    let activityType: String
+    let description: String
+    let timestamp: String
+    let data: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, description, timestamp, data
+        case userId = "user_id"
+        case userName = "user_name"
+        case activityType = "activity_type"
+    }
+}

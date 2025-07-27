@@ -112,36 +112,53 @@ struct TournamentRankingsView: View {
     }
     
     var body: some View {
-        // 排行榜內容
-        VStack(alignment: .leading, spacing: 16) {
-            // 排行榜標題
-            HStack {
-                Image(systemName: "trophy.fill")
-                    .foregroundColor(.orange)
-                Text("排行榜")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                
-                Button("查看全部") {
-                    // TODO: 實現查看全部功能
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // 統計信息橫幅
+                    statisticsHeader
+                    
+                    // 排行榜區域
+                    VStack(alignment: .leading, spacing: 16) {
+                        // 排行榜標題
+                        HStack {
+                            Image(systemName: "trophy.fill")
+                                .foregroundColor(.orange)
+                                .font(.title3)
+                            Text("排行榜")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            
+                            Spacer()
+                            
+                            Button("查看全部") {
+                                // TODO: 實現查看全部功能
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(.blue)
+                        }
+                        .padding(.horizontal)
+                        
+                        // 排行榜列表
+                        LazyVStack(spacing: 10) {
+                            ForEach(mockParticipants.indices, id: \.self) { index in
+                                modernRankingCard(
+                                    mockParticipants[index], 
+                                    rank: index + 1, 
+                                    isCurrentUser: index == 4
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
                 }
-                .foregroundColor(.blue)
+                .padding(.top, 8)
             }
-            .padding(.horizontal)
-            
-            // 排行榜列表
-            LazyVStack(spacing: 8) {
-                // 模擬排行榜數據
-                ForEach(mockParticipants.indices, id: \.self) { index in
-                    modernRankingCard(mockParticipants[index], isCurrentUser: index == 4)
-                }
+            .refreshable {
+                await refreshData()
             }
-            .padding(.horizontal)
         }
-        .padding(.horizontal)
-        .padding(.top, 8)
+        .navigationBarHidden(true)
         .adaptiveBackground()
         .onAppear {
             Task {
@@ -169,82 +186,182 @@ struct TournamentRankingsView: View {
         }
     }
     
+    // 統計信息橫幅
+    private var statisticsHeader: some View {
+        let stats = tournamentStats ?? fallbackStats
+        
+        return VStack(spacing: 10) {
+            HStack(spacing: 0) {
+                // 參與者
+                VStack(alignment: .center, spacing: 6) {
+                    Text("參與者")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Text("\(stats.totalParticipants)")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.primary)
+                }
+                .frame(maxWidth: .infinity)
+                
+                // 分隔線
+                Rectangle()
+                    .fill(Color.gray300)
+                    .frame(width: 1, height: 40)
+                
+                // 平均報酬率
+                VStack(alignment: .center, spacing: 6) {
+                    Text("平均報酬率")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Text(String(format: "%.1f%%", stats.averageReturn * 100))
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.success)
+                }
+                .frame(maxWidth: .infinity)
+                
+                // 分隔線
+                Rectangle()
+                    .fill(Color.gray300)
+                    .frame(width: 1, height: 40)
+                
+                // 剩餘天數
+                VStack(alignment: .center, spacing: 6) {
+                    Text("剩餘天數")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Text("\(stats.daysRemaining)")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.orange)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            
+            // 最後更新時間
+            HStack {
+                Text("最後更新：\(formatTime(stats.lastUpdated))")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+        }
+        .padding(.vertical, 16)
+        .padding(.horizontal, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.surfaceSecondary)
+        )
+        .padding(.horizontal, 16)
+    }
+    
     // 現代化的排行榜卡片
-    private func modernRankingCard(_ participant: MockParticipant, isCurrentUser: Bool = false) -> some View {
+    private func modernRankingCard(_ participant: MockParticipant, rank: Int, isCurrentUser: Bool = false) -> some View {
         HStack(spacing: 12) {
-            // 排名變化指示器
-            VStack(spacing: 4) {
-                HStack(spacing: 2) {
-                    Image(systemName: participant.trendIcon)
-                        .foregroundColor(participant.trendColor)
-                        .font(.caption)
-                    
-                    Text(participant.trendText)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(participant.trendColor)
+            // 排名徽章
+            ZStack {
+                Circle()
+                    .fill(rankColor(rank))
+                    .frame(width: 36, height: 36)
+                
+                if rank <= 3 {
+                    Image(systemName: rank == 1 ? "crown.fill" : "star.fill")
+                        .foregroundColor(.white)
+                        .font(.system(size: 14, weight: .bold))
+                } else {
+                    Text("\(rank)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
                 }
             }
-            .frame(width: 40)
             
-            // 用戶信息
-            HStack(spacing: 8) {
-                Text(participant.code)
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                    .frame(width: 30, alignment: .leading)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(participant.name)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.primary)
-                        
-                        // 成就徽章
+            // 排名變化指示器
+            VStack(spacing: 2) {
+                Image(systemName: participant.trendIcon)
+                    .foregroundColor(participant.trendColor)
+                    .font(.system(size: 10))
+                Text(participant.trendText)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(participant.trendColor)
+            }
+            .frame(width: 20)
+            
+            // 用戶信息 - 確保水平布局
+            VStack(alignment: .leading, spacing: 4) {
+                // 用戶名稱 - 水平顯示
+                HStack(spacing: 6) {
+                    Text(participant.code)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.primary)
+                        .fixedSize(horizontal: true, vertical: false)
+                    
+                    Text(participant.name)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                    
+                    // 成就徽章 - 緊接在名稱後
+                    HStack(spacing: 2) {
                         ForEach(participant.badges, id: \.self) { badge in
                             Text(badge)
-                                .font(.caption2)
+                                .font(.system(size: 10))
                         }
                     }
-                    
-                    if isCurrentUser {
-                        Text("你")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                    }
+                }
+                
+                // 當前用戶標識
+                if isCurrentUser {
+                    Text("你")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(3)
                 }
             }
             
             Spacer()
             
-            // 績效數據
+            // 績效數據 - 右對齊布局
             VStack(alignment: .trailing, spacing: 2) {
                 Text(participant.balance)
-                    .font(.subheadline)
-                    .fontWeight(.bold)
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.primary)
                 
-                HStack(spacing: 4) {
-                    Text(participant.returnRate)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(participant.returnColor)
-                    
-                    Text(participant.dailyChange)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                Text(participant.returnRate)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(participant.returnColor)
+                
+                Text(participant.dailyChange)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
             }
         }
-        .padding()
-        .background(isCurrentUser ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
-        .cornerRadius(12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isCurrentUser ? Color.blue.opacity(0.08) : Color.surfacePrimary)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isCurrentUser ? Color.blue : Color.clear, lineWidth: 1)
+                .stroke(isCurrentUser ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
         )
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+    }
+    
+    // 排名顏色
+    private func rankColor(_ rank: Int) -> Color {
+        switch rank {
+        case 1:
+            return Color(hex: "#FFD700") // 金色
+        case 2:
+            return Color(hex: "#C0C0C0") // 銀色
+        case 3:
+            return Color(hex: "#CD7F32") // 銅色
+        default:
+            return Color.brandGreen
+        }
     }
     
     // MARK: - 錦標賽選擇器區域
@@ -708,6 +825,12 @@ struct TournamentRankingsView: View {
         }
         
         isRefreshing = false
+    }
+    
+    // 刷新數據
+    private func refreshData() async {
+        await refreshRankings()
+        await loadTournamentStatistics()
     }
 }
 

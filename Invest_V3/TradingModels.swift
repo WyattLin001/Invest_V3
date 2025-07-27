@@ -453,6 +453,20 @@ struct RankingsResponse: Codable {
     let error: String?
 }
 
+struct TradeErrorResponse: Codable {
+    let success: Bool
+    let errorCode: String
+    let message: String
+    let details: [String: String]?
+    
+    enum CodingKeys: String, CodingKey {
+        case success
+        case errorCode = "error_code"
+        case message
+        case details
+    }
+}
+
 // MARK: - 交易相關常數
 struct TradingConstants {
     static let taiwanStocks = [
@@ -481,4 +495,161 @@ struct TradingConstants {
         let tax = amount * taxRate
         return (fee, tax)
     }
+    
+    /// 計算賣出後實際收到的金額
+    static func calculateSellProceedsAfterFees(amount: Double) -> Double {
+        let (fee, tax) = calculateSellFee(amount: amount)
+        return amount - fee - tax
+    }
+    
+    /// 檢查賣出是否可行（考慮手續費和稅費）
+    static func isSellViable(quantity: Int, price: Double) -> SellViabilityResult {
+        let totalAmount = Double(quantity) * price
+        let (fee, tax) = calculateSellFee(amount: totalAmount)
+        let netProceeds = totalAmount - fee - tax
+        
+        // 檢查是否會虧損（實收金額小於等於 0）
+        if netProceeds <= 0 {
+            return .notViable(reason: "實收金額為負數", netProceeds: netProceeds)
+        }
+        
+        // 檢查是否實收金額過低（建議至少實收 100 元）
+        if netProceeds < 100 {
+            return .lowReturns(reason: "實收金額過低", netProceeds: netProceeds)
+        }
+        
+        return .viable(netProceeds: netProceeds)
+    }
+    
+    /// 計算在給定價格下的最大可賣出數量
+    static func calculateMaxSellableQuantity(availableQuantity: Int, price: Double, minNetProceeds: Double = 100) -> SellQuantityResult {
+        if availableQuantity <= 0 {
+            return .noStock
+        }
+        
+        // 從最大數量開始往下測試
+        for quantity in stride(from: availableQuantity, through: 1, by: -1) {
+            let viabilityResult = isSellViable(quantity: quantity, price: price)
+            
+            switch viabilityResult {
+            case .viable(let netProceeds):
+                if netProceeds >= minNetProceeds {
+                    return .maxQuantity(quantity: quantity, netProceeds: netProceeds)
+                }
+            case .lowReturns(_, let netProceeds):
+                if netProceeds >= minNetProceeds {
+                    return .maxQuantity(quantity: quantity, netProceeds: netProceeds)
+                }
+            case .notViable:
+                continue
+            }
+        }
+        
+        return .belowMinimum(availableQuantity: availableQuantity)
+    }
+    
+    /// 提供賣出建議
+    static func getSellSuggestion(requestedQuantity: Int, availableQuantity: Int, price: Double) -> SellSuggestion {
+        // 檢查持股是否足夠
+        if requestedQuantity > availableQuantity {
+            return .insufficientStock(
+                requested: requestedQuantity,
+                available: availableQuantity,
+                message: "持股不足，您目前持有 \(availableQuantity) 股，但要賣出 \(requestedQuantity) 股"
+            )
+        }
+        
+        // 檢查請求數量的可行性
+        let viabilityResult = isSellViable(quantity: requestedQuantity, price: price)
+        
+        switch viabilityResult {
+        case .viable(let netProceeds):
+            return .approved(
+                quantity: requestedQuantity,
+                netProceeds: netProceeds,
+                message: "賣出可行，預估實收 \(formatCurrency(netProceeds))"
+            )
+            
+        case .lowReturns(_, let netProceeds):
+            // 計算建議數量
+            let maxResult = calculateMaxSellableQuantity(availableQuantity: availableQuantity, price: price, minNetProceeds: 100)
+            
+            switch maxResult {
+            case .maxQuantity(let suggestedQuantity, let suggestedProceeds):
+                return .suggestAlternative(
+                    originalQuantity: requestedQuantity,
+                    originalProceeds: netProceeds,
+                    suggestedQuantity: suggestedQuantity,
+                    suggestedProceeds: suggestedProceeds,
+                    message: "建議賣出 \(suggestedQuantity) 股，可獲得較好的實收金額"
+                )
+            default:
+                return .notRecommended(
+                    quantity: requestedQuantity,
+                    netProceeds: netProceeds,
+                    message: "賣出數量過少，實收金額偏低"
+                )
+            }
+            
+        case .notViable(let reason, let netProceeds):
+            return .rejected(
+                quantity: requestedQuantity,
+                reason: reason,
+                netProceeds: netProceeds
+            )
+        }
+    }
+    
+    /// 格式化貨幣顯示
+    private static func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "TWD"
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: amount)) ?? "NT$0"
+    }
+}
+
+// MARK: - 交易動作枚舉
+enum TradeAction {
+    case buy, sell
+    
+    var title: String {
+        switch self {
+        case .buy: return "買入"
+        case .sell: return "賣出"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .buy: return .red
+        case .sell: return .green
+        }
+    }
+}
+
+// MARK: - 賣出相關模型
+
+/// 賣出可行性結果
+enum SellViabilityResult {
+    case viable(netProceeds: Double)
+    case lowReturns(reason: String, netProceeds: Double)
+    case notViable(reason: String, netProceeds: Double)
+}
+
+/// 賣出數量計算結果
+enum SellQuantityResult {
+    case maxQuantity(quantity: Int, netProceeds: Double)
+    case belowMinimum(availableQuantity: Int)
+    case noStock
+}
+
+/// 賣出建議
+enum SellSuggestion {
+    case approved(quantity: Int, netProceeds: Double, message: String)
+    case suggestAlternative(originalQuantity: Int, originalProceeds: Double, suggestedQuantity: Int, suggestedProceeds: Double, message: String)
+    case notRecommended(quantity: Int, netProceeds: Double, message: String)
+    case rejected(quantity: Int, reason: String, netProceeds: Double)
+    case insufficientStock(requested: Int, available: Int, message: String)
 }

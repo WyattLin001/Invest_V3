@@ -257,7 +257,6 @@ struct AppContainer: View {
                     .environmentObject(ThemeManager.shared)
                     .environmentObject(StockService.shared)
                     .environmentObject(NotificationService.shared)
-                    .environmentObject(FriendService.shared)
             } else {
                 // 顯示啟動畫面
                 BootstrapView()

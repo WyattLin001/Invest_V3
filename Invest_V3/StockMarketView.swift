@@ -171,24 +171,6 @@ struct StockDetailView: View {
     @State private var tradeAction: TradeAction = .buy
     @Environment(\.dismiss) private var dismiss
     
-    enum TradeAction {
-        case buy, sell
-        
-        var title: String {
-            switch self {
-            case .buy: return "買入"
-            case .sell: return "賣出"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .buy: return .red
-            case .sell: return .green
-            }
-        }
-    }
-    
     var body: some View {
         NavigationView {
             ScrollView {

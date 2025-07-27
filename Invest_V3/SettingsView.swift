@@ -401,20 +401,20 @@ struct SettingsView: View {
                 .fontWeight(.semibold)
                 .foregroundColor(.gray900)
             
-            NavigationLink(destination: FriendSystemTestView().environmentObject(FriendService.shared)) {
+            NavigationLink(destination: FriendsView()) {
                 HStack {
-                    Image(systemName: "person.2.badge.gearshape")
+                    Image(systemName: "person.2.fill")
                         .font(.title3)
-                        .foregroundColor(.brandOrange)
+                        .foregroundColor(.brandGreen)
                         .frame(width: 24, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("好友系統功能測試")
+                        Text("好友管理")
                             .font(.bodyText)
                             .fontWeight(.medium)
                             .foregroundColor(.gray900)
                         
-                        Text("測試 Supabase 連接和好友管理功能")
+                        Text("管理好友關係和動態")
                             .font(.caption)
                             .foregroundColor(.gray600)
                     }

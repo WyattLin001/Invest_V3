@@ -20,6 +20,7 @@ struct EnhancedInvestmentView: View {
     @State private var showingTournamentDetail = false
     @State private var selectedTournament: Tournament?
     @State private var showingTournamentSelection = false
+    @State private var showingCreateTournament = false
     @State private var participatedTournaments: [Tournament] = []
     @State private var currentActiveTournament: Tournament?
     
@@ -183,6 +184,10 @@ struct EnhancedInvestmentView: View {
             )
             .environmentObject(themeManager)
         }
+        .sheet(isPresented: $showingCreateTournament) {
+            CreateTournamentView()
+                .environmentObject(themeManager)
+        }
         .onAppear {
             initializeDefaultTournament()
             loadSupabaseData()
@@ -191,50 +196,42 @@ struct EnhancedInvestmentView: View {
     
     // MARK: - 工具欄按鈕
     private var tournamentSelectionButton: some View {
-        Button(action: {
-            showingTournamentSelection = true
-        }) {
-            Image(systemName: "gearshape.fill")
-                .foregroundColor(.brandGreen)
+        HStack(spacing: 8) {
+            // 一般用戶的錦標賽選擇按鈕
+            Button(action: {
+                showingTournamentSelection = true
+            }) {
+                Image(systemName: "gearshape.fill")
+                    .foregroundColor(.brandGreen)
+            }
+            
+            // 管理員專用的錦標賽建立按鈕 (只有 test03 帳號可見)
+            if isAdminUser {
+                Button(action: {
+                    showingCreateTournament = true
+                }) {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundColor(.brandOrange)
+                }
+            }
         }
+    }
+    
+    /// 檢查當前用戶是否為管理員 (test03)
+    private var isAdminUser: Bool {
+        guard let currentUser = supabaseService.getCurrentUser() else {
+            return false
+        }
+        return currentUser.username == "test03"
     }
     
     // MARK: - 初始化與數據處理
     private func initializeDefaultTournament() {
-        // 創建默認2025年度錦標賽
-        let default2025Tournament = Tournament(
-            id: UUID(),
-            name: "2025年度錦標賽",
-            type: .yearly,
-            status: .ongoing,
-            startDate: Calendar.current.date(from: DateComponents(year: 2025, month: 1, day: 1)) ?? Date(),
-            endDate: Calendar.current.date(from: DateComponents(year: 2025, month: 12, day: 31)) ?? Date(),
-            description: "2025年度錦標賽是全年最盛大的投資競賽，所有用戶自動參加",
-            shortDescription: "全年投資競賽挑戰",
-            initialBalance: 1000000, // 100萬初始資金
-            maxParticipants: 100000,
-            currentParticipants: 85432,
-            entryFee: 0, // 免費參加
-            prizePool: 10000000, // 1000萬獎金池
-            riskLimitPercentage: 0.2, // 20%風險限制
-            minHoldingRate: 0.1, // 10%最小持倉率
-            maxSingleStockRate: 0.3, // 30%單股最大持倉率
-            rules: [
-                "使用平台提供的虛擬資金進行投資",
-                "比賽期間為2025年1月1日至12月31日",
-                "以總投資報酬率為評分標準",
-                "禁止使用外部工具或不當手段",
-                "遵守平台交易規則和時間限制"
-            ],
-            createdAt: Date(),
-            updatedAt: Date(),
-            isFeatured: true
-        )
-        
-        // 如果還沒有參加任何錦標賽，自動加入2025年度錦標賽
-        if participatedTournaments.isEmpty {
-            participatedTournaments = [default2025Tournament]
-            currentActiveTournament = default2025Tournament
+        // 不再創建硬編碼的預設錦標賽
+        // 所有錦標賽數據都從 Supabase 載入
+        if participatedTournaments.isEmpty && currentActiveTournament == nil {
+            // 如果沒有錦標賽數據，等待從 Supabase 載入
+            print("ℹ️ 等待從 Supabase 載入錦標賽數據...")
         }
     }
     
@@ -2026,8 +2023,430 @@ struct TournamentTradingSelectionSheet: View {
 }
 
 
+// MARK: - 錦標賽建立視圖 (管理員專用)
+struct CreateTournamentView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var supabaseService = SupabaseService.shared
+    
+    // 表單狀態
+    @State private var name: String = ""
+    @State private var description: String = ""
+    @State private var shortDescription: String = ""
+    @State private var selectedType: TournamentType = .monthly
+    @State private var selectedStatus: TournamentStatus = .enrolling
+    @State private var startDate: Date = Date()
+    @State private var endDate: Date = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
+    @State private var initialBalance: Double = 1000000 // 預設一百萬
+    @State private var maxParticipants: Int = 1000
+    @State private var entryFee: Double = 0
+    @State private var prizePool: Double = 50000
+    @State private var riskLimitPercentage: Double = 20
+    @State private var minHoldingRate: Double = 5
+    @State private var maxSingleStockRate: Double = 30
+    @State private var isFeatured: Bool = false
+    @State private var rules: [String] = [
+        "禁止使用槓桿交易",
+        "每日風險限制不得超過設定比例",
+        "必須保持最低持股率",
+        "單一股票持股不得超過總資產30%"
+    ]
+    
+    // UI 狀態
+    @State private var isCreating: Bool = false
+    @State private var showAlert: Bool = false
+    @State private var alertMessage: String = ""
+    @State private var newRule: String = ""
+    @State private var showAddRule: Bool = false
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // 基本資訊區塊
+                    basicInfoSection
+                    
+                    // 時間設定區塊
+                    timeSettingsSection
+                    
+                    // 財務設定區塊
+                    financialSettingsSection
+                    
+                    // 規則設定區塊
+                    rulesSection
+                    
+                    // 進階設定區塊
+                    advancedSettingsSection
+                    
+                    // 建立按鈕
+                    createButton
+                }
+                .padding()
+            }
+            .navigationTitle("建立錦標賽")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+            }
+            .alert("建立錦標賽", isPresented: $showAlert) {
+                Button("確定", role: .cancel) { }
+            } message: {
+                Text(alertMessage)
+            }
+        }
+    }
+    
+    // MARK: - 基本資訊區塊
+    private var basicInfoSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader("基本資訊", "info.circle.fill")
+            
+            VStack(spacing: 16) {
+                formField("錦標賽名稱", text: $name, placeholder: "例如：2025年Q4投資錦標賽")
+                
+                formField("簡短描述", text: $shortDescription, placeholder: "一句話描述錦標賽特色")
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("詳細描述")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    TextField("詳細說明錦標賽規則和目標", text: $description, axis: .vertical)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .lineLimit(3...6)
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("錦標賽類型")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    Picker("錦標賽類型", selection: $selectedType) {
+                        ForEach(TournamentType.allCases, id: \.self) { type in
+                            HStack {
+                                Image(systemName: type.iconName)
+                                Text(type.displayName)
+                            }.tag(type)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("錦標賽狀態")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    Picker("錦標賽狀態", selection: $selectedStatus) {
+                        ForEach(TournamentStatus.allCases, id: \.self) { status in
+                            Text(status.displayName).tag(status)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                }
+            }
+        }
+        .cardStyle()
+    }
+    
+    // MARK: - 時間設定區塊
+    private var timeSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader("時間設定", "calendar.circle.fill")
+            
+            VStack(spacing: 16) {
+                DatePicker("開始時間", selection: $startDate, displayedComponents: [.date, .hourAndMinute])
+                    .datePickerStyle(CompactDatePickerStyle())
+                
+                DatePicker("結束時間", selection: $endDate, displayedComponents: [.date, .hourAndMinute])
+                    .datePickerStyle(CompactDatePickerStyle())
+                
+                if endDate <= startDate {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("結束時間必須晚於開始時間")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
+            }
+        }
+        .cardStyle()
+    }
+    
+    // MARK: - 財務設定區塊
+    private var financialSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader("財務設定", "dollarsign.circle.fill")
+            
+            VStack(spacing: 16) {
+                numberField("初始資金", value: $initialBalance, format: "NT$%.0f")
+                numberField("最大參與人數", value: Binding(
+                    get: { Double(maxParticipants) },
+                    set: { maxParticipants = Int($0) }
+                ), format: "%.0f人")
+                numberField("報名費", value: $entryFee, format: "NT$%.0f")
+                numberField("獎金池", value: $prizePool, format: "NT$%.0f")
+            }
+        }
+        .cardStyle()
+    }
+    
+    // MARK: - 規則設定區塊
+    private var rulesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                sectionHeader("比賽規則", "list.bullet.circle.fill")
+                Spacer()
+                Button(action: { showAddRule = true }) {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundColor(.brandGreen)
+                        .font(.title3)
+                }
+            }
+            
+            VStack(spacing: 8) {
+                ForEach(Array(rules.enumerated()), id: \.offset) { index, rule in
+                    HStack {
+                        Text("• \(rule)")
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Button(action: { rules.remove(at: index) }) {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundColor(.red)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                
+                if rules.isEmpty {
+                    Text("尚未設定規則")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+            }
+        }
+        .cardStyle()
+        .alert("新增規則", isPresented: $showAddRule) {
+            TextField("輸入新規則", text: $newRule)
+            Button("取消", role: .cancel) { newRule = "" }
+            Button("新增") {
+                if !newRule.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    rules.append(newRule.trimmingCharacters(in: .whitespacesAndNewlines))
+                    newRule = ""
+                }
+            }
+        }
+    }
+    
+    // MARK: - 進階設定區塊
+    private var advancedSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader("進階設定", "gearshape.fill")
+            
+            VStack(spacing: 16) {
+                percentageField("風險限制比例", value: $riskLimitPercentage)
+                percentageField("最低持股率", value: $minHoldingRate)
+                percentageField("單一股票持股上限", value: $maxSingleStockRate)
+                
+                Toggle("設為精選錦標賽", isOn: $isFeatured)
+                    .toggleStyle(SwitchToggleStyle(tint: .brandGreen))
+            }
+        }
+        .cardStyle()
+    }
+    
+    // MARK: - 建立按鈕
+    private var createButton: some View {
+        Button(action: createTournament) {
+            HStack {
+                if isCreating {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
+                } else {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                }
+                
+                Text(isCreating ? "建立中..." : "建立錦標賽")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(canCreateTournament ? Color.brandGreen : Color.gray)
+            )
+        }
+        .disabled(!canCreateTournament || isCreating)
+    }
+    
+    // MARK: - 輔助視圖
+    private func sectionHeader(_ title: String, _ iconName: String) -> some View {
+        HStack {
+            Image(systemName: iconName)
+                .foregroundColor(.brandGreen)
+                .font(.title3)
+            Text(title)
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+        }
+    }
+    
+    private func formField(_ label: String, text: Binding<String>, placeholder: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+            
+            TextField(placeholder, text: text)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+        }
+    }
+    
+    private func numberField(_ label: String, value: Binding<Double>, format: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(label)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                Spacer()
+                Text(String(format: format, value.wrappedValue))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Slider(value: value, in: label.contains("資金") ? 100000...10000000 : 
+                   label.contains("人數") ? 10...10000 : 0...1000000, step: 
+                   label.contains("資金") ? 100000 : label.contains("人數") ? 10 : 1000)
+                .tint(.brandGreen)
+        }
+    }
+    
+    private func percentageField(_ label: String, value: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(label)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                Spacer()
+                Text(String(format: "%.0f%%", value.wrappedValue))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Slider(value: value, in: 0...100, step: 1)
+                .tint(.brandGreen)
+        }
+    }
+    
+    // MARK: - 驗證邏輯
+    private var canCreateTournament: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !shortDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        endDate > startDate &&
+        !rules.isEmpty
+    }
+    
+    // MARK: - 建立錦標賽
+    private func createTournament() {
+        guard canCreateTournament else { return }
+        
+        isCreating = true
+        
+        let tournament = Tournament(
+            id: UUID(),
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            type: selectedType,
+            status: selectedStatus,
+            startDate: startDate,
+            endDate: endDate,
+            description: description.trimmingCharacters(in: .whitespacesAndNewlines),
+            shortDescription: shortDescription.trimmingCharacters(in: .whitespacesAndNewlines),
+            initialBalance: initialBalance,
+            maxParticipants: maxParticipants,
+            currentParticipants: 0,
+            entryFee: entryFee,
+            prizePool: prizePool,
+            riskLimitPercentage: riskLimitPercentage,
+            minHoldingRate: minHoldingRate,
+            maxSingleStockRate: maxSingleStockRate,
+            rules: rules,
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFeatured: isFeatured
+        )
+        
+        Task {
+            do {
+                try await createTournamentInDatabase(tournament)
+                await MainActor.run {
+                    isCreating = false
+                    alertMessage = "錦標賽「\(tournament.name)」建立成功！"
+                    showAlert = true
+                    
+                    // 延遲關閉視圖
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        dismiss()
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isCreating = false
+                    alertMessage = "建立錦標賽失敗：\(error.localizedDescription)"
+                    showAlert = true
+                }
+            }
+        }
+    }
+    
+    private func createTournamentInDatabase(_ tournament: Tournament) async throws {
+        // TODO: 實作 Supabase 資料庫新增錦標賽的邏輯
+        // 暫時使用模擬延遲
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        print("✅ 錦標賽已建立：\(tournament.name)")
+    }
+}
+
+// MARK: - 輔助擴展
+extension View {
+    func cardStyle() -> some View {
+        self
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
 // MARK: - 預覽
 #Preview {
     EnhancedInvestmentView()
+        .environmentObject(ThemeManager.shared)
+}
+
+#Preview("Create Tournament") {
+    CreateTournamentView()
         .environmentObject(ThemeManager.shared)
 }

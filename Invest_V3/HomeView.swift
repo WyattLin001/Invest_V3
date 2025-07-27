@@ -71,8 +71,8 @@ struct HomeView: View {
                 CreateGroupView()
             }
             .sheet(isPresented: $showFriendSearch) {
-                FriendSearchView()
-                    .environmentObject(FriendService.shared)
+                FriendsView()
+                    .environmentObject(ThemeManager.shared)
             }
         }
         .alert("錯誤", isPresented: $showErrorAlert) {
@@ -269,7 +269,7 @@ struct HomeView: View {
                 // 快速訪問按鈕
                 VStack(spacing: 8) {
                     Button(action: { showFriendSearch = true }) {
-                        Image(systemName: "person.2")
+                        Image(systemName: "person.2.fill")
                             .font(.title3)
                             .foregroundColor(.brandGreen)
                     }

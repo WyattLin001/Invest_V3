@@ -141,6 +141,48 @@ class PortfolioService: ObservableObject {
         return returnRate
     }
     
+    /// 獲取用戶持有特定股票的數量
+    func getStockHolding(userId: UUID, symbol: String) async throws -> Int {
+        let transactions = try await fetchPortfolioTransactions(userId: userId)
+        let stockTransactions = transactions.filter { $0.symbol == symbol }
+        
+        let netQuantity = stockTransactions.reduce(0) { (result: Int, transaction: PortfolioTransaction) -> Int in
+            return transaction.action == "buy" ? result + transaction.quantity : result - transaction.quantity
+        }
+        
+        return max(netQuantity, 0) // 確保不會返回負數
+    }
+    
+    /// 獲取用戶所有持股資訊
+    func getAllHoldings(userId: UUID) async throws -> [StockHolding] {
+        let transactions = try await fetchPortfolioTransactions(userId: userId)
+        let groupedHoldings = Dictionary(grouping: transactions) { $0.symbol }
+        
+        var holdings: [StockHolding] = []
+        
+        for (symbol, transactionsList) in groupedHoldings {
+            let netQuantity = transactionsList.reduce(0) { (result: Int, transaction: PortfolioTransaction) -> Int in
+                return transaction.action == "buy" ? result + transaction.quantity : result - transaction.quantity
+            }
+            
+            if netQuantity > 0 {
+                // 計算平均成本
+                let buyTransactions = transactionsList.filter { $0.action == "buy" }
+                let totalBuyQuantity = buyTransactions.reduce(0) { $0 + $1.quantity }
+                let totalBuyAmount = buyTransactions.reduce(0.0) { $0 + $1.amount }
+                let averageCost = totalBuyQuantity > 0 ? totalBuyAmount / Double(totalBuyQuantity) : 0.0
+                
+                holdings.append(StockHolding(
+                    symbol: symbol,
+                    quantity: netQuantity,
+                    averageCost: averageCost
+                ))
+            }
+        }
+        
+        return holdings
+    }
+    
     /// 獲取投資組合分佈 (用於圓環圖)
     func getPortfolioDistribution(userId: UUID) async throws -> [PortfolioItem] {
         let transactions = try await fetchPortfolioTransactions(userId: userId)
@@ -410,6 +452,19 @@ struct PortfolioItem: Identifiable {
     let percent: Double
     let amount: Double
     let color: Color
+}
+
+// MARK: - 持股資訊模型
+struct StockHolding: Identifiable, Codable {
+    let id = UUID()
+    let symbol: String
+    let quantity: Int
+    let averageCost: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case symbol, quantity
+        case averageCost = "average_cost"
+    }
 }
 
 // MARK: - 擴展
