@@ -139,7 +139,6 @@ struct TournamentRankingsView: View {
                 }
             }
             .padding(.horizontal)
-            }
         }
         .padding(.horizontal)
         .padding(.top, 8)

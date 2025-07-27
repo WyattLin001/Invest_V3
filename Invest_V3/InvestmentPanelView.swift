@@ -553,10 +553,3 @@ struct TradeInfoView: View {
     }
 }
 
-extension DateFormatter {
-    static let timeOnly: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-}

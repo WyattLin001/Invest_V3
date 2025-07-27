@@ -1931,15 +1931,6 @@ struct TournamentTradingSelectionSheet: View {
 }
 
 
-// MARK: - DateFormatter Extension
-extension DateFormatter {
-    static let timeOnly: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-}
-
 // MARK: - 預覽
 #Preview {
     EnhancedInvestmentView()
