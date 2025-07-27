@@ -1365,11 +1365,16 @@ struct InvestmentRecordsView: View {
             // 表頭
             recordsTableHeader
             
-            // 記錄列表
-            ForEach(filteredRecords, id: \.id) { record in
-                TradingRecordRow(record: record)
-                    .background(Color.surfacePrimary)
-                    .cornerRadius(8)
+            // 記錄列表 - 橫向滾動
+            ScrollView(.horizontal, showsIndicators: true) {
+                VStack(spacing: 8) {
+                    ForEach(filteredRecords, id: \.id) { record in
+                        TradingRecordRow(record: record)
+                            .background(Color.surfacePrimary)
+                            .cornerRadius(8)
+                    }
+                }
+                .padding(.horizontal, 4)
             }
         }
     }
@@ -1377,29 +1382,32 @@ struct InvestmentRecordsView: View {
     // MARK: - Table Header
     
     private var recordsTableHeader: some View {
-        HStack {
-            Group {
-                Text("日期/時間")
-                    .frame(width: 80, alignment: .leading)
-                Text("代號")
-                    .frame(width: 60, alignment: .leading)
-                Text("類型")
-                    .frame(width: 50, alignment: .center)
-                Text("數量")
-                    .frame(width: 60, alignment: .trailing)
-                Text("價格")
-                    .frame(width: 60, alignment: .trailing)
-                Text("總額")
-                    .frame(width: 70, alignment: .trailing)
-                Text("損益")
-                    .frame(width: 60, alignment: .trailing)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack {
+                Group {
+                    Text("日期/時間")
+                        .frame(width: 90, alignment: .leading)
+                    Text("代號")
+                        .frame(width: 70, alignment: .leading)
+                    Text("類型")
+                        .frame(width: 60, alignment: .center)
+                    Text("數量")
+                        .frame(width: 70, alignment: .trailing)
+                    Text("價格")
+                        .frame(width: 80, alignment: .trailing)
+                    Text("總額")
+                        .frame(width: 90, alignment: .trailing)
+                    Text("損益")
+                        .frame(width: 80, alignment: .trailing)
+                }
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.textSecondary)
             }
-            .font(.caption)
-            .fontWeight(.semibold)
-            .foregroundColor(.textSecondary)
+            .frame(minWidth: 540) // 確保表格有足夠寬度
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
         .background(Color.surfaceSecondary)
         .cornerRadius(6)
     }
@@ -1420,87 +1428,108 @@ struct TradingRecordRow: View {
     let record: TradingRecord
     
     var body: some View {
-        HStack {
-            // 日期時間
-            VStack(alignment: .leading, spacing: 2) {
-                Text(record.formattedDate)
-                    .font(.caption2)
-                    .foregroundColor(.textPrimary)
-                Text(record.formattedTime)
-                    .font(.caption2)
-                    .foregroundColor(.textSecondary)
-            }
-            .frame(width: 80, alignment: .leading)
-            
-            // 股票代號和名稱
-            VStack(alignment: .leading, spacing: 2) {
-                Text(record.symbol)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.textPrimary)
-                Text(record.stockName)
-                    .font(.caption2)
-                    .foregroundColor(.textSecondary)
-                    .lineLimit(1)
-            }
-            .frame(width: 60, alignment: .leading)
-            
-            // 交易類型標籤
-            Text(record.type.displayName)
-                .font(.caption2)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(record.type == .buy ? Color.success : Color.danger)
-                )
-                .frame(width: 50, alignment: .center)
-            
-            // 數量
-            Text(String(format: "%.0f", record.shares))
-                .font(.caption)
-                .foregroundColor(.textPrimary)
-                .frame(width: 60, alignment: .trailing)
-            
-            // 價格
-            Text(String(format: "$%.0f", record.price))
-                .font(.caption)
-                .foregroundColor(.textPrimary)
-                .frame(width: 60, alignment: .trailing)
-            
-            // 總額
-            Text(String(format: "$%,.0f", record.totalAmount))
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.textPrimary)
-                .frame(width: 70, alignment: .trailing)
-            
-            // 損益（僅賣出顯示）
-            Group {
-                if let gainLoss = record.realizedGainLoss {
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Text(String(format: "$%,.0f", gainLoss))
-                            .font(.caption2)
-                            .foregroundColor(gainLoss >= 0 ? .success : .danger)
-                        
-                        if let percent = record.realizedGainLossPercent {
-                            Text(String(format: "%@%.1f%%", gainLoss >= 0 ? "+" : "", percent))
-                                .font(.caption2)
-                                .foregroundColor(gainLoss >= 0 ? .success : .danger)
-                        }
-                    }
-                } else {
-                    Text("-")
-                        .font(.caption)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack {
+                // 日期時間
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(record.formattedDate)
+                        .font(.caption2)
+                        .foregroundColor(.textPrimary)
+                    Text(record.formattedTime)
+                        .font(.caption2)
                         .foregroundColor(.textSecondary)
                 }
+                .frame(width: 90, alignment: .leading)
+                
+                // 股票代號和名稱
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(record.symbol)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.textPrimary)
+                    Text(record.stockName)
+                        .font(.caption2)
+                        .foregroundColor(.textSecondary)
+                        .lineLimit(1)
+                }
+                .frame(width: 70, alignment: .leading)
+                
+                // 交易類型標籤
+                Text(record.type.displayName)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(record.type == .buy ? Color.success : Color.danger)
+                    )
+                    .frame(width: 60, alignment: .center)
+                
+                // 數量
+                Text(String(format: "%.0f", record.shares))
+                    .font(.caption)
+                    .foregroundColor(.textPrimary)
+                    .frame(width: 70, alignment: .trailing)
+                
+                // 價格
+                Text(formatCurrency(record.price))
+                    .font(.caption)
+                    .foregroundColor(.textPrimary)
+                    .frame(width: 80, alignment: .trailing)
+                
+                // 總額 - 修復格式化問題
+                Text(formatCurrency(record.totalAmount))
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.textPrimary)
+                    .frame(width: 90, alignment: .trailing)
+                
+                // 損益（僅賣出顯示）
+                Group {
+                    if let gainLoss = record.realizedGainLoss {
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text(formatCurrency(gainLoss))
+                                .font(.caption2)
+                                .foregroundColor(gainLoss >= 0 ? .success : .danger)
+                            
+                            if let percent = record.realizedGainLossPercent {
+                                Text(String(format: "%@%.1f%%", gainLoss >= 0 ? "+" : "", percent))
+                                    .font(.caption2)
+                                    .foregroundColor(gainLoss >= 0 ? .success : .danger)
+                            }
+                        }
+                    } else {
+                        Text("-")
+                            .font(.caption)
+                            .foregroundColor(.textSecondary)
+                    }
+                }
+                .frame(width: 80, alignment: .trailing)
             }
-            .frame(width: 60, alignment: .trailing)
+            .frame(minWidth: 540) // 確保與表頭寬度一致
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+    }
+    
+    // 格式化貨幣顯示
+    private func formatCurrency(_ value: Double) -> String {
+        if value == 0 {
+            return "$0"
+        }
+        
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 0
+        
+        if let formattedValue = formatter.string(from: NSNumber(value: abs(value))) {
+            return value >= 0 ? "$\(formattedValue)" : "-$\(formattedValue)"
+        } else {
+            return String(format: "$%.0f", value)
+        }
     }
 }
 
