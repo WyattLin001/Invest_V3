@@ -26,6 +26,9 @@ struct EnhancedInvestmentView: View {
     // 統計管理器
     @ObservedObject private var statisticsManager = StatisticsManager.shared
     
+    // Supabase 服務整合
+    @ObservedObject private var supabaseService = SupabaseService.shared
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
@@ -182,6 +185,7 @@ struct EnhancedInvestmentView: View {
         }
         .onAppear {
             initializeDefaultTournament()
+            loadSupabaseData()
         }
     }
     
@@ -231,6 +235,67 @@ struct EnhancedInvestmentView: View {
         if participatedTournaments.isEmpty {
             participatedTournaments = [default2025Tournament]
             currentActiveTournament = default2025Tournament
+        }
+    }
+    
+    // MARK: - Supabase 數據載入
+    private func loadSupabaseData() {
+        Task {
+            await loadUserProfile()
+            await loadTournamentData()
+            await loadUserInvestmentData()
+        }
+    }
+    
+    /// 載入用戶個人資料
+    @MainActor
+    private func loadUserProfile() async {
+        do {
+            if let userProfile = try await supabaseService.fetchUserProfile() {
+                print("✅ 成功載入用戶資料: \(userProfile.username)")
+                // 可以在這裡更新 UI 狀態
+            }
+        } catch {
+            print("❌ 載入用戶資料失敗: \(error.localizedDescription)")
+        }
+    }
+    
+    /// 載入錦標賽相關數據
+    @MainActor
+    private func loadTournamentData() async {
+        do {
+            // 載入所有錦標賽並篩選精選錦標賽
+            let tournaments = try await supabaseService.fetchFeaturedTournaments()
+            participatedTournaments = tournaments
+            
+            if let firstTournament = tournaments.first {
+                currentActiveTournament = firstTournament
+            }
+            
+            print("✅ 成功載入 \(tournaments.count) 個精選錦標賽")
+        } catch {
+            print("❌ 載入錦標賽數據失敗: \(error.localizedDescription)")
+            // 保持使用模擬數據
+        }
+    }
+    
+    /// 載入用戶投資數據
+    @MainActor
+    private func loadUserInvestmentData() async {
+        do {
+            // 目前使用現有的 ChatPortfolioManager 數據
+            // 未來可以添加從 Supabase 載入投資組合的功能
+            
+            // 載入錦標賽統計數據
+            let tournamentStats = try await supabaseService.fetchTournamentStatistics()
+            print("✅ 成功載入錦標賽統計數據: \(tournamentStats.totalParticipants) 參與者")
+            
+            // 更新統計管理器
+            await statisticsManager.refreshData()
+            
+        } catch {
+            print("❌ 載入投資數據失敗: \(error.localizedDescription)")
+            // 繼續使用本地模擬數據
         }
     }
 }
@@ -1089,8 +1154,13 @@ struct InvestmentHomeView: View {
     // MARK: - 數據刷新
     private func refreshPortfolioData() async {
         isRefreshing = true
-        // TODO: 實際的數據刷新邏輯
-        try? await Task.sleep(nanoseconds: 1_000_000_000) // 模擬網路請求
+        
+        // 刷新 Supabase 數據
+        await loadSupabaseData()
+        
+        // 刷新投資組合管理器數據（如果有更新方法的話）
+        // ChatPortfolioManager.shared.refreshData() // 待實現
+        
         isRefreshing = false
     }
     
