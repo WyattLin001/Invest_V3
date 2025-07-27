@@ -2422,9 +2422,8 @@ struct CreateTournamentView: View {
     }
     
     private func createTournamentInDatabase(_ tournament: Tournament) async throws {
-        // TODO: 實作 Supabase 資料庫新增錦標賽的邏輯
-        // 暫時使用模擬延遲
-        try await Task.sleep(nanoseconds: 2_000_000_000)
+        // 使用 SupabaseService 建立錦標賽
+        let _ = try await supabaseService.createTournament(tournament)
         print("✅ 錦標賽已建立：\(tournament.name)")
     }
 }

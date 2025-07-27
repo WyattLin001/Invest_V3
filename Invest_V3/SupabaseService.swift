@@ -4843,6 +4843,62 @@ extension SupabaseService {
         }
     }
     
+    /// 建立錦標賽 (僅管理員)
+    public func createTournament(_ tournament: Tournament) async throws -> Tournament {
+        print("📊 [SupabaseService] 建立錦標賽: \(tournament.name)")
+        
+        // 檢查當前用戶是否為管理員
+        guard let currentUser = getCurrentUser(), currentUser.username == "test03" else {
+            throw NSError(domain: "TournamentService", code: 403, userInfo: [NSLocalizedDescriptionKey: "權限不足，只有管理員可以建立錦標賽"])
+        }
+        
+        do {
+            // 創建錦標賽插入數據
+            let tournamentInsert = TournamentInsert(
+                id: tournament.id.uuidString,
+                name: tournament.name,
+                type: tournament.type.rawValue,
+                status: tournament.status.rawValue,
+                startDate: ISO8601DateFormatter().string(from: tournament.startDate),
+                endDate: ISO8601DateFormatter().string(from: tournament.endDate),
+                description: tournament.description,
+                shortDescription: tournament.shortDescription,
+                initialBalance: tournament.initialBalance,
+                maxParticipants: tournament.maxParticipants,
+                currentParticipants: 0,
+                entryFee: tournament.entryFee,
+                prizePool: tournament.prizePool,
+                riskLimitPercentage: tournament.riskLimitPercentage,
+                minHoldingRate: tournament.minHoldingRate,
+                maxSingleStockRate: tournament.maxSingleStockRate,
+                rules: tournament.rules,
+                isFeatured: tournament.isFeatured,
+                createdAt: ISO8601DateFormatter().string(from: Date()),
+                updatedAt: ISO8601DateFormatter().string(from: Date())
+            )
+            
+            // 插入到資料庫
+            let insertedTournaments: [TournamentResponse] = try await client
+                .from("tournaments")
+                .insert(tournamentInsert)
+                .select()
+                .execute()
+                .value
+            
+            guard let insertedResponse = insertedTournaments.first,
+                  let createdTournament = convertTournamentResponseToTournament(insertedResponse) else {
+                throw NSError(domain: "TournamentService", code: 500, userInfo: [NSLocalizedDescriptionKey: "錦標賽建立失敗"])
+            }
+            
+            print("✅ [SupabaseService] 成功建立錦標賽: \(createdTournament.name)")
+            return createdTournament
+            
+        } catch {
+            print("❌ [SupabaseService] 建立錦標賽失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
     /// 加入錦標賽
     public func joinTournament(tournamentId: UUID) async throws -> Bool {
         print("📊 [SupabaseService] 加入錦標賽: \(tournamentId)")
@@ -5246,6 +5302,47 @@ struct TournamentActivityResponse: Codable {
 }
 
 // MARK: - Tournament Insert Models
+struct TournamentInsert: Codable {
+    let id: String
+    let name: String
+    let type: String
+    let status: String
+    let startDate: String
+    let endDate: String
+    let description: String
+    let shortDescription: String
+    let initialBalance: Double
+    let maxParticipants: Int
+    let currentParticipants: Int
+    let entryFee: Double
+    let prizePool: Double
+    let riskLimitPercentage: Double
+    let minHoldingRate: Double
+    let maxSingleStockRate: Double
+    let rules: [String]
+    let isFeatured: Bool
+    let createdAt: String
+    let updatedAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, type, status, description, rules
+        case shortDescription = "short_description"
+        case startDate = "start_date"
+        case endDate = "end_date"
+        case initialBalance = "initial_balance"
+        case maxParticipants = "max_participants"
+        case currentParticipants = "current_participants"
+        case entryFee = "entry_fee"
+        case prizePool = "prize_pool"
+        case riskLimitPercentage = "risk_limit_percentage"
+        case minHoldingRate = "min_holding_rate"
+        case maxSingleStockRate = "max_single_stock_rate"
+        case isFeatured = "is_featured"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
 struct TournamentParticipantInsert: Codable {
     let tournamentId: String
     let userId: String
