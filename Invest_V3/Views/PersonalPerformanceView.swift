@@ -201,18 +201,108 @@ struct PersonalPerformanceView: View {
     
     // MARK: - 績效總覽內容
     private var performanceOverviewContent: some View {
-        VStack(spacing: DesignTokens.spacingMD) {
-            // 關鍵指標
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: DesignTokens.spacingSM) {
-                metricCard("最大回撤", String(format: "%.2f%%", performanceData.maxDrawdown * 100), .danger)
-                metricCard("夏普比率", performanceData.sharpeRatio != nil ? String(format: "%.2f", performanceData.sharpeRatio!) : "N/A", .brandBlue)
-                metricCard("獲利交易", "\(performanceData.profitableTrades)", .success)
-                metricCard("風險評分", String(format: "%.1f/10", performanceData.riskScore), .warning)
+        ScrollView {
+            VStack(spacing: DesignTokens.spacingMD) {
+                // 多維度績效分析
+                multiDimensionalAnalysis
+                
+                // 原有關鍵指標
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: DesignTokens.spacingSM) {
+                    metricCard("最大回撤", String(format: "%.2f%%", performanceData.maxDrawdown * 100), .danger)
+                    metricCard("夏普比率", performanceData.sharpeRatio != nil ? String(format: "%.2f", performanceData.sharpeRatio!) : "N/A", .brandBlue)
+                    metricCard("獲利交易", "\(performanceData.profitableTrades)", .success)
+                    metricCard("風險評分", String(format: "%.1f/10", performanceData.riskScore), .warning)
+                }
+            }
+            .padding()
+        }
+    }
+    
+    // MARK: - 多維度績效分析
+    private var multiDimensionalAnalysis: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "chart.bar.doc.horizontal")
+                    .foregroundColor(.brandBlue)
+                Text("多維度績效分析")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .adaptiveTextColor()
+                Spacer()
             }
             
-            Spacer()
+            VStack(spacing: 20) {
+                // 收益指標和風險指標
+                HStack(spacing: 20) {
+                    // 收益指標
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .foregroundColor(.green)
+                            Text("收益指標")
+                                .font(.headline)
+                                .foregroundColor(.green)
+                        }
+                        
+                        MetricRow(title: "總報酬", value: "+28.5%", color: .green)
+                        MetricRow(title: "年化報酬", value: "+15.2%", color: .green)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // 風險指標
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundColor(.orange)
+                            Text("風險指標")
+                                .font(.headline)
+                                .foregroundColor(.orange)
+                        }
+                        
+                        MetricRow(title: "夏普比率", value: "1.85", color: .blue)
+                        MetricRow(title: "最大回撤", value: "-8.3%", color: .red)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                
+                // 一致性和組合健康度
+                HStack(spacing: 20) {
+                    // 一致性
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "target")
+                                .foregroundColor(.blue)
+                            Text("一致性")
+                                .font(.headline)
+                                .foregroundColor(.blue)
+                        }
+                        
+                        MetricRow(title: "勝率", value: "+68.4%", color: .green)
+                        MetricRow(title: "平均持有期", value: "12.5 天", color: .primary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // 組合健康度
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "heart.circle")
+                                .foregroundColor(.purple)
+                            Text("組合健康度")
+                                .font(.headline)
+                                .foregroundColor(.purple)
+                        }
+                        
+                        HealthScoreRow(title: "多樣化", score: 82, maxScore: 100, color: .blue)
+                        HealthScoreRow(title: "風險分數", score: 65, maxScore: 100, color: .orange)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
         }
         .padding()
+        .background(Color.surfaceSecondary.opacity(0.5))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
     
     // MARK: - 風險分析內容
@@ -643,6 +733,68 @@ struct PerformanceShareSheet: View {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK: - 多維度分析組件
+struct MetricRow: View {
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(color)
+        }
+    }
+}
+
+struct HealthScoreRow: View {
+    let title: String
+    let score: Int
+    let maxScore: Int
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                Text("\(score)/\(maxScore)")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(color)
+            }
+            
+            // 進度條
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 6)
+                        .cornerRadius(3)
+                    
+                    Rectangle()
+                        .fill(color)
+                        .frame(width: geometry.size.width * CGFloat(score) / CGFloat(maxScore), height: 6)
+                        .cornerRadius(3)
+                }
+            }
+            .frame(height: 6)
         }
     }
 }

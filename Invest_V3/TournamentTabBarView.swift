@@ -8,85 +8,6 @@
 
 import SwiftUI
 
-// MARK: - 錦標賽過濾類型
-
-/// 錦標賽過濾選項，包含所有類型和精選
-enum TournamentFilter: String, CaseIterable, Identifiable {
-    case featured = "featured"      // 精選錦標賽
-    case all = "all"               // 所有錦標賽
-    case daily = "daily"           // 日賽
-    case weekly = "weekly"         // 週賽
-    case monthly = "monthly"       // 月賽
-    case quarterly = "quarterly"   // 季賽
-    case yearly = "yearly"         // 年賽
-    case special = "special"       // 特別賽事
-    
-    var id: String { rawValue }
-    
-    var displayName: String {
-        switch self {
-        case .featured:
-            return "精選"
-        case .all:
-            return "所有錦標賽"
-        case .daily:
-            return "日賽"
-        case .weekly:
-            return "週賽"
-        case .monthly:
-            return "月賽"
-        case .quarterly:
-            return "季賽"
-        case .yearly:
-            return "年賽"
-        case .special:
-            return "特別賽事"
-        }
-    }
-    
-    var iconName: String {
-        switch self {
-        case .featured:
-            return "star.fill"
-        case .all:
-            return "grid.circle.fill"
-        case .daily:
-            return "sun.max.fill"
-        case .weekly:
-            return "calendar.circle.fill"
-        case .monthly:
-            return "calendar.badge.clock"
-        case .quarterly:
-            return "chart.line.uptrend.xyaxis"
-        case .yearly:
-            return "crown.fill"
-        case .special:
-            return "bolt.fill"
-        }
-    }
-    
-    var accentColor: Color {
-        switch self {
-        case .featured:
-            return .orange
-        case .all:
-            return .blue
-        case .daily:
-            return .yellow
-        case .weekly:
-            return .green
-        case .monthly:
-            return .blue
-        case .quarterly:
-            return .purple
-        case .yearly:
-            return .red
-        case .special:
-            return .pink
-        }
-    }
-}
-
 // MARK: - 錦標賽標籤導航組件
 
 /// 錦標賽標籤導航欄
@@ -113,11 +34,11 @@ struct TournamentTabBarView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
-        .background(Color(.systemBackground))
+        .background(.gray.opacity(0.05))
         .overlay(
             // 底部分隔線
             Rectangle()
-                .fill(Color(.separator))
+                .fill(.gray.opacity(0.3))
                 .frame(height: 0.5),
             alignment: .bottom
         )
@@ -151,8 +72,8 @@ private struct TournamentTabItem: View {
             .background(
                 Group {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(backgroundColorSelected)
+                        backgroundColorSelected
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
                             .matchedGeometryEffect(id: "selectedTab", in: animation)
                     } else {
                         RoundedRectangle(cornerRadius: 20)
@@ -194,28 +115,28 @@ private struct TournamentTabItem: View {
         }
     }
     
-    private var backgroundColorSelected: Color {
+    @ViewBuilder
+    private var backgroundColorSelected: some View {
         if filter == .featured {
-            return LinearGradient(
+            LinearGradient(
                 colors: [.orange, .red],
                 startPoint: .leading,
                 endPoint: .trailing
             )
-            .opacity(1.0) as! Color
         } else {
-            return filter.accentColor.opacity(0.1)
+            filter.accentColor.opacity(0.1)
         }
     }
     
     private var backgroundColorNormal: Color {
-        return Color(.secondarySystemBackground)
+        return .gray.opacity(0.1)
     }
     
     private var borderColor: Color {
         if isSelected {
             return filter.accentColor
         } else {
-            return Color(.separator)
+            return .gray.opacity(0.3)
         }
     }
 }
@@ -247,7 +168,8 @@ struct TournamentTabBarContainer: View {
             TournamentTabBarView(selectedFilter: $selectedFilter)
         }
         .background(
-            Color(.systemBackground)
+            RoundedRectangle(cornerRadius: 0)
+                .fill(.gray.opacity(0.05))
                 .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
         )
     }
@@ -255,6 +177,7 @@ struct TournamentTabBarContainer: View {
 
 // MARK: - Preview
 
+/*
 #Preview("錦標賽標籤導航") {
     VStack {
         TournamentTabBarContainer(selectedFilter: .constant(.featured))
@@ -267,9 +190,11 @@ struct TournamentTabBarContainer: View {
         
         Spacer()
     }
-    .background(Color(.systemGroupedBackground))
+    .background(.gray.opacity(0.05))
 }
+*/
 
+/*
 #Preview("標籤狀態") {
     ScrollView {
         VStack(spacing: 16) {
@@ -298,3 +223,4 @@ struct TournamentTabBarContainer: View {
         .padding()
     }
 }
+*/

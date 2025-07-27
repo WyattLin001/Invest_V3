@@ -19,7 +19,7 @@ struct PortfolioData: Codable {
     let weeklyReturn: Double
     let monthlyReturn: Double
     let quarterlyReturn: Double
-    let holdings: [PortfolioHolding]
+    // let holdings: [PortfolioHolding] // 注釋掉，依賴於 Stock.swift 中的定義
     let allocations: [AssetAllocation]
     let lastUpdated: Date
     
@@ -33,7 +33,7 @@ struct PortfolioData: Codable {
         case weeklyReturn = "weekly_return"
         case monthlyReturn = "monthly_return"
         case quarterlyReturn = "quarterly_return"
-        case holdings, allocations
+        case allocations
         case lastUpdated = "last_updated"
     }
 }
@@ -137,115 +137,9 @@ struct TransactionRecord: Identifiable, Codable {
     }
 }
 
-// MARK: - 個人績效分析
-struct PersonalPerformance: Codable {
-    let totalReturn: Double
-    let annualizedReturn: Double
-    let maxDrawdown: Double
-    let sharpeRatio: Double?
-    let winRate: Double
-    let totalTrades: Int
-    let profitableTrades: Int
-    let avgHoldingDays: Double
-    let riskScore: Double
-    let performanceHistory: [PerformancePoint]
-    let rankingHistory: [RankingPoint]
-    let achievements: [Achievement]
-    
-    enum CodingKeys: String, CodingKey {
-        case totalReturn = "total_return"
-        case annualizedReturn = "annualized_return"
-        case maxDrawdown = "max_drawdown"
-        case sharpeRatio = "sharpe_ratio"
-        case winRate = "win_rate"
-        case totalTrades = "total_trades"
-        case profitableTrades = "profitable_trades"
-        case avgHoldingDays = "avg_holding_days"
-        case riskScore = "risk_score"
-        case performanceHistory = "performance_history"
-        case rankingHistory = "ranking_history"
-        case achievements
-    }
-}
+// MARK: - 績效相關模型 (已移至 TournamentModels.swift 避免重複定義)
 
-// MARK: - 績效歷史點
-struct PerformancePoint: Identifiable, Codable {
-    let id = UUID()
-    let date: Date
-    let value: Double
-    let returnRate: Double
-    
-    enum CodingKeys: String, CodingKey {
-        case date, value
-        case returnRate = "return_rate"
-    }
-}
-
-// MARK: - 排名歷史點
-struct RankingPoint: Identifiable, Codable {
-    let id = UUID()
-    let date: Date
-    let rank: Int
-    let totalParticipants: Int
-    let percentile: Double
-    
-    enum CodingKeys: String, CodingKey {
-        case date, rank
-        case totalParticipants = "total_participants"
-        case percentile
-    }
-}
-
-// MARK: - 成就系統
-struct Achievement: Identifiable, Codable {
-    let id: UUID
-    let name: String
-    let description: String
-    let icon: String
-    let rarity: AchievementRarity
-    let earnedAt: Date?
-    let progress: Double
-    let isUnlocked: Bool
-    
-    enum CodingKeys: String, CodingKey {
-        case id, name, description, icon, rarity, progress
-        case earnedAt = "earned_at"
-        case isUnlocked = "is_unlocked"
-    }
-    
-    enum AchievementRarity: String, CaseIterable, Codable {
-        case common = "common"
-        case rare = "rare"
-        case epic = "epic"
-        case legendary = "legendary"
-        
-        var displayName: String {
-            switch self {
-            case .common:
-                return "普通"
-            case .rare:
-                return "稀有"
-            case .epic:
-                return "史詩"
-            case .legendary:
-                return "傳奇"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .common:
-                return .gray600
-            case .rare:
-                return .brandBlue
-            case .epic:
-                return .brandPurple
-            case .legendary:
-                return .brandGold
-            }
-        }
-    }
-}
+// MARK: - 成就系統 (已移至 TournamentModels.swift 統一管理)
 
 // MARK: - 模擬數據 - 使用實際的 PortfolioHolding 定義
 struct MockPortfolioData {
@@ -259,7 +153,7 @@ struct MockPortfolioData {
         weeklyReturn: 3.8,
         monthlyReturn: 12.5,
         quarterlyReturn: 18.7,
-        holdings: sampleHoldings,
+        // holdings: sampleHoldings, // 移除，因為已從 PortfolioData 中註釋掉
         allocations: sampleAllocations,
         lastUpdated: Date()
     )

@@ -16,7 +16,7 @@ struct StatisticsBanner: View {
     
     // MARK: - Properties
     
-    private let bannerHeight: CGFloat = 100
+    private let bannerHeight: CGFloat = 70
     private let cornerRadius: CGFloat = 0
     
     // MARK: - Body

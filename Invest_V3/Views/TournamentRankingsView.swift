@@ -7,8 +7,17 @@
 
 import SwiftUI
 
+// MARK: - Data Models
+struct TournamentStats {
+    let totalParticipants: Int
+    let averageReturn: Double
+    let daysRemaining: Int
+    let lastUpdated: Date
+}
+
 struct TournamentRankingsView: View {
     private let tournamentService = ServiceConfiguration.makeTournamentService()
+    private let supabaseService = SupabaseService.shared
     @State private var selectedSegment: RankingSegment = .rankings
     @State private var selectedTournament: Tournament?
     @State private var participants: [TournamentParticipant] = []
@@ -17,31 +26,188 @@ struct TournamentRankingsView: View {
     @State private var isRefreshing = false
     @State private var showingTournamentPicker = false
     @State private var showingError = false
+    @State private var tournamentStats: TournamentStats?
+    
+    // 模擬統計數據 - 當 Supabase 數據載入失敗時使用
+    private var fallbackStats: TournamentStats {
+        TournamentStats(
+            totalParticipants: 1247,
+            averageReturn: 0.156,
+            daysRemaining: 18,
+            lastUpdated: Date()
+        )
+    }
+    
+    // 格式化時間輔助函數
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm:ss a"
+        return formatter.string(from: date)
+    }
+    
+    // 模擬參與者數據
+    private var mockParticipants: [MockParticipant] {
+        [
+            MockParticipant(
+                code: "TR",
+                name: "TradingMaster",
+                badges: ["👑", "🏆", "⚡"],
+                balance: "$1,450,000",
+                returnRate: "+45.00%",
+                dailyChange: "+1.75% 今日",
+                trendIcon: "arrow.up",
+                trendColor: .green,
+                trendText: "+1",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "ST",
+                name: "StockWizard",
+                badges: ["🥈", "📈"],
+                balance: "$1,425,000",
+                returnRate: "+42.50%",
+                dailyChange: "-1.04% 今日",
+                trendIcon: "arrow.down",
+                trendColor: .red,
+                trendText: "-1",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "MA",
+                name: "MarketSage",
+                badges: ["🥉", "🎯"],
+                balance: "$1,380,000",
+                returnRate: "+38.00%",
+                dailyChange: "+1.32% 今日",
+                trendIcon: "arrow.up",
+                trendColor: .green,
+                trendText: "+1",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "IN",
+                name: "InvestorPro",
+                badges: ["📊"],
+                balance: "$1,350,000",
+                returnRate: "+35.00%",
+                dailyChange: "-0.59% 今日",
+                trendIcon: "arrow.down",
+                trendColor: .red,
+                trendText: "-1",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "YO",
+                name: "You",
+                badges: ["🌟"],
+                balance: "$1,275,000",
+                returnRate: "+27.50%",
+                dailyChange: "+0.95% 今日",
+                trendIcon: "minus",
+                trendColor: .gray,
+                trendText: "0",
+                returnColor: .green
+            )
+        ]
+    }
     
     var body: some View {
         VStack {
-            // 錦標賽選擇器
-            tournamentPickerSection
-            
-            // 分段控制器
-            segmentedControl
-            
-            // 內容區域
-            TabView(selection: $selectedSegment) {
-                // 排行榜
-                rankingsContent
-                    .tag(RankingSegment.rankings)
+            // 統計橫幅
+            HStack {
+                // 參與者數量
+                VStack(alignment: .center, spacing: 4) {
+                    Text("\((tournamentStats ?? fallbackStats).totalParticipants)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text("參與者")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 
-                // 動態牆
-                activitiesContent
-                    .tag(RankingSegment.activities)
+                Spacer()
+                
+                // 平均報酬
+                VStack(alignment: .center, spacing: 4) {
+                    Text(String(format: "+%.1f%%", (tournamentStats ?? fallbackStats).averageReturn * 100))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                    
+                    Text("平均報酬")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // 剩餘時間
+                VStack(alignment: .center, spacing: 4) {
+                    Text("\((tournamentStats ?? fallbackStats).daysRemaining) 天")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text("剩餘時間")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // 最後更新
+                VStack(alignment: .center, spacing: 4) {
+                    Text(formatTime((tournamentStats ?? fallbackStats).lastUpdated))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text("最後更新")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
-            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+            .padding()
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(12)
+            .padding(.horizontal)
+            
+            // 排行榜內容
+            VStack(alignment: .leading, spacing: 16) {
+                // 排行榜標題
+                HStack {
+                    Image(systemName: "trophy.fill")
+                        .foregroundColor(.orange)
+                    Text("排行榜")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Spacer()
+                    
+                    Button("查看全部") {
+                        // TODO: 實現查看全部功能
+                    }
+                    .foregroundColor(.blue)
+                }
+                .padding(.horizontal)
+                
+                // 排行榜列表
+                LazyVStack(spacing: 8) {
+                    // 模擬排行榜數據
+                    ForEach(mockParticipants.indices, id: \.self) { index in
+                        modernRankingCard(mockParticipants[index], isCurrentUser: index == 4)
+                    }
+                }
+                .padding(.horizontal)
+            }
         }
         .adaptiveBackground()
         .onAppear {
             Task {
                 await loadInitialData()
+                await loadTournamentStatistics()
             }
         }
         .sheet(isPresented: $showingTournamentPicker) {
@@ -62,6 +228,84 @@ struct TournamentRankingsView: View {
                 }
             }
         }
+    }
+    
+    // 現代化的排行榜卡片
+    private func modernRankingCard(_ participant: MockParticipant, isCurrentUser: Bool = false) -> some View {
+        HStack(spacing: 12) {
+            // 排名變化指示器
+            VStack(spacing: 4) {
+                HStack(spacing: 2) {
+                    Image(systemName: participant.trendIcon)
+                        .foregroundColor(participant.trendColor)
+                        .font(.caption)
+                    
+                    Text(participant.trendText)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(participant.trendColor)
+                }
+            }
+            .frame(width: 40)
+            
+            // 用戶信息
+            HStack(spacing: 8) {
+                Text(participant.code)
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                    .frame(width: 30, alignment: .leading)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(participant.name)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                        
+                        // 成就徽章
+                        ForEach(participant.badges, id: \.self) { badge in
+                            Text(badge)
+                                .font(.caption2)
+                        }
+                    }
+                    
+                    if isCurrentUser {
+                        Text("你")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // 績效數據
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(participant.balance)
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                
+                HStack(spacing: 4) {
+                    Text(participant.returnRate)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(participant.returnColor)
+                    
+                    Text(participant.dailyChange)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding()
+        .background(isCurrentUser ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isCurrentUser ? Color.blue : Color.clear, lineWidth: 1)
+        )
     }
     
     // MARK: - 錦標賽選擇器區域
@@ -475,12 +719,36 @@ struct TournamentRankingsView: View {
         }
     }
     
+    /// 從 Supabase 載入錦標賽統計數據
+    private func loadTournamentStatistics() async {
+        do {
+            let statsResponse = try await supabaseService.fetchTournamentStatistics(
+                tournamentId: selectedTournament?.id
+            )
+            
+            await MainActor.run {
+                self.tournamentStats = TournamentStats(
+                    totalParticipants: statsResponse.totalParticipants,
+                    averageReturn: statsResponse.averageReturn,
+                    daysRemaining: statsResponse.daysRemaining,
+                    lastUpdated: statsResponse.lastUpdated
+                )
+            }
+            
+            print("✅ [TournamentRankingsView] 成功載入錦標賽統計數據")
+        } catch {
+            print("❌ [TournamentRankingsView] 載入統計數據失敗: \(error.localizedDescription)")
+            // 使用 fallback 數據，不顯示錯誤給用戶
+        }
+    }
+    
     private func refreshRankings() async {
         isRefreshing = true
         
         if let tournament = selectedTournament {
             do {
                 participants = try await tournamentService.fetchTournamentParticipants(tournamentId: tournament.id)
+                await loadTournamentStatistics() // 同時更新統計數據
             } catch {
                 showingError = true
             }
@@ -578,6 +846,20 @@ struct TournamentPickerSheet: View {
             }
         }
     }
+}
+
+// MARK: - Mock Data Models
+struct MockParticipant {
+    let code: String
+    let name: String
+    let badges: [String]
+    let balance: String
+    let returnRate: String
+    let dailyChange: String
+    let trendIcon: String
+    let trendColor: Color
+    let trendText: String
+    let returnColor: Color
 }
 
 // MARK: - 預覽

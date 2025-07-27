@@ -1118,6 +1118,7 @@ def get_portfolio():
                 
                 positions.append({
                     "symbol": symbol,
+                    "name": get_taiwan_stock_name(symbol),
                     "shares": holding['shares'],
                     "average_price": avg_cost,
                     "current_price": current_price,

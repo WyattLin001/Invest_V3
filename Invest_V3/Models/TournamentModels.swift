@@ -600,7 +600,8 @@ struct PersonalPerformance: Codable {
 }
 
 // MARK: - 績效歷史點
-struct PerformancePoint: Codable {
+struct PerformancePoint: Identifiable, Codable {
+    let id = UUID()
     let date: Date
     let value: Double
     let returnRate: Double
@@ -613,7 +614,8 @@ struct PerformancePoint: Codable {
 }
 
 // MARK: - 排名歷史點
-struct RankingPoint: Codable {
+struct RankingPoint: Identifiable, Codable {
+    let id = UUID()
     let date: Date
     let rank: Int
     let totalParticipants: Int
@@ -644,39 +646,39 @@ struct Achievement: Codable {
     }
     
     enum AchievementRarity: String, CaseIterable, Codable {
-        case bronze = "bronze"
-        case silver = "silver"
-        case gold = "gold"
-        case platinum = "platinum"
-        case diamond = "diamond"
+        case common = "common"
+        case rare = "rare"
+        case epic = "epic"
+        case legendary = "legendary"
+        case mythic = "mythic"
         
         var displayName: String {
             switch self {
-            case .bronze:
-                return "銅牌"
-            case .silver:
-                return "銀牌"
-            case .gold:
-                return "金牌"
-            case .platinum:
-                return "白金"
-            case .diamond:
-                return "鑽石"
+            case .common:
+                return "普通"
+            case .rare:
+                return "稀有"
+            case .epic:
+                return "史詩"
+            case .legendary:
+                return "傳奇"
+            case .mythic:
+                return "神話"
             }
         }
         
         var color: Color {
             switch self {
-            case .bronze:
-                return Color(hex: "#CD7F32")
-            case .silver:
-                return Color(hex: "#C0C0C0")
-            case .gold:
-                return Color(hex: "#FFD700")
-            case .platinum:
-                return Color(hex: "#E5E4E2")
-            case .diamond:
-                return Color(hex: "#B9F2FF")
+            case .common:
+                return Color(hex: "#9E9E9E")
+            case .rare:
+                return Color(hex: "#2196F3")
+            case .epic:
+                return Color(hex: "#9C27B0")
+            case .legendary:
+                return Color(hex: "#FF9800")
+            case .mythic:
+                return Color(hex: "#F44336")
             }
         }
     }

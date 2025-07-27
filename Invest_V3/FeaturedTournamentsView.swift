@@ -215,7 +215,7 @@ private struct FeaturedTournamentCard: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
+                .fill(.gray.opacity(0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(
@@ -347,7 +347,7 @@ private struct TournamentCardSkeleton: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
+                .fill(.gray.opacity(0.05))
         )
         .onAppear {
             withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
@@ -358,7 +358,7 @@ private struct TournamentCardSkeleton: View {
     
     private func skeletonRectangle(width: CGFloat, height: CGFloat) -> some View {
         Rectangle()
-            .fill(Color(.systemFill))
+            .fill(.gray.opacity(0.1))
             .frame(width: width == .infinity ? nil : width, height: height)
             .frame(maxWidth: width == .infinity ? .infinity : nil)
             .opacity(isAnimating ? 0.3 : 0.6)
@@ -386,7 +386,7 @@ private struct PrimaryButtonStyle: ButtonStyle {
 
 // MARK: - Preview
 
-#Preview("精選錦標賽") {
+/* #Preview("精選錦標賽") {
     NavigationView {
         FeaturedTournamentsView(
             onEnrollTournament: { tournament in
@@ -399,14 +399,18 @@ private struct PrimaryButtonStyle: ButtonStyle {
         .navigationTitle("精選錦標賽")
     }
 }
+*/
 
+/*
 #Preview("載入狀態") {
     FeaturedTournamentsView()
         .onAppear {
             // 模擬載入狀態
         }
 }
+*/
 
+/*
 #Preview("空狀態") {
     struct EmptyFeaturedView: View {
         var body: some View {
@@ -429,4 +433,4 @@ private struct PrimaryButtonStyle: ButtonStyle {
     }
     
     return EmptyFeaturedView()
-}
+}*/

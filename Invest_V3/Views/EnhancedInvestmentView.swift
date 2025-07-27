@@ -27,18 +27,20 @@ struct EnhancedInvestmentView: View {
         TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
             NavigationView {
-                VStack(spacing: 0) {
-                    // 統計橫幅
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared
-                    )
-                    
-                    // 主要內容
-                    InvestmentHomeView()
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // 統計橫幅
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared
+                        )
+                        
+                        // 主要內容
+                        InvestmentHomeView()
+                    }
                 }
                 .navigationTitle("投資總覽")
-                .navigationBarTitleDisplayMode(.large)
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         settingsButton
@@ -53,18 +55,20 @@ struct EnhancedInvestmentView: View {
             
             // 2. 交易記錄
             NavigationView {
-                VStack(spacing: 0) {
-                    // 統計橫幅
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared
-                    )
-                    
-                    // 主要內容
-                    InvestmentRecordsView()
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // 統計橫幅
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared
+                        )
+                        
+                        // 主要內容
+                        InvestmentRecordsView()
+                    }
                 }
                 .navigationTitle("交易記錄")
-                .navigationBarTitleDisplayMode(.large)
+                .navigationBarTitleDisplayMode(.inline)
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -74,21 +78,23 @@ struct EnhancedInvestmentView: View {
             
             // 3. 錦標賽選擇
             NavigationView {
-                VStack(spacing: 0) {
-                    // 統計橫幅
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared
-                    )
-                    
-                    // 主要內容
-                    TournamentSelectionView(
-                        selectedTournament: $selectedTournament,
-                        showingDetail: $showingTournamentDetail
-                    )
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // 統計橫幅
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared
+                        )
+                        
+                        // 主要內容
+                        TournamentSelectionView(
+                            selectedTournament: $selectedTournament,
+                            showingDetail: $showingTournamentDetail
+                        )
+                    }
                 }
                 .navigationTitle("錦標賽")
-                .navigationBarTitleDisplayMode(.large)
+                .navigationBarTitleDisplayMode(.inline)
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -98,18 +104,9 @@ struct EnhancedInvestmentView: View {
             
             // 4. 排行榜與動態
             NavigationView {
-                VStack(spacing: 0) {
-                    // 統計橫幅
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared
-                    )
-                    
-                    // 主要內容
-                    TournamentRankingsView()
-                }
-                .navigationTitle("排行榜")
-                .navigationBarTitleDisplayMode(.large)
+                TournamentRankingsView()
+                    .navigationTitle("排行榜")
+                    .navigationBarTitleDisplayMode(.inline)
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -119,18 +116,20 @@ struct EnhancedInvestmentView: View {
             
             // 5. 個人績效
             NavigationView {
-                VStack(spacing: 0) {
-                    // 統計橫幅
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared
-                    )
-                    
-                    // 主要內容
-                    PersonalPerformanceView()
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // 統計橫幅
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared
+                        )
+                        
+                        // 主要內容
+                        PersonalPerformanceView()
+                    }
                 }
                 .navigationTitle("我的績效")
-                .navigationBarTitleDisplayMode(.large)
+                .navigationBarTitleDisplayMode(.inline)
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -1390,7 +1389,7 @@ struct TournamentDetailView: View {
                         .background(tournament.status.color.opacity(0.1))
                         .cornerRadius(4)
                     
-                    if tournament.status != .ended {
+                    if tournament.status != .finished {
                         Text(tournament.timeRemaining)
                             .font(.caption)
                             .adaptiveTextColor(primary: false)

@@ -8,55 +8,6 @@
 
 import SwiftUI
 
-// MARK: - 錦標賽狀態
-
-/// 錦標賽報名狀態
-enum TournamentStatus: String, CaseIterable, Codable {
-    case upcoming = "upcoming"      // 即將開始
-    case enrolling = "enrolling"    // 報名中
-    case ongoing = "ongoing"        // 進行中
-    case finished = "finished"      // 已結束
-    case cancelled = "cancelled"    // 已取消
-    
-    var displayName: String {
-        switch self {
-        case .upcoming:
-            return "即將開始"
-        case .enrolling:
-            return "報名中"
-        case .ongoing:
-            return "進行中"
-        case .finished:
-            return "已結束"
-        case .cancelled:
-            return "已取消"
-        }
-    }
-    
-    var color: Color {
-        switch self {
-        case .upcoming:
-            return .blue
-        case .enrolling:
-            return .green
-        case .ongoing:
-            return .orange
-        case .finished:
-            return .gray
-        case .cancelled:
-            return .red
-        }
-    }
-    
-    var canEnroll: Bool {
-        return self == .enrolling
-    }
-    
-    var canParticipate: Bool {
-        return self == .ongoing
-    }
-}
-
 // MARK: - 錦標賽卡片主組件
 
 /// 錦標賽卡片視圖
@@ -91,7 +42,7 @@ struct TournamentCardView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
+                .fill(.gray.opacity(0.05))
                 .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
         )
         .overlay(
@@ -277,7 +228,7 @@ struct TournamentCardView: View {
                 if tournament.rules.count > 3 {
                     Text("及其他規則...")
                         .font(.system(size: 10))
-                        .foregroundColor(.tertiary)
+                        .foregroundColor(.secondary)
                         .italic()
                 }
             }
@@ -419,7 +370,7 @@ struct TournamentCardView: View {
         if tournament.status == .enrolling {
             return typeColor.opacity(0.3)
         } else {
-            return Color(.separator)
+            return .gray.opacity(0.3)
         }
     }
     
@@ -513,7 +464,7 @@ private struct PrimaryButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.brandGreen)
+                    .fill(.green)
                     .opacity(configuration.isPressed ? 0.8 : 1.0)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
@@ -524,17 +475,17 @@ private struct PrimaryButtonStyle: ButtonStyle {
 private struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundColor(.brandGreen)
+            .foregroundColor(.green)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.brandGreen.opacity(0.1))
+                    .fill(.green.opacity(0.1))
                     .opacity(configuration.isPressed ? 0.8 : 1.0)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.brandGreen, lineWidth: 1)
+                    .stroke(.green, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
@@ -566,13 +517,14 @@ private struct DisabledButtonStyle: ButtonStyle {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(.systemFill))
+                    .fill(.gray.opacity(0.1))
             )
     }
 }
 
 // MARK: - Preview
 
+/*
 #Preview("錦標賽卡片") {
     ScrollView {
         LazyVStack(spacing: 16) {
@@ -605,73 +557,7 @@ private struct DisabledButtonStyle: ButtonStyle {
         }
         .padding()
     }
-    .background(Color(.systemGroupedBackground))
+    .background(.gray.opacity(0.05))
 }
+*/
 
-// MARK: - Mock Data Extensions
-
-extension Tournament {
-    static var mockEnrollingTournament: Tournament {
-        Tournament(
-            id: UUID(),
-            name: "Monthly Masters Championship",
-            type: .monthly,
-            status: .enrolling,
-            shortDescription: "The premier monthly trading competition. Compete with the best traders!",
-            prizePool: 500000,
-            currentParticipants: 1247,
-            maxParticipants: 2000,
-            startDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
-            endDate: Calendar.current.date(byAdding: .day, value: 35, to: Date()) ?? Date(),
-            startingCapital: 1000000,
-            rules: [
-                "30-day duration",
-                "Max 25% single stock allocation", 
-                "Min 70% position requirement",
-                "Risk limit: 15% max drawdown"
-            ]
-        )
-    }
-    
-    static var mockOngoingTournament: Tournament {
-        Tournament(
-            id: UUID(),
-            name: "Weekly Warriors",
-            type: .weekly,
-            status: .ongoing,
-            shortDescription: "One week to prove your trading strategy. Perfect for swing traders.",
-            prizePool: 100000,
-            currentParticipants: 156,
-            maxParticipants: 300,
-            startDate: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
-            endDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
-            startingCapital: 1000000,
-            rules: [
-                "7-day duration",
-                "Max 30% single stock allocation",
-                "Min 60% position requirement"
-            ]
-        )
-    }
-    
-    static var mockFinishedTournament: Tournament {
-        Tournament(
-            id: UUID(),
-            name: "Daily Lightning Challenge",
-            type: .daily,
-            status: .finished,
-            shortDescription: "Fast-paced single day trading competition. Test your day trading skills!",
-            prizePool: 50000,
-            currentParticipants: 342,
-            maxParticipants: 500,
-            startDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
-            endDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
-            startingCapital: 1000000,
-            rules: [
-                "Single day duration",
-                "Max 10% single stock allocation",
-                "No overnight positions"
-            ]
-        )
-    }
-}

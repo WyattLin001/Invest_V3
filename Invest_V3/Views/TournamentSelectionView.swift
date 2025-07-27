@@ -25,7 +25,7 @@ struct TournamentSelectionView: View {
     @State private var errorMessage = ""
     
     // 服務依賴
-    private let tournamentService = ServiceConfiguration.makeTournamentService()
+    // private let tournamentService = ServiceConfiguration.makeTournamentService()
     
     var body: some View {
         VStack(spacing: 0) {
@@ -35,7 +35,7 @@ struct TournamentSelectionView: View {
             // 主要內容區域
             mainContent
         }
-        .background(Color(.systemGroupedBackground))
+        .background(.gray.opacity(0.05))
         .onAppear {
             loadTournaments()
         }
@@ -136,7 +136,7 @@ struct TournamentSelectionView: View {
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.secondarySystemBackground))
+                    .fill(.gray.opacity(0.05))
             )
             
             // 快速篩選選項
@@ -144,7 +144,7 @@ struct TournamentSelectionView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(.systemBackground))
+        .background(.gray.opacity(0.05))
     }
     
     private var quickFilterButtons: some View {
@@ -441,7 +441,7 @@ private struct QuickFilterButton: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? Color.blue : Color(.tertiarySystemBackground))
+                    .fill(isSelected ? Color.blue : .gray.opacity(0.1))
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -481,7 +481,7 @@ private struct TournamentCardSkeleton: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
+                .fill(.gray.opacity(0.05))
         )
         .onAppear {
             withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
@@ -499,7 +499,7 @@ private struct TournamentCardSkeleton: View {
     
     private func skeletonRectangle(width: CGFloat, height: CGFloat) -> some View {
         Rectangle()
-            .fill(Color(.systemFill))
+            .fill(.gray.opacity(0.1))
             .frame(width: width == .infinity ? nil : width, height: height)
             .frame(maxWidth: width == .infinity ? .infinity : nil)
             .opacity(isAnimating ? 0.3 : 0.6)
@@ -531,7 +531,7 @@ private struct SecondaryButtonStyle: ButtonStyle {
 
 // MARK: - Preview
 
-#Preview("錦標賽競技場") {
+/* #Preview("錦標賽競技場") {
     NavigationView {
         TournamentSelectionView(
             selectedTournament: .constant(nil),
@@ -540,4 +540,4 @@ private struct SecondaryButtonStyle: ButtonStyle {
         .navigationTitle("錦標賽競技場")
         .navigationBarTitleDisplayMode(.large)
     }
-}
+}*/
