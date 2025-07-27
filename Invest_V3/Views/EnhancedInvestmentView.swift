@@ -30,20 +30,26 @@ struct EnhancedInvestmentView: View {
         TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
             NavigationView {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // 統計橫幅
-                        StatisticsBanner(
-                            statisticsManager: statisticsManager,
-                            portfolioManager: ChatPortfolioManager.shared
+                VStack(spacing: 0) {
+                    // 統計橫幅 - 固定在頂部
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared
+                    )
+                    
+                    // 主要內容 - 可滾動區域
+                    ScrollView {
+                        InvestmentHomeView(
+                            currentActiveTournament: currentActiveTournament,
+                            participatedTournaments: participatedTournaments,
+                            showingTournamentTrading: .constant(false),
+                            showingTournamentSelection: $showingTournamentSelection
                         )
-                        
-                        // 主要內容
-                        InvestmentHomeView()
                     }
                 }
                 .navigationTitle("投資總覽")
                 .navigationBarTitleDisplayMode(.inline)
+                .navigationBarHidden(false)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton
@@ -58,20 +64,25 @@ struct EnhancedInvestmentView: View {
             
             // 2. 交易記錄
             NavigationView {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // 統計橫幅
-                        StatisticsBanner(
-                            statisticsManager: statisticsManager,
-                            portfolioManager: ChatPortfolioManager.shared
-                        )
-                        
-                        // 主要內容
+                VStack(spacing: 0) {
+                    // 統計橫幅 - 固定在頂部
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared
+                    )
+                    
+                    // 主要內容 - 可滾動區域
+                    ScrollView {
                         InvestmentRecordsView()
                     }
                 }
                 .navigationTitle("交易記錄")
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        tournamentSelectionButton
+                    }
+                }
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -81,15 +92,15 @@ struct EnhancedInvestmentView: View {
             
             // 3. 錦標賽選擇
             NavigationView {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // 統計橫幅
-                        StatisticsBanner(
-                            statisticsManager: statisticsManager,
-                            portfolioManager: ChatPortfolioManager.shared
-                        )
-                        
-                        // 主要內容
+                VStack(spacing: 0) {
+                    // 統計橫幅 - 固定在頂部
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared
+                    )
+                    
+                    // 主要內容 - 可滾動區域
+                    ScrollView {
                         TournamentSelectionView(
                             selectedTournament: $selectedTournament,
                             showingDetail: $showingTournamentDetail
@@ -98,6 +109,11 @@ struct EnhancedInvestmentView: View {
                 }
                 .navigationTitle("錦標賽")
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        tournamentSelectionButton
+                    }
+                }
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -110,6 +126,11 @@ struct EnhancedInvestmentView: View {
                 TournamentRankingsView()
                     .navigationTitle("排行榜")
                     .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            tournamentSelectionButton
+                        }
+                    }
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -119,20 +140,25 @@ struct EnhancedInvestmentView: View {
             
             // 5. 個人績效
             NavigationView {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // 統計橫幅
-                        StatisticsBanner(
-                            statisticsManager: statisticsManager,
-                            portfolioManager: ChatPortfolioManager.shared
-                        )
-                        
-                        // 主要內容
+                VStack(spacing: 0) {
+                    // 統計橫幅 - 固定在頂部
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared
+                    )
+                    
+                    // 主要內容 - 可滾動區域
+                    ScrollView {
                         PersonalPerformanceView()
                     }
                 }
                 .navigationTitle("我的績效")
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        tournamentSelectionButton
+                    }
+                }
             }
             .navigationViewStyle(StackNavigationViewStyle())
             .tabItem {
@@ -175,16 +201,20 @@ struct EnhancedInvestmentView: View {
         let default2025Tournament = Tournament(
             id: UUID(),
             name: "2025年度錦標賽",
-            shortDescription: "全年投資競賽挑戰",
-            description: "2025年度錦標賽是全年最盛大的投資競賽，所有用戶自動參加",
             type: .yearly,
             status: .ongoing,
             startDate: Calendar.current.date(from: DateComponents(year: 2025, month: 1, day: 1)) ?? Date(),
             endDate: Calendar.current.date(from: DateComponents(year: 2025, month: 12, day: 31)) ?? Date(),
-            registrationDeadline: Calendar.current.date(from: DateComponents(year: 2025, month: 12, day: 30)) ?? Date(),
-            prizePool: 10000000, // 1000萬獎金池
+            description: "2025年度錦標賽是全年最盛大的投資競賽，所有用戶自動參加",
+            shortDescription: "全年投資競賽挑戰",
+            initialBalance: 1000000, // 100萬初始資金
             maxParticipants: 100000,
             currentParticipants: 85432,
+            entryFee: 0, // 免費參加
+            prizePool: 10000000, // 1000萬獎金池
+            riskLimitPercentage: 0.2, // 20%風險限制
+            minHoldingRate: 0.1, // 10%最小持倉率
+            maxSingleStockRate: 0.3, // 30%單股最大持倉率
             rules: [
                 "使用平台提供的虛擬資金進行投資",
                 "比賽期間為2025年1月1日至12月31日",
@@ -192,9 +222,9 @@ struct EnhancedInvestmentView: View {
                 "禁止使用外部工具或不當手段",
                 "遵守平台交易規則和時間限制"
             ],
-            features: ["全年競賽", "豐富獎金", "自動參加"],
-            difficulty: "適合所有等級",
-            requirements: ["無特殊要求", "自動參加"]
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFeatured: true
         )
         
         // 如果還沒有參加任何錦標賽，自動加入2025年度錦標賽
@@ -250,7 +280,17 @@ enum InvestmentTab: String, CaseIterable, Identifiable {
 struct InvestmentHomeView: View {
     @EnvironmentObject private var themeManager: ThemeManager
     
-    init() {
+    // 錦標賽相關參數
+    let currentActiveTournament: Tournament?
+    let participatedTournaments: [Tournament]
+    @Binding var showingTournamentTrading: Bool
+    @Binding var showingTournamentSelection: Bool
+    
+    init(currentActiveTournament: Tournament?, participatedTournaments: [Tournament], showingTournamentTrading: Binding<Bool>, showingTournamentSelection: Binding<Bool>) {
+        self.currentActiveTournament = currentActiveTournament
+        self.participatedTournaments = participatedTournaments
+        self._showingTournamentTrading = showingTournamentTrading
+        self._showingTournamentSelection = showingTournamentSelection
         self._portfolioManager = ObservedObject(wrappedValue: ChatPortfolioManager.shared)
     }
     
@@ -262,7 +302,6 @@ struct InvestmentHomeView: View {
     @State private var tradeAction: String = "buy"
     @State private var showTradeSuccess = false
     @State private var tradeSuccessMessage = ""
-    @State private var showingTournamentTrading = false
     
     // 即時股價相關狀態
     @State private var currentPrice: Double = 0.0
@@ -279,22 +318,22 @@ struct InvestmentHomeView: View {
     @State private var isRefreshing = false
     
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: DesignTokens.spacingMD) {
-                // 投資組合統計卡片組
-                portfolioStatsCards
-                
-                // 動態圓餅圖和持股明細
-                portfolioVisualizationCard
-                
-                // 交易區域（錦標賽交易）
-                tournamentTradingCard
-                
-                // 管理功能
-                managementCard
-            }
-            .padding()
+        LazyVStack(spacing: DesignTokens.spacingMD) {
+            // 投資組合統計卡片組
+            portfolioStatsCards
+            
+            // 動態圓餅圖和持股明細
+            portfolioVisualizationCard
+            
+            // 交易區域（錦標賽交易）
+            tournamentTradingCard
+            
+            // 管理功能
+            managementCard
         }
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .padding(.bottom)
         .adaptiveBackground()
         .refreshable {
             await refreshPortfolioData()
@@ -671,7 +710,7 @@ struct InvestmentHomeView: View {
             .sheet(isPresented: $showingTournamentTrading) {
                 TournamentTradingSelectionSheet(
                     participatedTournaments: participatedTournaments,
-                    currentActiveTournament: $currentActiveTournament,
+                    currentActiveTournament: .constant(currentActiveTournament),
                     showingTournamentSelection: $showingTournamentSelection
                 )
                 .environmentObject(themeManager)

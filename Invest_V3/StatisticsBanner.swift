@@ -16,7 +16,7 @@ struct StatisticsBanner: View {
     
     // MARK: - Properties
     
-    private let bannerHeight: CGFloat = 70
+    private let bannerHeight: CGFloat = 60
     private let cornerRadius: CGFloat = 0
     
     // MARK: - Body
@@ -71,8 +71,8 @@ struct StatisticsBanner: View {
             // 右側：活躍交易者
             activeUsersSection
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
     
     // MARK: - Platform Title

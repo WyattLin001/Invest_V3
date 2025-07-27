@@ -112,97 +112,37 @@ struct TournamentRankingsView: View {
     }
     
     var body: some View {
-        VStack {
-            // 統計橫幅
+        // 排行榜內容
+        VStack(alignment: .leading, spacing: 16) {
+            // 排行榜標題
             HStack {
-                // 參與者數量
-                VStack(alignment: .center, spacing: 4) {
-                    Text("\((tournamentStats ?? fallbackStats).totalParticipants)")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
-                    Text("參與者")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                Image(systemName: "trophy.fill")
+                    .foregroundColor(.orange)
+                Text("排行榜")
+                    .font(.title2)
+                    .fontWeight(.bold)
                 
                 Spacer()
                 
-                // 平均報酬
-                VStack(alignment: .center, spacing: 4) {
-                    Text(String(format: "+%.1f%%", (tournamentStats ?? fallbackStats).averageReturn * 100))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.green)
-                    
-                    Text("平均報酬")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                Button("查看全部") {
+                    // TODO: 實現查看全部功能
                 }
-                
-                Spacer()
-                
-                // 剩餘時間
-                VStack(alignment: .center, spacing: 4) {
-                    Text("\((tournamentStats ?? fallbackStats).daysRemaining) 天")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
-                    Text("剩餘時間")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                // 最後更新
-                VStack(alignment: .center, spacing: 4) {
-                    Text(formatTime((tournamentStats ?? fallbackStats).lastUpdated))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
-                    Text("最後更新")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                .foregroundColor(.blue)
             }
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(12)
             .padding(.horizontal)
             
-            // 排行榜內容
-            VStack(alignment: .leading, spacing: 16) {
-                // 排行榜標題
-                HStack {
-                    Image(systemName: "trophy.fill")
-                        .foregroundColor(.orange)
-                    Text("排行榜")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Spacer()
-                    
-                    Button("查看全部") {
-                        // TODO: 實現查看全部功能
-                    }
-                    .foregroundColor(.blue)
+            // 排行榜列表
+            LazyVStack(spacing: 8) {
+                // 模擬排行榜數據
+                ForEach(mockParticipants.indices, id: \.self) { index in
+                    modernRankingCard(mockParticipants[index], isCurrentUser: index == 4)
                 }
-                .padding(.horizontal)
-                
-                // 排行榜列表
-                LazyVStack(spacing: 8) {
-                    // 模擬排行榜數據
-                    ForEach(mockParticipants.indices, id: \.self) { index in
-                        modernRankingCard(mockParticipants[index], isCurrentUser: index == 4)
-                    }
-                }
-                .padding(.horizontal)
+            }
+            .padding(.horizontal)
             }
         }
+        .padding(.horizontal)
+        .padding(.top, 8)
         .adaptiveBackground()
         .onAppear {
             Task {
