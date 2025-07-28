@@ -211,6 +211,25 @@ struct FriendActivity: Identifiable, Codable {
     }
 }
 
+// MARK: - 好友關係模型
+struct Friendship: Identifiable, Codable {
+    let id: UUID
+    let requesterID: UUID
+    let addresseeID: UUID
+    let status: String
+    let createdAt: Date
+    let updatedAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case requesterID = "requester_id"
+        case addresseeID = "addressee_id"
+        case status
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
 // MARK: - 好友搜尋結果模型
 struct FriendSearchResult: Identifiable, Codable {
     let id: UUID
@@ -307,7 +326,8 @@ extension FriendRequest {
     }
 }
 
-// MARK: - 測試數據
+// MARK: - Debug 測試數據 (僅限開發模式)
+#if DEBUG
 extension Friend {
     static func mockFriends() -> [Friend] {
         [
@@ -359,3 +379,4 @@ extension Friend {
         ]
     }
 }
+#endif

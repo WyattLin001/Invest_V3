@@ -354,17 +354,29 @@ class MockTournamentService: TournamentServiceProtocol {
     func fetchTournaments() async throws -> [Tournament] {
         // 模擬網路延遲
         try await Task.sleep(nanoseconds: 1_000_000_000)
+        #if DEBUG
         return Tournament.sampleData
+        #else
+        return [] // 生產環境返回空陣列
+        #endif
     }
     
     func fetchTournament(id: UUID) async throws -> Tournament {
         try await Task.sleep(nanoseconds: 500_000_000)
+        #if DEBUG
         return Tournament.sampleData.first { $0.id == id } ?? Tournament.sampleData[0]
+        #else
+        throw NSError(domain: "TournamentService", code: 404, userInfo: [NSLocalizedDescriptionKey: "錦標賽不存在"])
+        #endif
     }
     
     func fetchTournamentParticipants(tournamentId: UUID) async throws -> [TournamentParticipant] {
         try await Task.sleep(nanoseconds: 800_000_000)
+        #if DEBUG
         return TournamentParticipant.sampleData
+        #else
+        return [] // 生產環境返回空陣列
+        #endif
     }
     
     func fetchTournamentActivities(tournamentId: UUID) async throws -> [TournamentActivity] {

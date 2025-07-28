@@ -179,6 +179,11 @@ extension Color {
         Color(.separator)
     }
     
+    /// 邊框顏色 - 支援深色模式
+    static var borderColor: Color {
+        Color(light: "#E1E5E9", dark: "#3A3A3C")
+    }
+    
     // MARK: - Helper Initializers
     
     /// 從 hex 字串創建顏色 (自定義實現，避免與系統 API 衝突)

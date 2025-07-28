@@ -22,6 +22,8 @@ struct HomeView: View {
     @State private var showWalletView = false
     @State private var showCreateGroupView = false
     @State private var showFriendSearch = false // 好友搜尋頁面
+    @State private var currentTournamentName = "2025年度投資錦標賽" // 當前錦標賽名稱
+    @State private var showTournamentSwitcher = false // 錦標賽切換器
     
 
     var body: some View {
@@ -74,6 +76,9 @@ struct HomeView: View {
                 FriendsView()
                     .environmentObject(ThemeManager.shared)
             }
+            .sheet(isPresented: $showTournamentSwitcher) {
+                TournamentSwitcherView(currentTournament: $currentTournamentName)
+            }
         }
         .alert("錯誤", isPresented: $showErrorAlert) {
             Button("確定", role: .cancel) {
@@ -105,9 +110,16 @@ struct HomeView: View {
         }
         .sheet(isPresented: $viewModel.showInvestmentPanel) {
             NavigationView {
-                EnhancedInvestmentView()
+                EnhancedInvestmentView(currentTournamentName: currentTournamentName)
                     .navigationBarTitleDisplayMode(.large)
                     .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("切換錦標賽") {
+                                showTournamentSwitcher = true
+                            }
+                            .foregroundColor(.brandGreen)
+                        }
+                        
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("關閉") {
                                 viewModel.showInvestmentPanel = false
@@ -165,10 +177,14 @@ struct HomeView: View {
                         .font(.title3)
                         .foregroundColor(.brandGreen)
                     
-                    Text("Invest V3")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.gray900)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("股圈")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.gray900)
+                        
+                        
+                    }
                 }
                 
                 Spacer()
@@ -293,37 +309,36 @@ struct HomeView: View {
     
     // MARK: - 投資動作區域
     private var investmentActionSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("投資工具")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.gray900)
-                
-                Spacer()
-            }
-            
+        VStack(alignment: .leading, spacing: 16) {
+            Text("投資工具")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.gray900)
+                .accessibilityAddTraits(.isHeader)
+
             HStack(spacing: 16) {
-                // 主要投資按鈕
-                Button(action: { viewModel.showInvestmentPanel = true }) {
+                // 投資交易按鈕
+                Button(action: {
+                    viewModel.showInvestmentPanel = true
+                }) {
                     HStack(spacing: 12) {
                         Image(systemName: "chart.line.uptrend.xyaxis")
                             .font(.title2)
                             .foregroundColor(.white)
-                        
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text("投資交易")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.white)
-                            
+
                             Text("模擬股票交易")
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.8))
                         }
-                        
+
                         Spacer()
-                        
+
                         Image(systemName: "chevron.right")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.7))
@@ -337,37 +352,41 @@ struct HomeView: View {
                         )
                     )
                     .cornerRadius(12)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("投資交易")
+                    .accessibilityHint("開啟投資面板進行模擬股票交易")
                 }
-                .accessibilityLabel("投資交易")
-                .accessibilityHint("開啟投資面板進行模擬股票交易")
-                
-                // 錢包快捷按鈕
-                Button(action: { showWalletView = true }) {
-                    VStack(spacing: 8) {
+
+                // 錢包按鈕
+                Button(action: {
+                    showWalletView = true
+                }) {
+                    VStack(spacing: 6) {
                         Image(systemName: "wallet.pass")
                             .font(.title2)
                             .foregroundColor(.brandGreen)
-                        
+
                         Text("錢包")
                             .font(.caption)
                             .fontWeight(.medium)
                             .foregroundColor(.gray700)
                     }
-                    .frame(width: 60, height: 60)
+                    .frame(width: 72, height: 72)
                     .background(Color.gray50)
-                    .cornerRadius(8)
+                    .cornerRadius(12)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("錢包")
+                    .accessibilityHint("查看錢包與交易記錄")
                 }
-                .accessibilityLabel("錢包")
-                .accessibilityHint("查看錢包和交易記錄")
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.all, 20)
         .background(Color.white)
         .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
         .padding(.horizontal, 16)
     }
+
     
     // MARK: - 改進的排行榜區塊
     var improvedRankingSection: some View {
@@ -1296,6 +1315,125 @@ extension HomeView {
                 .padding(.vertical, 12)
                 .background(Color.white)
             }
+        }
+    }
+}
+
+// MARK: - 錦標賽切換器視圖
+struct TournamentSwitcherView: View {
+    @Binding var currentTournament: String
+    @Environment(\.dismiss) private var dismiss
+    
+    private let availableTournaments = [
+        "2025年度投資錦標賽",
+        "2025第一季錦標賽",
+        "新手投資挑戰賽",
+        "專業投資競技賽"
+    ]
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // 標題說明
+                VStack(spacing: 12) {
+                    Text("選擇錦標賽")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.gray900)
+                    
+                    Text("選擇您想要參加的投資錦標賽")
+                        .font(.body)
+                        .foregroundColor(.gray600)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 20)
+                
+                // 錦標賽列表
+                VStack(spacing: 16) {
+                    ForEach(availableTournaments, id: \.self) { tournament in
+                        Button(action: {
+                            currentTournament = tournament
+                            dismiss()
+                        }) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(tournament)
+                                        .font(.headline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.gray900)
+                                    
+                                    Text(getTournamentDescription(tournament))
+                                        .font(.caption)
+                                        .foregroundColor(.gray600)
+                                }
+                                
+                                Spacer()
+                                
+                                if currentTournament == tournament {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.title2)
+                                        .foregroundColor(.brandGreen)
+                                } else {
+                                    Image(systemName: "circle")
+                                        .font(.title2)
+                                        .foregroundColor(.gray400)
+                                }
+                            }
+                            .padding(16)
+                            .background(currentTournament == tournament ? Color.brandGreen.opacity(0.1) : Color.gray50)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(currentTournament == tournament ? Color.brandGreen : Color.gray300, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                
+                Spacer()
+                
+                // 確認按鈕
+                Button(action: {
+                    dismiss()
+                }) {
+                    Text("確認選擇")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.brandGreen)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal)
+            }
+            .padding()
+            .navigationTitle("切換錦標賽")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                    .foregroundColor(.brandGreen)
+                }
+            }
+        }
+    }
+    
+    private func getTournamentDescription(_ tournament: String) -> String {
+        switch tournament {
+        case "2025年度投資錦標賽":
+            return "全年度最高榮譽競賽，獎勵豐厚"
+        case "2025第一季錦標賽":
+            return "季度競賽，適合穩健型投資者"
+        case "新手投資挑戰賽":
+            return "專為投資新手設計的入門賽事"
+        case "專業投資競技賽":
+            return "高難度競賽，適合專業投資者"
+        default:
+            return "投資競賽"
         }
     }
 }

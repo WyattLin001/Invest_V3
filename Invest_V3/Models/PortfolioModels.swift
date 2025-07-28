@@ -142,6 +142,7 @@ struct TransactionRecord: Identifiable, Codable {
 // MARK: - 成就系統 (已移至 TournamentModels.swift 統一管理)
 
 // MARK: - 模擬數據 - 使用實際的 PortfolioHolding 定義
+#if DEBUG
 struct MockPortfolioData {
     static let sampleData = PortfolioData(
         totalValue: 1250000,
@@ -337,3 +338,4 @@ struct MockPortfolioData {
         )
     ]
 }
+#endif

@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 /// 可重用的投資面板組件
 /// 可在 HomeView 和 ChatView 中使用
@@ -367,10 +368,10 @@ struct InvestmentPanelView: View {
         }
         
         if tradeAction == "buy" {
-            // 手續費假設為 0.1425%（台股一般手續費）
-            let feeRate = 0.001425
-            let fee = amount * feeRate
-            let availableAmount = amount - fee
+            // 使用統一的手續費計算器
+            let feeCalculator = FeeCalculator.shared
+            let fees = feeCalculator.calculateTradingFees(amount: amount, action: .buy)
+            let availableAmount = amount - fees.totalFees
             estimatedShares = availableAmount / currentPrice
             estimatedCost = amount // 包含手續費的總成本
         }
@@ -397,45 +398,59 @@ struct InvestmentPanelView: View {
             }
         }
         
-        // 執行交易邏輯，傳遞選擇的股票名稱
-        if tradeAction == "buy" {
-            let success = portfolioManager.buyStock(
-                symbol: stockSymbol, 
-                shares: amount / currentPrice, 
-                price: currentPrice,
-                stockName: selectedStockName.isEmpty ? nil : selectedStockName
-            )
-            
-            if success {
-                // 交易成功
-                tradeSuccessMessage = "成功購買 \(String(format: "%.2f", amount / currentPrice)) 股 \(stockSymbol)"
-                showTradeSuccess = true
-                // 清空輸入
-                stockSymbol = ""
-                tradeAmount = ""
-                selectedStockName = ""
-            } else {
-                showError("交易失敗，請檢查餘額是否足夠")
-            }
-        } else {
-            let success = portfolioManager.sellStock(
+        // 使用 PortfolioSyncService 執行錦標賽交易
+        Task {
+            let success = await PortfolioSyncService.shared.executeTournamentTrade(
+                tournamentId: nil as UUID?, // 可以根據當前錦標賽傳入 ID
                 symbol: stockSymbol,
-                shares: amount,
+                stockName: selectedStockName.isEmpty ? getStockName(for: stockSymbol) : selectedStockName,
+                action: tradeAction == "buy" ? TradingType.buy : TradingType.sell,
+                shares: tradeAction == "buy" ? (amount / currentPrice) : amount,
                 price: currentPrice
             )
             
-            if success {
-                // 交易成功
-                tradeSuccessMessage = "成功賣出 \(String(format: "%.2f", amount)) 股 \(stockSymbol)"
-                showTradeSuccess = true
-                // 清空輸入
-                stockSymbol = ""
-                tradeAmount = ""
-                selectedStockName = ""
-            } else {
-                showError("交易失敗，請檢查持股是否足夠")
+            await MainActor.run {
+                if success {
+                    // 交易成功
+                    if tradeAction == "buy" {
+                        tradeSuccessMessage = "成功購買 \(String(format: "%.2f", amount / currentPrice)) 股 \(stockSymbol)"
+                    } else {
+                        tradeSuccessMessage = "成功賣出 \(String(format: "%.2f", amount)) 股 \(stockSymbol)"
+                    }
+                    showTradeSuccess = true
+                    // 清空輸入
+                    stockSymbol = ""
+                    tradeAmount = ""
+                    selectedStockName = ""
+                } else {
+                    showError("交易失敗，請檢查餘額或持股是否足夠")
+                }
             }
         }
+    }
+    
+    /// 獲取股票名稱（輔助方法）
+    private func getStockName(for symbol: String) -> String {
+        let stockNames: [String: String] = [
+            "2330": "台積電",
+            "2317": "鴻海",
+            "2454": "聯發科",
+            "2881": "富邦金",
+            "2882": "國泰金",
+            "2886": "兆豐金",
+            "2891": "中信金",
+            "6505": "台塑化",
+            "3008": "大立光",
+            "2308": "台達電",
+            "0050": "台灣50",
+            "2002": "中興",
+            "AAPL": "Apple Inc",
+            "TSLA": "Tesla Inc",
+            "NVDA": "NVIDIA Corp",
+            "GOOGL": "Alphabet Inc",
+            "MSFT": "Microsoft Corp"
+        ]
+        return stockNames[symbol] ?? symbol
     }
     
     /// 顯示錯誤訊息

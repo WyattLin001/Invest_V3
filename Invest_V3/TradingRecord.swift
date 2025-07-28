@@ -50,6 +50,7 @@ enum TradingType: String, CaseIterable, Codable {
 struct TradingRecord: Identifiable, Codable {
     let id: UUID
     let userId: UUID
+    let tournamentId: UUID?     // 所屬錦標賽 ID (可為空，代表一般交易)
     let symbol: String          // 股票代號
     let stockName: String       // 股票名稱
     let type: TradingType       // 交易類型（買進/賣出）
@@ -73,6 +74,7 @@ struct TradingRecord: Identifiable, Codable {
     /// 創建買進交易記錄
     static func createBuyRecord(
         userId: UUID,
+        tournamentId: UUID? = nil,
         symbol: String,
         stockName: String,
         shares: Double,
@@ -86,6 +88,7 @@ struct TradingRecord: Identifiable, Codable {
         return TradingRecord(
             id: UUID(),
             userId: userId,
+            tournamentId: tournamentId,
             symbol: symbol,
             stockName: stockName,
             type: .buy,
@@ -105,6 +108,7 @@ struct TradingRecord: Identifiable, Codable {
     /// 創建賣出交易記錄
     static func createSellRecord(
         userId: UUID,
+        tournamentId: UUID? = nil,
         symbol: String,
         stockName: String,
         shares: Double,
@@ -122,6 +126,7 @@ struct TradingRecord: Identifiable, Codable {
         return TradingRecord(
             id: UUID(),
             userId: userId,
+            tournamentId: tournamentId,
             symbol: symbol,
             stockName: stockName,
             type: .sell,
@@ -188,6 +193,7 @@ struct TradingRecord: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
+        case tournamentId = "tournament_id"
         case symbol
         case stockName = "stock_name"
         case type
@@ -298,6 +304,7 @@ struct TradingRecordFilter {
     var tradingType: TradingType?         // 交易類型篩選
     var dateRange: DateRange = .month     // 日期範圍
     var symbols: Set<String> = []         // 特定股票篩選
+    var tournamentId: UUID? = nil         // 錦標賽篩選
     
     /// 日期範圍枚舉
     enum DateRange: String, CaseIterable {
@@ -343,6 +350,13 @@ struct TradingRecordFilter {
     
     /// 檢查記錄是否符合篩選條件
     func matches(_ record: TradingRecord) -> Bool {
+        // 錦標賽篩選
+        if let filterTournamentId = tournamentId {
+            if record.tournamentId != filterTournamentId {
+                return false
+            }
+        }
+        
         // 搜尋文字篩選
         if !searchText.isEmpty {
             let searchLower = searchText.lowercased()

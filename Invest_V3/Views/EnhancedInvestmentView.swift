@@ -17,6 +17,11 @@ import SwiftUI
 struct EnhancedInvestmentView: View {
     @EnvironmentObject private var themeManager: ThemeManager
     @State private var selectedTab: InvestmentTab = .home
+    let currentTournamentName: String?
+    
+    init(currentTournamentName: String? = nil) {
+        self.currentTournamentName = currentTournamentName
+    }
     @State private var showingTournamentDetail = false
     @State private var selectedTournament: Tournament?
     @State private var showingTournamentSelection = false
@@ -38,7 +43,8 @@ struct EnhancedInvestmentView: View {
                     // 統計橫幅 - 固定在頂部
                     StatisticsBanner(
                         statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared
+                        portfolioManager: ChatPortfolioManager.shared,
+                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                     )
                     
                     // 主要內容 - 可滾動區域
@@ -72,12 +78,13 @@ struct EnhancedInvestmentView: View {
                     // 統計橫幅 - 固定在頂部
                     StatisticsBanner(
                         statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared
+                        portfolioManager: ChatPortfolioManager.shared,
+                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                     )
                     
                     // 主要內容 - 可滾動區域
                     ScrollView {
-                        InvestmentRecordsView()
+                        InvestmentRecordsView(currentActiveTournament: currentActiveTournament)
                     }
                 }
                 .navigationTitle("交易記錄")
@@ -100,7 +107,8 @@ struct EnhancedInvestmentView: View {
                     // 統計橫幅 - 固定在頂部
                     StatisticsBanner(
                         statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared
+                        portfolioManager: ChatPortfolioManager.shared,
+                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                     )
                     
                     // 主要內容 - 可滾動區域
@@ -148,7 +156,8 @@ struct EnhancedInvestmentView: View {
                     // 統計橫幅 - 固定在頂部
                     StatisticsBanner(
                         statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared
+                        portfolioManager: ChatPortfolioManager.shared,
+                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                     )
                     
                     // 主要內容 - 可滾動區域
@@ -355,6 +364,7 @@ struct InvestmentHomeView: View {
     }
     
     @ObservedObject private var portfolioManager: ChatPortfolioManager
+    @ObservedObject private var syncService = PortfolioSyncService.shared
     
     // 交易相關狀態
     @State private var stockSymbol: String = ""
@@ -379,17 +389,14 @@ struct InvestmentHomeView: View {
     
     var body: some View {
         LazyVStack(spacing: DesignTokens.spacingMD) {
-            // 投資組合統計卡片組
-            portfolioStatsCards
+
             
-            // 動態圓餅圖和持股明細
-            portfolioVisualizationCard
+            // 投資組合圓餅圖
+            portfolioOverviewCard
             
-            // 交易區域（錦標賽交易）
-            tournamentTradingCard
-            
-            // 管理功能
-            managementCard
+            // 交易區域（完整交易功能）
+            tradingCard
+
         }
         .padding(.horizontal)
         .padding(.top, 8)
@@ -779,6 +786,101 @@ struct InvestmentHomeView: View {
         .brandCardStyle()
     }
     
+    // MARK: - 完整交易功能卡片
+    // 移除了 tradingViewCard，因為它會與 tradingCard 重複
+    
+    // MARK: - 投資組合總覽卡片
+    private var portfolioOverviewCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+            HStack {
+                Image(systemName: "chart.pie.fill")
+                    .foregroundColor(.brandGreen)
+                    .font(.title3)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("投資組合")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .adaptiveTextColor()
+                    
+                    Text("總價值 NT$\(formatTotalValue())")
+                }
+                
+                Spacer()
+            }
+            
+            Divider()
+                .background(Color.divider)
+            
+            // 投資組合圓形圖表
+            VStack(spacing: 16) {
+                DynamicPieChart(data: portfolioManager.pieChartData, size: 150)
+                
+                // 投資組合明細
+                if portfolioManager.holdings.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "briefcase")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        Text("尚未進行任何投資")
+                            .font(.body)
+                            .adaptiveTextColor(primary: false)
+                    }
+                    .padding(.vertical, 20)
+                } else {
+                    // 股票列表
+                    LazyVStack(spacing: 8) {
+                        ForEach(portfolioManager.holdings, id: \.id) { holding in
+                            let value = holding.totalValue
+                            let percentage = portfolioManager.portfolioPercentages.first { $0.0 == holding.symbol }?.1 ?? 0
+                            
+                            HStack {
+                                // 股票顏色指示器
+                                Circle()
+                                    .fill(StockColorPalette.colorForStock(symbol: holding.symbol))
+                                    .frame(width: 12, height: 12)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Text(holding.symbol)
+                                            .font(.headline)
+                                            .fontWeight(.semibold)
+                                        
+                                        Text(holding.name)
+                                            .font(.subheadline)
+                                            .adaptiveTextColor(primary: false)
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text("$\(Int(value))")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    Text("\(Int(percentage * 100))%")
+                                        .font(.caption)
+                                        .adaptiveTextColor(primary: false)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.surfaceSecondary)
+                            .cornerRadius(8)
+                        }
+                    }
+                }
+            }
+        }
+        .brandCardStyle()
+    }
+    
+    /// 格式化總價值顯示
+    private func formatTotalValue() -> String {
+        let totalValue = portfolioManager.totalPortfolioValue + portfolioManager.availableBalance
+        return "\(Int(totalValue))"
+    }
+    
     // MARK: - 原始交易區域卡片（保留）
     private var tradingCard: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
@@ -1012,15 +1114,22 @@ struct InvestmentHomeView: View {
         }
         
         if tradeAction == "buy" {
-            let feeRate = 0.001425
-            let fee = amount * feeRate
-            let availableAmount = amount - fee
+            let feeCalculator = FeeCalculator.shared
+            let fees = feeCalculator.calculateTradingFees(amount: amount, action: .buy)
+            let availableAmount = amount - fees.totalFees
             estimatedShares = availableAmount / currentPrice
             estimatedCost = amount
         }
     }
     
     /// 執行交易並進行驗證
+    /// 異步交易執行方法
+    private func executeTradeOrder() async {
+        await MainActor.run {
+            executeTradeWithValidation()
+        }
+    }
+    
     private func executeTradeWithValidation() {
         guard let amount = Double(tradeAmount), amount > 0 else {
             showError("請輸入有效的金額")
@@ -1039,34 +1148,30 @@ struct InvestmentHomeView: View {
             }
         }
         
-        if tradeAction == "buy" {
-            let success = portfolioManager.buyStock(
-                symbol: stockSymbol, 
-                shares: amount / currentPrice, 
-                price: currentPrice,
-                stockName: selectedStockName.isEmpty ? nil : selectedStockName
-            )
-            
-            if success {
-                tradeSuccessMessage = "成功購買 \(String(format: "%.2f", amount / currentPrice)) 股 \(stockSymbol)"
-                showTradeSuccess = true
-                clearTradeInputs()
-            } else {
-                showError("交易失敗，請檢查餘額是否足夠")
-            }
-        } else {
-            let success = portfolioManager.sellStock(
+        // 使用 PortfolioSyncService 執行錦標賽交易
+        Task {
+            let success = await PortfolioSyncService.shared.executeTournamentTrade(
+                tournamentId: currentActiveTournament?.id, // 傳入當前錦標賽 ID
                 symbol: stockSymbol,
-                shares: amount,
+                stockName: selectedStockName.isEmpty ? getStockName(for: stockSymbol) : selectedStockName,
+                action: tradeAction == "buy" ? TradingType.buy : TradingType.sell,
+                shares: tradeAction == "buy" ? (amount / currentPrice) : amount,
                 price: currentPrice
             )
             
-            if success {
-                tradeSuccessMessage = "成功賣出 \(String(format: "%.2f", amount)) 股 \(stockSymbol)"
-                showTradeSuccess = true
-                clearTradeInputs()
-            } else {
-                showError("交易失敗，請檢查持股是否足夠")
+            await MainActor.run {
+                if success {
+                    // 交易成功
+                    if tradeAction == "buy" {
+                        tradeSuccessMessage = "成功購買 \(String(format: "%.2f", amount / currentPrice)) 股 \(stockSymbol)"
+                    } else {
+                        tradeSuccessMessage = "成功賣出 \(String(format: "%.2f", amount)) 股 \(stockSymbol)"
+                    }
+                    showTradeSuccess = true
+                    clearTradeInputs()
+                } else {
+                    showError("交易失敗，請檢查餘額或持股是否足夠")
+                }
             }
         }
     }
@@ -1075,6 +1180,30 @@ struct InvestmentHomeView: View {
     private func showError(_ message: String) {
         errorMessage = message
         showErrorAlert = true
+    }
+    
+    /// 獲取股票名稱（輔助方法）
+    private func getStockName(for symbol: String) -> String {
+        let stockNames: [String: String] = [
+            "2330": "台積電",
+            "2317": "鴻海",
+            "2454": "聯發科",
+            "2881": "富邦金",
+            "2882": "國泰金",
+            "2886": "兆豐金",
+            "2891": "中信金",
+            "6505": "台塑化",
+            "3008": "大立光",
+            "2308": "台達電",
+            "0050": "台灣50",
+            "2002": "中興",
+            "AAPL": "Apple Inc",
+            "TSLA": "Tesla Inc",
+            "NVDA": "NVIDIA Corp",
+            "GOOGL": "Alphabet Inc",
+            "MSFT": "Microsoft Corp"
+        ]
+        return stockNames[symbol] ?? symbol
     }
     
     /// 清空交易輸入
@@ -1192,6 +1321,8 @@ struct InvestmentHomeView: View {
 
 // MARK: - 交易記錄視圖
 struct InvestmentRecordsView: View {
+    let currentActiveTournament: Tournament?
+    
     @ObservedObject private var portfolioManager = ChatPortfolioManager.shared
     @State private var searchText = ""
     @State private var selectedTradingType: TradingType? = nil
@@ -1204,7 +1335,8 @@ struct InvestmentRecordsView: View {
         TradingRecordFilter(
             searchText: searchText,
             tradingType: selectedTradingType,
-            dateRange: selectedDateRange
+            dateRange: selectedDateRange,
+            tournamentId: currentActiveTournament?.id
         )
     }
     
@@ -1221,6 +1353,9 @@ struct InvestmentRecordsView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: DesignTokens.spacingMD) {
+                // 錦標賽選擇器
+                tournamentSelectorSection
+                
                 // 統計卡片區域
                 statisticsSection
                 
@@ -1242,6 +1377,170 @@ struct InvestmentRecordsView: View {
                 portfolioManager.addMockTradingRecords()
             }
         }
+    }
+    
+    // MARK: - Tournament Selector Section
+    
+    private var tournamentSelectorSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            HStack {
+                Text("錦標賽篩選")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .adaptiveTextColor()
+                
+                Spacer()
+                
+                if let tournament = currentActiveTournament {
+                    Text("進行中")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.success)
+                        )
+                }
+            }
+            
+            // 錦標賽選擇卡片
+            if let tournament = currentActiveTournament {
+                activeTournamentCard(tournament: tournament)
+            } else {
+                noTournamentCard
+            }
+        }
+    }
+    
+    // MARK: - Active Tournament Card
+    
+    private func activeTournamentCard(tournament: Tournament) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 錦標賽標題和類型
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(tournament.name)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .adaptiveTextColor()
+                        .lineLimit(2)
+                    
+                    HStack(spacing: 8) {
+                        // 錦標賽類型標籤
+                        Text(tournament.type.displayName)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(tournament.type == .special ? Color.brandOrange : Color.brandBlue)
+                            )
+                        
+                        // 錦標賽狀態
+                        Text(tournament.status.displayName)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(tournament.status.color)
+                    }
+                }
+                
+                Spacer()
+                
+                // 參與人數信息
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(tournament.currentParticipants)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .adaptiveTextColor()
+                    
+                    Text("/ \(tournament.maxParticipants)")
+                        .font(.caption)
+                        .foregroundColor(.textSecondary)
+                }
+            }
+            
+            // 錦標賽進度條
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("參與進度")
+                        .font(.caption)
+                        .foregroundColor(.textSecondary)
+                    
+                    Spacer()
+                    
+                    Text(String(format: "%.1f%%", tournament.participationPercentage))
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.textPrimary)
+                }
+                
+                ProgressView(value: tournament.participationPercentage, total: 100)
+                    .progressViewStyle(LinearProgressViewStyle(tint: .brandGreen))
+                    .scaleEffect(x: 1, y: 0.5, anchor: .center)
+            }
+            
+            // 時間信息
+            HStack {
+                Image(systemName: "clock")
+                    .foregroundColor(.textSecondary)
+                    .font(.caption)
+                
+                Text("剩餘時間: \(tournament.timeRemaining)")
+                    .font(.caption)
+                    .foregroundColor(.textSecondary)
+                
+                Spacer()
+                
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .foregroundColor(.brandGreen)
+                    .font(.caption)
+                
+                Text("獎金池: \(formatCurrency(tournament.prizePool))")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.brandGreen)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.surfacePrimary)
+                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        )
+    }
+    
+    // MARK: - No Tournament Card
+    
+    private var noTournamentCard: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "trophy.circle")
+                .font(.system(size: 32))
+                .foregroundColor(.textSecondary.opacity(0.6))
+            
+            Text("目前未參與錦標賽")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.textSecondary)
+            
+            Text("參與錦標賽可查看專屬交易記錄")
+                .font(.caption)
+                .foregroundColor(.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.surfaceSecondary.opacity(0.5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.borderColor.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
     
     // MARK: - Statistics Section
@@ -1482,6 +1781,24 @@ struct InvestmentRecordsView: View {
         // 模擬數據刷新
         try? await Task.sleep(nanoseconds: 1_000_000_000)
         isRefreshing = false
+    }
+    
+    // 格式化貨幣顯示
+    private func formatCurrency(_ value: Double) -> String {
+        if value == 0 {
+            return "$0"
+        }
+        
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 0
+        
+        if let formattedValue = formatter.string(from: NSNumber(value: abs(value))) {
+            return value >= 0 ? "$\(formattedValue)" : "-$\(formattedValue)"
+        } else {
+            return String(format: "$%.0f", value)
+        }
     }
 }
 

@@ -31,6 +31,10 @@ class StatisticsManager: ObservableObject {
     /// 網路連接狀態
     @Published var isNetworkAvailable: Bool = true
     
+    /// 自動更新失敗狀態
+    @Published var hasUpdateFailed: Bool = false
+    @Published var updateFailureReason: String?
+    
     // MARK: - Private Properties
     
     private var updateTimer: Timer?
@@ -105,6 +109,20 @@ class StatisticsManager: ObservableObject {
         await fetchActiveUsersCount()
     }
     
+    /// 重試失敗的更新
+    func retryFailedUpdate() async {
+        guard hasUpdateFailed else { return }
+        
+        print("🔄 [StatisticsManager] 重試失敗的自動更新")
+        
+        await MainActor.run {
+            self.hasUpdateFailed = false
+            self.updateFailureReason = nil
+        }
+        
+        await refreshData()
+    }
+    
     // MARK: - Computed Properties
     
     /// 格式化的總資產顯示
@@ -152,15 +170,18 @@ class StatisticsManager: ObservableObject {
             await MainActor.run {
                 self.isNetworkAvailable = false
                 self.isLoading = false
+                self.hasUpdateFailed = true
+                self.updateFailureReason = error.localizedDescription
             }
             
-            print("❌ [StatisticsManager] 獲取活躍用戶數量失敗: \(error.localizedDescription)")
+            print("❌ [StatisticsManager] 自動更新失敗: \(error.localizedDescription)")
             
             // 如果是網路錯誤，使用模擬數據
             if activeUsersCount == 0 {
                 await MainActor.run {
                     self.activeUsersCount = generateMockUserCount()
                     self.lastUpdated = Date()
+                    self.hasUpdateFailed = false // 使用模擬數據後重置失敗狀態
                 }
                 print("📊 [StatisticsManager] 使用模擬數據: \(activeUsersCount)")
             }

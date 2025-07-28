@@ -113,10 +113,10 @@ class ChatPortfolioManager: ObservableObject {
         guard let holding = holdings.first(where: { $0.symbol == symbol }) else {
             return false
         }
-        return shares <= Double(holding.quantity)
+        return shares <= holding.shares  // 使用精確的 shares 而不是取整的 quantity
     }
     
-    func buyStock(symbol: String, shares: Double, price: Double, stockName: String? = nil) -> Bool {
+    func buyStock(symbol: String, shares: Double, price: Double, stockName: String? = nil, tournamentId: UUID? = nil) -> Bool {
         let totalCost = shares * price
         
         guard canBuy(symbol: symbol, amount: totalCost) else {
@@ -157,13 +157,17 @@ class ChatPortfolioManager: ObservableObject {
         }
         
         // 記錄買進交易
+        let feeCalculator = FeeCalculator.shared
+        let fees = feeCalculator.calculateTradingFees(amount: totalCost, action: .buy)
+        
         let buyRecord = TradingRecord.createBuyRecord(
             userId: currentUser,
+            tournamentId: tournamentId,
             symbol: symbol,
             stockName: stockName ?? getStockName(for: symbol),
             shares: shares,
             price: price,
-            fee: totalCost * 0.001425, // 手續費 0.1425%
+            fee: fees.totalFees,
             notes: nil
         )
         tradingRecords.append(buyRecord)
@@ -171,10 +175,16 @@ class ChatPortfolioManager: ObservableObject {
         totalInvested += totalCost
         savePortfolio()
         saveTradingRecords()
+        
+        // 通知同步服務有數據變更
+        Task { @MainActor in
+            PortfolioSyncService.shared.hasPendingChanges = true
+        }
+        
         return true
     }
     
-    func sellStock(symbol: String, shares: Double, price: Double) -> Bool {
+    func sellStock(symbol: String, shares: Double, price: Double, tournamentId: UUID? = nil) -> Bool {
         guard let index = holdings.firstIndex(where: { $0.symbol == symbol }) else {
             return false
         }
@@ -191,6 +201,7 @@ class ChatPortfolioManager: ObservableObject {
         let currentUser = getCurrentUser()
         let sellRecord = TradingRecord.createSellRecord(
             userId: currentUser,
+            tournamentId: tournamentId,
             symbol: symbol,
             stockName: holding.name,
             shares: shares,
@@ -222,6 +233,12 @@ class ChatPortfolioManager: ObservableObject {
         totalInvested -= costBasis
         savePortfolio()
         saveTradingRecords()
+        
+        // 通知同步服務有數據變更
+        Task { @MainActor in
+            PortfolioSyncService.shared.hasPendingChanges = true
+        }
+        
         return true
     }
     
@@ -394,9 +411,17 @@ class ChatPortfolioManager: ObservableObject {
     /// 添加模擬交易記錄（用於測試）
     func addMockTradingRecords() {
         let currentUser = getCurrentUser()
+        
+        // 獲取模擬錦標賽 ID 用於測試
+        let mockTournamentId = Tournament.mockOngoingTournament.id
+        let mockTournamentId2 = Tournament.mockEnrollingTournament.id
+        
+        // 創建包含錦標賽 ID 的模擬交易記錄
         let mockRecords: [TradingRecord] = [
+            // 錦標賽 1 的交易記錄
             TradingRecord.createBuyRecord(
                 userId: currentUser,
+                tournamentId: mockTournamentId,
                 symbol: "2330",
                 stockName: "台積電",
                 shares: 1000,
@@ -405,6 +430,7 @@ class ChatPortfolioManager: ObservableObject {
             ),
             TradingRecord.createSellRecord(
                 userId: currentUser,
+                tournamentId: mockTournamentId,
                 symbol: "2330",
                 stockName: "台積電",
                 shares: 500,
@@ -414,14 +440,18 @@ class ChatPortfolioManager: ObservableObject {
             ),
             TradingRecord.createBuyRecord(
                 userId: currentUser,
+                tournamentId: mockTournamentId,
                 symbol: "2454",
                 stockName: "聯發科",
                 shares: 500,
                 price: 1000,
                 fee: 712.5
             ),
+            
+            // 錦標賽 2 的交易記錄
             TradingRecord.createBuyRecord(
                 userId: currentUser,
+                tournamentId: mockTournamentId2,
                 symbol: "2317",
                 stockName: "鴻海",
                 shares: 2000,
@@ -430,27 +460,72 @@ class ChatPortfolioManager: ObservableObject {
             ),
             TradingRecord.createSellRecord(
                 userId: currentUser,
+                tournamentId: mockTournamentId2,
                 symbol: "2454",
                 stockName: "聯發科",
                 shares: 200,
                 price: 1285,
                 averageCost: 1000,
                 fee: 365.7
+            ),
+            
+            // 一般交易記錄（非錦標賽）
+            TradingRecord.createBuyRecord(
+                userId: currentUser,
+                tournamentId: nil,
+                symbol: "0050",
+                stockName: "元大台灣50",
+                shares: 500,
+                price: 140,
+                fee: 100
+            ),
+            TradingRecord.createBuyRecord(
+                userId: currentUser,
+                tournamentId: nil,
+                symbol: "2412",
+                stockName: "中華電",
+                shares: 1000,
+                price: 120,
+                fee: 171
             )
         ]
         
-        // 調整時間戳，使其分散在不同時間
+        // 創建具有不同時間戳的交易記錄
+        let calendar = Calendar.current
         for (index, record) in mockRecords.enumerated() {
-            var modifiedRecord = record
-            let calendar = Calendar.current
-            if let adjustedDate = calendar.date(byAdding: .day, value: -index, to: Date()) {
-                let modifiedTimestamp = calendar.date(byAdding: .hour, value: -(index * 2), to: adjustedDate) ?? adjustedDate
-                // 由於 TradingRecord 的 timestamp 是 let 常量，我們需要重新創建記錄
-                // 這裡簡化處理，直接使用當前記錄
+            // 計算不同的時間點：最近7天內的不同時間
+            let daysAgo = index % 7 // 分散在7天內
+            let hoursAgo = index * 2 % 24 // 不同小時
+            
+            if let baseDate = calendar.date(byAdding: .day, value: -daysAgo, to: Date()),
+               let finalDate = calendar.date(byAdding: .hour, value: -hoursAgo, to: baseDate) {
+                
+                // 重新創建記錄以設置正確的時間戳
+                let timedRecord = TradingRecord(
+                    id: record.id,
+                    userId: record.userId,
+                    tournamentId: record.tournamentId,
+                    symbol: record.symbol,
+                    stockName: record.stockName,
+                    type: record.type,
+                    shares: record.shares,
+                    price: record.price,
+                    timestamp: finalDate,
+                    totalAmount: record.totalAmount,
+                    fee: record.fee,
+                    netAmount: record.netAmount,
+                    averageCost: record.averageCost,
+                    realizedGainLoss: record.realizedGainLoss,
+                    realizedGainLossPercent: record.realizedGainLossPercent,
+                    notes: record.notes
+                )
+                tradingRecords.append(timedRecord)
+            } else {
+                tradingRecords.append(record)
             }
-            tradingRecords.append(record)
         }
         
         saveTradingRecords()
+        print("✅ [ChatPortfolioManager] 已添加 \(mockRecords.count) 筆模擬交易記錄，包含錦標賽和一般交易")
     }
 }

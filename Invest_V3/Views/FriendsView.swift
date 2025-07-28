@@ -89,7 +89,7 @@ struct FriendsView: View {
                     showingFriendRequests = true
                 }) {
                     ZStack {
-                        Image(systemName: "person.badge.plus")
+                        Image(systemName: "bell")
                             .font(.title2)
                             .foregroundColor(.primary)
                         
@@ -106,21 +106,12 @@ struct FriendsView: View {
                 Button(action: {
                     showingAddFriend = true
                 }) {
-                    Image(systemName: "plus")
+                    Image(systemName: "person.badge.plus")
                         .font(.title2)
                         .foregroundColor(.primary)
                         .padding(8)
                         .background(Color.brandGreen.opacity(0.1))
                         .cornerRadius(8)
-                }
-                
-                // 設置按鈕
-                Button(action: {
-                    // TODO: 設置功能
-                }) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.title2)
-                        .foregroundColor(.primary)
                 }
             }
         }
@@ -621,10 +612,17 @@ struct FriendsView: View {
             }
         } catch {
             print("❌ 載入好友失敗: \(error.localizedDescription)")
-            // 使用模擬數據作為後備
+            #if DEBUG
+            // 僅在 Debug 模式下使用模擬數據
             await MainActor.run {
                 self.friends = Friend.mockFriends()
             }
+            #else
+            // 生產環境顯示空狀態
+            await MainActor.run {
+                self.friends = []
+            }
+            #endif
         }
     }
     

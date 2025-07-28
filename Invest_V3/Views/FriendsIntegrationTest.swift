@@ -3,11 +3,12 @@
 //  Invest_V3
 //
 //  Created by AI Assistant on 2025/7/27.
-//  好友系統整合測試
+//  好友系統整合測試 - 僅供開發階段使用
 //
 
 import SwiftUI
 
+#if DEBUG
 struct FriendsIntegrationTest: View {
     @State private var testResults: [String] = []
     @State private var isRunning = false
@@ -22,24 +23,27 @@ struct FriendsIntegrationTest: View {
                     .fontWeight(.bold)
                 
                 Button(action: runIntegrationTests) {
-                    Text(isRunning ? "測試中..." : "開始測試")
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(isRunning ? Color.gray : Color.brandGreen)
-                        .cornerRadius(8)
+                    HStack {
+                        if isRunning {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .tint(.white)
+                        }
+                        Text(isRunning ? "測試中..." : "開始測試")
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(isRunning ? Color.gray : Color.green)
+                    .cornerRadius(8)
                 }
                 .disabled(isRunning)
                 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(testResults, id: \.self) { result in
-                            Text(result)
-                                .font(.system(size: 12, family: .monospaced))
-                                .foregroundColor(result.contains("✅") ? .green : 
-                                               result.contains("❌") ? .red : .primary)
-                                .padding(.horizontal)
+                        ForEach(Array(testResults.enumerated()), id: \.offset) { index, result in
+                            TestResultRow(result: result)
                         }
                     }
                 }
@@ -94,7 +98,7 @@ struct FriendsIntegrationTest: View {
                 id: UUID(),
                 fromUserId: "test1",
                 fromUserName: "Test1",
-                fromDisplayName: "Test User 1",
+                fromUserDisplayName: "Test User 1",
                 fromUserAvatarUrl: nil,
                 toUserId: "test2",
                 message: "Hello",
@@ -177,6 +181,37 @@ struct FriendsIntegrationTest: View {
         }
     }
 }
+
+// MARK: - Helper Components
+struct TestResultRow: View {
+    let result: String
+    
+    var body: some View {
+        Text(result)
+            .font(.system(size: 12, weight: .regular, design: .monospaced))
+            .foregroundColor(getTextColor(for: result))
+            .padding(.horizontal)
+    }
+    
+    private func getTextColor(for result: String) -> Color {
+        if result.contains("✅") {
+            return .green
+        } else if result.contains("❌") {
+            return .red
+        } else {
+            return .primary
+        }
+    }
+}
+
+#else
+// 生產環境不包含測試檔案
+struct FriendsIntegrationTest: View {
+    var body: some View {
+        Text("測試功能僅在 DEBUG 模式下可用")
+    }
+}
+#endif
 
 #Preview {
     FriendsIntegrationTest()

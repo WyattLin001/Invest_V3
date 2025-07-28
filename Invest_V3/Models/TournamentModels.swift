@@ -740,7 +740,8 @@ struct UserTitle: Identifiable, Codable {
     }
 }
 
-// MARK: - 擴展 - 示例數據
+// MARK: - 擴展 - 示例數據 (僅限 Debug 模式)
+#if DEBUG
 extension Tournament {
     static let sampleData: [Tournament] = [
         Tournament(
@@ -1022,3 +1023,4 @@ extension Tournament {
         return allMockTournaments.filter { $0.status == status }
     }
 }
+#endif

@@ -13,6 +13,8 @@ import SwiftUI
 struct StatisticsBanner: View {
     @ObservedObject var statisticsManager: StatisticsManager
     @ObservedObject var portfolioManager: ChatPortfolioManager
+    @ObservedObject private var syncService = PortfolioSyncService.shared
+    let currentTournamentName: String
     
     // MARK: - Properties
     
@@ -79,7 +81,7 @@ struct StatisticsBanner: View {
     
     private var platformTitle: some View {
         VStack(spacing: 4) {
-            Text("智能投資管理平台")
+            Text(currentTournamentName)
                 .font(.headline)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
@@ -98,6 +100,45 @@ struct StatisticsBanner: View {
                 Text("更新中...")
                     .font(.caption2)
                     .foregroundColor(.white.opacity(0.7))
+            } else if statisticsManager.hasUpdateFailed {
+                Button(action: {
+                    Task {
+                        await statisticsManager.retryFailedUpdate()
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.caption2)
+                            .foregroundColor(.orange.opacity(0.9))
+                        Text("更新失敗，點擊重試")
+                            .font(.caption2)
+                            .foregroundColor(.orange.opacity(0.9))
+                    }
+                }
+            } else if syncService.isSyncing {
+                HStack(spacing: 4) {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .tint(.yellow.opacity(0.8))
+                    Text("數據同步中...")
+                        .font(.caption2)
+                        .foregroundColor(.yellow.opacity(0.8))
+                }
+            } else if let syncError = syncService.syncError {
+                Button(action: {
+                    Task {
+                        await syncService.manualSync()
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.caption2)
+                            .foregroundColor(.red.opacity(0.9))
+                        Text("同步失敗，重試")
+                            .font(.caption2)
+                            .foregroundColor(.red.opacity(0.9))
+                    }
+                }
             } else {
                 Image(systemName: statisticsManager.isNetworkAvailable ? "wifi" : "wifi.slash")
                     .font(.caption2)
@@ -181,6 +222,7 @@ struct StatisticsBanner: View {
 struct CompactStatisticsBanner: View {
     @ObservedObject var statisticsManager: StatisticsManager
     @ObservedObject var portfolioManager: ChatPortfolioManager
+    let currentTournamentName: String
     
     var body: some View {
         HStack(spacing: 16) {
@@ -304,12 +346,14 @@ private struct RefreshIndicator: View {
     VStack(spacing: 20) {
         StatisticsBanner(
             statisticsManager: StatisticsManager.shared,
-            portfolioManager: ChatPortfolioManager.shared
+            portfolioManager: ChatPortfolioManager.shared,
+            currentTournamentName: "2025年度投資錦標賽"
         )
         
         CompactStatisticsBanner(
             statisticsManager: StatisticsManager.shared,
-            portfolioManager: ChatPortfolioManager.shared
+            portfolioManager: ChatPortfolioManager.shared,
+            currentTournamentName: "2025年度投資錦標賽"
         )
         
         Spacer()

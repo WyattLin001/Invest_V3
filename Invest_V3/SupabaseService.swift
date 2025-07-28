@@ -3888,8 +3888,9 @@ class SupabaseService: ObservableObject {
         return urlResponse
     }
     
-    // MARK: - 測試群組管理
+    // MARK: - 測試群組管理 (僅限 DEBUG 模式)
     
+    #if DEBUG
     /// 創建真實的測試群組數據
     func createRealTestGroups() async throws {
         try await SupabaseManager.shared.ensureInitialized()
@@ -4052,6 +4053,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.from(error)
         }
     }
+    #endif
 }
 
 // MARK: - 輔助資料結構
@@ -5395,7 +5397,34 @@ struct PlatformStatistics {
 
 // MARK: - Friends System Extensions
 
+// MARK: - 好友相關資料模型
+struct FriendshipBasic: Codable {
+    let id: String
+    let requesterId: String
+    let addresseeId: String
+    let status: String
+    let createdAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case requesterId = "requester_id"
+        case addresseeId = "addressee_id"
+        case status
+        case createdAt = "created_at"
+    }
+}
+
 extension SupabaseService {
+    
+    // MARK: - 輔助函數
+    
+    /// 解析 ISO 日期字串
+    private func parseISODate(_ dateString: String?) -> Date? {
+        guard let dateString = dateString else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: dateString) ?? ISO8601DateFormatter().date(from: dateString)
+    }
     
     // MARK: - 好友管理
     
@@ -5405,49 +5434,68 @@ extension SupabaseService {
         
         let currentUser = try await getCurrentUserAsync()
         
-        let friendships: [FriendshipResponse] = try await client
+        // 獲取已接受的好友關係（用戶可能是請求者或接收者）
+        let friendships: [FriendshipBasic] = try await client
             .from("friendships")
-            .select("""
-                id,
-                user_id,
-                friend_id,
-                friendship_date,
-                friend_profiles:user_profiles!friendships_friend_id_fkey(
-                    id,
-                    user_name,
-                    display_name,
-                    avatar_url,
-                    bio,
-                    investment_style,
-                    performance_score,
-                    total_return,
-                    risk_level,
-                    is_online,
-                    last_active_date
-                )
-            """)
-            .eq("user_id", value: currentUser.id.uuidString)
-            .order("friendship_date", ascending: false)
+            .select("id, requester_id, addressee_id, status, created_at")
+            .eq("status", value: "accepted")
+            .or("requester_id.eq.\(currentUser.id.uuidString),addressee_id.eq.\(currentUser.id.uuidString)")
+            .order("created_at", ascending: false)
             .execute()
             .value
         
-        let friends = try friendships.compactMap { friendship -> Friend? in
-            guard let friendProfile = friendship.friendProfiles else { return nil }
+        // 如果沒有好友，返回空陣列
+        guard !friendships.isEmpty else {
+            print("ℹ️ [FriendsService] 沒有找到好友")
+            return []
+        }
+        
+        // 獲取好友的 ID（排除當前用戶）
+        let friendIds = friendships.compactMap { friendship -> String? in
+            if friendship.requesterId == currentUser.id.uuidString {
+                return friendship.addresseeId
+            } else if friendship.addresseeId == currentUser.id.uuidString {
+                return friendship.requesterId
+            }
+            return nil
+        }
+        
+        guard !friendIds.isEmpty else {
+            print("ℹ️ [FriendsService] 沒有有效的好友 ID")
+            return []
+        }
+        
+        // 獲取好友的詳細資料（注意：使用 username 而不是 user_name）
+        let friendProfiles: [UserProfileResponse] = try await client
+            .from("user_profiles")
+            .select("id, username, display_name, avatar_url, bio")
+            .in("id", values: friendIds)
+            .execute()
+            .value
+        
+        // 組合好友資料
+        let friends = friendships.compactMap { friendship -> Friend? in
+            let friendId = friendship.requesterId == currentUser.id.uuidString ? friendship.addresseeId : friendship.requesterId
+            
+            guard let friendProfile = friendProfiles.first(where: { $0.id == friendId }) else {
+                print("⚠️ [FriendsService] 找不到好友資料: \(friendId)")
+                return nil
+            }
             
             return Friend(
                 id: UUID(uuidString: friendProfile.id) ?? UUID(),
                 userId: friendProfile.id,
-                userName: friendProfile.userName,
+                userName: friendProfile.username, // 使用 username
                 displayName: friendProfile.displayName,
                 avatarUrl: friendProfile.avatarUrl,
                 bio: friendProfile.bio,
-                isOnline: friendProfile.isOnline,
-                lastActiveDate: ISO8601DateFormatter().date(from: friendProfile.lastActiveDate) ?? Date(),
-                friendshipDate: ISO8601DateFormatter().date(from: friendship.friendshipDate) ?? Date(),
-                investmentStyle: InvestmentStyle(rawValue: friendProfile.investmentStyle ?? ""),
-                performanceScore: friendProfile.performanceScore,
-                totalReturn: friendProfile.totalReturn,
-                riskLevel: RiskLevel(rawValue: friendProfile.riskLevel) ?? .moderate
+                isOnline: false, // 預設離線
+                lastActiveDate: Date(), // 預設當前時間
+                friendshipDate: parseISODate(friendship.createdAt) ?? Date(),
+                investmentStyle: nil, // 暫時設為 nil
+                performanceScore: 0.0, // 預設值
+                totalReturn: 0.0, // 預設值
+                riskLevel: .moderate // 預設值
             )
         }
         
@@ -5468,7 +5516,7 @@ extension SupabaseService {
         
         // 添加搜尋條件
         if !query.isEmpty {
-            queryBuilder = queryBuilder.or("user_name.ilike.%\(query)%,display_name.ilike.%\(query)%")
+            queryBuilder = queryBuilder.or("username.ilike.%\(query)%,display_name.ilike.%\(query)%")
         }
         
         if let style = investmentStyle {
@@ -5492,13 +5540,13 @@ extension SupabaseService {
             FriendSearchResult(
                 id: UUID(uuidString: profile.id) ?? UUID(),
                 userId: profile.id,
-                userName: profile.userName,
+                userName: profile.username,
                 displayName: profile.displayName,
                 avatarUrl: profile.avatarUrl,
                 bio: profile.bio,
                 investmentStyle: InvestmentStyle(rawValue: profile.investmentStyle ?? ""),
-                performanceScore: profile.performanceScore,
-                totalReturn: profile.totalReturn,
+                performanceScore: profile.performanceScore ?? 0.0,
+                totalReturn: profile.totalReturn ?? 0.0,
                 mutualFriendsCount: 0, // TODO: 實現共同好友計算
                 isAlreadyFriend: friendIds.contains(profile.id),
                 hasPendingRequest: pendingRequestIds.contains(profile.id)
@@ -5687,14 +5735,22 @@ extension SupabaseService {
     // MARK: - 輔助方法
     
     private func getFriendIds(userId: UUID) async throws -> [String] {
-        let friendships: [FriendshipResponse] = try await client
+        let friendships: [FriendshipBasic] = try await client
             .from("friendships")
-            .select("friend_id")
-            .eq("user_id", value: userId.uuidString)
+            .select("requester_id, addressee_id")
+            .eq("status", value: "accepted")
+            .or("requester_id.eq.\(userId.uuidString),addressee_id.eq.\(userId.uuidString)")
             .execute()
             .value
         
-        return friendships.map { $0.friendId }
+        return friendships.compactMap { friendship in
+            if friendship.requesterId == userId.uuidString {
+                return friendship.addresseeId
+            } else if friendship.addresseeId == userId.uuidString {
+                return friendship.requesterId
+            }
+            return nil
+        }
     }
     
     private func getPendingRequestIds(userId: UUID) async throws -> [String] {
@@ -5710,15 +5766,19 @@ extension SupabaseService {
     }
     
     private func checkFriendshipExists(userId1: String, userId2: String) async throws -> Bool {
-        let friendships: [FriendshipResponse] = try await client
+        let friendships: [FriendshipBasic] = try await client
             .from("friendships")
             .select("id")
-            .eq("user_id", value: userId1)
-            .eq("friend_id", value: userId2)
+            .eq("status", value: "accepted")
+            .or("requester_id.eq.\(userId1),addressee_id.eq.\(userId1)")
+            .or("requester_id.eq.\(userId2),addressee_id.eq.\(userId2)")
             .execute()
             .value
         
-        return !friendships.isEmpty
+        return friendships.contains { friendship in
+            (friendship.requesterId == userId1 && friendship.addresseeId == userId2) ||
+            (friendship.requesterId == userId2 && friendship.addresseeId == userId1)
+        }
     }
     
     private func checkPendingRequest(fromUserId: String, toUserId: String) async throws -> Bool {
@@ -5817,20 +5877,19 @@ struct FriendRequestUpdate: Codable {
 
 struct UserProfileResponse: Codable {
     let id: String
-    let userName: String
+    let username: String
     let displayName: String
     let avatarUrl: String?
     let bio: String?
     let investmentStyle: String?
-    let performanceScore: Double
-    let totalReturn: Double
-    let riskLevel: String
-    let isOnline: Bool
-    let lastActiveDate: String
+    let performanceScore: Double?
+    let totalReturn: Double?
+    let riskLevel: String?
+    let isOnline: Bool?
+    let lastActiveDate: String?
     
     enum CodingKeys: String, CodingKey {
-        case id, bio
-        case userName = "user_name"
+        case id, bio, username
         case displayName = "display_name"
         case avatarUrl = "avatar_url"
         case investmentStyle = "investment_style"

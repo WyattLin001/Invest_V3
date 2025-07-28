@@ -92,10 +92,8 @@ struct HotStocksListView: View {
             )
         } else {
             List(stocks) { stock in
-                NavigationLink(destination: StockDetailView(stock: stock)) {
-                    TradingStockRow(stock: stock)
-                }
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                TradingStockRowWithActions(stock: stock)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
             .listStyle(PlainListStyle())
         }
@@ -131,6 +129,104 @@ struct WatchlistView: View {
             title: "關注清單",
             message: "功能開發中，敬請期待"
         )
+    }
+}
+
+// MARK: - 帶操作按鈕的交易股票行
+struct TradingStockRowWithActions: View {
+    let stock: TradingStock
+    @State private var showBuyOrder = false
+    @State private var showSellOrder = false
+    @State private var currentPrice: Double
+    @State private var change: Double
+    @State private var changePercent: Double
+    
+    init(stock: TradingStock) {
+        self.stock = stock
+        
+        // 模擬即時價格變化
+        let priceChange = Double.random(in: -0.05...0.05)
+        self._currentPrice = State(initialValue: stock.price * (1 + priceChange))
+        self._change = State(initialValue: stock.price * priceChange)
+        self._changePercent = State(initialValue: priceChange * 100)
+    }
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // 股票資訊
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(stock.symbol)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                    
+                    Text(stock.name)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(TradingService.shared.formatCurrency(currentPrice))
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: change >= 0 ? "triangle.fill" : "triangle.fill")
+                            .font(.caption2)
+                            .foregroundColor(change >= 0 ? .green : .red)
+                            .rotationEffect(change >= 0 ? .degrees(0) : .degrees(180))
+                        
+                        Text(String(format: "%.2f%%", changePercent))
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(change >= 0 ? .green : .red)
+                    }
+                }
+            }
+            
+            // 交易按鈕
+            HStack(spacing: 12) {
+                Button(action: { showBuyOrder = true }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.caption)
+                        Text("買入")
+                            .font(.footnote)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Color.green)
+                    .cornerRadius(8)
+                }
+                
+                Button(action: { showSellOrder = true }) {
+                    HStack {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.caption)
+                        Text("賣出")
+                            .font(.footnote)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Color.red)
+                    .cornerRadius(8)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .sheet(isPresented: $showBuyOrder) {
+            TradeOrderView(stock: stock, action: .buy)
+        }
+        .sheet(isPresented: $showSellOrder) {
+            TradeOrderView(stock: stock, action: .sell)
+        }
     }
 }
 

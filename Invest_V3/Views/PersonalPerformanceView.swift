@@ -20,47 +20,50 @@ struct PersonalPerformanceView: View {
     private let currentUserId = UUID()
     
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: DesignTokens.spacingMD) {
-                // 績效總覽卡片
-                performanceOverviewCard
-                
-                // 時間範圍選擇器
-                timeframeSelector
-                
-                // 分頁內容
-                TabView(selection: $selectedTab) {
-                    // 績效總覽
-                    performanceOverviewContent
-                        .tag(PerformanceTab.overview)
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+                    // 績效總覽卡片
+                    performanceOverviewCard
                     
-                    // 風險分析
-                    riskAnalysisContent
-                        .tag(PerformanceTab.risk)
+                    // 時間範圍選擇器
+                    timeframeSelector
                     
-                    // 成就系統
-                    achievementsContent
-                        .tag(PerformanceTab.achievements)
+                    // 分頁內容
+                    TabView(selection: $selectedTab) {
+                        // 績效總覽
+                        performanceOverviewContent
+                            .tag(PerformanceTab.overview)
+                        
+                        // 風險分析
+                        riskAnalysisContent
+                            .tag(PerformanceTab.risk)
+                        
+                        // 成就系統
+                        achievementsContent
+                            .tag(PerformanceTab.achievements)
+                    }
+                    .frame(height: 400)
+                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                    
+                    // 標籤選擇器
+                    tabSelector
+                    
+                    // 詳細指標
+                    detailedMetricsCard
+                    
+                    // 績效歷史圖表
+                    performanceHistoryCard
+                    
+                    // 排名歷史
+                    rankingHistoryCard
                 }
-                .frame(height: 400)
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                
-                // 標籤選擇器
-                tabSelector
-                
-                // 詳細指標
-                detailedMetricsCard
-                
-                // 績效歷史圖表
-                performanceHistoryCard
-                
-                // 排名歷史
-                rankingHistoryCard
+                .padding(.top, 8)
             }
-            .padding()
+            .padding(.horizontal, 16)
         }
+        .navigationBarHidden(true)
         .adaptiveBackground()
-        .navigationBarTitleDisplayMode(.large)
         .onAppear {
             Task {
                 await loadPerformanceData()

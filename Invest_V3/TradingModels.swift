@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // MARK: - 交易用戶模型
 struct TradingUser: Codable, Identifiable {
@@ -482,18 +483,27 @@ struct TradingConstants {
         TradingStock(symbol: "2308", name: "台達電子工業股份有限公司", price: 428.0)
     ]
     
-    static let brokerFeeRate = 0.001425 // 0.1425%
-    static let taxRate = 0.003 // 0.3%
-    static let minBrokerFee = 20.0 // 最低手續費
+    // 使用統一的手續費計算器
+    private static let feeCalculator = FeeCalculator.shared
+    
+    // 向後相容的屬性（已廢棄，請使用 FeeCalculator）
+    @available(*, deprecated, message: "請使用 FeeCalculator.shared")
+    static var brokerFeeRate: Double { feeCalculator.brokerFeeRate }
+    
+    @available(*, deprecated, message: "請使用 FeeCalculator.shared")
+    static var taxRate: Double { feeCalculator.transactionTaxRate }
+    
+    @available(*, deprecated, message: "請使用 FeeCalculator.shared")
+    static var minBrokerFee: Double { feeCalculator.minimumBrokerFee }
     
     static func calculateBuyFee(amount: Double) -> Double {
-        return max(amount * brokerFeeRate, minBrokerFee)
+        let fees = feeCalculator.calculateTradingFees(amount: amount, action: .buy)
+        return fees.totalFees
     }
     
     static func calculateSellFee(amount: Double) -> (fee: Double, tax: Double) {
-        let fee = max(amount * brokerFeeRate, minBrokerFee)
-        let tax = amount * taxRate
-        return (fee, tax)
+        let fees = feeCalculator.calculateTradingFees(amount: amount, action: .sell)
+        return (fee: fees.brokerFee, tax: fees.transactionTax)
     }
     
     /// 計算賣出後實際收到的金額
