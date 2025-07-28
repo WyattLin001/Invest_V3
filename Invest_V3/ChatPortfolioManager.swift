@@ -111,9 +111,14 @@ class ChatPortfolioManager: ObservableObject {
     
     func canSell(symbol: String, shares: Double) -> Bool {
         guard let holding = holdings.first(where: { $0.symbol == symbol }) else {
+            print("❌ [ChatPortfolioManager] canSell: 沒有找到股票 \(symbol)")
             return false
         }
-        return shares <= holding.shares  // 使用精確的 shares 而不是取整的 quantity
+        
+        let canSell = shares <= holding.shares
+        print("🔍 [ChatPortfolioManager] canSell: \(symbol), 要賣出: \(shares), 持有: \(holding.shares), 可以賣出: \(canSell)")
+        
+        return canSell
     }
     
     func buyStock(symbol: String, shares: Double, price: Double, stockName: String? = nil, tournamentId: UUID? = nil) -> Bool {
@@ -185,14 +190,22 @@ class ChatPortfolioManager: ObservableObject {
     }
     
     func sellStock(symbol: String, shares: Double, price: Double, tournamentId: UUID? = nil) -> Bool {
+        print("🔄 [ChatPortfolioManager] sellStock 開始: \(symbol), 股數: \(shares), 價格: \(price)")
+        
         guard let index = holdings.firstIndex(where: { $0.symbol == symbol }) else {
+            print("❌ [ChatPortfolioManager] sellStock: 沒有找到股票 \(symbol)")
             return false
         }
         
         let holding = holdings[index]
+        print("🔍 [ChatPortfolioManager] sellStock: 找到持股 \(symbol), 持有股數: \(holding.shares)")
+        
         guard canSell(symbol: symbol, shares: shares) else {
+            print("❌ [ChatPortfolioManager] sellStock: canSell 檢查失敗")
             return false
         }
+        
+        print("✅ [ChatPortfolioManager] sellStock: canSell 檢查通過，開始執行賣出")
         
         let saleValue = shares * price
         let costBasis = shares * holding.averagePrice
@@ -212,7 +225,7 @@ class ChatPortfolioManager: ObservableObject {
         )
         tradingRecords.append(sellRecord)
         
-        if Double(holding.quantity) == shares {
+        if holding.shares == shares {
             // 全部賣出
             holdings.remove(at: index)
         } else {
@@ -239,6 +252,7 @@ class ChatPortfolioManager: ObservableObject {
             PortfolioSyncService.shared.hasPendingChanges = true
         }
         
+        print("✅ [ChatPortfolioManager] sellStock 成功完成: \(symbol), 賣出股數: \(shares)")
         return true
     }
     

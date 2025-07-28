@@ -38,6 +38,7 @@ class AppBootstrapper: ObservableObject {
         
         do {
             // 1. 初始化 Supabase
+            print("🔄 開始初始化 Supabase...")
             try await SupabaseManager.shared.initialize()
             print("✅ Supabase 初始化完成")
             

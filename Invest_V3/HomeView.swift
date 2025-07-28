@@ -344,6 +344,7 @@ struct HomeView: View {
                             .foregroundColor(.white.opacity(0.7))
                     }
                     .padding(16)
+                    .frame(height: 64)
                     .background(
                         LinearGradient(
                             gradient: Gradient(colors: [Color.brandGreen, Color.brandGreen.opacity(0.8)]),
@@ -578,7 +579,7 @@ struct HomeView: View {
     private func fakeTopUp() async {
         do {
             // 增加 10000 NTD（相當於 100 代幣）
-            try await supabaseService.updateWalletBalance(delta: 10000)
+            try await supabaseService.updateWalletBalance(delta: 100)
             
             await MainActor.run {
                 // 直接更新顯示的代幣數量

@@ -185,6 +185,8 @@ class PortfolioSyncService: ObservableObject {
         shares: Double,
         price: Double
     ) async -> Bool {
+        print("🔄 [PortfolioSyncService] executeTournamentTrade: \(action), \(symbol), 股數: \(shares), 價格: \(price)")
+        
         let success: Bool
         
         if action == TradingType.buy {
@@ -192,15 +194,19 @@ class PortfolioSyncService: ObservableObject {
                 symbol: symbol,
                 shares: shares,
                 price: price,
-                stockName: stockName
+                stockName: stockName,
+                tournamentId: tournamentId
             )
         } else {
             success = chatPortfolioManager.sellStock(
                 symbol: symbol,
                 shares: shares,
-                price: price
+                price: price,
+                tournamentId: tournamentId
             )
         }
+        
+        print("🔍 [PortfolioSyncService] executeTournamentTrade 結果: \(success ? "成功" : "失敗")")
         
         if success {
             // 如果有錦標賽 ID，更新交易記錄的錦標賽關聯

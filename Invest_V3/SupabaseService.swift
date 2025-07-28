@@ -31,6 +31,16 @@ class SupabaseService: ObservableObject {
             print("❌ SupabaseService.client accessed before initialization")
             print("💡 確保在App啟動時調用 SupabaseManager.shared.initialize()")
             
+            // 嘗試立即初始化
+            Task {
+                do {
+                    try await SupabaseManager.shared.initialize()
+                    print("✅ SupabaseManager 緊急初始化成功")
+                } catch {
+                    print("❌ SupabaseManager 緊急初始化失敗: \(error)")
+                }
+            }
+            
             // 嘗試立即同步初始化 - 使用正確的 URL
             print("⚠️ 使用緊急客戶端實例 - 正式環境")
             let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co")!
