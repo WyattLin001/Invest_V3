@@ -5970,7 +5970,7 @@ extension SupabaseService {
             let lastUpdated: Date
             
             enum CodingKeys: String, CodingKey {
-                case id, userName, lastUpdated
+                case id
                 case tournamentId = "tournament_id"
                 case userId = "user_id"
                 case userName = "user_name"
@@ -6023,7 +6023,7 @@ extension SupabaseService {
                 let lastUpdated: Date
                 
                 enum CodingKeys: String, CodingKey {
-                    case id, symbol, name, shares, lastUpdated
+                    case id, symbol, name, shares
                     case tournamentId = "tournament_id"
                     case userId = "user_id"
                     case averagePrice = "average_price"
@@ -6090,7 +6090,8 @@ extension SupabaseService {
                 case diversificationScore = "diversification_score"
                 case currentRank = "current_rank"
                 case previousRank = "previous_rank"
-                case percentile, lastUpdated = "last_updated"
+                case percentile
+                case lastUpdated = "last_updated"
             }
         }
         
@@ -6166,7 +6167,7 @@ extension SupabaseService {
                 let lastUpdated: Date
                 
                 enum CodingKeys: String, CodingKey {
-                    case id, userName, userAvatar, isEliminated, eliminationReason, joinedAt, lastUpdated
+                    case id
                     case tournamentId = "tournament_id"
                     case userId = "user_id"
                     case userName = "user_name"
