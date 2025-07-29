@@ -72,7 +72,7 @@ struct EnhancedInvestmentView: View {
                     }
                 }
             }
-            .navigationViewStyle(StackNavigationViewStyle())
+            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("投資總覽", systemImage: "chart.pie.fill")
             }
@@ -104,7 +104,7 @@ struct EnhancedInvestmentView: View {
                     }
                 }
             }
-            .navigationViewStyle(StackNavigationViewStyle())
+            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("交易記錄", systemImage: "list.bullet.clipboard")
             }
@@ -138,7 +138,7 @@ struct EnhancedInvestmentView: View {
                     }
                 }
             }
-            .navigationViewStyle(StackNavigationViewStyle())
+            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("錦標賽", systemImage: "trophy.fill")
             }
@@ -155,7 +155,7 @@ struct EnhancedInvestmentView: View {
                         }
                     }
             }
-            .navigationViewStyle(StackNavigationViewStyle())
+            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("排行榜", systemImage: "list.number")
             }
@@ -187,7 +187,7 @@ struct EnhancedInvestmentView: View {
                     }
                 }
             }
-            .navigationViewStyle(StackNavigationViewStyle())
+            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("我的績效", systemImage: "chart.bar.fill")
             }
@@ -478,9 +478,9 @@ struct InvestmentHomeView: View {
         .alert("清空投資組合", isPresented: $showClearPortfolioConfirmation) {
             Button("取消", role: .cancel) { }
             Button("確定清空", role: .destructive) {
-                portfolioManager.clearCurrentUserPortfolio()
-                tradeSuccessMessage = "投資組合已清空，虛擬資金已重置為 NT$1,000,000"
-                showTradeSuccess = true
+                Task {
+                    await clearPortfolioWithSupabaseSync()
+                }
             }
         } message: {
             Text("⚠️ 此操作將清空您的所有投資記錄並重置虛擬資金，此操作無法復原。\n\n確定要繼續嗎？")
@@ -1394,17 +1394,6 @@ struct InvestmentHomeView: View {
         
         return formatter.string(from: NSNumber(value: value)) ?? "$0"
     }
-}
-.alert("清空投資組合", isPresented: $showClearPortfolioConfirmation) {
-    Button("取消", role: .cancel) { }
-    Button("確定清空", role: .destructive) {
-        // 清除投資組合並與Supabase同步
-        Task {
-            await clearPortfolioWithSupabaseSync()
-        }
-    }
-} message: {
-    Text("⚠️ 此操作將清空您的所有投資記錄並重置虛擬資金，此操作無法復原。\n\n確定要繼續嗎？")
 }
 
 // MARK: - 清除投資組合功能
