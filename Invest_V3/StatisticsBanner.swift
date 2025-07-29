@@ -85,6 +85,10 @@ struct StatisticsBanner: View {
                 .font(.headline)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
+                .lineLimit(nil)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .minimumScaleFactor(0.8)
             
             // 更新狀態指示器
             updateStatusIndicator

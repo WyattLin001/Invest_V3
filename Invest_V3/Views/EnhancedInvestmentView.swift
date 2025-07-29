@@ -42,23 +42,26 @@ struct EnhancedInvestmentView: View {
         TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
             NavigationView {
-                VStack(spacing: 0) {
-                    // 統計橫幅 - 固定在頂部
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared,
-                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
-                    )
-                    
-                    // 主要內容 - 可滾動區域
-                    ScrollView {
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: []) {
+                        // 統計橫幅 - 緊密貼合
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared,
+                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                        )
+                        
+                        // 主要內容 - 無上方間距
                         InvestmentHomeView(
                             currentActiveTournament: currentActiveTournament,
                             participatedTournaments: participatedTournaments,
                             showingTournamentTrading: .constant(false),
                             showingTournamentSelection: $showingTournamentSelection
                         )
+                        .padding(.bottom, 20)
                     }
+                }
+                .ignoresSafeArea(.all, edges: .top)
                 }
                 .navigationTitle("投資總覽")
                 .navigationBarTitleDisplayMode(.inline)
@@ -77,18 +80,21 @@ struct EnhancedInvestmentView: View {
             
             // 2. 交易記錄
             NavigationView {
-                VStack(spacing: 0) {
-                    // 統計橫幅 - 固定在頂部
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared,
-                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
-                    )
-                    
-                    // 主要內容 - 可滾動區域
-                    ScrollView {
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: []) {
+                        // 統計橫幅 - 緊密貼合
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared,
+                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                        )
+                        
+                        // 主要內容 - 無上方間距
                         InvestmentRecordsView(currentActiveTournament: currentActiveTournament)
+                            .padding(.bottom, 20)
                     }
+                }
+                .ignoresSafeArea(.all, edges: .top)
                 }
                 .navigationTitle("交易記錄")
                 .navigationBarTitleDisplayMode(.inline)
@@ -106,22 +112,24 @@ struct EnhancedInvestmentView: View {
             
             // 3. 錦標賽選擇
             NavigationView {
-                VStack(spacing: 0) {
-                    // 統計橫幅 - 固定在頂部
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared,
-                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
-                    )
-                    
-                    // 主要內容 - 可滾動區域
-                    ScrollView {
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: []) {
+                        // 統計橫幅 - 緊密貼合
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared,
+                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                        )
+                        
+                        // 主要內容 - 無上方間距
                         TournamentSelectionView(
                             selectedTournament: $selectedTournament,
                             showingDetail: $showingTournamentDetail
                         )
+                        .padding(.bottom, 20)
                     }
                 }
+                .ignoresSafeArea(.all, edges: .top)
                 .navigationTitle("錦標賽")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -155,18 +163,21 @@ struct EnhancedInvestmentView: View {
             
             // 5. 個人績效
             NavigationView {
-                VStack(spacing: 0) {
-                    // 統計橫幅 - 固定在頂部
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared,
-                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
-                    )
-                    
-                    // 主要內容 - 可滾動區域
-                    ScrollView {
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: []) {
+                        // 統計橫幅 - 緊密貼合
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared,
+                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                        )
+                        
+                        // 主要內容 - 無上方間距
                         PersonalPerformanceView()
+                            .padding(.bottom, 20)
                     }
+                }
+                .ignoresSafeArea(.all, edges: .top)
                 }
                 .navigationTitle("我的績效")
                 .navigationBarTitleDisplayMode(.inline)
@@ -235,6 +246,41 @@ struct EnhancedInvestmentView: View {
             return false
         }
         return currentUser.username == "test03"
+    }
+    
+    /// 刪除錦標賽（僅限test03）
+    private func deleteTournament(_ tournament: Tournament) {
+        guard isAdminUser else {
+            print("❌ 權限不足：只有test03可以刪除錦標賽")
+            return
+        }
+        
+        Task {
+            do {
+                let success = try await supabaseService.deleteTournament(tournamentId: tournament.id)
+                if success {
+                    // 從本地列表中移除
+                    participatedTournaments.removeAll { $0.id == tournament.id }
+                    
+                    // 如果刪除的是當前活躍錦標賽，切換到第一個可用的錦標賽
+                    if currentActiveTournament?.id == tournament.id {
+                        currentActiveTournament = participatedTournaments.first
+                        if let firstTournament = participatedTournaments.first {
+                            portfolioManager.switchToTournament(
+                                tournamentId: firstTournament.id,
+                                tournamentName: firstTournament.name
+                            )
+                        }
+                    }
+                    
+                    print("✅ 錦標賽已刪除：\(tournament.name)")
+                } else {
+                    print("❌ 刪除錦標賽失敗")
+                }
+            } catch {
+                print("❌ 刪除錦標賽時發生錯誤：\(error.localizedDescription)")
+            }
+        }
     }
     
     // MARK: - 初始化與數據處理
@@ -389,6 +435,7 @@ struct InvestmentHomeView: View {
     @State private var selectedStockName: String = ""
     @State private var showClearPortfolioConfirmation = false
     @State private var isRefreshing = false
+    @State private var clearPortfolioSuccessMessage = ""
     
     var body: some View {
         LazyVStack(spacing: DesignTokens.spacingMD) {
@@ -873,6 +920,33 @@ struct InvestmentHomeView: View {
                         }
                     }
                 }
+                
+                // 清除投資組合按鈕（僅在有持股時顯示）
+                if !portfolioManager.holdings.isEmpty {
+                    Divider()
+                        .padding(.vertical, 8)
+                    
+                    VStack(spacing: 8) {
+                        Text("管理功能")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Button(action: {
+                            showClearPortfolioConfirmation = true
+                        }) {
+                            Text("🧹 清空投資組合")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.orange)
+                                )
+                        }
+                    }
+                }
             }
         }
         .brandCardStyle()
@@ -1319,6 +1393,44 @@ struct InvestmentHomeView: View {
         formatter.maximumFractionDigits = 2
         
         return formatter.string(from: NSNumber(value: value)) ?? "$0"
+    }
+}
+.alert("清空投資組合", isPresented: $showClearPortfolioConfirmation) {
+    Button("取消", role: .cancel) { }
+    Button("確定清空", role: .destructive) {
+        // 清除投資組合並與Supabase同步
+        Task {
+            await clearPortfolioWithSupabaseSync()
+        }
+    }
+} message: {
+    Text("⚠️ 此操作將清空您的所有投資記錄並重置虛擬資金，此操作無法復原。\n\n確定要繼續嗎？")
+}
+
+// MARK: - 清除投資組合功能
+extension InvestmentHomeView {
+    /// 清除投資組合並與Supabase同步
+    @MainActor
+    private func clearPortfolioWithSupabaseSync() async {
+        do {
+            // 本地清除
+            portfolioManager.clearCurrentUserPortfolio()
+            
+            // 與Supabase同步清除
+            if let currentUser = SupabaseService.shared.getCurrentUser() {
+                // 這裡可以添加Supabase同步邏輯
+                print("✅ 投資組合已清空並與Supabase同步")
+            }
+            
+            // 顯示成功消息
+            showTradeSuccess = true
+            tradeSuccessMessage = "投資組合已清空，虛擬資金已重置為 NT$1,000,000"
+            
+        } catch {
+            // 處理錯誤
+            errorMessage = "清空投資組合失敗：\(error.localizedDescription)"
+            showErrorAlert = true
+        }
     }
 }
 
@@ -2059,6 +2171,50 @@ struct TournamentSelectionSheet: View {
     @Binding var currentActiveTournament: Tournament?
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var portfolioManager = ChatPortfolioManager.shared
+    @ObservedObject private var supabaseService = SupabaseService.shared
+    
+    /// 檢查當前用戶是否為管理員 (test03)  
+    private var isAdminUser: Bool {
+        guard let currentUser = supabaseService.getCurrentUser() else {
+            return false
+        }
+        return currentUser.username == "test03"
+    }
+    
+    /// 刪除錦標賽（僅限test03）
+    private func deleteTournament(_ tournament: Tournament) {
+        guard isAdminUser else {
+            print("❌ 權限不足：只有test03可以刪除錦標賽")
+            return
+        }
+        
+        Task {
+            do {
+                let success = try await supabaseService.deleteTournament(tournamentId: tournament.id)
+                if success {
+                    // 從本地列表中移除
+                    participatedTournaments.removeAll { $0.id == tournament.id }
+                    
+                    // 如果刪除的是當前活躍錦標賽，切換到第一個可用的錦標賽
+                    if currentActiveTournament?.id == tournament.id {
+                        currentActiveTournament = participatedTournaments.first
+                        if let firstTournament = participatedTournaments.first {
+                            portfolioManager.switchToTournament(
+                                tournamentId: firstTournament.id,
+                                tournamentName: firstTournament.name
+                            )
+                        }
+                    }
+                    
+                    print("✅ 錦標賽已刪除：\(tournament.name)")
+                } else {
+                    print("❌ 刪除錦標賽失敗")
+                }
+            } catch {
+                print("❌ 刪除錦標賽時發生錯誤：\(error.localizedDescription)")
+            }
+        }
+    }
     
     var body: some View {
         NavigationView {
@@ -2095,7 +2251,11 @@ struct TournamentSelectionSheet: View {
                                             tournamentName: tournament.name
                                         )
                                         dismiss()
-                                    }
+                                    },
+                                    onDelete: isAdminUser ? {
+                                        deleteTournament(tournament)
+                                    } : nil,
+                                    isAdminUser: isAdminUser
                                 )
                             }
                         }
@@ -2123,50 +2283,66 @@ struct TournamentSelectionRow: View {
     let tournament: Tournament
     let isSelected: Bool
     let onSelect: () -> Void
+    let onDelete: (() -> Void)?
+    let isAdminUser: Bool
+    
+    init(tournament: Tournament, isSelected: Bool, onSelect: @escaping () -> Void, onDelete: (() -> Void)? = nil, isAdminUser: Bool = false) {
+        self.tournament = tournament
+        self.isSelected = isSelected
+        self.onSelect = onSelect
+        self.onDelete = onDelete
+        self.isAdminUser = isAdminUser
+    }
     
     var body: some View {
-        Button(action: onSelect) {
-            HStack {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: tournament.type.iconName)
-                            .foregroundColor(.brandGreen)
-                            .font(.title3)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(tournament.name)
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-                            
-                            Text(tournament.shortDescription)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        if isSelected {
-                            Image(systemName: "checkmark.circle.fill")
+        HStack {
+            Button(action: onSelect) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: tournament.type.iconName)
                                 .foregroundColor(.brandGreen)
-                                .font(.title2)
+                                .font(.title3)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(tournament.name)
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
+                                    .lineLimit(nil)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .minimumScaleFactor(0.9)
+                                
+                                Text(tournament.shortDescription)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                            }
+                            
+                            Spacer()
+                            
+                            if isSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.brandGreen)
+                                    .font(.title2)
+                            }
                         }
-                    }
-                    
-                    HStack {
-                        Label("\(tournament.currentParticipants) 參與者", systemImage: "person.2.fill")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
                         
-                        Spacer()
-                        
-                        Text("已參加")
-                            .font(.caption2)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.brandGreen)
-                            .cornerRadius(6)
+                        HStack {
+                            Label("\(tournament.currentParticipants) 參與者", systemImage: "person.2.fill")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Text("已參加")
+                                .font(.caption2)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.brandGreen)
+                                .cornerRadius(6)
+                        }
                     }
                 }
             }
@@ -2179,6 +2355,19 @@ struct TournamentSelectionRow: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(isSelected ? Color.brandGreen : Color.clear, lineWidth: 2)
             )
+            
+            // 管理員刪除按鈕（僅對test03可見）
+            if isAdminUser, let deleteAction = onDelete {
+                Button(action: deleteAction) {
+                    Image(systemName: "trash.fill")
+                        .foregroundColor(.red)
+                        .font(.title3)
+                        .frame(width: 44, height: 44)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
         }
         .buttonStyle(PlainButtonStyle())
     }

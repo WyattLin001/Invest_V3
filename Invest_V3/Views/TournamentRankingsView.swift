@@ -379,6 +379,9 @@ struct TournamentRankingsView: View {
                             Text(tournament.name)
                                 .font(.headline)
                                 .adaptiveTextColor()
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .minimumScaleFactor(0.9)
                             
                             Text("\(tournament.currentParticipants) 參與者 • \(tournament.status.displayName)")
                                 .font(.caption)
