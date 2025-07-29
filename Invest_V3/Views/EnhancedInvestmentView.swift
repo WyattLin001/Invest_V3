@@ -215,7 +215,6 @@ struct EnhancedInvestmentView: View {
             initializeDefaultTournament()
             loadSupabaseData()
         }
-    }
     
     // MARK: - 工具欄按鈕
     private var tournamentSelectionButton: some View {
