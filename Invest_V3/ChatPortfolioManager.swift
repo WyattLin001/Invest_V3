@@ -10,6 +10,16 @@ class ChatPortfolioManager: ObservableObject {
     @Published var totalInvested: Double = 0
     @Published var tradingRecords: [TradingRecord] = [] // 交易記錄歷史
     
+    // MARK: - 錦標賽管理
+    @Published var currentTournamentId: UUID? = nil
+    @Published var currentTournamentName: String = "2025年度投資錦標賽"
+    
+    // 不同錦標賽的投資組合數據
+    private var tournamentPortfolios: [String: [PortfolioHolding]] = [:]
+    private var tournamentBalances: [String: Double] = [:]
+    private var tournamentInvested: [String: Double] = [:]
+    private var tournamentRecords: [String: [TradingRecord]] = [:]
+    
     private let colors = ["blue", "orange", "green", "red", "purple"]
     private var colorIndex = 0
     
@@ -541,5 +551,89 @@ class ChatPortfolioManager: ObservableObject {
         
         saveTradingRecords()
         print("✅ [ChatPortfolioManager] 已添加 \(mockRecords.count) 筆模擬交易記錄，包含錦標賽和一般交易")
+    }
+    
+    // MARK: - 錦標賽切換功能
+    
+    /// 切換到指定錦標賽
+    func switchToTournament(tournamentId: UUID, tournamentName: String) {
+        print("🏆 [ChatPortfolioManager] 切換到錦標賽: \(tournamentName)")
+        
+        // 保存當前錦標賽的數據
+        if let currentId = currentTournamentId {
+            saveTournamentData(for: currentId)
+        }
+        
+        // 切換到新錦標賽
+        currentTournamentId = tournamentId
+        currentTournamentName = tournamentName
+        
+        // 載入新錦標賽的數據
+        loadTournamentData(for: tournamentId)
+        
+        // 通知UI更新
+        objectWillChange.send()
+    }
+    
+    /// 保存當前錦標賽數據
+    private func saveTournamentData(for tournamentId: UUID) {
+        let key = tournamentId.uuidString
+        tournamentPortfolios[key] = holdings
+        tournamentBalances[key] = virtualBalance
+        tournamentInvested[key] = totalInvested
+        tournamentRecords[key] = tradingRecords
+        
+        print("💾 [ChatPortfolioManager] 已保存錦標賽數據: \(key)")
+    }
+    
+    /// 載入指定錦標賽數據
+    private func loadTournamentData(for tournamentId: UUID) {
+        let key = tournamentId.uuidString
+        
+        // 載入投資組合數據，如果沒有則使用預設值
+        holdings = tournamentPortfolios[key] ?? []
+        virtualBalance = tournamentBalances[key] ?? 1_000_000
+        totalInvested = tournamentInvested[key] ?? 0
+        
+        // 載入交易記錄，過濾出屬於此錦標賽的記錄
+        if let savedRecords = tournamentRecords[key] {
+            tradingRecords = savedRecords
+        } else {
+            // 如果沒有保存的記錄，從全部記錄中過濾
+            tradingRecords = getAllTradingRecords().filter { record in
+                record.tournamentId == tournamentId
+            }
+        }
+        
+        print("📂 [ChatPortfolioManager] 已載入錦標賽數據: \(key)")
+        print("   - 持股數: \(holdings.count)")
+        print("   - 虛擬餘額: \(virtualBalance)")
+        print("   - 交易記錄數: \(tradingRecords.count)")
+    }
+    
+    /// 獲取所有交易記錄（跨錦標賽）
+    private func getAllTradingRecords() -> [TradingRecord] {
+        // 從UserDefaults載入所有交易記錄
+        if let data = UserDefaults.standard.data(forKey: "chat_trading_records"),
+           let allRecords = try? JSONDecoder().decode([TradingRecord].self, from: data) {
+            return allRecords
+        }
+        return []
+    }
+    
+    /// 重置到預設錦標賽（2025年度投資錦標賽）
+    func resetToDefaultTournament() {
+        // 創建或獲取2025年度錦標賽ID
+        let defaultTournamentId = UUID() // 實際應用中這應該是固定的UUID
+        switchToTournament(tournamentId: defaultTournamentId, tournamentName: "2025年度投資錦標賽")
+    }
+    
+    /// 獲取當前錦標賽的投資組合摘要
+    func getCurrentTournamentSummary() -> (holdings: Int, balance: Double, totalValue: Double) {
+        return (
+            holdings: holdings.count,
+            balance: virtualBalance,
+            totalValue: totalPortfolioValue
+        )
     }
 }

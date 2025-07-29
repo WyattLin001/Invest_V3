@@ -108,7 +108,7 @@ struct HomeView: View {
         .sheet(isPresented: $showWalletView) {
             WalletView()
         }
-        .sheet(isPresented: $viewModel.showInvestmentPanel) {
+        .fullScreenCover(isPresented: $viewModel.showInvestmentPanel) {
             NavigationView {
                 EnhancedInvestmentView(currentTournamentName: currentTournamentName)
                     .navigationBarTitleDisplayMode(.large)
@@ -129,7 +129,6 @@ struct HomeView: View {
                     }
             }
             .environmentObject(ThemeManager.shared)
-            .presentationDetents([.large])
         }
         .onReceive(viewModel.$errorMessage) { errorMessage in
             if let errorMessage = errorMessage {

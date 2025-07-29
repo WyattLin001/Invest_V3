@@ -79,12 +79,11 @@ class DatabaseTestHelper {
     private func testTableAccess(tableName: String, service: SupabaseService) async {
         do {
             // 嘗試查詢資料表（限制1筆結果以減少網路負載）
-            let query = service.client.database
+            let _ = try await service.client
                 .from(tableName)
                 .select("*")
                 .limit(1)
-            
-            let _: [AnyHashable] = try await query.execute().value
+                .execute().value
             print("   ✅ 資料表 '\(tableName)' 存取正常")
             
         } catch {
@@ -112,7 +111,7 @@ class DatabaseTestHelper {
             print("   ✅ 好友列表查詢成功，共 \(friends.count) 位好友")
             
             // 測試搜尋用戶
-            let searchResults = try await supabaseService.searchUsers(query: "test", limit: 5)
+            let searchResults = try await supabaseService.searchUsers(query: "test")
             print("   ✅ 用戶搜尋功能正常，找到 \(searchResults.count) 個結果")
             
         } catch {
@@ -165,29 +164,13 @@ class DatabaseTestHelper {
         
         let testUser = UserProfile(
             id: UUID(),
-            username: "測試用戶_\(Int.random(in: 1000...9999))",
             email: "test\(Int.random(in: 1000...9999))@example.com",
-            fullName: "測試用戶",
-            createdAt: Date(),
-            updatedAt: Date(),
-            investmentPhilosophy: "價值投資",
-            portfolioValue: 1000000.0,
-            weeklyReturn: 0.0,
-            monthlyReturn: 0.0,
-            totalReturn: 0.0,
-            riskTolerance: "中等",
-            investmentExperience: "新手",
-            preferredSectors: ["科技", "金融"],
+            username: "測試用戶_\(Int.random(in: 1000...9999))",
+            displayName: "測試用戶",
+            avatarUrl: nil,
             bio: "這是一個測试用戶",
-            location: "台北",
-            investmentGoals: ["長期增值"],
-            followersCount: 0,
-            followingCount: 0,
-            postsCount: 0,
-            joinDate: Date(),
-            isVerified: false,
-            badgeLevel: 1,
-            achievements: []
+            createdAt: Date(),
+            updatedAt: Date()
         )
         
         // 保存到 UserDefaults

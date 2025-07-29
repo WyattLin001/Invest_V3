@@ -95,6 +95,7 @@ class SimpleDatabaseDiagnostic {
     }
     
     /// 執行完整診斷
+    @MainActor
     static func runFullDiagnosis() {
         print("🚀 [DatabaseDiagnostic] 開始執行完整診斷")
         print("=" * 50)
@@ -121,6 +122,7 @@ class SimpleDatabaseDiagnostic {
     }
     
     /// 診斷數據庫連線問題的根本原因
+    @MainActor
     static func diagnoseConnectionIssues() {
         print("\n🔍 [Diagnostic] 診斷數據庫連線問題...")
         

@@ -11,11 +11,22 @@ import SwiftUI
 import Combine
 
 /// 投資模擬狀態
-enum SimulationStatus {
+enum SimulationStatus: Equatable {
     case notStarted
     case initializing
     case ready
     case error(String)
+    
+    static func == (lhs: SimulationStatus, rhs: SimulationStatus) -> Bool {
+        switch (lhs, rhs) {
+        case (.notStarted, .notStarted), (.initializing, .initializing), (.ready, .ready):
+            return true
+        case (.error(let lhsMessage), .error(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        default:
+            return false
+        }
+    }
 }
 
 /// 錦標賽投資模擬服務
@@ -37,7 +48,9 @@ class TournamentSimulationService: ObservableObject {
     
     private init() {
         loadUserTournamentStatus()
-        loadAvailableTournaments()
+        Task { @MainActor in
+            await loadAvailableTournaments()
+        }
     }
     
     // MARK: - Public Methods

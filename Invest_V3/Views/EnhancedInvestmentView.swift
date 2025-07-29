@@ -35,6 +35,9 @@ struct EnhancedInvestmentView: View {
     // Supabase 服務整合
     @ObservedObject private var supabaseService = SupabaseService.shared
     
+    // 投資組合管理器
+    @ObservedObject private var portfolioManager = ChatPortfolioManager.shared
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
@@ -2055,6 +2058,7 @@ struct TournamentSelectionSheet: View {
     @Binding var participatedTournaments: [Tournament]
     @Binding var currentActiveTournament: Tournament?
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var portfolioManager = ChatPortfolioManager.shared
     
     var body: some View {
         NavigationView {
@@ -2084,7 +2088,12 @@ struct TournamentSelectionSheet: View {
                                     tournament: tournament,
                                     isSelected: currentActiveTournament?.id == tournament.id,
                                     onSelect: {
+                                        // 切換錦標賽並更新投資組合數據
                                         currentActiveTournament = tournament
+                                        portfolioManager.switchToTournament(
+                                            tournamentId: tournament.id,
+                                            tournamentName: tournament.name
+                                        )
                                         dismiss()
                                     }
                                 )

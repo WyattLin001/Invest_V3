@@ -313,7 +313,7 @@ class TournamentRankingSystem: ObservableObject {
             let currentRank = participant.currentRank
             let change = previousRank - currentRank
             
-            let changeType: RankingChangeType
+            let changeType: RankingChange.RankingChangeType
             let reason: String
             
             if previousRank == 0 {

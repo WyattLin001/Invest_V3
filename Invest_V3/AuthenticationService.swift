@@ -140,6 +140,9 @@ class AuthenticationService: ObservableObject {
             try await client.auth.signIn(email: email, password: password)
             print("✅ 登入成功: \(email)")
             
+            // 自動參加2025年度投資錦標賽
+            await autoJoin2025Tournament()
+            
             // 登入成功後發送通知確保立即跳轉
             await MainActor.run {
                 NotificationCenter.default.post(name: NSNotification.Name("UserSignedIn"), object: nil)
@@ -315,6 +318,55 @@ class AuthenticationService: ObservableObject {
             self.error = error.localizedDescription
             print("❌ 更新失敗: \(error)")
             throw error
+        }
+    }
+    
+    // MARK: - 自動參加2025錦標賽
+    private func autoJoin2025Tournament() async {
+        do {
+            // 確保用戶已認證
+            guard let user = try? await client.auth.user() else {
+                print("⚠️ 用戶未認證，無法自動參加錦標賽")
+                return
+            }
+            
+            // 查找2025年度投資錦標賽
+            let tournaments: [TournamentResponse] = try await client
+                .from("tournaments")
+                .select()
+                .eq("name", value: "2025年度投資錦標賽")
+                .execute()
+                .value
+            
+            guard let tournament2025 = tournaments.first,
+                  let tournamentId = UUID(uuidString: tournament2025.id) else {
+                print("⚠️ 找不到2025年度投資錦標賽")
+                return
+            }
+            
+            // 檢查用戶是否已經參加
+            let participants: [TournamentParticipantResponse] = try await client
+                .from("tournament_participants")
+                .select()
+                .eq("tournament_id", value: tournament2025.id)
+                .eq("user_id", value: user.id.uuidString)
+                .execute()
+                .value
+            
+            if participants.isEmpty {
+                // 用戶尚未參加，自動參加
+                let success = try await SupabaseService.shared.joinTournament(tournamentId: tournamentId)
+                if success {
+                    print("✅ 用戶已自動參加2025年度投資錦標賽")
+                } else {
+                    print("❌ 自動參加2025錦標賽失敗")
+                }
+            } else {
+                print("ℹ️ 用戶已經參加2025年度投資錦標賽")
+            }
+            
+        } catch {
+            print("❌ 自動參加2025錦標賽過程中發生錯誤: \(error.localizedDescription)")
         }
     }
 }

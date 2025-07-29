@@ -39,7 +39,7 @@ class DatabaseConnectionFix {
         
         // Check if user already exists
         if let userData = UserDefaults.standard.data(forKey: "current_user"),
-           let _ = try? JSONDecoder().decode([String: Any].self, from: userData) {
+           let _ = try? JSONDecoder().decode(UserProfile.self, from: userData) {
             print("   ✅ 已存在用戶數據，跳過創建")
             return
         }
@@ -139,6 +139,7 @@ class DatabaseConnectionFix {
     }
     
     /// 檢查並修復常見問題
+    @MainActor
     static func diagnoseAndFixCommonIssues() {
         print("🔍 [DatabaseConnectionFix] 診斷並修復常見問題")
         print("=" * 50)
@@ -200,9 +201,4 @@ class DatabaseConnectionFix {
     }
 }
 
-// String extension for repeating characters
-extension String {
-    static func * (left: String, right: Int) -> String {
-        return String(repeating: left, count: right)
-    }
-}
+// Note: String extension for repeating characters moved to avoid conflicts
