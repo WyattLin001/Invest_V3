@@ -188,8 +188,7 @@ struct PersonalPerformanceView: View {
     
     // MARK: - 績效總覽內容
     private var performanceOverviewContent: some View {
-        ScrollView {
-            VStack(spacing: DesignTokens.spacingMD) {
+        VStack(spacing: DesignTokens.spacingMD) {
                 // 多維度績效分析
                 multiDimensionalAnalysis
                 
@@ -202,7 +201,6 @@ struct PersonalPerformanceView: View {
                 }
             }
             .padding()
-        }
     }
     
     // MARK: - 多維度績效分析
@@ -454,14 +452,12 @@ struct PersonalPerformanceView: View {
     
     // MARK: - 成就系統內容
     private var achievementsContent: some View {
-        ScrollView {
-            LazyVStack(spacing: DesignTokens.spacingSM) {
-                ForEach(performanceData.achievements, id: \.id) { achievement in
-                    achievementCard(achievement)
-                }
+        LazyVStack(spacing: DesignTokens.spacingSM) {
+            ForEach(performanceData.achievements, id: \.id) { achievement in
+                achievementCard(achievement)
             }
-            .padding()
         }
+        .padding()
     }
     
     // MARK: - 詳細指標卡片
