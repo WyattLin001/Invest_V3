@@ -35,7 +35,7 @@ struct StatisticsBanner: View {
         .onAppear {
             // 確保統計管理器已啟動
             if !statisticsManager.isLoading && statisticsManager.lastUpdated == nil {
-                Task {
+                Task { @MainActor in
                     await statisticsManager.refreshData()
                 }
             }
@@ -106,7 +106,7 @@ struct StatisticsBanner: View {
                     .foregroundColor(.white.opacity(0.7))
             } else if statisticsManager.hasUpdateFailed {
                 Button(action: {
-                    Task {
+                    Task { @MainActor in
                         await statisticsManager.retryFailedUpdate()
                     }
                 }) {
@@ -130,7 +130,7 @@ struct StatisticsBanner: View {
                 }
             } else if let syncError = syncService.syncError {
                 Button(action: {
-                    Task {
+                    Task { @MainActor in
                         await syncService.manualSync()
                     }
                 }) {
@@ -311,6 +311,7 @@ struct StatisticsBannerRefreshControl: View {
         }
     }
     
+    @MainActor
     private func refreshData() async {
         isRefreshing = true
         await statisticsManager.refreshData()

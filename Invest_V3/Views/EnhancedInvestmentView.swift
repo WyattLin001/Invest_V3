@@ -41,60 +41,54 @@ struct EnhancedInvestmentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
-            NavigationView {
+            NavigationStack {
                 ScrollView {
-                    LazyVStack(spacing: 0, pinnedViews: []) {
-                        // 統計橫幅 - 緊密貼合
+                    VStack(alignment: .leading, spacing: 16) {
+                        // 統計橫幅作為內容第一項
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
                             currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                         )
                         
-                        // 主要內容 - 無上方間距
+                        // 主要投資內容
                         InvestmentHomeView(
                             currentActiveTournament: currentActiveTournament,
                             participatedTournaments: participatedTournaments,
                             showingTournamentTrading: .constant(false),
                             showingTournamentSelection: $showingTournamentSelection
                         )
-                        .padding(.bottom, 20)
                     }
-                }
-                .ignoresSafeArea(.all, edges: .top)
+                    .padding(.horizontal)
                 }
                 .navigationTitle("投資總覽")
                 .navigationBarTitleDisplayMode(.inline)
-                .navigationBarHidden(false)
+                .navigationBarHidden(true) // 隱藏導航欄，避免佔用頂部空間
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("投資總覽", systemImage: "chart.pie.fill")
             }
             .tag(InvestmentTab.home)
-            
             // 2. 交易記錄
-            NavigationView {
+            NavigationStack {
                 ScrollView {
-                    LazyVStack(spacing: 0, pinnedViews: []) {
-                        // 統計橫幅 - 緊密貼合
+                    VStack(alignment: .leading, spacing: 16) {
+                        // 統計橫幅作為內容第一項
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
                             currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                         )
                         
-                        // 主要內容 - 無上方間距
+                        // 交易記錄內容
                         InvestmentRecordsView(currentActiveTournament: currentActiveTournament)
-                            .padding(.bottom, 20)
                     }
-                }
-                .ignoresSafeArea(.all, edges: .top)
+                    .padding(.horizontal)
                 }
                 .navigationTitle("交易記錄")
                 .navigationBarTitleDisplayMode(.inline)
@@ -104,23 +98,15 @@ struct EnhancedInvestmentView: View {
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("交易記錄", systemImage: "list.bullet.clipboard")
             }
             .tag(InvestmentTab.records)
             
             // 3. 錦標賽選擇
-            NavigationView {
+            NavigationStack {
                 ScrollView {
                     LazyVStack(spacing: 0, pinnedViews: []) {
-                        // 統計橫幅 - 緊密貼合
-                        StatisticsBanner(
-                            statisticsManager: statisticsManager,
-                            portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
-                        )
-                        
                         // 主要內容 - 無上方間距
                         TournamentSelectionView(
                             selectedTournament: $selectedTournament,
@@ -129,65 +115,66 @@ struct EnhancedInvestmentView: View {
                         .padding(.bottom, 20)
                     }
                 }
-                .ignoresSafeArea(.all, edges: .top)
                 .navigationTitle("錦標賽")
                 .navigationBarTitleDisplayMode(.inline)
+                .safeAreaInset(edge: .top) {
+                    // 統計橫幅作為頂部插入，緊貼安全區域
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared,
+                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                    )
+                }
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("錦標賽", systemImage: "trophy.fill")
             }
             .tag(InvestmentTab.tournaments)
             
             // 4. 排行榜與動態
-            NavigationView {
+            NavigationStack {
                 TournamentRankingsView()
-                    .navigationTitle("排行榜")
-                    .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             tournamentSelectionButton
                         }
                     }
             }
-            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("排行榜", systemImage: "list.number")
             }
             .tag(InvestmentTab.rankings)
             
             // 5. 個人績效
-            NavigationView {
+            NavigationStack {
                 ScrollView {
                     LazyVStack(spacing: 0, pinnedViews: []) {
-                        // 統計橫幅 - 緊密貼合
-                        StatisticsBanner(
-                            statisticsManager: statisticsManager,
-                            portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
-                        )
-                        
                         // 主要內容 - 無上方間距
                         PersonalPerformanceView()
                             .padding(.bottom, 20)
                     }
                 }
-                .ignoresSafeArea(.all, edges: .top)
-                }
                 .navigationTitle("我的績效")
                 .navigationBarTitleDisplayMode(.inline)
+                .safeAreaInset(edge: .top) {
+                    // 統計橫幅作為頂部插入，緊貼安全區域
+                    StatisticsBanner(
+                        statisticsManager: statisticsManager,
+                        portfolioManager: ChatPortfolioManager.shared,
+                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                    )
+                }
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
             .tabItem {
                 Label("我的績效", systemImage: "chart.bar.fill")
             }
@@ -215,6 +202,7 @@ struct EnhancedInvestmentView: View {
             initializeDefaultTournament()
             loadSupabaseData()
         }
+    }
     
     // MARK: - 工具欄按鈕
     private var tournamentSelectionButton: some View {
@@ -241,7 +229,7 @@ struct EnhancedInvestmentView: View {
     
     /// 檢查當前用戶是否為管理員 (test03)
     private var isAdminUser: Bool {
-        guard let currentUser = supabaseService.getCurrentUser() else {
+        guard let currentUser = SupabaseService.shared.getCurrentUser() else {
             return false
         }
         return currentUser.username == "test03"
@@ -254,9 +242,9 @@ struct EnhancedInvestmentView: View {
             return
         }
         
-        Task {
+        Task { @MainActor in
             do {
-                let success = try await supabaseService.deleteTournament(tournamentId: tournament.id)
+                let success = try await SupabaseService.shared.deleteTournament(tournamentId: tournament.id)
                 if success {
                     // 從本地列表中移除
                     participatedTournaments.removeAll { $0.id == tournament.id }
@@ -294,7 +282,7 @@ struct EnhancedInvestmentView: View {
     
     // MARK: - Supabase 數據載入
     private func loadSupabaseData() {
-        Task {
+        Task { @MainActor in
             await loadUserProfile()
             await loadTournamentData()
             await loadUserInvestmentData()
@@ -304,7 +292,7 @@ struct EnhancedInvestmentView: View {
     /// 載入用戶個人資料
     @MainActor
     private func loadUserProfile() async {
-        if let currentUser = supabaseService.getCurrentUser() {
+        if let currentUser = SupabaseService.shared.getCurrentUser() {
             print("✅ 成功載入用戶資料: \(currentUser.username)")
             // 可以在這裡更新 UI 狀態
         } else {
@@ -317,7 +305,7 @@ struct EnhancedInvestmentView: View {
     private func loadTournamentData() async {
         do {
             // 載入所有錦標賽並篩選精選錦標賽
-            let tournaments = try await supabaseService.fetchFeaturedTournaments()
+            let tournaments = try await SupabaseService.shared.fetchFeaturedTournaments()
             participatedTournaments = tournaments
             
             if let firstTournament = tournaments.first {
@@ -339,7 +327,7 @@ struct EnhancedInvestmentView: View {
             // 未來可以添加從 Supabase 載入投資組合的功能
             
             // 載入錦標賽統計數據
-            let tournamentStats = try await supabaseService.fetchTournamentStatistics()
+            let tournamentStats = try await SupabaseService.shared.fetchTournamentStatistics()
             print("✅ 成功載入錦標賽統計數據: \(tournamentStats.totalParticipants) 參與者")
             
             // 更新統計管理器
@@ -437,20 +425,13 @@ struct InvestmentHomeView: View {
     @State private var clearPortfolioSuccessMessage = ""
     
     var body: some View {
-        LazyVStack(spacing: DesignTokens.spacingMD) {
-
-            
+        VStack(spacing: DesignTokens.spacingMD) {
             // 投資組合圓餅圖
             portfolioOverviewCard
             
             // 交易區域（完整交易功能）
             tradingCard
-
         }
-        .padding(.horizontal)
-        .padding(.top, 8)
-        .padding(.bottom)
-        .adaptiveBackground()
         .refreshable {
             await refreshPortfolioData()
         }
@@ -477,7 +458,7 @@ struct InvestmentHomeView: View {
         .alert("清空投資組合", isPresented: $showClearPortfolioConfirmation) {
             Button("取消", role: .cancel) { }
             Button("確定清空", role: .destructive) {
-                Task {
+                Task { @MainActor in
                     await clearPortfolioWithSupabaseSync()
                 }
             }
@@ -846,14 +827,10 @@ struct InvestmentHomeView: View {
                     .foregroundColor(.brandGreen)
                     .font(.title3)
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("投資組合")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .adaptiveTextColor()
-                    
-                    Text("總價值 NT$\(formatTotalValue())")
-                }
+                Text("投資組合")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .adaptiveTextColor()
                 
                 Spacer()
             }
@@ -951,11 +928,6 @@ struct InvestmentHomeView: View {
         .brandCardStyle()
     }
     
-    /// 格式化總價值顯示
-    private func formatTotalValue() -> String {
-        let totalValue = portfolioManager.totalPortfolioValue + portfolioManager.availableBalance
-        return "\(Int(totalValue))"
-    }
     
     // MARK: - 原始交易區域卡片（保留）
     private var tradingCard: some View {
@@ -1142,42 +1114,35 @@ struct InvestmentHomeView: View {
     }
     
     /// 獲取即時股價
+    @MainActor
     private func fetchCurrentPrice() async {
         guard !stockSymbol.trimmingCharacters(in: .whitespaces).isEmpty else {
-            await MainActor.run {
-                currentPrice = 0.0
-                priceError = nil
-                priceLastUpdated = nil
-            }
+            currentPrice = 0.0
+            priceError = nil
+            priceLastUpdated = nil
             return
         }
         
-        await MainActor.run {
-            isPriceLoading = true
-            priceError = nil
-        }
+        isPriceLoading = true
+        priceError = nil
         
         do {
             let stockPrice = try await TradingAPIService.shared.fetchStockPriceAuto(symbol: stockSymbol)
             
-            await MainActor.run {
-                currentPrice = stockPrice.currentPrice
-                priceLastUpdated = ISO8601DateFormatter().date(from: stockPrice.timestamp) ?? Date()
-                priceError = nil
-                isPriceLoading = false
-                calculateEstimation()
-            }
+            currentPrice = stockPrice.currentPrice
+            priceLastUpdated = ISO8601DateFormatter().date(from: stockPrice.timestamp) ?? Date()
+            priceError = nil
+            isPriceLoading = false
+            calculateEstimation()
             
         } catch {
-            await MainActor.run {
-                currentPrice = 0.0
-                if let tradingError = error as? TradingAPIError {
-                    priceError = tradingError.localizedDescription
-                } else {
-                    priceError = "網路錯誤"
-                }
-                isPriceLoading = false
+            currentPrice = 0.0
+            if let tradingError = error as? TradingAPIError {
+                priceError = tradingError.localizedDescription
+            } else {
+                priceError = "網路錯誤"
             }
+            isPriceLoading = false
         }
     }
     
@@ -1200,12 +1165,12 @@ struct InvestmentHomeView: View {
     
     /// 執行交易並進行驗證
     /// 異步交易執行方法
+    @MainActor
     private func executeTradeOrder() async {
-        await MainActor.run {
-            executeTradeWithValidation()
-        }
+        executeTradeWithValidation()
     }
     
+    @MainActor
     private func executeTradeWithValidation() {
         guard let amount = Double(tradeAmount), amount > 0 else {
             showError("請輸入有效的金額")
@@ -1225,7 +1190,7 @@ struct InvestmentHomeView: View {
         }
         
         // 使用 PortfolioSyncService 執行錦標賽交易
-        Task {
+        Task { @MainActor in
             let success = await PortfolioSyncService.shared.executeTournamentTrade(
                 tournamentId: currentActiveTournament?.id, // 傳入當前錦標賽 ID
                 symbol: stockSymbol,
@@ -1235,19 +1200,17 @@ struct InvestmentHomeView: View {
                 price: currentPrice
             )
             
-            await MainActor.run {
-                if success {
-                    // 交易成功
-                    if tradeAction == "buy" {
-                        tradeSuccessMessage = "成功購買 \(String(format: "%.2f", amount / currentPrice)) 股 \(stockSymbol)"
-                    } else {
-                        tradeSuccessMessage = "成功賣出 \(String(format: "%.2f", amount)) 股 \(stockSymbol)"
-                    }
-                    showTradeSuccess = true
-                    clearTradeInputs()
+            if success {
+                // 交易成功
+                if tradeAction == "buy" {
+                    tradeSuccessMessage = "成功購買 \(String(format: "%.2f", amount / currentPrice)) 股 \(stockSymbol)"
                 } else {
-                    showError("交易失敗，請檢查餘額或持股是否足夠")
+                    tradeSuccessMessage = "成功賣出 \(String(format: "%.2f", amount)) 股 \(stockSymbol)"
                 }
+                showTradeSuccess = true
+                clearTradeInputs()
+            } else {
+                showError("交易失敗，請檢查餘額或持股是否足夠")
             }
         }
     }
@@ -2163,7 +2126,7 @@ struct TournamentSelectionSheet: View {
     
     /// 檢查當前用戶是否為管理員 (test03)  
     private var isAdminUser: Bool {
-        guard let currentUser = supabaseService.getCurrentUser() else {
+        guard let currentUser = SupabaseService.shared.getCurrentUser() else {
             return false
         }
         return currentUser.username == "test03"
@@ -2176,9 +2139,9 @@ struct TournamentSelectionSheet: View {
             return
         }
         
-        Task {
+        Task { @MainActor in
             do {
-                let success = try await supabaseService.deleteTournament(tournamentId: tournament.id)
+                let success = try await SupabaseService.shared.deleteTournament(tournamentId: tournament.id)
                 if success {
                     // 從本地列表中移除
                     participatedTournaments.removeAll { $0.id == tournament.id }
@@ -2901,25 +2864,21 @@ struct CreateTournamentView: View {
             isFeatured: isFeatured
         )
         
-        Task {
+        Task { @MainActor in
             do {
                 try await createTournamentInDatabase(tournament)
-                await MainActor.run {
-                    isCreating = false
-                    alertMessage = "錦標賽「\(tournament.name)」建立成功！"
-                    showAlert = true
-                    
-                    // 延遲關閉視圖
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        dismiss()
-                    }
+                isCreating = false
+                alertMessage = "錦標賽「\(tournament.name)」建立成功！"
+                showAlert = true
+                
+                // 延遲關閉視圖
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    dismiss()
                 }
             } catch {
-                await MainActor.run {
-                    isCreating = false
-                    alertMessage = "建立錦標賽失敗：\(error.localizedDescription)"
-                    showAlert = true
-                }
+                isCreating = false
+                alertMessage = "建立錦標賽失敗：\(error.localizedDescription)"
+                showAlert = true
             }
         }
     }
