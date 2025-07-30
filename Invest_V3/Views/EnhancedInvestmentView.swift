@@ -106,25 +106,24 @@ struct EnhancedInvestmentView: View {
             // 3. 錦標賽選擇
             NavigationStack {
                 ScrollView {
-                    LazyVStack(spacing: 0, pinnedViews: []) {
-                        // 主要內容 - 無上方間距
+                    VStack(alignment: .leading, spacing: 16) {
+                        // 統計橫幅作為內容第一項
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared,
+                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                        )
+                        
+                        // 錦標賽選擇內容
                         TournamentSelectionView(
                             selectedTournament: $selectedTournament,
                             showingDetail: $showingTournamentDetail
                         )
-                        .padding(.bottom, 20)
                     }
+                    .padding(.horizontal)
                 }
                 .navigationTitle("錦標賽")
                 .navigationBarTitleDisplayMode(.inline)
-                .safeAreaInset(edge: .top) {
-                    // 統計橫幅作為頂部插入，緊貼安全區域
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared,
-                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
-                    )
-                }
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton
@@ -138,12 +137,27 @@ struct EnhancedInvestmentView: View {
             
             // 4. 排行榜與動態
             NavigationStack {
-                TournamentRankingsView()
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            tournamentSelectionButton
-                        }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // 統計橫幅作為內容第一項
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared,
+                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                        )
+                        
+                        // 排行榜內容
+                        TournamentRankingsView()
                     }
+                    .padding(.horizontal)
+                }
+                .navigationTitle("排行榜")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        tournamentSelectionButton
+                    }
+                }
             }
             .tabItem {
                 Label("排行榜", systemImage: "list.number")
@@ -153,22 +167,21 @@ struct EnhancedInvestmentView: View {
             // 5. 個人績效
             NavigationStack {
                 ScrollView {
-                    LazyVStack(spacing: 0, pinnedViews: []) {
-                        // 主要內容 - 無上方間距
+                    VStack(alignment: .leading, spacing: 16) {
+                        // 統計橫幅作為內容第一項
+                        StatisticsBanner(
+                            statisticsManager: statisticsManager,
+                            portfolioManager: ChatPortfolioManager.shared,
+                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                        )
+                        
+                        // 個人績效內容
                         PersonalPerformanceView()
-                            .padding(.bottom, 20)
                     }
+                    .padding(.horizontal)
                 }
                 .navigationTitle("我的績效")
                 .navigationBarTitleDisplayMode(.inline)
-                .safeAreaInset(edge: .top) {
-                    // 統計橫幅作為頂部插入，緊貼安全區域
-                    StatisticsBanner(
-                        statisticsManager: statisticsManager,
-                        portfolioManager: ChatPortfolioManager.shared,
-                        currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
-                    )
-                }
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton

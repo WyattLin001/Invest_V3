@@ -20,9 +20,7 @@ struct PersonalPerformanceView: View {
     private let currentUserId = UUID()
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
                     // 績效總覽卡片
                     performanceOverviewCard
                     
@@ -43,7 +41,7 @@ struct PersonalPerformanceView: View {
                         achievementsContent
                             .tag(PerformanceTab.achievements)
                     }
-                    .frame(height: 400)
+                    .frame(minHeight: 900) // 改用最小高度，允許內容擴展
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                     
                     // 標籤選擇器
@@ -62,21 +60,9 @@ struct PersonalPerformanceView: View {
             }
             .padding(.horizontal, 16)
         }
-        .navigationBarHidden(true)
-        .adaptiveBackground()
         .onAppear {
             Task {
                 await loadPerformanceData()
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    showingShareSheet = true
-                }) {
-                    Image(systemName: "square.and.arrow.up")
-                        .foregroundColor(.brandGreen)
-                }
             }
         }
         .refreshable {
@@ -299,6 +285,143 @@ struct PersonalPerformanceView: View {
                         HealthScoreRow(title: "風險分數", score: 65, maxScore: 100, color: .orange)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                
+                // 新增：行業分散度和趨勢分析
+                HStack(spacing: 20) {
+                    // 行業分散度
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "building.2")
+                                .foregroundColor(.indigo)
+                            Text("行業分散")
+                                .font(.headline)
+                                .foregroundColor(.indigo)
+                        }
+                        
+                        MetricRow(title: "科技股佔比", value: "45.2%", color: .blue)
+                        MetricRow(title: "金融股佔比", value: "23.8%", color: .green)
+                        MetricRow(title: "分散度評分", value: "7.5/10", color: .indigo)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // 趨勢分析
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "chart.xyaxis.line")
+                                .foregroundColor(.mint)
+                            Text("趨勢分析")
+                                .font(.headline)
+                                .foregroundColor(.mint)
+                        }
+                        
+                        MetricRow(title: "7日趨勢", value: "↗ 上升", color: .green)
+                        MetricRow(title: "30日趨勢", value: "→ 盤整", color: .orange)
+                        MetricRow(title: "波動率", value: "12.4%", color: .red)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                
+                // 新增：交易行為和市場對比
+                HStack(spacing: 20) {
+                    // 交易行為
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "repeat")
+                                .foregroundColor(.cyan)
+                            Text("交易行為")
+                                .font(.headline)
+                                .foregroundColor(.cyan)
+                        }
+                        
+                        MetricRow(title: "交易頻率", value: "每週 2.3 次", color: .primary)
+                        MetricRow(title: "平均成本", value: "$125,430", color: .blue)
+                        MetricRow(title: "資金運用率", value: "78.5%", color: .green)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // 市場對比
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "chart.bar.xaxis")
+                                .foregroundColor(.teal)
+                            Text("市場對比")
+                                .font(.headline)
+                                .foregroundColor(.teal)
+                        }
+                        
+                        MetricRow(title: "vs 大盤", value: "+12.3%", color: .green)
+                        MetricRow(title: "vs 同業", value: "+8.7%", color: .green)
+                        MetricRow(title: "β係數", value: "1.15", color: .orange)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                
+                // 新增：風險警示和改善建議
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Image(systemName: "lightbulb")
+                            .foregroundColor(.yellow)
+                        Text("智能建議")
+                            .font(.headline)
+                            .foregroundColor(.yellow)
+                    }
+                    
+                    VStack(spacing: 12) {
+                        // 風險警示
+                        HStack {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(.red)
+                                .font(.caption)
+                            
+                            Text("科技股集中度過高，建議分散到傳統產業")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.leading)
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(8)
+                        
+                        // 正面建議
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                            
+                            Text("持有週期適中，投資紀律良好")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.leading)
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(8)
+                        
+                        // 改善建議
+                        HStack {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .foregroundColor(.blue)
+                                .font(.caption)
+                            
+                            Text("考慮增加債券配置以降低整體波動")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.leading)
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
+                    }
                 }
             }
         }

@@ -28,6 +28,11 @@ struct TournamentRankingsView: View {
     @State private var showingError = false
     @State private var tournamentStats: TournamentStats?
     
+    // 分頁相關狀態
+    @State private var currentPage = 0
+    @State private var isLoadingMore = false
+    private let itemsPerPage = 10
+    
     // 模擬統計數據 - 當 Supabase 數據載入失敗時使用
     private var fallbackStats: TournamentStats {
         TournamentStats(
@@ -43,6 +48,21 @@ struct TournamentRankingsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm:ss a"
         return formatter.string(from: date)
+    }
+    
+    // 分頁相關計算屬性
+    private var paginatedParticipants: [MockParticipant] {
+        let startIndex = currentPage * itemsPerPage
+        let endIndex = min(startIndex + itemsPerPage, mockParticipants.count)
+        
+        guard startIndex < mockParticipants.count else { return [] }
+        return Array(mockParticipants[startIndex..<endIndex])
+    }
+    
+    private var hasMorePages: Bool {
+        let totalItems = mockParticipants.count
+        let currentItems = (currentPage + 1) * itemsPerPage
+        return currentItems < totalItems
     }
     
     // 模擬參與者數據
@@ -107,16 +127,135 @@ struct TournamentRankingsView: View {
                 trendColor: .gray,
                 trendText: "0",
                 returnColor: .green
+            ),
+            // 添加更多模擬數據以測試分頁
+            MockParticipant(
+                code: "AL",
+                name: "AlgoTrader",
+                badges: ["🤖"],
+                balance: "$1,200,000",
+                returnRate: "+20.00%",
+                dailyChange: "+0.85% 今日",
+                trendIcon: "arrow.up",
+                trendColor: .green,
+                trendText: "+2",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "QU",
+                name: "QuantKing",
+                badges: ["📊", "⚡"],
+                balance: "$1,180,000",
+                returnRate: "+18.00%",
+                dailyChange: "-0.35% 今日",
+                trendIcon: "arrow.down",
+                trendColor: .red,
+                trendText: "-1",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "SP",
+                name: "StockPro",
+                badges: ["💎"],
+                balance: "$1,150,000",
+                returnRate: "+15.00%",
+                dailyChange: "+1.20% 今日",
+                trendIcon: "arrow.up",
+                trendColor: .green,
+                trendText: "+1",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "DI",
+                name: "DiamondHands",
+                badges: ["💎", "🚀"],
+                balance: "$1,120,000",
+                returnRate: "+12.00%",
+                dailyChange: "+0.55% 今日",
+                trendIcon: "arrow.up",
+                trendColor: .green,
+                trendText: "+3",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "RI",
+                name: "RiskTaker",
+                badges: ["🔥"],
+                balance: "$1,080,000",
+                returnRate: "+8.00%",
+                dailyChange: "-1.15% 今日",
+                trendIcon: "arrow.down",
+                trendColor: .red,
+                trendText: "-2",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "VA",
+                name: "ValueHunter",
+                badges: ["🎯"],
+                balance: "$1,050,000",
+                returnRate: "+5.00%",
+                dailyChange: "+0.75% 今日",
+                trendIcon: "arrow.up",
+                trendColor: .green,
+                trendText: "+1",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "GR",
+                name: "GrowthSeeker",
+                badges: ["📈"],
+                balance: "$1,020,000",
+                returnRate: "+2.00%",
+                dailyChange: "+0.45% 今日",
+                trendIcon: "minus",
+                trendColor: .gray,
+                trendText: "0",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "CO",
+                name: "Conservative",
+                badges: ["🛡️"],
+                balance: "$1,010,000",
+                returnRate: "+1.00%",
+                dailyChange: "+0.15% 今日",
+                trendIcon: "arrow.up",
+                trendColor: .green,
+                trendText: "+1",
+                returnColor: .green
+            ),
+            MockParticipant(
+                code: "NE",
+                name: "NewTrader",
+                badges: ["🌱"],
+                balance: "$995,000",
+                returnRate: "-0.50%",
+                dailyChange: "-0.25% 今日",
+                trendIcon: "arrow.down",
+                trendColor: .red,
+                trendText: "-1",
+                returnColor: .red
+            ),
+            MockParticipant(
+                code: "LE",
+                name: "Learner",
+                badges: ["📚"],
+                balance: "$980,000",
+                returnRate: "-2.00%",
+                dailyChange: "-0.80% 今日",
+                trendIcon: "arrow.down",
+                trendColor: .red,
+                trendText: "-3",
+                returnColor: .red
             )
         ]
     }
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // 統計信息橫幅
-                    statisticsHeader
+        VStack(alignment: .leading, spacing: 16) {
+            // 統計信息橫幅
+            statisticsHeader
                     
                     // 排行榜區域
                     VStack(alignment: .leading, spacing: 16) {
@@ -130,38 +269,60 @@ struct TournamentRankingsView: View {
                                 .fontWeight(.bold)
                             
                             Spacer()
-                            
-                            Button("查看全部") {
-                                // TODO: 實現查看全部功能
-                            }
-                            .font(.subheadline)
-                            .foregroundColor(.blue)
                         }
                         .padding(.horizontal)
                         
                         // 排行榜列表
                         LazyVStack(spacing: 10) {
-                            ForEach(mockParticipants.indices, id: \.self) { index in
+                            ForEach(paginatedParticipants.indices, id: \.self) { index in
+                                let participantIndex = currentPage * itemsPerPage + index
                                 modernRankingCard(
-                                    mockParticipants[index], 
-                                    rank: index + 1, 
-                                    isCurrentUser: index == 4
+                                    paginatedParticipants[index], 
+                                    rank: participantIndex + 1, 
+                                    isCurrentUser: participantIndex == 4
                                 )
+                            }
+                            
+                            // 載入更多按鈕 - HIG 遵循設計
+                            if hasMorePages {
+                                Button(action: {
+                                    loadNextPage()
+                                }) {
+                                    HStack(spacing: 8) {
+                                        if isLoadingMore {
+                                            ProgressView()
+                                                .scaleEffect(0.9)
+                                                .tint(.white)
+                                        } else {
+                                            Image(systemName: "arrow.down.circle.fill")
+                                                .foregroundColor(.white)
+                                                .font(.system(size: 16))
+                                        }
+                                        Text(isLoadingMore ? "載入中..." : "載入更多")
+                                            .font(.body)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.white)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .frame(minHeight: 44) // HIG 最小觸控目標
+                                    .padding(.horizontal, 16)
+                                    .background(.blue, in: RoundedRectangle(cornerRadius: 12))
+                                }
+                                .disabled(isLoadingMore)
+                                .accessibilityLabel(isLoadingMore ? "正在載入更多排名" : "載入更多排名")
+                                .accessibilityHint("載入下一頁排行榜數據")
                             }
                         }
                         .padding(.horizontal)
                     }
                 }
-                .padding(.top, 8)
             }
             .refreshable {
                 await refreshData()
             }
         }
-        .navigationBarHidden(true)
-        .adaptiveBackground()
         .onAppear {
-            Task {
+            Task { @MainActor in
                 await loadInitialData()
                 await loadTournamentStatistics()
             }
@@ -179,10 +340,15 @@ struct TournamentRankingsView: View {
         }
         .onChange(of: selectedTournament) { _, newTournament in
             if let tournament = newTournament {
-                Task {
+                Task { @MainActor in
                     await loadTournamentData(tournament.id)
                 }
             }
+        }
+        .onAppear {
+            // 初始化分頁狀態
+            currentPage = 0
+            isLoadingMore = false
         }
     }
     
@@ -190,7 +356,36 @@ struct TournamentRankingsView: View {
     private var statisticsHeader: some View {
         let stats = tournamentStats ?? fallbackStats
         
-        return VStack(spacing: 10) {
+        return VStack(spacing: 16) {
+            // 新增頂部導航和標題
+            HStack {
+                Text("排行榜")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Button(action: {
+                    showingTournamentPicker = true
+                }) {
+                    HStack(spacing: 6) {
+                        Text(selectedTournament?.name ?? "無選擇錦標賽")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                        
+                        Image(systemName: "chevron.down")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                }
+            }
+            
             HStack(spacing: 0) {
                 // 參與者
                 VStack(alignment: .center, spacing: 6) {
@@ -198,7 +393,7 @@ struct TournamentRankingsView: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
                     Text("\(stats.totalParticipants)")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
                 }
                 .frame(maxWidth: .infinity)
@@ -214,7 +409,7 @@ struct TournamentRankingsView: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
                     Text(String(format: "%.1f%%", stats.averageReturn * 100))
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(.success)
                 }
                 .frame(maxWidth: .infinity)
@@ -230,7 +425,7 @@ struct TournamentRankingsView: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
                     Text("\(stats.daysRemaining)")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(.orange)
                 }
                 .frame(maxWidth: .infinity)
@@ -256,22 +451,33 @@ struct TournamentRankingsView: View {
     // 現代化的排行榜卡片
     private func modernRankingCard(_ participant: MockParticipant, rank: Int, isCurrentUser: Bool = false) -> some View {
         HStack(spacing: 12) {
-            // 排名徽章
-            ZStack {
-                Circle()
-                    .fill(rankColor(rank))
-                    .frame(width: 36, height: 36)
-                
-                if rank <= 3 {
-                    Image(systemName: rank == 1 ? "crown.fill" : "star.fill")
-                        .foregroundColor(.white)
-                        .font(.system(size: 14, weight: .bold))
-                } else {
-                    Text("\(rank)")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
+            // 排名徽章 - HIG 遵循的觸控目標和無障礙支援
+            Button(action: {
+                // 排名詳情動作
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(rankColor(rank))
+                        .frame(width: 36, height: 36) // 視覺尺寸，保持平衡
+                        .shadow(color: rankColor(rank).opacity(0.3), radius: 6, x: 0, y: 3)
+                    
+                    if rank <= 3 {
+                        Image(systemName: rank == 1 ? "crown.fill" : rank == 2 ? "medal.fill" : "star.fill")
+                            .foregroundColor(.white)
+                            .font(.system(size: 16, weight: .bold))
+                    } else {
+                        Text("\(rank)")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .minimumScaleFactor(0.8)
+                    }
                 }
             }
+            .frame(width: 44, height: 44) // HIG 要求的最小觸控目標
+            .contentShape(Rectangle()) // 確保整個區域可點擊
+            .accessibilityLabel("排名第\(rank)名")
+            .accessibilityHint("點擊查看詳細資訊")
+            .accessibilityAddTraits(.isButton)
             
             // 排名變化指示器
             VStack(spacing: 2) {
@@ -662,28 +868,39 @@ struct TournamentRankingsView: View {
     
     // MARK: - 輔助視圖
     private func rankBadge(_ rank: Int) -> some View {
-        ZStack {
-            if rank <= 3 {
-                // 前三名特殊徽章
-                Circle()
-                    .fill(rankColor(rank))
-                    .frame(width: 32, height: 32)
-                
-                Image(systemName: rank == 1 ? "crown.fill" : "star.fill")
-                    .foregroundColor(.white)
-                    .font(.caption)
-            } else {
-                // 普通排名
-                Circle()
-                    .fill(Color.gray400)
-                    .frame(width: 32, height: 32)
-                
-                Text("\(rank)")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
+        Button(action: {
+            // 排名詳情動作
+        }) {
+            ZStack {
+                if rank <= 3 {
+                    // 前三名特殊徽章
+                    Circle()
+                        .fill(rankColor(rank))
+                        .frame(width: 32, height: 32) // 視覺尺寸
+                        .shadow(color: rankColor(rank).opacity(0.3), radius: 4, x: 0, y: 2)
+                    
+                    Image(systemName: rank == 1 ? "crown.fill" : "star.fill")
+                        .foregroundColor(.white)
+                        .font(.system(size: 12, weight: .bold))
+                } else {
+                    // 普通排名
+                    Circle()
+                        .fill(Color.gray400)
+                        .frame(width: 32, height: 32) // 視覺尺寸
+                        .shadow(color: Color.gray400.opacity(0.3), radius: 4, x: 0, y: 2)
+                    
+                    Text("\(rank)")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .minimumScaleFactor(0.8)
+                }
             }
         }
+        .frame(width: 44, height: 44) // HIG 要求的最小觸控目標
+        .contentShape(Rectangle()) // 確保整個區域可點擊
+        .accessibilityLabel("排名第\(rank)名")
+        .accessibilityHint("點擊查看用戶詳情")
+        .accessibilityAddTraits(.isButton)
     }
     
     private func performanceBadge(_ level: PerformanceLevel) -> some View {
@@ -739,6 +956,7 @@ struct TournamentRankingsView: View {
     }
     
     // MARK: - 數據操作
+    @MainActor
     private func loadInitialData() async {
         do {
             tournaments = try await tournamentService.fetchTournaments()
@@ -772,6 +990,7 @@ struct TournamentRankingsView: View {
         }
     }
     
+    @MainActor
     private func loadTournamentData(_ tournamentId: UUID) async {
         do {
             async let participantsTask = tournamentService.fetchTournamentParticipants(tournamentId: tournamentId)
@@ -815,6 +1034,7 @@ struct TournamentRankingsView: View {
         )
     }
     
+    @MainActor
     private func loadMockParticipants() async {
         let mockData = mockParticipants
         let mockTournamentParticipants = mockData.enumerated().map { index, mock in
@@ -840,27 +1060,24 @@ struct TournamentRankingsView: View {
             )
         }
         
-        await MainActor.run {
-            self.participants = mockTournamentParticipants
-            self.activities = [] // 模擬空的活動列表
-        }
+        self.participants = mockTournamentParticipants
+        self.activities = [] // 模擬空的活動列表
     }
     
     /// 從 Supabase 載入錦標賽統計數據
+    @MainActor
     private func loadTournamentStatistics() async {
         do {
             let statsResponse = try await supabaseService.fetchTournamentStatistics(
                 tournamentId: selectedTournament?.id
             )
             
-            await MainActor.run {
-                self.tournamentStats = TournamentStats(
-                    totalParticipants: statsResponse.totalParticipants,
-                    averageReturn: statsResponse.averageReturn,
-                    daysRemaining: statsResponse.daysRemaining,
-                    lastUpdated: statsResponse.lastUpdated
-                )
-            }
+            self.tournamentStats = TournamentStats(
+                totalParticipants: statsResponse.totalParticipants,
+                averageReturn: statsResponse.averageReturn,
+                daysRemaining: statsResponse.daysRemaining,
+                lastUpdated: statsResponse.lastUpdated
+            )
             
             print("✅ [TournamentRankingsView] 成功載入錦標賽統計數據")
         } catch {
@@ -869,6 +1086,7 @@ struct TournamentRankingsView: View {
         }
     }
     
+    @MainActor
     private func refreshRankings() async {
         isRefreshing = true
         
@@ -884,6 +1102,7 @@ struct TournamentRankingsView: View {
         isRefreshing = false
     }
     
+    @MainActor
     private func refreshActivities() async {
         isRefreshing = true
         
@@ -899,9 +1118,24 @@ struct TournamentRankingsView: View {
     }
     
     // 刷新數據
+    @MainActor
     private func refreshData() async {
         await refreshRankings()
         await loadTournamentStatistics()
+    }
+    
+    // 加載下一頁
+    private func loadNextPage() {
+        guard !isLoadingMore && hasMorePages else { return }
+        
+        isLoadingMore = true
+        
+        // 模擬異步加載
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.currentPage += 1
+            self.isLoadingMore = false
+            print("📄 [TournamentRankingsView] 已加載第 \(self.currentPage + 1) 頁")
+        }
     }
 }
 
@@ -936,7 +1170,7 @@ struct TournamentPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 ForEach(tournaments, id: \.id) { tournament in
                     Button(action: {
