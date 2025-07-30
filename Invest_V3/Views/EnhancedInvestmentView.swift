@@ -30,6 +30,10 @@ struct EnhancedInvestmentView: View {
     @State private var participatedTournaments: [Tournament] = []
     @State private var currentActiveTournament: Tournament?
     
+    // 滾動狀態追踪
+    @State private var scrollOffset: CGFloat = 0
+    @State private var showTitle: Bool = false
+    
     // 統計管理器
     @ObservedObject private var statisticsManager = StatisticsManager.shared
     
@@ -39,17 +43,28 @@ struct EnhancedInvestmentView: View {
     // 投資組合管理器
     @ObservedObject private var portfolioManager = ChatPortfolioManager.shared
     
+    // 計算當前錦標賽名稱
+    private var displayTournamentName: String {
+        return currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+    }
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
             NavigationStack {
                 ScrollView {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
+                    }
+                    .frame(height: 0)
+                    
                     VStack(alignment: .leading, spacing: 16) {
                         // 統計橫幅作為內容第一項
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                            currentTournamentName: displayTournamentName
                         )
                         .padding(.top, 8)
                         
@@ -63,7 +78,13 @@ struct EnhancedInvestmentView: View {
                     }
                     .padding(.horizontal)
                 }
-                .navigationTitle("投資總覽")
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showTitle = value < -50
+                    }
+                }
+                .navigationTitle(showTitle ? "投資總覽" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
@@ -85,12 +106,18 @@ struct EnhancedInvestmentView: View {
             // 2. 交易記錄
             NavigationStack {
                 ScrollView {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
+                    }
+                    .frame(height: 0)
+                    
                     VStack(alignment: .leading, spacing: 16) {
                         // 統計橫幅作為內容第一項
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                            currentTournamentName: displayTournamentName
                         )
                         .padding(.top, 8)
                         
@@ -99,7 +126,13 @@ struct EnhancedInvestmentView: View {
                     }
                     .padding(.horizontal)
                 }
-                .navigationTitle("交易記錄")
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showTitle = value < -50
+                    }
+                }
+                .navigationTitle(showTitle ? "交易記錄" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -115,12 +148,18 @@ struct EnhancedInvestmentView: View {
             // 3. 錦標賽選擇
             NavigationStack {
                 ScrollView {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
+                    }
+                    .frame(height: 0)
+                    
                     VStack(alignment: .leading, spacing: 16) {
                         // 統計橫幅作為內容第一項
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                            currentTournamentName: displayTournamentName
                         )
                         .padding(.top, 8)
                         
@@ -132,7 +171,13 @@ struct EnhancedInvestmentView: View {
                     }
                     .padding(.horizontal)
                 }
-                .navigationTitle("錦標賽")
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showTitle = value < -50
+                    }
+                }
+                .navigationTitle(showTitle ? "錦標賽" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -148,12 +193,18 @@ struct EnhancedInvestmentView: View {
             // 4. 排行榜與動態
             NavigationStack {
                 ScrollView {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
+                    }
+                    .frame(height: 0)
+                    
                     VStack(alignment: .leading, spacing: 16) {
                         // 統計橫幅作為內容第一項
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
+                            currentTournamentName: displayTournamentName
                         )
                         .padding(.top, 8)
                         
@@ -162,7 +213,13 @@ struct EnhancedInvestmentView: View {
                     }
                     .padding(.horizontal)
                 }
-                .navigationTitle("排行榜")
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showTitle = value < -50
+                    }
+                }
+                .navigationTitle(showTitle ? "排行榜" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -177,8 +234,8 @@ struct EnhancedInvestmentView: View {
             
             // 5. 個人績效  
             NavigationStack {
-                PersonalPerformanceContentView()
-                    .navigationTitle("我的績效")
+                PersonalPerformanceScrollableView(showTitle: $showTitle)
+                    .navigationTitle(showTitle ? "我的績效" : "")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
@@ -2913,6 +2970,315 @@ extension View {
     }
 }
 
+// MARK: - ScrollOffset PreferenceKey for scroll-based title animation
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+// MARK: - Personal Performance Scrollable View with title animation
+struct PersonalPerformanceScrollableView: View {
+    @Binding var showTitle: Bool
+    
+    var body: some View {
+        ScrollView {
+            GeometryReader { geometry in
+                Color.clear
+                    .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
+            }
+            .frame(height: 0)
+            
+            // 使用沒有 ScrollView 的個人績效內容
+            PersonalPerformanceInnerContent()
+                .padding(.horizontal)
+        }
+        .coordinateSpace(name: "scroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showTitle = value < -50
+            }
+        }
+    }
+}
+
+// MARK: - Personal Performance Inner Content (without ScrollView)
+struct PersonalPerformanceInnerContent: View {
+    @State private var selectedTimeframe: PerformanceTimeframe = .month
+    @State private var selectedTab: PersonalPerformanceTab = .overview
+    @State private var isRefreshing = false
+    @State private var performanceData = MockPerformanceData.sampleData
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+            // 績效總覽卡片作為第一項
+            performanceOverviewCard
+            
+            // 時間範圍選擇器
+            timeframeSelector
+            
+            // 標籤選擇器
+            tabSelector
+            
+            // 分頁內容
+            TabView(selection: $selectedTab) {
+                // 績效總覽
+                VStack(spacing: DesignTokens.spacingMD) {
+                    performanceMetricsCard
+                    performanceHistoryCard
+                }
+                .tag(PersonalPerformanceTab.overview)
+                
+                // 持股分析
+                VStack(spacing: DesignTokens.spacingMD) {
+                    holdingsAnalysisCard
+                    sectorAllocationCard
+                }
+                .tag(PersonalPerformanceTab.holdings)
+                
+                // 交易記錄
+                VStack(spacing: DesignTokens.spacingMD) {
+                    tradeHistoryCard
+                }
+                .tag(PersonalPerformanceTab.trades)
+                
+                // 排名歷史
+                VStack(spacing: DesignTokens.spacingMD) {
+                    rankingHistoryCard
+                }
+                .tag(PersonalPerformanceTab.rankings)
+            }
+        }
+        .refreshable {
+            await refreshPerformanceData()
+        }
+        .onAppear {
+            Task {
+                await loadPerformanceData()
+            }
+        }
+    }
+    
+    // MARK: - Performance cards (simplified versions)
+    private var performanceOverviewCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("績效總覽")
+                .font(.headline)
+                .adaptiveTextColor()
+            
+            HStack(spacing: DesignTokens.spacingMD) {
+                VStack(alignment: .leading) {
+                    Text("總收益")
+                        .font(.caption)
+                        .adaptiveTextColor(primary: false)
+                    Text("+\(performanceData.totalReturn, specifier: "%.2f")%")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.brandGreen)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing) {
+                    Text("今日變化")
+                        .font(.caption)
+                        .adaptiveTextColor(primary: false)
+                    Text("\(performanceData.dailyChange, specifier: "%.2f")%")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(performanceData.dailyChange >= 0 ? .brandGreen : .brandRed)
+                }
+            }
+        }
+        .brandCardStyle()
+    }
+    
+    // Add other card views as needed...
+    private var timeframeSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DesignTokens.spacingSM) {
+                ForEach(PerformanceTimeframe.allCases, id: \.self) { timeframe in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedTimeframe = timeframe
+                        }
+                    }) {
+                        Text(timeframe.displayName)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                selectedTimeframe == timeframe ?
+                                Color.brandGreen.opacity(0.2) :
+                                Color(.systemGray6)
+                            )
+                            .foregroundColor(
+                                selectedTimeframe == timeframe ?
+                                .brandGreen :
+                                .primary
+                            )
+                            .cornerRadius(16)
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+    
+    private var tabSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DesignTokens.spacingSM) {
+                ForEach(PersonalPerformanceTab.allCases, id: \.self) { tab in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedTab = tab
+                        }
+                    }) {
+                        Text(tab.displayName)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                selectedTab == tab ?
+                                Color.brandGreen :
+                                Color(.systemGray6)
+                            )
+                            .foregroundColor(
+                                selectedTab == tab ?
+                                .white :
+                                .primary
+                            )
+                            .cornerRadius(20)
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+    
+    // Simple placeholder cards
+    private var performanceMetricsCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("績效指標")
+                .font(.headline)
+                .adaptiveTextColor()
+            Text("績效詳細數據將在此顯示")
+                .font(.body)
+                .adaptiveTextColor(primary: false)
+        }
+        .brandCardStyle()
+    }
+    
+    private var performanceHistoryCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("績效走勢")
+                .font(.headline)
+                .adaptiveTextColor()
+            
+            // 績效走勢圖表
+            PerformanceChart(
+                data: generateMockPerformanceData(),
+                timeRange: .month,
+                width: UIScreen.main.bounds.width - 64,
+                height: 150
+            )
+        }
+        .brandCardStyle()
+    }
+    
+    private var holdingsAnalysisCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("持股分析")
+                .font(.headline)
+                .adaptiveTextColor()
+            Text("持股分析數據將在此顯示")
+                .font(.body)
+                .adaptiveTextColor(primary: false)
+        }
+        .brandCardStyle()
+    }
+    
+    private var sectorAllocationCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("板塊配置")
+                .font(.headline)
+                .adaptiveTextColor()
+            Text("板塊分配數據將在此顯示")
+                .font(.body)
+                .adaptiveTextColor(primary: false)
+        }
+        .brandCardStyle()
+    }
+    
+    private var tradeHistoryCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("交易歷史")
+                .font(.headline)
+                .adaptiveTextColor()
+            Text("交易記錄將在此顯示")
+                .font(.body)
+                .adaptiveTextColor(primary: false)
+        }
+        .brandCardStyle()
+    }
+    
+    private var rankingHistoryCard: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("排名變化")
+                .font(.headline)
+                .adaptiveTextColor()
+            Text("排名歷史將在此顯示")
+                .font(.body)
+                .adaptiveTextColor(primary: false)
+        }
+        .brandCardStyle()
+    }
+    
+    // Mock data functions
+    private func loadPerformanceData() async {
+        // Load performance data
+    }
+    
+    private func refreshPerformanceData() async {
+        isRefreshing = true
+        await loadPerformanceData()
+        isRefreshing = false
+    }
+    
+    private func generateMockPerformanceData() -> [PerformanceDataPoint] {
+        let calendar = Calendar.current
+        let endDate = Date()
+        let startDate = calendar.date(byAdding: .day, value: -30, to: endDate) ?? endDate
+        
+        var data: [PerformanceDataPoint] = []
+        var currentDate = startDate
+        var baseValue: Double = 1000000.0
+        
+        while currentDate <= endDate {
+            let dailyChangePercent = Double.random(in: -0.03...0.03)
+            let dailyChange = baseValue * dailyChangePercent
+            baseValue += dailyChange
+            
+            let cumulativeReturn = ((baseValue - 1000000.0) / 1000000.0) * 100
+            
+            data.append(PerformanceDataPoint(
+                date: currentDate,
+                value: baseValue,
+                portfolioValue: baseValue,
+                dailyChange: dailyChange,
+                cumulativeReturn: cumulativeReturn
+            ))
+            
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
+        }
+        
+        return data
+    }
+}
 
 // MARK: - 預覽
 #Preview {
