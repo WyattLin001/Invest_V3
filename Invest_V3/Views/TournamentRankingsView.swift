@@ -50,13 +50,10 @@ struct TournamentRankingsView: View {
         return formatter.string(from: date)
     }
     
-    // 分頁相關計算屬性
+    // 分頁相關計算屬性 - 顯示從開始到當前頁的所有數據
     private var paginatedParticipants: [MockParticipant] {
-        let startIndex = currentPage * itemsPerPage
-        let endIndex = min(startIndex + itemsPerPage, mockParticipants.count)
-        
-        guard startIndex < mockParticipants.count else { return [] }
-        return Array(mockParticipants[startIndex..<endIndex])
+        let endIndex = min((currentPage + 1) * itemsPerPage, mockParticipants.count)
+        return Array(mockParticipants[0..<endIndex])
     }
     
     private var hasMorePages: Bool {
@@ -275,11 +272,10 @@ struct TournamentRankingsView: View {
                     // 排行榜列表
                     LazyVStack(spacing: 10) {
                         ForEach(paginatedParticipants.indices, id: \.self) { index in
-                            let participantIndex = currentPage * itemsPerPage + index
                             modernRankingCard(
                                 paginatedParticipants[index], 
-                                rank: participantIndex + 1, 
-                                isCurrentUser: participantIndex == 4
+                                rank: index + 1, 
+                                isCurrentUser: index == 4
                             )
                         }
                         
@@ -314,6 +310,7 @@ struct TournamentRankingsView: View {
                         }
                     }
                 }
+                .padding(.top, 16)
             }
             .padding(.horizontal)
         }
@@ -483,10 +480,12 @@ struct TournamentRankingsView: View {
                     .foregroundColor(participant.trendColor)
                     .font(.system(size: 10))
                 Text(participant.trendText)
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(participant.trendColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .frame(width: 20)
+            .frame(width: 25)
             
             // 用戶信息 - 確保水平布局
             VStack(alignment: .leading, spacing: 4) {

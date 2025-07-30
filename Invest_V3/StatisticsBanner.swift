@@ -280,9 +280,11 @@ private struct StatisticItem: View {
                     .foregroundColor(.white.opacity(0.8))
                 
                 Text(value)
-                    .font(.subheadline)
+                    .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
         }
     }

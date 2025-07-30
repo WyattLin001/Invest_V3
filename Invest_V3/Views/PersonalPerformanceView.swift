@@ -488,22 +488,13 @@ struct PersonalPerformanceContentView: View {
                 .font(.headline)
                 .adaptiveTextColor()
             
-            // TODO: 添加實際的線圖組件
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.brandGreen.opacity(0.3), Color.brandGreen.opacity(0.1)]),
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(height: 150)
-                .cornerRadius(8)
-                .overlay(
-                    Text("績效走勢圖")
-                        .font(.caption)
-                        .adaptiveTextColor(primary: false)
-                )
+            // 績效走勢圖表
+            PerformanceChart(
+                data: generateMockPerformanceData(),
+                timeRange: .month,
+                width: UIScreen.main.bounds.width - 64,
+                height: 150
+            )
         }
         .brandCardStyle()
     }
@@ -747,6 +738,38 @@ struct PersonalPerformanceContentView: View {
         isRefreshing = true
         await loadPerformanceData()
         isRefreshing = false
+    }
+    
+    // MARK: - Mock Data Generation
+    private func generateMockPerformanceData() -> [PerformanceDataPoint] {
+        let calendar = Calendar.current
+        let endDate = Date()
+        let startDate = calendar.date(byAdding: .day, value: -30, to: endDate) ?? endDate
+        
+        var data: [PerformanceDataPoint] = []
+        var currentDate = startDate
+        var baseValue: Double = 1000000.0 // Starting with NT$1,000,000
+        
+        while currentDate <= endDate {
+            // Generate realistic daily changes between -3% and +3%
+            let dailyChangePercent = Double.random(in: -0.03...0.03)
+            let dailyChange = baseValue * dailyChangePercent
+            baseValue += dailyChange
+            
+            let cumulativeReturn = ((baseValue - 1000000.0) / 1000000.0) * 100
+            
+            data.append(PerformanceDataPoint(
+                date: currentDate,
+                value: baseValue,
+                portfolioValue: baseValue,
+                dailyChange: dailyChange,
+                cumulativeReturn: cumulativeReturn
+            ))
+            
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
+        }
+        
+        return data
     }
 }
 

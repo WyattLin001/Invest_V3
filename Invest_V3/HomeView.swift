@@ -230,7 +230,7 @@ struct HomeView: View {
                     } else {
                         HStack(spacing: 12) {
                             Text(TokenSystem.formatTokens(walletBalance))
-                                .font(.largeTitle)
+                                .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(.gray900)
                                 .monospacedDigit()
@@ -297,69 +297,45 @@ struct HomeView: View {
                 .foregroundColor(.gray900)
                 .accessibilityAddTraits(.isHeader)
 
-            HStack(spacing: 16) {
-                // 投資交易按鈕
-                Button(action: {
-                    viewModel.showInvestmentPanel = true
-                }) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.title2)
+            // 投資交易按鈕
+            Button(action: {
+                viewModel.showInvestmentPanel = true
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.title2)
+                        .foregroundColor(.white)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("投資交易")
+                            .font(.caption)
+                            .fontWeight(.semibold)
                             .foregroundColor(.white)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("投資交易")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-
-                            Text("模擬股票交易")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+                        Text("模擬股票交易")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.8))
                     }
-                    .padding(16)
-                    .frame(height: 64)
-                    .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: [Color.brandGreen, Color.brandGreen.opacity(0.8)]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .padding(16)
+                .frame(height: 64)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.brandGreen, Color.brandGreen.opacity(0.8)]),
+                        startPoint: .leading,
+                        endPoint: .trailing
                     )
-                    .cornerRadius(12)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("投資交易")
-                    .accessibilityHint("開啟投資面板進行模擬股票交易")
-                }
-
-                // 錢包按鈕
-                Button(action: {
-                    showWalletView = true
-                }) {
-                    VStack(spacing: 6) {
-                        Image(systemName: "wallet.pass")
-                            .font(.title2)
-                            .foregroundColor(.brandGreen)
-
-                        Text("錢包")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.gray700)
-                    }
-                    .frame(width: 72, height: 72)
-                    .background(Color.gray50)
-                    .cornerRadius(12)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("錢包")
-                    .accessibilityHint("查看錢包與交易記錄")
-                }
+                )
+                .cornerRadius(12)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("投資交易")
+                .accessibilityHint("開啟投資面板進行模擬股票交易")
             }
         }
         .padding(.all, 20)
@@ -405,6 +381,7 @@ struct HomeView: View {
                 periodButton(for: period)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 4)
     }
     
@@ -417,10 +394,11 @@ struct HomeView: View {
             }
         }) {
             Text(period.rawValue)
-                .font(.system(size: 15, weight: .medium, design: .default))
+                .font(.system(size: 14, weight: .medium, design: .default))
                 .foregroundColor(isSelected ? Color.white : Color.primary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .fixedSize(horizontal: true, vertical: false)
                 .background(
                     RoundedRectangle(cornerRadius: 18)
                         .fill(isSelected ? Color.accentColor : Color(.secondarySystemFill))

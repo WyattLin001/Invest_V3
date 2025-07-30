@@ -51,6 +51,7 @@ struct EnhancedInvestmentView: View {
                             portfolioManager: ChatPortfolioManager.shared,
                             currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                         )
+                        .padding(.top, 8)
                         
                         // 主要投資內容
                         InvestmentHomeView(
@@ -91,6 +92,7 @@ struct EnhancedInvestmentView: View {
                             portfolioManager: ChatPortfolioManager.shared,
                             currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                         )
+                        .padding(.top, 8)
                         
                         // 交易記錄內容
                         InvestmentRecordsView(currentActiveTournament: currentActiveTournament)
@@ -120,6 +122,7 @@ struct EnhancedInvestmentView: View {
                             portfolioManager: ChatPortfolioManager.shared,
                             currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                         )
+                        .padding(.top, 8)
                         
                         // 錦標賽選擇內容
                         TournamentSelectionView(
@@ -152,6 +155,7 @@ struct EnhancedInvestmentView: View {
                             portfolioManager: ChatPortfolioManager.shared,
                             currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
                         )
+                        .padding(.top, 8)
                         
                         // 排行榜內容
                         TournamentRankingsView()
@@ -509,6 +513,7 @@ struct InvestmentHomeView: View {
                 portfolioDiversityCard
             }
         }
+        .padding(.top, 16)
     }
     
     // MARK: - 投資組合總價值卡片
