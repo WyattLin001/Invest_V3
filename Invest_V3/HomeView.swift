@@ -110,8 +110,7 @@ struct HomeView: View {
         }
         .fullScreenCover(isPresented: $viewModel.showInvestmentPanel) {
             EnhancedInvestmentView(currentTournamentName: currentTournamentName)
-        }
-            .environmentObject(ThemeManager.shared)
+                .environmentObject(ThemeManager.shared)
         }
         .onReceive(viewModel.$errorMessage) { errorMessage in
             if let errorMessage = errorMessage {
