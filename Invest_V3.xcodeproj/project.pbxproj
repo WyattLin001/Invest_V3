@@ -43,6 +43,23 @@
 		7E5151292E1EC39F00A6F304 /* Invest_V3UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Invest_V3UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7EADF44A2E3A6ACC00332AAE /* Exceptions for "Invest_V3Tests" folder in "Invest_V3" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				TransactionsView.swift,
+			);
+			target = 7E5151112E1EC39C00A6F304 /* Invest_V3 */;
+		};
+		7EADF44B2E3A6ACC00332AAE /* Exceptions for "Invest_V3Tests" folder in "Invest_V3Tests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				TransactionsView.swift,
+			);
+			target = 7E51511E2E1EC39F00A6F304 /* Invest_V3Tests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7E5151142E1EC39C00A6F304 /* Invest_V3 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -51,6 +68,10 @@
 		};
 		7E5151222E1EC39F00A6F304 /* Invest_V3Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7EADF44A2E3A6ACC00332AAE /* Exceptions for "Invest_V3Tests" folder in "Invest_V3" target */,
+				7EADF44B2E3A6ACC00332AAE /* Exceptions for "Invest_V3Tests" folder in "Invest_V3Tests" target */,
+			);
 			path = Invest_V3Tests;
 			sourceTree = "<group>";
 		};

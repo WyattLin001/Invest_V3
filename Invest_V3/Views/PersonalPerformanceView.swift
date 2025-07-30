@@ -7,7 +7,8 @@
 
 import SwiftUI
 
-struct PersonalPerformanceView: View {
+// MARK: - 個人績效內容視圖（不包含 NavigationStack）
+struct PersonalPerformanceContentView: View {
     private let tournamentService = ServiceConfiguration.makeTournamentService()
     @State private var selectedTimeframe: PerformanceTimeframe = .month
     @State private var performanceData: PersonalPerformance = MockPortfolioData.samplePerformance
@@ -66,9 +67,6 @@ struct PersonalPerformanceView: View {
             Task {
                 await loadPerformanceData()
             }
-        }
-        .refreshable {
-            await refreshPerformanceData()
         }
         .sheet(isPresented: $showingShareSheet) {
             PerformanceShareSheet(performanceData: performanceData)
@@ -923,8 +921,19 @@ struct HealthScoreRow: View {
     }
 }
 
+// MARK: - 原始 PersonalPerformanceView（用於 push navigation）
+struct PersonalPerformanceView: View {
+    var body: some View {
+        PersonalPerformanceContentView()
+            .navigationTitle("我的績效")
+            .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 // MARK: - 預覽
 #Preview {
-    PersonalPerformanceView()
-        .environmentObject(ThemeManager.shared)
+    NavigationStack {
+        PersonalPerformanceView()
+    }
+    .environmentObject(ThemeManager.shared)
 }

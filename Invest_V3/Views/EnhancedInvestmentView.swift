@@ -163,29 +163,16 @@ struct EnhancedInvestmentView: View {
             }
             .tag(InvestmentTab.rankings)
             
-            // 5. 個人績效
+            // 5. 個人績效  
             NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // 統計橫幅作為內容第一項
-                        StatisticsBanner(
-                            statisticsManager: statisticsManager,
-                            portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: currentTournamentName ?? currentActiveTournament?.name ?? "2025年度投資錦標賽"
-                        )
-                        
-                        // 個人績效內容
-                        PersonalPerformanceView()
+                PersonalPerformanceContentView()
+                    .navigationTitle("我的績效")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            tournamentSelectionButton
+                        }
                     }
-                    .padding(.horizontal)
-                }
-                .navigationTitle("我的績效")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        tournamentSelectionButton
-                    }
-                }
             }
             .tabItem {
                 Label("我的績效", systemImage: "chart.bar.fill")
