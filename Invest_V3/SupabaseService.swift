@@ -6344,4 +6344,41 @@ extension SupabaseService {
         
         print("✅ 錦標賽交易記錄同步成功")
     }
+    
+    // MARK: - User Management Methods
+    
+    /// 獲取所有用戶
+    func fetchAllUsers() async throws -> [UserProfile] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("👥 [SupabaseService] 獲取所有用戶")
+        
+        let users: [UserProfile] = try await client
+            .from("user_profiles")
+            .select()
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+        
+        print("✅ 獲取用戶成功: \(users.count) 個用戶")
+        return users
+    }
+    
+    // MARK: - Tournament Management Methods
+    
+    /// 刪除錦標賽
+    func deleteTournament(tournamentId: UUID) async throws -> Bool {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🗑️ [SupabaseService] 刪除錦標賽: \(tournamentId)")
+        
+        try await client
+            .from("tournaments")
+            .delete()
+            .eq("id", value: tournamentId.uuidString)
+            .execute()
+        
+        print("✅ 錦標賽刪除成功")
+        return true
+    }
 }

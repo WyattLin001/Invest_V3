@@ -29,4 +29,11 @@ extension DateFormatter {
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
         return formatter
     }()
+    
+    /// Display date formatter (MM/dd format)
+    static let displayDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd"
+        return formatter
+    }()
 }

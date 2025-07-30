@@ -1,5 +1,5 @@
 {
-  "originHash" : "5f72d391eb1a35f9a8df32a3bc2a3165cdd5c4c3b1ceecc760b4acd22bacf7e6",
+  "originHash" : "441b9431dc0d765d8d3e9f183223bc80ac7fe0734d60579708bb86c469e0c3b3",
   "pins" : [
     {
       "identity" : "ashton",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "fe37711094b261d9fceeaf021143002ba37e563e",
         "version" : "3.0.2"
+      }
+    },
+    {
+      "identity" : "markdownui",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/gonzalezreal/MarkdownUI",
+      "state" : {
+        "revision" : "5f613358148239d0292c0cef674a3c2314737f9e",
+        "version" : "2.4.1"
       }
     },
     {

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7EADF4492E3A651200332AAE /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 7EADF4482E3A651200332AAE /* MarkdownUI */; };
 		7ECEC96D2E237A0600A99CC7 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 7ECEC96C2E237A0600A99CC7 /* Supabase */; };
 		7ECEC96F2E237A0A00A99CC7 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 7ECEC96E2E237A0A00A99CC7 /* Storage */; };
 		7ECEC9712E237A0E00A99CC7 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 7ECEC9702E237A0E00A99CC7 /* Realtime */; };
@@ -73,6 +74,7 @@
 				7ECECA862E23F2B900A99CC7 /* RichTextKit in Frameworks */,
 				7ECEC96F2E237A0A00A99CC7 /* Storage in Frameworks */,
 				7ECEC9752E237A1600A99CC7 /* Auth in Frameworks */,
+				7EADF4492E3A651200332AAE /* MarkdownUI in Frameworks */,
 				7ECEC96D2E237A0600A99CC7 /* Supabase in Frameworks */,
 				7ECECA8F2E23F50100A99CC7 /* MarkdownUI in Frameworks */,
 			);
@@ -152,6 +154,7 @@
 				7ECECA852E23F2B900A99CC7 /* RichTextKit */,
 				7ECECA882E23F2EC00A99CC7 /* Ashton */,
 				7ECECA8B2E23F41400A99CC7 /* HTML2Markdown */,
+				7EADF4482E3A651200332AAE /* MarkdownUI */,
 			);
 			productName = Invest_V3;
 			productReference = 7E5151122E1EC39C00A6F304 /* Invest_V3.app */;
@@ -241,6 +244,7 @@
 				7ECECA872E23F2EC00A99CC7 /* XCRemoteSwiftPackageReference "Ashton" */,
 				7ECECA8A2E23F41300A99CC7 /* XCRemoteSwiftPackageReference "HTML2Markdown" */,
 				7ECECA8D2E23F50000A99CC7 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				7EADF4472E3A651200332AAE /* XCRemoteSwiftPackageReference "MarkdownUI" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7E5151132E1EC39C00A6F304 /* Products */;
@@ -603,6 +607,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		7EADF4472E3A651200332AAE /* XCRemoteSwiftPackageReference "MarkdownUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/MarkdownUI";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
 		7ECEC96A2E23792C00A99CC7 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase-community/supabase-swift";
@@ -646,6 +658,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		7EADF4482E3A651200332AAE /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7EADF4472E3A651200332AAE /* XCRemoteSwiftPackageReference "MarkdownUI" */;
+			productName = MarkdownUI;
+		};
 		7ECEC96C2E237A0600A99CC7 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7ECEC96A2E23792C00A99CC7 /* XCRemoteSwiftPackageReference "supabase-swift" */;

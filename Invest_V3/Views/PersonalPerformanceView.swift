@@ -20,43 +20,47 @@ struct PersonalPerformanceView: View {
     private let currentUserId = UUID()
     
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
-            // 績效總覽卡片
-            performanceOverviewCard
-            
-            // 時間範圍選擇器
-            timeframeSelector
-            
-            // 分頁內容
-            TabView(selection: $selectedTab) {
-                // 績效總覽
-                performanceOverviewContent
-                    .tag(PerformanceTab.overview)
+        ScrollView {
+            VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
+                // 績效總覽卡片作為第一項
+                performanceOverviewCard
                 
-                // 風險分析
-                riskAnalysisContent
-                    .tag(PerformanceTab.risk)
+                // 時間範圍選擇器
+                timeframeSelector
                 
-                // 成就系統
-                achievementsContent
-                    .tag(PerformanceTab.achievements)
+                // 標籤選擇器
+                tabSelector
+                
+                // 分頁內容
+                TabView(selection: $selectedTab) {
+                    // 績效總覽
+                    performanceOverviewContent
+                        .tag(PerformanceTab.overview)
+                    
+                    // 風險分析
+                    riskAnalysisContent
+                        .tag(PerformanceTab.risk)
+                    
+                    // 成就系統
+                    achievementsContent
+                        .tag(PerformanceTab.achievements)
+                }
+                .frame(height: 500) // 使用固定高度避免滾動衝突
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                
+                // 詳細指標
+                detailedMetricsCard
+                
+                // 績效歷史圖表
+                performanceHistoryCard
+                
+                // 排名歷史
+                rankingHistoryCard
             }
-            .frame(minHeight: 900) // 改用最小高度，允許內容擴展
-            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-            
-            // 標籤選擇器
-            tabSelector
-            
-            // 詳細指標
-            detailedMetricsCard
-            
-            // 績效歷史圖表
-            performanceHistoryCard
-            
-            // 排名歷史
-            rankingHistoryCard
+            .padding(.horizontal)
         }
-        .padding(.horizontal, 16)
+        .refreshable {
+            await refreshPerformanceData()
         }
         .onAppear {
             Task {

@@ -253,72 +253,72 @@ struct TournamentRankingsView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // 統計信息橫幅
-            statisticsHeader
-            
-            // 排行榜區域
+        ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // 排行榜標題
-                HStack {
-                    Image(systemName: "trophy.fill")
-                        .foregroundColor(.orange)
-                        .font(.title3)
-                    Text("排行榜")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal)
+                // 統計信息橫幅作為第一項
+                statisticsHeader
                 
-                // 排行榜列表
-                LazyVStack(spacing: 10) {
-                    ForEach(paginatedParticipants.indices, id: \.self) { index in
-                        let participantIndex = currentPage * itemsPerPage + index
-                        modernRankingCard(
-                            paginatedParticipants[index], 
-                            rank: participantIndex + 1, 
-                            isCurrentUser: participantIndex == 4
-                        )
+                // 排行榜區域
+                VStack(alignment: .leading, spacing: 16) {
+                    // 排行榜標題
+                    HStack {
+                        Image(systemName: "trophy.fill")
+                            .foregroundColor(.orange)
+                            .font(.title3)
+                        Text("排行榜")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        Spacer()
                     }
                     
-                    // 載入更多按鈕 - HIG 遵循設計
-                    if hasMorePages {
-                        Button(action: {
-                            loadNextPage()
-                        }) {
-                            HStack(spacing: 8) {
-                                if isLoadingMore {
-                                    ProgressView()
-                                        .scaleEffect(0.9)
-                                        .tint(.white)
-                                } else {
-                                    Image(systemName: "arrow.down.circle.fill")
-                                        .foregroundColor(.white)
-                                        .font(.system(size: 16))
-                                }
-                                Text(isLoadingMore ? "載入中..." : "載入更多")
-                                    .font(.body)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.white)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: 44) // HIG 最小觸控目標
-                            .padding(.horizontal, 16)
-                            .background(.blue, in: RoundedRectangle(cornerRadius: 12))
+                    // 排行榜列表
+                    LazyVStack(spacing: 10) {
+                        ForEach(paginatedParticipants.indices, id: \.self) { index in
+                            let participantIndex = currentPage * itemsPerPage + index
+                            modernRankingCard(
+                                paginatedParticipants[index], 
+                                rank: participantIndex + 1, 
+                                isCurrentUser: participantIndex == 4
+                            )
                         }
-                        .disabled(isLoadingMore)
-                        .accessibilityLabel(isLoadingMore ? "正在載入更多排名" : "載入更多排名")
-                        .accessibilityHint("載入下一頁排行榜數據")
+                        
+                        // 載入更多按鈕 - HIG 遵循設計
+                        if hasMorePages {
+                            Button(action: {
+                                loadNextPage()
+                            }) {
+                                HStack(spacing: 8) {
+                                    if isLoadingMore {
+                                        ProgressView()
+                                            .scaleEffect(0.9)
+                                            .tint(.white)
+                                    } else {
+                                        Image(systemName: "arrow.down.circle.fill")
+                                            .foregroundColor(.white)
+                                            .font(.system(size: 16))
+                                    }
+                                    Text(isLoadingMore ? "載入中..." : "載入更多")
+                                        .font(.body)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.white)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: 44) // HIG 最小觸控目標
+                                .padding(.horizontal, 16)
+                                .background(.blue, in: RoundedRectangle(cornerRadius: 12))
+                            }
+                            .disabled(isLoadingMore)
+                            .accessibilityLabel(isLoadingMore ? "正在載入更多排名" : "載入更多排名")
+                            .accessibilityHint("載入下一頁排行榜數據")
+                        }
                     }
                 }
-                .padding(.horizontal)
             }
+            .padding(.horizontal)
         }
-            .refreshable {
-                await refreshData()
-            }
+        .refreshable {
+            await refreshData()
         }
         .onAppear {
             Task { @MainActor in
@@ -444,7 +444,6 @@ struct TournamentRankingsView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.surfaceSecondary)
         )
-        .padding(.horizontal, 16)
     }
     
     // 現代化的排行榜卡片

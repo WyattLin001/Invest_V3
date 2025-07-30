@@ -63,7 +63,6 @@ struct EnhancedInvestmentView: View {
                 }
                 .navigationTitle("投資總覽")
                 .navigationBarTitleDisplayMode(.inline)
-                .navigationBarHidden(true) // 隱藏導航欄，避免佔用頂部空間
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton

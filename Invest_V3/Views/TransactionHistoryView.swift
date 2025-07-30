@@ -13,68 +13,49 @@ struct TransactionHistoryView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // 頂部導航欄
-                navigationHeader
-                
-                if viewModel.isLoading {
-                    loadingView
-                } else if viewModel.transactions.isEmpty {
-                    emptyStateView
-                } else {
-                    transactionList
+        NavigationStack {
+            if viewModel.isLoading {
+                loadingView
+            } else if viewModel.transactions.isEmpty {
+                emptyStateView
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // 統計卡片作為第一項
+                        statisticsCard
+                        
+                        // 交易記錄列表
+                        ForEach(viewModel.groupedTransactions.keys.sorted(by: >), id: \.self) { date in
+                            transactionDateSection(date: date, transactions: viewModel.groupedTransactions[date] ?? [])
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .refreshable {
+                    await viewModel.refreshTransactions()
                 }
             }
-            .background(Color.gray100)
+        }
+        .navigationTitle("交易記錄")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Text("\(viewModel.transactions.count)")
+                    .font(.caption)
+                    .foregroundColor(.gray600)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.gray300)
+                    .cornerRadius(10)
+            }
         }
         .onAppear {
             Task {
                 await viewModel.loadAllTransactions()
             }
         }
-        .refreshable {
-            await viewModel.refreshTransactions()
-        }
     }
     
-    // MARK: - 導航欄
-    
-    private var navigationHeader: some View {
-        HStack {
-            Button("關閉") {
-                dismiss()
-            }
-            .font(.bodyText)
-            .foregroundColor(.brandGreen)
-            
-            Spacer()
-            
-            Text("交易記錄")
-                .font(.titleMedium)
-                .fontWeight(.semibold)
-                .foregroundColor(.gray900)
-            
-            Spacer()
-            
-            Text("\(viewModel.transactions.count)")
-                .font(.caption)
-                .foregroundColor(.gray600)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(Color.gray300)
-                .cornerRadius(10)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.white)
-        .overlay(
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(.gray300),
-            alignment: .bottom
-        )
-    }
     
     // MARK: - 載入中視圖
     
@@ -111,22 +92,6 @@ struct TransactionHistoryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // MARK: - 交易列表
-    
-    private var transactionList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                // 統計卡片
-                statisticsCard
-                
-                // 交易記錄列表
-                ForEach(viewModel.groupedTransactions.keys.sorted(by: >), id: \.self) { date in
-                    transactionDateSection(date: date, transactions: viewModel.groupedTransactions[date] ?? [])
-                }
-            }
-            .padding(.top, 8)
-        }
-    }
     
     // MARK: - 統計卡片
     
@@ -147,8 +112,6 @@ struct TransactionHistoryView: View {
         .padding(16)
         .background(Color.white)
         .cornerRadius(12)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 16)
     }
     
     private func statisticItem(title: String, amount: Double, color: Color, isCount: Bool = false) -> some View {
