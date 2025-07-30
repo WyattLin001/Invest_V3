@@ -46,7 +46,7 @@ struct PersonalPerformanceContentView: View {
                     achievementsContent
                         .tag(PerformanceTab.achievements)
                 }
-                .frame(height: 500) // 使用固定高度避免滾動衝突
+                .frame(height: 400) // 減少固定高度
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 
                 // 詳細指標

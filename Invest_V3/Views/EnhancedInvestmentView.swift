@@ -16,6 +16,7 @@ import SwiftUI
 /// 5. PersonalPerformanceView - 個人績效分析
 struct EnhancedInvestmentView: View {
     @EnvironmentObject private var themeManager: ThemeManager
+    @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: InvestmentTab = .home
     let currentTournamentName: String?
     
@@ -64,6 +65,13 @@ struct EnhancedInvestmentView: View {
                 .navigationTitle("投資總覽")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("關閉") {
+                            dismiss()
+                        }
+                        .foregroundColor(.brandGreen)
+                    }
+                    
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton
                     }

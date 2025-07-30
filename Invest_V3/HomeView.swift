@@ -109,25 +109,8 @@ struct HomeView: View {
             WalletView()
         }
         .fullScreenCover(isPresented: $viewModel.showInvestmentPanel) {
-            NavigationView {
-                EnhancedInvestmentView(currentTournamentName: currentTournamentName)
-                    .navigationBarTitleDisplayMode(.large)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Button("切換錦標賽") {
-                                showTournamentSwitcher = true
-                            }
-                            .foregroundColor(.brandGreen)
-                        }
-                        
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("關閉") {
-                                viewModel.showInvestmentPanel = false
-                            }
-                            .foregroundColor(.brandGreen)
-                        }
-                    }
-            }
+            EnhancedInvestmentView(currentTournamentName: currentTournamentName)
+        }
             .environmentObject(ThemeManager.shared)
         }
         .onReceive(viewModel.$errorMessage) { errorMessage in
