@@ -3007,7 +3007,7 @@ struct PersonalPerformanceScrollableView: View {
 // MARK: - Personal Performance Inner Content (without ScrollView)
 struct PersonalPerformanceInnerContent: View {
     @State private var selectedTimeframe: PerformanceTimeframe = .month
-    @State private var selectedTab: PersonalPerformanceTab = .overview
+    @State private var selectedTab: PerformanceTab = .overview
     @State private var isRefreshing = false
     @State private var performanceData = MockPerformanceData.sampleData
     
@@ -3023,32 +3023,22 @@ struct PersonalPerformanceInnerContent: View {
             tabSelector
             
             // 分頁內容
-            TabView(selection: $selectedTab) {
-                // 績效總覽
-                VStack(spacing: DesignTokens.spacingMD) {
-                    performanceMetricsCard
-                    performanceHistoryCard
+            Group {
+                switch selectedTab {
+                case .overview:
+                    VStack(spacing: DesignTokens.spacingMD) {
+                        performanceMetricsCard
+                        performanceHistoryCard
+                    }
+                case .risk:
+                    VStack(spacing: DesignTokens.spacingMD) {
+                        riskAnalysisCard
+                    }
+                case .achievements:
+                    VStack(spacing: DesignTokens.spacingMD) {
+                        achievementsCard
+                    }
                 }
-                .tag(PersonalPerformanceTab.overview)
-                
-                // 持股分析
-                VStack(spacing: DesignTokens.spacingMD) {
-                    holdingsAnalysisCard
-                    sectorAllocationCard
-                }
-                .tag(PersonalPerformanceTab.holdings)
-                
-                // 交易記錄
-                VStack(spacing: DesignTokens.spacingMD) {
-                    tradeHistoryCard
-                }
-                .tag(PersonalPerformanceTab.trades)
-                
-                // 排名歷史
-                VStack(spacing: DesignTokens.spacingMD) {
-                    rankingHistoryCard
-                }
-                .tag(PersonalPerformanceTab.rankings)
             }
         }
         .refreshable {
@@ -3131,7 +3121,7 @@ struct PersonalPerformanceInnerContent: View {
     private var tabSelector: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: DesignTokens.spacingSM) {
-                ForEach(PersonalPerformanceTab.allCases, id: \.self) { tab in
+                ForEach(PerformanceTab.allCases, id: \.self) { tab in
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             selectedTab = tab
@@ -3190,52 +3180,84 @@ struct PersonalPerformanceInnerContent: View {
         .brandCardStyle()
     }
     
-    private var holdingsAnalysisCard: some View {
+    
+    private var riskAnalysisCard: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
-            Text("持股分析")
+            Text("風險分析")
                 .font(.headline)
                 .adaptiveTextColor()
-            Text("持股分析數據將在此顯示")
-                .font(.body)
-                .adaptiveTextColor(primary: false)
+            
+            VStack(spacing: 8) {
+                HStack {
+                    Text("最大回撤")
+                        .font(.caption)
+                        .adaptiveTextColor(primary: false)
+                    Spacer()
+                    Text("-5.2%")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.red)
+                }
+                
+                HStack {
+                    Text("波動率")
+                        .font(.caption)
+                        .adaptiveTextColor(primary: false)
+                    Spacer()
+                    Text("12.8%")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .adaptiveTextColor()
+                }
+                
+                HStack {
+                    Text("夏普比率")
+                        .font(.caption)
+                        .adaptiveTextColor(primary: false)
+                    Spacer()
+                    Text("1.42")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.brandGreen)
+                }
+            }
         }
         .brandCardStyle()
     }
     
-    private var sectorAllocationCard: some View {
+    private var achievementsCard: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
-            Text("板塊配置")
+            Text("成就記錄")
                 .font(.headline)
                 .adaptiveTextColor()
-            Text("板塊分配數據將在此顯示")
-                .font(.body)
-                .adaptiveTextColor(primary: false)
+            
+            VStack(spacing: 12) {
+                achievementRow(icon: "🏆", title: "首次獲利", description: "完成第一筆獲利交易")
+                achievementRow(icon: "📈", title: "連續上漲", description: "連續 5 天投資組合上漲")
+                achievementRow(icon: "💎", title: "長期持有者", description: "持有股票超過 30 天")
+            }
         }
         .brandCardStyle()
     }
     
-    private var tradeHistoryCard: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
-            Text("交易歷史")
-                .font(.headline)
-                .adaptiveTextColor()
-            Text("交易記錄將在此顯示")
-                .font(.body)
-                .adaptiveTextColor(primary: false)
+    private func achievementRow(icon: String, title: String, description: String) -> some View {
+        HStack(spacing: 12) {
+            Text(icon)
+                .font(.title2)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .adaptiveTextColor()
+                
+                Text(description)
+                    .font(.caption)
+                    .adaptiveTextColor(primary: false)
+            }
+            
+            Spacer()
         }
-        .brandCardStyle()
-    }
-    
-    private var rankingHistoryCard: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
-            Text("排名變化")
-                .font(.headline)
-                .adaptiveTextColor()
-            Text("排名歷史將在此顯示")
-                .font(.body)
-                .adaptiveTextColor(primary: false)
-        }
-        .brandCardStyle()
     }
     
     // Mock data functions
@@ -3278,6 +3300,23 @@ struct PersonalPerformanceInnerContent: View {
         
         return data
     }
+}
+
+// MARK: - Mock Performance Data
+struct MockPerformanceData {
+    let totalReturn: Double
+    let dailyChange: Double
+    let maxDrawdown: Double
+    let volatility: Double
+    let sharpeRatio: Double
+    
+    static let sampleData = MockPerformanceData(
+        totalReturn: 15.7,
+        dailyChange: 2.3,
+        maxDrawdown: -5.2,
+        volatility: 12.8,
+        sharpeRatio: 1.42
+    )
 }
 
 // MARK: - 預覽
