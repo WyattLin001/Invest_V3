@@ -17,14 +17,14 @@ extension Color {
     /// 次要品牌色 #0066CC - 用於次要 CTA 和強調
     static let brandSecondary = Color(hex: "#0066CC")
     
-    /// 主要品牌綠色 #00B900 - 用於主要 CTA / Toggle ON
-    static let brandGreen = Color(hex: "#00B900")
+    /// 主要品牌綠色 - 深色模式適配
+    static let brandGreen = Color(light: "#00B900", dark: "#4CAF50")
     
-    /// 品牌橙色 #FD7E14 - 用於付費/警示 CTA  
-    static let brandOrange = Color(hex: "#FD7E14")
+    /// 品牌橙色 - 深色模式適配  
+    static let brandOrange = Color(light: "#FD7E14", dark: "#FF8A50")
     
-    /// 品牌藍色 #007BFF - 用於投資指令高亮
-    static let brandBlue = Color(hex: "#007BFF")
+    /// 品牌藍色 - 深色模式適配
+    static let brandBlue = Color(light: "#007BFF", dark: "#64B5F6")
     
     // MARK: - Semantic Colors (支援深色模式)
     
@@ -55,8 +55,8 @@ extension Color {
     /// 背景 Layer 7 - 七級背景
     static let gray800 = Color(light: "#48484A", dark: "#C7C7CC")
     
-    /// 次要文本
-    static let gray600 = Color(light: "#8E8E93", dark: "#8E8E93")
+    /// 次要文本 - 改善深色模式對比度
+    static let gray600 = Color(light: "#8E8E93", dark: "#ADADB8")
     
     /// 分隔線顏色 - 支援深色模式
     static var divider: Color {
@@ -71,11 +71,14 @@ extension Color {
     /// 主要文字顏色 - 支援深色模式
     static let textPrimary = Color(light: "#000000", dark: "#FFFFFF")
     
-    /// 次要文字顏色 - 支援深色模式
-    static let textSecondary = Color(light: "#666666", dark: "#999999")
+    /// 次要文字顏色 - 支援深色模式 (提高對比度)
+    static let textSecondary = Color(light: "#666666", dark: "#BBBBBB")
     
-    /// 第三級文字顏色 - 支援深色模式
-    static let textTertiary = Color(light: "#999999", dark: "#666666")
+    /// 第三級文字顏色 - 支援深色模式 (提高對比度)
+    static let textTertiary = Color(light: "#999999", dark: "#AAAAAA")
+    
+    /// 禁用狀態文字顏色 - 支援深色模式
+    static let textDisabled = Color(light: "#CCCCCC", dark: "#777777")
     
     // MARK: - Additional Brand Colors
     
@@ -87,17 +90,17 @@ extension Color {
     
     // MARK: - Status Colors
     
-    /// 成功/上漲 - 綠色
-    static let success = Color(hex: "#28A745")
+    /// 成功/上漲 - 深色模式適配
+    static let success = Color(light: "#28A745", dark: "#4CAF50")
     
-    /// 危險/下跌 - 紅色  
-    static let danger = Color(hex: "#DC3545")
+    /// 危險/下跌 - 深色模式適配  
+    static let danger = Color(light: "#DC3545", dark: "#F44336")
     
-    /// 警告 - 黃色
-    static let warning = Color(hex: "#FFC107")
+    /// 警告 - 深色模式適配
+    static let warning = Color(light: "#FFC107", dark: "#FFB74D")
     
-    /// 資訊 - 藍色
-    static let info = Color(hex: "#17A2B8")
+    /// 資訊 - 深色模式適配
+    static let info = Color(light: "#17A2B8", dark: "#4FC3F7")
     
     // MARK: - Additional Colors
     
@@ -239,9 +242,19 @@ extension View {
     /// 應用品牌卡片樣式 (深色模式適配)
     func brandCardStyle() -> some View {
         let shadow = DesignTokens.cardShadow
+        let isDark = ThemeManager.shared.isDarkMode
+        
         return self
             .background(Color.surfacePrimary)
             .cornerRadius(DesignTokens.cornerRadius)
+            .overlay(
+                // 深色模式下增加細邊框
+                RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
+                    .stroke(
+                        isDark ? DesignTokens.borderColor : Color.clear,
+                        lineWidth: isDark ? DesignTokens.borderWidthThin : 0
+                    )
+            )
             .shadow(
                 color: DesignTokens.shadowColor.opacity(shadow.opacity),
                 radius: shadow.radius,
@@ -250,18 +263,113 @@ extension View {
             )
     }
     
+    /// 增強的卡片樣式 - 更強的視覺分隔
+    func enhancedCardStyle() -> some View {
+        let shadow = DesignTokens.cardShadow
+        let isDark = ThemeManager.shared.isDarkMode
+        
+        return self
+            .padding(DesignTokens.spacingMD)
+            .background(Color.surfacePrimary)
+            .cornerRadius(DesignTokens.cornerRadiusLG)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.cornerRadiusLG)
+                    .stroke(
+                        isDark ? DesignTokens.borderColor : Color.borderColor.opacity(0.3),
+                        lineWidth: isDark ? 1 : 0.5
+                    )
+            )
+            .shadow(
+                color: DesignTokens.shadowColor.opacity(shadow.opacity * 1.5),
+                radius: shadow.radius + 2,
+                x: shadow.offset.width,
+                y: shadow.offset.height + 1
+            )
+    }
+    
+    /// 區塊標題樣式
+    func sectionTitleStyle() -> some View {
+        self
+            .font(DesignTokens.sectionHeader)
+            .adaptiveTextColor()
+            .padding(.bottom, DesignTokens.spacingSM)
+    }
+    
+    /// 子區塊標題樣式
+    func subsectionTitleStyle() -> some View {
+        self
+            .font(DesignTokens.subsectionHeader)
+            .adaptiveTextColor()
+            .padding(.bottom, DesignTokens.spacingXS)
+    }
+    
     /// 應用品牌按鈕樣式 (深色模式適配)
     func brandButtonStyle(
         backgroundColor: Color = .brandGreen,
         foregroundColor: Color = .white,
-        isDisabled: Bool = false
+        isDisabled: Bool = false,
+        size: ButtonSize = .medium
+    ) -> some View {
+        let isDark = ThemeManager.shared.isDarkMode
+        let adaptedBgColor = isDark ? backgroundColor.opacity(0.8) : backgroundColor
+        
+        return self
+            .padding(.horizontal, size.horizontalPadding)
+            .padding(.vertical, size.verticalPadding)
+            .frame(minHeight: size.height)
+            .background(adaptedBgColor)
+            .foregroundColor(foregroundColor)
+            .font(size.font)
+            .cornerRadius(DesignTokens.cornerRadius)
+            .opacity(isDisabled ? 0.3 : 1.0)
+            .disabled(isDisabled)
+            .shadow(
+                color: isDark ? Color.black.opacity(0.3) : Color.clear,
+                radius: isDark ? 2 : 0,
+                x: 0,
+                y: isDark ? 1 : 0
+            )
+    }
+    
+    /// 帶圖標的按鈕樣式
+    func iconButtonStyle(
+        icon: String,
+        backgroundColor: Color = .brandGreen,
+        foregroundColor: Color = .white,
+        isDisabled: Bool = false,
+        size: ButtonSize = .medium
+    ) -> some View {
+        HStack(spacing: DesignTokens.spacingXS) {
+            Image(systemName: icon)
+                .font(size.iconFont)
+            self
+        }
+        .brandButtonStyle(
+            backgroundColor: backgroundColor,
+            foregroundColor: foregroundColor,
+            isDisabled: isDisabled,
+            size: size
+        )
+    }
+    
+    /// 次要按鈕樣式 (無填充背景)
+    func secondaryButtonStyle(
+        borderColor: Color = .brandGreen,
+        foregroundColor: Color = .brandGreen,
+        isDisabled: Bool = false,
+        size: ButtonSize = .medium
     ) -> some View {
         self
-            .padding(.horizontal, DesignTokens.spacingMD)
-            .padding(.vertical, DesignTokens.spacingSM)
-            .background(backgroundColor)
+            .padding(.horizontal, size.horizontalPadding)
+            .padding(.vertical, size.verticalPadding)
+            .frame(minHeight: size.height)
+            .background(Color.clear)
             .foregroundColor(foregroundColor)
-            .cornerRadius(DesignTokens.cornerRadius)
+            .font(size.font)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
+                    .stroke(borderColor, lineWidth: DesignTokens.borderWidth)
+            )
             .opacity(isDisabled ? 0.3 : 1.0)
             .disabled(isDisabled)
     }
@@ -300,10 +408,20 @@ extension View {
     /// 浮動按鈕樣式 (深色模式適配)
     func floatingButtonStyle() -> some View {
         let fabShadow = DesignTokens.fabShadow
+        let isDark = ThemeManager.shared.isDarkMode
+        
         return self
             .background(Color.brandGreen)
             .foregroundColor(.white)
             .clipShape(Circle())
+            .overlay(
+                // 深色模式下添加細邊框增強層次
+                Circle()
+                    .stroke(
+                        isDark ? Color.white.opacity(0.1) : Color.clear,
+                        lineWidth: isDark ? 1 : 0
+                    )
+            )
             .shadow(
                 color: DesignTokens.shadowColor.opacity(fabShadow.opacity),
                 radius: fabShadow.radius,
@@ -312,9 +430,91 @@ extension View {
             )
     }
     
-    /// 主題敏感的文字顏色
+    /// 主題敏感的文字顏色 (增強對比度)
     func adaptiveTextColor(primary: Bool = true) -> some View {
-        self.foregroundColor(primary ? .systemLabel : .systemSecondaryLabel)
+        let textColor = primary ? Color.textPrimary : Color.textSecondary
+        return self.foregroundColor(textColor)
+    }
+    
+    /// 第三級文字顏色
+    func tertiaryTextColor() -> some View {
+        self.foregroundColor(.textTertiary)
+    }
+    
+    /// 禁用狀態文字顏色
+    func disabledTextColor() -> some View {
+        self.foregroundColor(.textDisabled)
+    }
+    
+    /// 改善的禁用狀態樣式
+    func disabledStyle() -> some View {
+        let isDark = ThemeManager.shared.isDarkMode
+        return self
+            .foregroundColor(isDark ? Color(hex: "#AAAAAA") : Color(hex: "#CCCCCC"))
+            .opacity(isDark ? 1.0 : 0.6)
+    }
+    
+    /// 改善的次要內容樣式（如空狀態提示）
+    func secondaryContentStyle() -> some View {
+        let isDark = ThemeManager.shared.isDarkMode
+        return self
+            .foregroundColor(isDark ? Color(hex: "#888888") : Color(hex: "#999999"))
+            .font(.subheadline)
+    }
+    
+    /// 搜索框樣式
+    func searchFieldStyle() -> some View {
+        let isDark = ThemeManager.shared.isDarkMode
+        return self
+            .padding(.horizontal, DesignTokens.spacingMD)
+            .padding(.vertical, DesignTokens.spacingSM)
+            .background(Color.surfaceSecondary)
+            .cornerRadius(DesignTokens.cornerRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
+                    .stroke(
+                        isDark ? DesignTokens.borderColor : Color.borderColor.opacity(0.5),
+                        lineWidth: DesignTokens.borderWidthThin
+                    )
+            )
+    }
+    
+    /// 狀態標籤樣式
+    func statusTagStyle(
+        backgroundColor: Color,
+        foregroundColor: Color = .white
+    ) -> some View {
+        self
+            .font(.caption)
+            .fontWeight(.medium)
+            .padding(.horizontal, DesignTokens.spacingSM)
+            .padding(.vertical, DesignTokens.spacingXS)
+            .background(backgroundColor)
+            .foregroundColor(foregroundColor)
+            .cornerRadius(DesignTokens.cornerRadiusSM)
+    }
+    
+    /// 資訊提示樣式（帶圖標）
+    func infoTipStyle(
+        icon: String,
+        backgroundColor: Color = .info,
+        foregroundColor: Color = .white
+    ) -> some View {
+        HStack(spacing: DesignTokens.spacingXS) {
+            Image(systemName: icon)
+                .font(.caption)
+            self
+                .font(.caption)
+        }
+        .padding(.horizontal, DesignTokens.spacingMD)
+        .padding(.vertical, DesignTokens.spacingSM)
+        .background(backgroundColor.opacity(0.1))
+        .foregroundColor(backgroundColor)
+        .cornerRadius(DesignTokens.cornerRadius)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
+                .stroke(backgroundColor.opacity(0.3), lineWidth: DesignTokens.borderWidthThin)
+        )
     }
     
     /// 主題敏感的背景顏色
@@ -341,5 +541,54 @@ struct RoundedCorner: Shape {
             cornerRadii: CGSize(width: radius, height: radius)
         )
         return Path(path.cgPath)
+    }
+}
+
+// MARK: - Button Size System
+
+/// 按鈕尺寸系統
+enum ButtonSize {
+    case small
+    case medium
+    case large
+    
+    var height: CGFloat {
+        switch self {
+        case .small: return DesignTokens.buttonHeightSM
+        case .medium: return DesignTokens.buttonHeightMD
+        case .large: return DesignTokens.buttonHeightLG
+        }
+    }
+    
+    var horizontalPadding: CGFloat {
+        switch self {
+        case .small: return 12
+        case .medium: return DesignTokens.buttonPaddingHorizontal
+        case .large: return 20
+        }
+    }
+    
+    var verticalPadding: CGFloat {
+        switch self {
+        case .small: return 8
+        case .medium: return DesignTokens.buttonPaddingVertical
+        case .large: return 16
+        }
+    }
+    
+    var font: Font {
+        switch self {
+        case .small: return .system(size: 14, weight: .medium)
+        case .medium: return .system(size: 16, weight: .medium)
+        case .large: return .system(size: 18, weight: .semibold)
+        }
+    }
+    
+    var iconFont: Font {
+        switch self {
+        case .small: return .system(size: 12, weight: .medium)
+        case .medium: return .system(size: 14, weight: .medium)
+        case .large: return .system(size: 16, weight: .medium)
+        }
     }
 }

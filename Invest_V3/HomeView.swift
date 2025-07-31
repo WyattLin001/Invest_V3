@@ -24,6 +24,7 @@ struct HomeView: View {
     @State private var showFriendSearch = false // 好友搜尋頁面
     @State private var currentTournamentName = "2025年度投資錦標賽" // 當前錦標賽名稱
     @State private var showTournamentSwitcher = false // 錦標賽切換器
+    @State private var showTournamentTest = false // 錦標賽測試界面
     
 
     var body: some View {
@@ -78,6 +79,9 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showTournamentSwitcher) {
                 TournamentSwitcherView(currentTournament: $currentTournamentName)
+            }
+            .sheet(isPresented: $showTournamentTest) {
+                TournamentTestView()
             }
         }
         .alert("錯誤", isPresented: $showErrorAlert) {
@@ -264,17 +268,32 @@ struct HomeView: View {
                 Spacer()
                 
                 // 快速訪問按鈕
-                VStack(spacing: 8) {
-                    Button(action: { showFriendSearch = true }) {
-                        Image(systemName: "person.2.fill")
-                            .font(.title3)
-                            .foregroundColor(.brandGreen)
+                HStack(spacing: 16) {
+                    VStack(spacing: 8) {
+                        Button(action: { showFriendSearch = true }) {
+                            Image(systemName: "person.2.fill")
+                                .font(.title3)
+                                .foregroundColor(.brandGreen)
+                        }
+                        .accessibilityLabel("好友管理")
+                        
+                        Text("好友")
+                            .font(.caption2)
+                            .foregroundColor(.gray600)
                     }
-                    .accessibilityLabel("好友管理")
                     
-                    Text("好友")
-                        .font(.caption2)
-                        .foregroundColor(.gray600)
+                    VStack(spacing: 8) {
+                        Button(action: { showTournamentTest = true }) {
+                            Image(systemName: "trophy.fill")
+                                .font(.title3)
+                                .foregroundColor(.orange)
+                        }
+                        .accessibilityLabel("錦標賽測試")
+                        
+                        Text("測試")
+                            .font(.caption2)
+                            .foregroundColor(.gray600)
+                    }
                 }
             }
         }

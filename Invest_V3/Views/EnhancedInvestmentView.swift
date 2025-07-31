@@ -3078,7 +3078,7 @@ struct PersonalPerformanceInnerContent: View {
                     Text("\(performanceData.dailyChange, specifier: "%.2f")%")
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(performanceData.dailyChange >= 0 ? .brandGreen : .brandRed)
+                        .foregroundColor(performanceData.dailyChange >= 0 ? .brandGreen : .red)
                 }
             }
         }

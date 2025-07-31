@@ -5,6 +5,9 @@
 //  Created by 林家麒 on 2025/7/9.
 //
 import Supabase
+import Auth
+import PostgREST
+import Storage
 import Foundation
 
 @MainActor
