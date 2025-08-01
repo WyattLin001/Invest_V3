@@ -256,7 +256,7 @@ struct UnifiedListItem<Content: View>: View {
 }
 
 // MARK: - 空狀態視圖
-struct EmptyStateView: View {
+struct GeneralEmptyStateView: View {
     let icon: String
     let title: String
     let message: String
@@ -464,7 +464,7 @@ struct SectionContainer<Content: View>: View {
 }
 
 #Preview("空狀態視圖") {
-    EmptyStateView(
+    GeneralEmptyStateView(
         icon: "chart.bar.doc.horizontal",
         title: "暫無績效數據",
         message: "開始您的第一筆投資，建立投資記錄後就能看到詳細的績效分析了",

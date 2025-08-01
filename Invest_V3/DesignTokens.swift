@@ -51,6 +51,7 @@ enum DesignTokens {
     }
     
     /// 深色模式下的陰影不透明度
+    @MainActor
     static var shadowOpacityAdaptive: Double {
         // 深色模式下陰影更明顯一些
         return ThemeManager.shared.isDarkMode ? 0.15 : 0.1
@@ -86,6 +87,7 @@ enum DesignTokens {
     // MARK: - Elevation (Material Design 風格的層級)
     
     /// 卡片陰影 (Elevation 1) - 深色模式下增強
+    @MainActor
     static var cardShadow: (radius: CGFloat, offset: CGSize, opacity: Double) {
         let isDark = ThemeManager.shared.isDarkMode
         return (
@@ -96,6 +98,7 @@ enum DesignTokens {
     }
     
     /// 彈窗陰影 (Elevation 8) - 深色模式下增強
+    @MainActor
     static var modalShadow: (radius: CGFloat, offset: CGSize, opacity: Double) {
         let isDark = ThemeManager.shared.isDarkMode
         return (
@@ -106,6 +109,7 @@ enum DesignTokens {
     }
     
     /// 浮動按鈕陰影 (Elevation 6) - 深色模式下增強
+    @MainActor
     static var fabShadow: (radius: CGFloat, offset: CGSize, opacity: Double) {
         let isDark = ThemeManager.shared.isDarkMode
         return (

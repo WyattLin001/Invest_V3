@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
-import Supabase
+import Auth
+import Realtime
 
 // MARK: - 測試常數
 struct TestConstants {

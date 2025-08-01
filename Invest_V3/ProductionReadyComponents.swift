@@ -61,6 +61,7 @@ enum CardElevation {
     case high
     case floating
     
+    @MainActor
     var shadowProperties: (radius: CGFloat, offset: CGSize, opacity: Double) {
         let isDark = ThemeManager.shared.isDarkMode
         

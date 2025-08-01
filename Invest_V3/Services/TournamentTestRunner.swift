@@ -215,10 +215,9 @@ class TournamentTestRunner: ObservableObject {
             }
             
             // 驗證夏普比率計算
-            if let sharpeRatio = metrics.sharpeRatio {
-                guard sharpeRatio >= -5 && sharpeRatio <= 5 else {
-                    throw TestError.validationFailed("夏普比率超出合理範圍")
-                }
+            let sharpeRatio = metrics.sharpeRatio
+            guard sharpeRatio >= -5 && sharpeRatio <= 5 else {
+                throw TestError.validationFailed("夏普比率超出合理範圍")
             }
             
             // 驗證最大回撤

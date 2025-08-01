@@ -56,7 +56,7 @@ struct RankingsView: View {
                     ProgressView("載入排行榜中...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    EmptyStateView(
+                    GeneralEmptyStateView(
                         icon: "crown",
                         title: "暫無排行榜資料",
                         message: "排行榜正在統計中"

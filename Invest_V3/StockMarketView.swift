@@ -31,7 +31,7 @@ struct StockMarketView: View {
                         ProgressView("載入股票資料中...")
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
-                        EmptyStateView(
+                        StockMarketEmptyStateView(
                             icon: "chart.bar",
                             title: "暫無股票資料",
                             message: "請檢查網路連接或稍後再試"
@@ -397,7 +397,7 @@ struct StockDetailView: View {
 }
 
 // MARK: - 空狀態視圖
-struct EmptyStateView: View {
+struct StockMarketEmptyStateView: View {
     let icon: String
     let title: String
     let message: String

@@ -85,7 +85,7 @@ struct HotStocksListView: View {
     
     var body: some View {
         if stocks.isEmpty {
-            EmptyStateView(
+            GeneralEmptyStateView(
                 icon: "chart.bar",
                 title: "暫無股票資料",
                 message: "請檢查網路連接"
@@ -112,7 +112,7 @@ struct HoldingsListView: View {
             }
             .listStyle(PlainListStyle())
         } else {
-            EmptyStateView(
+            GeneralEmptyStateView(
                 icon: "briefcase",
                 title: "暫無持股",
                 message: "開始您的第一筆交易吧！"
@@ -124,7 +124,7 @@ struct HoldingsListView: View {
 // MARK: - 關注清單
 struct WatchlistView: View {
     var body: some View {
-        EmptyStateView(
+        GeneralEmptyStateView(
             icon: "heart",
             title: "關注清單",
             message: "功能開發中，敬請期待"

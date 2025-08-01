@@ -4,11 +4,11 @@
 //
 //  Created by 林家麒 on 2025/7/9.
 //
+import Foundation
 import Supabase
 import Auth
-import PostgREST
-import Storage
-import Foundation
+import Realtime
+import SupabaseStorage
 
 @MainActor
 class SupabaseManager {

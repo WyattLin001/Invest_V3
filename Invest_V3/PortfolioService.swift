@@ -1,10 +1,9 @@
 import Foundation
+import SwiftUI
 import Supabase
 import Auth
-import PostgREST
-import Storage
-import Foundation
-import SwiftUI
+import Realtime
+import SupabaseStorage
 
 @MainActor
 class PortfolioService: ObservableObject {

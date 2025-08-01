@@ -135,7 +135,7 @@ struct EnhancedSubscriptionStatusCard: View {
 
 // MARK: - 增強的交易記錄卡片
 struct EnhancedTransactionHistoryCard: View {
-    let transactions: [TransactionItem]
+    let transactions: [TransactionData]
     let onViewAll: () -> Void
     
     var body: some View {
@@ -187,7 +187,7 @@ struct EnhancedTransactionHistoryCard: View {
         .padding(DesignTokens.spacingLG)
     }
     
-    private func transactionRow(_ transaction: TransactionItem) -> some View {
+    private func transactionRow(_ transaction: TransactionData) -> some View {
         HStack(spacing: DesignTokens.spacingMD) {
             // 交易類型圖標
             Image(systemName: transaction.iconName)
@@ -363,7 +363,7 @@ struct EnhancedSearchField: View {
 }
 
 // MARK: - 資料模型
-struct TransactionItem {
+struct TransactionData {
     let id = UUID()
     let title: String
     let subtitle: String
@@ -436,14 +436,14 @@ enum SettingItemType {
         
         EnhancedTransactionHistoryCard(
             transactions: [
-                TransactionItem(
+                TransactionData(
                     title: "抖內禮物",
                     subtitle: "抖內禮物",
                     amount: -40,
                     date: Date(),
                     isPositive: false
                 ),
-                TransactionItem(
+                TransactionData(
                     title: "系統充值",
                     subtitle: "帳戶充值",
                     amount: 1000,

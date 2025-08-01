@@ -43,7 +43,7 @@ struct FriendsIntegrationTest: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
                         ForEach(Array(testResults.enumerated()), id: \.offset) { index, result in
-                            TestResultRow(result: result)
+                            FriendsTestResultRow(result: result)
                         }
                     }
                 }
@@ -183,7 +183,7 @@ struct FriendsIntegrationTest: View {
 }
 
 // MARK: - Helper Components
-struct TestResultRow: View {
+struct FriendsTestResultRow: View {
     let result: String
     
     var body: some View {

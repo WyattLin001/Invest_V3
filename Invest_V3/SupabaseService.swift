@@ -1,6 +1,7 @@
 import Foundation
-import Supabase
 import UIKit
+import Supabase
+import Auth
 
 /// 用戶在群組中的角色
 enum UserRole: String, CaseIterable {

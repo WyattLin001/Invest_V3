@@ -381,7 +381,7 @@ struct PortfolioHoldingsView: View {
             }
             .listStyle(PlainListStyle())
         } else {
-            EmptyStateView(
+            GeneralEmptyStateView(
                 icon: "briefcase",
                 title: "暫無持股",
                 message: "開始您的第一筆投資吧！"
@@ -475,7 +475,7 @@ struct TradingHistoryView: View {
         NavigationView {
             Group {
                 if tradingService.transactions.isEmpty {
-                    EmptyStateView(
+                    GeneralEmptyStateView(
                         icon: "list.bullet",
                         title: "暫無交易記錄",
                         message: "開始您的第一筆交易吧！"

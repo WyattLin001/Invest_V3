@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7E147E2C2E3BD22D00E923CC /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E2B2E3BD22D00E923CC /* Supabase */; };
+		7E147E2A2E3BD22D00E923CC /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E292E3BD22D00E923CC /* Auth */; };
+		7E147E302E3BD22D00E923CC /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E2F2E3BD22D00E923CC /* Realtime */; };
+		7E147E3E2E3BD29000E923CC /* SupabaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E3D2E3BD29000E923CC /* SupabaseStorage */; };
+		7E147E442E3BD2C700E923CC /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E432E3BD2C700E923CC /* MarkdownUI */; };
+		7E147E472E3BD2F900E923CC /* Ashton in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E462E3BD2F900E923CC /* Ashton */; };
+		7E147E4A2E3BD30E00E923CC /* RichTextKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E492E3BD30E00E923CC /* RichTextKit */; };
 		7E5685222E3BB116006B7F09 /* HTML2Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = 7E5685212E3BB116006B7F09 /* HTML2Markdown */; };
 /* End PBXBuildFile section */
 
@@ -27,28 +34,14 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		7E5151122E1EC39C00A6F304 /* Invest_V3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Invest_V3.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E51511F2E1EC39F00A6F304 /* Invest_V3Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Invest_V3Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E5151292E1EC39F00A6F304 /* Invest_V3UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Invest_V3UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7EADF44A2E3A6ACC00332AAE /* Exceptions for "Invest_V3Tests" folder in "Invest_V3" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				TransactionsView.swift,
-			);
-			target = 7E5151112E1EC39C00A6F304 /* Invest_V3 */;
-		};
-		7EADF44B2E3A6ACC00332AAE /* Exceptions for "Invest_V3Tests" folder in "Invest_V3Tests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				TransactionsView.swift,
-			);
-			target = 7E51511E2E1EC39F00A6F304 /* Invest_V3Tests */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7E5151142E1EC39C00A6F304 /* Invest_V3 */ = {
@@ -58,10 +51,6 @@
 		};
 		7E5151222E1EC39F00A6F304 /* Invest_V3Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				7EADF44A2E3A6ACC00332AAE /* Exceptions for "Invest_V3Tests" folder in "Invest_V3" target */,
-				7EADF44B2E3A6ACC00332AAE /* Exceptions for "Invest_V3Tests" folder in "Invest_V3Tests" target */,
-			);
 			path = Invest_V3Tests;
 			sourceTree = "<group>";
 		};
@@ -77,6 +66,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7E147E472E3BD2F900E923CC /* Ashton in Frameworks */,
+				7E147E442E3BD2C700E923CC /* MarkdownUI in Frameworks */,
+				7E147E3E2E3BD29000E923CC /* SupabaseStorage in Frameworks */,
+				7E147E2C2E3BD22D00E923CC /* Supabase in Frameworks */,
+				7E147E2A2E3BD22D00E923CC /* Auth in Frameworks */,
+				7E147E4A2E3BD30E00E923CC /* RichTextKit in Frameworks */,
+				7E147E302E3BD22D00E923CC /* Realtime in Frameworks */,
 				7E5685222E3BB116006B7F09 /* HTML2Markdown in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -147,6 +143,13 @@
 			name = Invest_V3;
 			packageProductDependencies = (
 				7E5685212E3BB116006B7F09 /* HTML2Markdown */,
+				7E147E2B2E3BD22D00E923CC /* Supabase */,
+				7E147E292E3BD22D00E923CC /* Auth */,
+				7E147E2F2E3BD22D00E923CC /* Realtime */,
+				7E147E3D2E3BD29000E923CC /* SupabaseStorage */,
+				7E147E432E3BD2C700E923CC /* MarkdownUI */,
+				7E147E462E3BD2F900E923CC /* Ashton */,
+				7E147E492E3BD30E00E923CC /* RichTextKit */,
 			);
 			productName = Invest_V3;
 			productReference = 7E5151122E1EC39C00A6F304 /* Invest_V3.app */;
@@ -232,6 +235,11 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7E5685202E3BB116006B7F09 /* XCRemoteSwiftPackageReference "HTML2Markdown" */,
+				7E147E282E3BD22D00E923CC /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				7E147E3C2E3BD29000E923CC /* XCRemoteSwiftPackageReference "storage-swift" */,
+				7E147E422E3BD2C700E923CC /* XCRemoteSwiftPackageReference "MarkdownUI" */,
+				7E147E452E3BD2E400E923CC /* XCRemoteSwiftPackageReference "Ashton" */,
+				7E147E482E3BD30E00E923CC /* XCRemoteSwiftPackageReference "RichTextKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7E5151132E1EC39C00A6F304 /* Products */;
@@ -594,6 +602,46 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		7E147E282E3BD22D00E923CC /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase-community/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+		7E147E3C2E3BD29000E923CC /* XCRemoteSwiftPackageReference "storage-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase-community/storage-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.4;
+			};
+		};
+		7E147E422E3BD2C700E923CC /* XCRemoteSwiftPackageReference "MarkdownUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/MarkdownUI";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+		7E147E452E3BD2E400E923CC /* XCRemoteSwiftPackageReference "Ashton" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/IdeasOnCanvas/Ashton.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.3.2;
+			};
+		};
+		7E147E482E3BD30E00E923CC /* XCRemoteSwiftPackageReference "RichTextKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/danielsaidi/RichTextKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.0;
+			};
+		};
 		7E5685202E3BB116006B7F09 /* XCRemoteSwiftPackageReference "HTML2Markdown" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/divadretlaw/HTML2Markdown.git";
@@ -605,6 +653,41 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		7E147E2B2E3BD22D00E923CC /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7E147E282E3BD22D00E923CC /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+		7E147E292E3BD22D00E923CC /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7E147E282E3BD22D00E923CC /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		7E147E2F2E3BD22D00E923CC /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7E147E282E3BD22D00E923CC /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		7E147E3D2E3BD29000E923CC /* SupabaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7E147E3C2E3BD29000E923CC /* XCRemoteSwiftPackageReference "storage-swift" */;
+			productName = SupabaseStorage;
+		};
+		7E147E432E3BD2C700E923CC /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7E147E422E3BD2C700E923CC /* XCRemoteSwiftPackageReference "MarkdownUI" */;
+			productName = MarkdownUI;
+		};
+		7E147E462E3BD2F900E923CC /* Ashton */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7E147E452E3BD2E400E923CC /* XCRemoteSwiftPackageReference "Ashton" */;
+			productName = Ashton;
+		};
+		7E147E492E3BD30E00E923CC /* RichTextKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7E147E482E3BD30E00E923CC /* XCRemoteSwiftPackageReference "RichTextKit" */;
+			productName = RichTextKit;
+		};
 		7E5685212E3BB116006B7F09 /* HTML2Markdown */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7E5685202E3BB116006B7F09 /* XCRemoteSwiftPackageReference "HTML2Markdown" */;

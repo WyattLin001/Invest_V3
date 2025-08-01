@@ -173,9 +173,9 @@ struct ExpertProfileView: View {
                 .fontWeight(.bold)
             
             VStack(spacing: 12) {
-                TransactionItem(action: "買入", symbol: "MSFT", price: 420.50, time: "2小時前", color: .green)
-                TransactionItem(action: "賣出", symbol: "AMZN", price: 145.20, time: "1天前", color: .red)
-                TransactionItem(action: "買入", symbol: "NVDA", price: 875.30, time: "2天前", color: .green)
+                ExpertTransactionRow(action: "買入", symbol: "MSFT", price: 420.50, time: "2小時前", color: .green)
+                ExpertTransactionRow(action: "賣出", symbol: "AMZN", price: 145.20, time: "1天前", color: .red)
+                ExpertTransactionRow(action: "買入", symbol: "NVDA", price: 875.30, time: "2天前", color: .green)
                 
                 Button(action: {
                     // 查看完整交易記錄
@@ -343,7 +343,7 @@ struct HoldingItem: View {
     }
 }
 
-struct TransactionItem: View {
+struct ExpertTransactionRow: View {
     let action: String
     let symbol: String
     let price: Double

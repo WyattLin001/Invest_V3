@@ -1,7 +1,8 @@
 import SwiftUI
 import UIKit
 import PhotosUI
-import Supabase
+import Auth
+import SupabaseStorage
 
 
 // MARK: - Medium 風格編輯器

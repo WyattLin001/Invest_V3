@@ -5,7 +5,7 @@
 //  Created by 林家麒 on 2025/7/9.
 //
 import Foundation
-import Supabase
+import Auth
 
 @MainActor
 class ArticleViewModel: ObservableObject {

@@ -163,7 +163,7 @@ struct TestResultsView: View {
         ScrollView {
             LazyVStack(spacing: 8) {
                 ForEach(testRunner.testResults) { result in
-                    TestResultRow(result: result)
+                    GeneralTestResultRow(result: result)
                 }
             }
             .padding()
@@ -541,7 +541,7 @@ struct TabButton: View {
     }
 }
 
-struct TestResultRow: View {
+struct GeneralTestResultRow: View {
     let result: TestResult
     
     var body: some View {
