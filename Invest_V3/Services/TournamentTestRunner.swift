@@ -534,6 +534,73 @@ class TournamentTestRunner: ObservableObject {
         }
     }
     
+    func testPortfolioView() async {
+        await executeTest(testName: "投資組合查閱測試") {
+            let portfolio = mockDataGenerator.generateMockPortfolio()
+            let participant = mockDataGenerator.generateMockParticipant()
+            
+            // 驗證投資組合數據載入
+            guard portfolio.totalValue > 0 else {
+                throw TestError.displayError("投資組合總價值顯示錯誤")
+            }
+            
+            guard portfolio.cashBalance >= 0 else {
+                throw TestError.displayError("現金餘額顯示錯誤")
+            }
+            
+            // 驗證持股列表顯示
+            guard !portfolio.holdings.isEmpty else {
+                throw TestError.displayError("持股列表為空")
+            }
+            
+            // 驗證每個持股的數據完整性
+            for holding in portfolio.holdings {
+                guard holding.quantity > 0 else {
+                    throw TestError.displayError("持股數量顯示錯誤: \(holding.symbol)")
+                }
+                
+                guard holding.marketValue > 0 else {
+                    throw TestError.displayError("市值計算錯誤: \(holding.symbol)")
+                }
+                
+                guard !holding.symbol.isEmpty else {
+                    throw TestError.displayError("股票代碼為空")
+                }
+            }
+            
+            // 驗證績效計算
+            let expectedInvestedValue = portfolio.holdings.reduce(0) { $0 + $1.marketValue }
+            let calculatedTotalValue = portfolio.cashBalance + expectedInvestedValue
+            
+            guard abs(calculatedTotalValue - portfolio.totalValue) < 0.01 else {
+                throw TestError.displayError("總價值計算不一致")
+            }
+            
+            // 驗證現金比例計算
+            let expectedCashPercentage = (portfolio.cashBalance / portfolio.totalValue) * 100
+            guard abs(expectedCashPercentage - portfolio.cashPercentage) < 0.1 else {
+                throw TestError.displayError("現金比例計算錯誤")
+            }
+            
+            // 驗證排序功能 (按市值排序)
+            let sortedHoldings = portfolio.holdings.sorted { $0.marketValue > $1.marketValue }
+            guard sortedHoldings.first?.marketValue ?? 0 >= sortedHoldings.last?.marketValue ?? 0 else {
+                throw TestError.displayError("持股排序功能錯誤")
+            }
+            
+            // 驗證篩選功能 (獲利股票)
+            let profitableHoldings = portfolio.holdings.filter { $0.unrealizedGainLoss > 0 }
+            let losingHoldings = portfolio.holdings.filter { $0.unrealizedGainLoss < 0 }
+            
+            // 驗證總和正確
+            guard profitableHoldings.count + losingHoldings.count <= portfolio.holdings.count else {
+                throw TestError.displayError("盈虧篩選邏輯錯誤")
+            }
+            
+            return "✅ 投資組合查閱界面功能正常"
+        }
+    }
+    
     // MARK: - 輔助方法
     
     /// 執行單個測試
@@ -610,6 +677,7 @@ class TournamentTestRunner: ObservableObject {
     private func runUITests() async {
         await testTournamentSelection()
         await testRankingsDisplay()
+        await testPortfolioView()
         await testCardComponents()
     }
     

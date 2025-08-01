@@ -306,6 +306,12 @@ struct TournamentTestView: View {
                     action: { await testRunner.testRankingsDisplay() }
                 ),
                 TestItemModel(
+                    title: "投資組合查閱測試",
+                    description: "驗證投資組合界面顯示和功能",
+                    iconName: "chart.pie.fill",
+                    action: { await testRunner.testPortfolioView() }
+                ),
+                TestItemModel(
                     title: "卡片組件測試",
                     description: "檢查卡片狀態和互動",
                     iconName: "rectangle.on.rectangle",
