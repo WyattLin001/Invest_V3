@@ -19,7 +19,7 @@
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 AI_AUTHOR_ID=uuid-of-ai-author-account
-OPENAI_API_KEY=sk-your-openai-api-key
+OPENAI_API_KEY=your-openai-api-key
 SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
 ```
 
