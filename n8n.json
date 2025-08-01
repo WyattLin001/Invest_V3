@@ -56,7 +56,7 @@
       "typeVersion": 2,
       "position": [850, 150],
       "credentials": {
-        "openAIApi": {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
+        "openAIApi": {
           "id": "OpenAI API",
           "name": "OpenAI API"
         }
