@@ -545,7 +545,54 @@ class TournamentTestRunner: ObservableObject {
     
     private func simulateTrade(portfolio: MockPortfolio, trade: MockTrade) -> MockPortfolio {
         // 模擬交易執行邏輯
-        return portfolio // 簡化返回
+        var updatedHoldings = portfolio.holdings
+        
+        if trade.type == .buy {
+            // 買入交易：增加持股或創建新持股
+            if let existingIndex = updatedHoldings.firstIndex(where: { $0.symbol == trade.symbol }) {
+                let existing = updatedHoldings[existingIndex]
+                let newQuantity = existing.quantity + trade.quantity
+                let newAveragePrice = (existing.averagePrice * Double(existing.quantity) + trade.price * Double(trade.quantity)) / Double(newQuantity)
+                
+                updatedHoldings[existingIndex] = MockHolding(
+                    symbol: existing.symbol,
+                    name: existing.name,
+                    quantity: newQuantity,
+                    averagePrice: newAveragePrice,
+                    currentPrice: existing.currentPrice,
+                    marketValue: Double(newQuantity) * existing.currentPrice,
+                    unrealizedGainLoss: (existing.currentPrice - newAveragePrice) * Double(newQuantity),
+                    unrealizedGainLossPercentage: ((existing.currentPrice - newAveragePrice) / newAveragePrice) * 100
+                )
+            } else {
+                // 創建新持股
+                let newHolding = MockHolding(
+                    symbol: trade.symbol,
+                    name: trade.name,
+                    quantity: trade.quantity,
+                    averagePrice: trade.price,
+                    currentPrice: trade.price,
+                    marketValue: Double(trade.quantity) * trade.price,
+                    unrealizedGainLoss: 0,
+                    unrealizedGainLossPercentage: 0
+                )
+                updatedHoldings.append(newHolding)
+            }
+        }
+        
+        // 更新投資組合
+        let newCashBalance = portfolio.cashBalance - trade.amount
+        let newInvestedValue = updatedHoldings.reduce(0) { $0 + $1.marketValue }
+        let newTotalValue = newCashBalance + newInvestedValue
+        let newCashPercentage = (newCashBalance / newTotalValue) * 100
+        
+        return MockPortfolio(
+            totalValue: newTotalValue,
+            cashBalance: newCashBalance,
+            investedValue: newInvestedValue,
+            holdings: updatedHoldings,
+            cashPercentage: newCashPercentage
+        )
     }
     
     private func calculateRankings(participants: [TournamentParticipant]) -> [TournamentParticipant] {
