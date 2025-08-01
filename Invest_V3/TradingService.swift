@@ -246,7 +246,7 @@ class TradingService: ObservableObject {
     }
     
     /// 買入股票
-    func buyStock(symbol: String, quantity: Int, price: Double) async throws {
+    func buyStock(symbol: String, quantity: Int, price: Double, tournamentId: UUID? = nil, tournamentName: String? = nil) async throws {
         isLoading = true
         error = nil
         
@@ -257,11 +257,19 @@ class TradingService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let body = [
+        var body: [String: Any] = [
             "symbol": symbol,
             "quantity": quantity,
             "price": price
-        ] as [String: Any]
+        ]
+        
+        // 添加錦標賽上下文
+        if let tournamentId = tournamentId {
+            body["tournament_id"] = tournamentId.uuidString
+        }
+        if let tournamentName = tournamentName {
+            body["tournament_name"] = tournamentName
+        }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
@@ -288,7 +296,7 @@ class TradingService: ObservableObject {
     }
     
     /// 賣出股票
-    func sellStock(symbol: String, quantity: Int, price: Double) async throws {
+    func sellStock(symbol: String, quantity: Int, price: Double, tournamentId: UUID? = nil, tournamentName: String? = nil) async throws {
         isLoading = true
         error = nil
         
@@ -315,11 +323,19 @@ class TradingService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let body = [
+        var body: [String: Any] = [
             "symbol": symbol,
             "quantity": quantity,
             "price": price
-        ] as [String: Any]
+        ]
+        
+        // 添加錦標賽上下文
+        if let tournamentId = tournamentId {
+            body["tournament_id"] = tournamentId.uuidString
+        }
+        if let tournamentName = tournamentName {
+            body["tournament_name"] = tournamentName
+        }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         

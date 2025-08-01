@@ -25,6 +25,7 @@ struct HomeView: View {
     @State private var currentTournamentName = "2025年度投資錦標賽" // 當前錦標賽名稱
     @State private var showTournamentSwitcher = false // 錦標賽切換器
     @State private var showTournamentTest = false // 錦標賽測試界面
+    @StateObject private var tournamentStateManager = TournamentStateManager.shared
     
 
     var body: some View {
@@ -113,8 +114,13 @@ struct HomeView: View {
             WalletView()
         }
         .fullScreenCover(isPresented: $viewModel.showInvestmentPanel) {
-            EnhancedInvestmentView(currentTournamentName: currentTournamentName)
-                .environmentObject(ThemeManager.shared)
+            if tournamentStateManager.isParticipatingInTournament {
+                TournamentTradingView()
+                    .environmentObject(ThemeManager.shared)
+            } else {
+                EnhancedInvestmentView(currentTournamentName: currentTournamentName)
+                    .environmentObject(ThemeManager.shared)
+            }
         }
         .onReceive(viewModel.$errorMessage) { errorMessage in
             if let errorMessage = errorMessage {
@@ -326,14 +332,26 @@ struct HomeView: View {
                         .foregroundColor(.white)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("投資交易")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.white)
+                        if tournamentStateManager.isParticipatingInTournament {
+                            Text("錦標賽交易")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
 
-                        Text("模擬股票交易")
-                            .font(.caption2)
-                            .foregroundColor(.white.opacity(0.8))
+                            Text(tournamentStateManager.getCurrentTournamentDisplayName() ?? "參與中...")
+                                .font(.caption2)
+                                .foregroundColor(.white.opacity(0.8))
+                                .lineLimit(1)
+                        } else {
+                            Text("投資交易")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+
+                            Text("模擬股票交易")
+                                .font(.caption2)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
                     }
 
                     Spacer()
@@ -353,8 +371,8 @@ struct HomeView: View {
                 )
                 .cornerRadius(12)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("投資交易")
-                .accessibilityHint("開啟投資面板進行模擬股票交易")
+                .accessibilityLabel(tournamentStateManager.isParticipatingInTournament ? "錦標賽交易" : "投資交易")
+                .accessibilityHint(tournamentStateManager.isParticipatingInTournament ? "開啟錦標賽交易界面" : "開啟投資面板進行模擬股票交易")
             }
         }
         .padding(.all, 20)

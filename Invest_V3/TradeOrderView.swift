@@ -6,6 +6,7 @@ struct TradeOrderView: View {
     
     @ObservedObject private var tradingService = TradingService.shared
     @ObservedObject private var portfolioService = PortfolioService.shared
+    @StateObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var quantity = ""
     @State private var price = ""
     @State private var orderType: OrderType = .market
@@ -662,18 +663,26 @@ struct TradeOrderView: View {
         
         Task {
             do {
+                // 獲取當前錦標賽上下文
+                let tournamentId = tournamentStateManager.getCurrentTournamentId()
+                let tournamentName = tournamentStateManager.getCurrentTournamentDisplayName()
+                
                 switch action {
                 case .buy:
                     try await tradingService.buyStock(
                         symbol: stock.symbol,
                         quantity: qty,
-                        price: stockPrice
+                        price: stockPrice,
+                        tournamentId: tournamentId,
+                        tournamentName: tournamentName
                     )
                 case .sell:
                     try await tradingService.sellStock(
                         symbol: stock.symbol,
                         quantity: qty,
-                        price: stockPrice
+                        price: stockPrice,
+                        tournamentId: tournamentId,
+                        tournamentName: tournamentName
                     )
                 }
                 

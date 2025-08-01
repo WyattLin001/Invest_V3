@@ -409,7 +409,10 @@ struct TournamentSelectionView: View {
     private func handleEnrollTournament(_ tournament: Tournament) {
         // 處理錦標賽報名
         print("🏆 報名錦標賽: \(tournament.name)")
-        // TODO: 實現報名邏輯
+        
+        Task {
+            await TournamentStateManager.shared.joinTournament(tournament)
+        }
     }
     
     private func handleViewTournamentDetails(_ tournament: Tournament) {

@@ -152,11 +152,29 @@ struct TradingTransaction: Codable, Identifiable {
     let fee: Double
     let tax: Double?
     let timestamp: String
+    let tournamentId: UUID? // 新增：關聯的錦標賽ID
+    let tournamentName: String? // 新增：錦標賽名稱
     
     private enum CodingKeys: String, CodingKey {
         case symbol, action, quantity, price
         case totalAmount = "total_amount"
         case fee, tax, timestamp
+        case tournamentId = "tournament_id"
+        case tournamentName = "tournament_name"
+    }
+    
+    // 自定義初始化器（支援向後兼容）
+    init(symbol: String, action: String, quantity: Int, price: Double, totalAmount: Double, fee: Double, tax: Double? = nil, timestamp: String, tournamentId: UUID? = nil, tournamentName: String? = nil) {
+        self.symbol = symbol
+        self.action = action
+        self.quantity = quantity
+        self.price = price
+        self.totalAmount = totalAmount
+        self.fee = fee
+        self.tax = tax
+        self.timestamp = timestamp
+        self.tournamentId = tournamentId
+        self.tournamentName = tournamentName
     }
     
     var actionText: String {

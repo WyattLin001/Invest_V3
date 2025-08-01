@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		7E147E2C2E3BD22D00E923CC /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E2B2E3BD22D00E923CC /* Supabase */; };
 		7E147E2A2E3BD22D00E923CC /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E292E3BD22D00E923CC /* Auth */; };
+		7E147E2C2E3BD22D00E923CC /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E2B2E3BD22D00E923CC /* Supabase */; };
 		7E147E302E3BD22D00E923CC /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E2F2E3BD22D00E923CC /* Realtime */; };
 		7E147E3E2E3BD29000E923CC /* SupabaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E3D2E3BD29000E923CC /* SupabaseStorage */; };
 		7E147E442E3BD2C700E923CC /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 7E147E432E3BD2C700E923CC /* MarkdownUI */; };
@@ -33,9 +33,6 @@
 			remoteInfo = Invest_V3;
 		};
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		7E5151122E1EC39C00A6F304 /* Invest_V3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Invest_V3.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -653,15 +650,15 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		7E147E2B2E3BD22D00E923CC /* Supabase */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 7E147E282E3BD22D00E923CC /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Supabase;
-		};
 		7E147E292E3BD22D00E923CC /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7E147E282E3BD22D00E923CC /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Auth;
+		};
+		7E147E2B2E3BD22D00E923CC /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7E147E282E3BD22D00E923CC /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
 		};
 		7E147E2F2E3BD22D00E923CC /* Realtime */ = {
 			isa = XCSwiftPackageProductDependency;

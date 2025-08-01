@@ -122,6 +122,13 @@ struct SettingsView: View {
                 await viewModel.loadData()
             }
         }
+        .onChange(of: authService.isAuthenticated) { oldValue, newValue in
+            // 當用戶從未認證變為已認證（登入成功）時，自動關閉登入畫面
+            if !oldValue && newValue && showLoginSheet {
+                showLoginSheet = false
+                print("📱 用戶登入成功，自動關閉登入畫面")
+            }
+        }
     }
     
     // MARK: - View Components (將子視圖邏輯移到這裡)
@@ -617,6 +624,10 @@ struct SettingsView: View {
             Button("確定", role: .destructive) {
                 Task {
                     await authService.signOut()
+                    // 登出後自動顯示登入畫面
+                    await MainActor.run {
+                        showLoginSheet = true
+                    }
                 }
             }
             Button("取消", role: .cancel) {}

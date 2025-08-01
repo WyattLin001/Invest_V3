@@ -321,10 +321,19 @@ struct TournamentCardView: View {
                 .disabled(true)
             
         case .ongoing:
-            Button("參加錦標賽") {
-                onViewDetails?()
+            NavigationLink(destination: TournamentTradingView()) {
+                Text("參加錦標賽")
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.green)
+                    .cornerRadius(8)
             }
-            .buttonStyle(PrimaryButtonStyle())
+            .simultaneousGesture(TapGesture().onEnded {
+                Task {
+                    await TournamentStateManager.shared.joinTournament(tournament)
+                }
+            })
             
         case .finished:
             Button("查看結果") {
@@ -346,10 +355,12 @@ struct TournamentCardView: View {
         
         isEnrolling = true
         
-        // 模擬異步報名操作
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            isEnrolling = false
-            onEnroll?()
+        Task {
+            await TournamentStateManager.shared.joinTournament(tournament)
+            await MainActor.run {
+                isEnrolling = false
+                onEnroll?()
+            }
         }
     }
     
