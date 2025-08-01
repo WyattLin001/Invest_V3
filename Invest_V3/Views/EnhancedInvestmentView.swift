@@ -251,43 +251,42 @@ struct EnhancedInvestmentView: View {
                 Label("我的績效", systemImage: "chart.bar.fill")
             }
             .tag(InvestmentTab.performance)
-        }
-        .tint(.brandGreen)
-        .sheet(isPresented: $showingTournamentDetail) {
-            if let tournament = selectedTournament {
-                TournamentDetailView(tournament: tournament)
+            }
+            .tint(.brandGreen)
+            .sheet(isPresented: $showingTournamentDetail) {
+                if let tournament = selectedTournament {
+                    TournamentDetailView(tournament: tournament)
+                        .environmentObject(themeManager)
+                }
+            }
+            .sheet(isPresented: $showingTournamentSelection) {
+                TournamentSelectionSheet(
+                    participatedTournaments: $participatedTournaments,
+                    currentActiveTournament: $currentActiveTournament
+                )
+                .environmentObject(themeManager)
+            }
+            .sheet(isPresented: $showingCreateTournament) {
+                CreateTournamentView()
                     .environmentObject(themeManager)
             }
-        }
-        .sheet(isPresented: $showingTournamentSelection) {
-            TournamentSelectionSheet(
-                participatedTournaments: $participatedTournaments,
-                currentActiveTournament: $currentActiveTournament
-            )
-            .environmentObject(themeManager)
-        }
-        .sheet(isPresented: $showingCreateTournament) {
-            CreateTournamentView()
-                .environmentObject(themeManager)
-        }
-        .onAppear {
-            initializeDefaultTournament()
-            loadSupabaseData()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToTournamentTrading"))) { notification in
-            // 接收到錦標賽報名通知，執行滑動轉場回到投資總覽頁面
-            if let tournament = notification.object as? Tournament {
-                handleTournamentSwitch(tournament)
+            .onAppear {
+                initializeDefaultTournament()
+                loadSupabaseData()
             }
-        }
-        }
-        
-        // Loading 覆蓋層
-        if tournamentDataLoading {
-            TournamentSwitchLoadingView(tournamentName: currentActiveTournament?.name ?? "錦標賽")
-                .zIndex(999)
-                .transition(.opacity)
-        }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToTournamentTrading"))) { notification in
+                // 接收到錦標賽報名通知，執行滑動轉場回到投資總覽頁面
+                if let tournament = notification.object as? Tournament {
+                    handleTournamentSwitch(tournament)
+                }
+            }
+            
+            // Loading 覆蓋層
+            if tournamentDataLoading {
+                TournamentSwitchLoadingView(tournamentName: currentActiveTournament?.name ?? "錦標賽")
+                    .zIndex(999)
+                    .transition(.opacity)
+            }
         }
     }
     
