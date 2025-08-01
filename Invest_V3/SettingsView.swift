@@ -624,9 +624,11 @@ struct SettingsView: View {
             Button("確定", role: .destructive) {
                 Task {
                     await authService.signOut()
-                    // 登出後自動顯示登入畫面
+                    // 登出後自動顯示登入畫面並切換到首頁
                     await MainActor.run {
                         showLoginSheet = true
+                        // 通知 ContentView 切換到首頁
+                        NotificationCenter.default.post(name: NSNotification.Name("SwitchToHomeTab"), object: nil)
                     }
                 }
             }

@@ -100,6 +100,10 @@ struct ContentView: View {
             // 切換到錢包 Tab 進行充值
             selectedTab = 2
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHomeTab"))) { _ in
+            // 切換到首頁 Tab (通常在登出後使用)
+            selectedTab = 0
+        }
     }
 }
 
