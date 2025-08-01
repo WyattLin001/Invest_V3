@@ -353,13 +353,26 @@ struct TournamentCardView: View {
     private func handleEnroll() {
         guard !isEnrolling else { return }
         
-        isEnrolling = true
+        // 立即給用戶按鈕回饋動畫
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isEnrolling = true
+        }
+        
+        // 提供觸覺反饋
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
         
         Task {
             await TournamentStateManager.shared.joinTournament(tournament)
             await MainActor.run {
-                isEnrolling = false
                 onEnroll?() // 觸發父組件的處理邏輯，包括轉場動畫
+                
+                // 稍後重置狀態
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isEnrolling = false
+                    }
+                }
             }
         }
     }

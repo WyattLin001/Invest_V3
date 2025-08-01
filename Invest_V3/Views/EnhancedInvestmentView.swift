@@ -30,6 +30,8 @@ struct EnhancedInvestmentView: View {
     @State private var showingTournamentTrading = false
     @State private var participatedTournaments: [Tournament] = []
     @State private var currentActiveTournament: Tournament?
+    @State private var isSwitchingTournament = false
+    @State private var tournamentDataLoading = false
     
     // 滾動狀態追踪
     @State private var scrollOffset: CGFloat = 0
@@ -50,7 +52,8 @@ struct EnhancedInvestmentView: View {
     }
     
     var body: some View {
-        TabView(selection: $selectedTab) {
+        ZStack {
+            TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
             NavigationStack {
                 ScrollView {
@@ -274,22 +277,17 @@ struct EnhancedInvestmentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToTournamentTrading"))) { notification in
             // 接收到錦標賽報名通知，執行滑動轉場回到投資總覽頁面
             if let tournament = notification.object as? Tournament {
-                withAnimation(.easeInOut(duration: 0.6)) {
-                    // 切換到投資總覽 tab，顯示所選錦標賽的投資資料
-                    selectedTab = .home
-                }
-                
-                // 更新當前活躍錦標賽，讓所有投資資料關聯到此錦標賽
-                currentActiveTournament = tournament
-                
-                // 更新錦標賽狀態管理器的上下文
-                Task {
-                    await TournamentStateManager.shared.updateTournamentContext(tournament)
-                }
-                
-                print("🎯 已切換到錦標賽投資模式: \(tournament.name)")
-                print("📊 投資組合、交易記錄等資料將關聯到當前錦標賽")
+                handleTournamentSwitch(tournament)
             }
+        }
+        }
+        
+        // Loading 覆蓋層
+        if tournamentDataLoading {
+            TournamentSwitchLoadingView(tournamentName: currentActiveTournament?.name ?? "錦標賽")
+                .zIndex(999)
+                .transition(.opacity)
+        }
         }
     }
     
@@ -3320,6 +3318,130 @@ struct PersonalPerformanceInnerContent: View {
         }
         
         return data
+    }
+    
+    // MARK: - 錦標賽切換處理
+    
+    /// 處理錦標賽切換的完整流程
+    private func handleTournamentSwitch(_ tournament: Tournament) {
+        // 1. 立即顯示切換狀態
+        withAnimation(.easeOut(duration: 0.3)) {
+            isSwitchingTournament = true
+        }
+        
+        // 2. 平滑滑動到投資總覽頁面
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.8, blendDuration: 0)) {
+                selectedTab = .home
+            }
+        }
+        
+        // 3. 開始載入數據
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            tournamentDataLoading = true
+            currentActiveTournament = tournament
+            
+            // 更新錦標賽狀態管理器的上下文
+            Task {
+                await TournamentStateManager.shared.updateTournamentContext(tournament)
+                
+                // 模擬數據載入時間
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        tournamentDataLoading = false
+                        isSwitchingTournament = false
+                    }
+                    
+                    print("🎯 已完成錦標賽切換: \(tournament.name)")
+                    print("📊 投資組合、交易記錄等資料已關聯到當前錦標賽")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 錦標賽切換 Loading 視圖
+struct TournamentSwitchLoadingView: View {
+    let tournamentName: String
+    @State private var loadingDots = ""
+    @State private var opacity: Double = 0.0
+    
+    var body: some View {
+        ZStack {
+            // 半透明背景
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+            
+            // Loading 卡片
+            VStack(spacing: 24) {
+                // 錦標賽圖標
+                ZStack {
+                    Circle()
+                        .fill(Color.brandGreen.opacity(0.2))
+                        .frame(width: 80, height: 80)
+                    
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.brandGreen)
+                }
+                
+                VStack(spacing: 8) {
+                    Text("切換錦標賽中")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    
+                    Text("正在載入 \(tournamentName)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("請稍後\(loadingDots)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .opacity(0.8)
+                }
+                
+                // Loading 指示器
+                ProgressView()
+                    .scaleEffect(1.2)
+                    .tint(.brandGreen)
+            }
+            .padding(32)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.regularMaterial)
+                    .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+            )
+            .scaleEffect(opacity)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.4)) {
+                opacity = 1.0
+            }
+            
+            // 動畫載入點點
+            startLoadingAnimation()
+        }
+    }
+    
+    private func startLoadingAnimation() {
+        Task {
+            while true {
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        if loadingDots.count < 3 {
+                            loadingDots += "."
+                        } else {
+                            loadingDots = ""
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
