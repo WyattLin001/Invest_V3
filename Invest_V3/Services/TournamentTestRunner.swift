@@ -287,15 +287,53 @@ class TournamentTestRunner: ObservableObject {
     func testPortfolioManager() async {
         await executeTest(testName: "投資組合管理器") {
             let portfolio = mockDataGenerator.generateMockPortfolio()
+            let initialHoldingsCount = portfolio.holdings.count
             
-            // 測試買入交易
-            let buyTrade = mockDataGenerator.generateMockTrade(type: .buy)
+            // 測試買入交易 - 使用已存在的股票
+            let existingSymbol = portfolio.holdings.first?.symbol ?? "AAPL"
+            let buyTrade = MockTrade(
+                id: UUID(),
+                symbol: existingSymbol,
+                name: "Test Stock",
+                type: .buy,
+                quantity: 100,
+                price: 100.0,
+                amount: 10000.0,
+                timestamp: Date(),
+                fee: 14.25
+            )
+            
             let updatedPortfolio = simulateTrade(portfolio: portfolio, trade: buyTrade)
             
             // 驗證持股增加
             guard let holding = updatedPortfolio.holdings.first(where: { $0.symbol == buyTrade.symbol }), 
                   holding.quantity > 0 else {
                 throw TestError.businessLogicError("買入交易後持股未正確更新")
+            }
+            
+            // 驗證現金減少
+            guard updatedPortfolio.cashBalance < portfolio.cashBalance else {
+                throw TestError.businessLogicError("買入交易後現金未正確扣除")
+            }
+            
+            // 測試買入新股票
+            let newTrade = MockTrade(
+                id: UUID(),
+                symbol: "TSLA",
+                name: "Tesla",
+                type: .buy,
+                quantity: 50,
+                price: 200.0,
+                amount: 10000.0,
+                timestamp: Date(),
+                fee: 14.25
+            )
+            
+            let finalPortfolio = simulateTrade(portfolio: updatedPortfolio, trade: newTrade)
+            
+            // 驗證新持股被創建
+            guard finalPortfolio.holdings.contains(where: { $0.symbol == "TSLA" }) else {
+                throw TestError.businessLogicError("新股票持股未正確創建")
             }
             
             return "✅ 投資組合管理器運作正常"
