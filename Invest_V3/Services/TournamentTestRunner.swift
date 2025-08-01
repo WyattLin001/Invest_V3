@@ -124,6 +124,44 @@ class TournamentTestRunner: ObservableObject {
     
     // MARK: - 第一層：基礎模型測試
     
+    func testConfiguration() async {
+        await executeTest(testName: "常數配置測試") {
+            // 驗證基本配置常數 - 透過 mock data generator 驗證
+            let tournament = mockDataGenerator.generateMockTournament()
+            
+            guard tournament.initialBalance > 0 else {
+                throw TestError.configurationError("初始餘額配置錯誤")
+            }
+            
+            guard tournament.maxParticipants > 0 else {
+                throw TestError.configurationError("最大參與人數配置錯誤")
+            }
+            
+            guard tournament.entryFee >= 0 else {
+                throw TestError.configurationError("入場費配置錯誤")
+            }
+            
+            guard tournament.prizePool >= 0 else {
+                throw TestError.configurationError("獎金池配置錯誤")
+            }
+            
+            // 驗證風險控制參數
+            guard tournament.riskLimitPercentage > 0 && tournament.riskLimitPercentage <= 100 else {
+                throw TestError.configurationError("風險限制配置超出範圍")
+            }
+            
+            guard tournament.minHoldingRate >= 0 && tournament.minHoldingRate <= 100 else {
+                throw TestError.configurationError("最小持股比例配置超出範圍")
+            }
+            
+            guard tournament.maxSingleStockRate > 0 && tournament.maxSingleStockRate <= 100 else {
+                throw TestError.configurationError("單股最大比例配置超出範圍")
+            }
+            
+            return "✅ 常數配置驗證通過"
+        }
+    }
+    
     func testTournamentModel() async {
         await executeTest(testName: "Tournament 模型驗證") {
             // 測試 Tournament 模型初始化
@@ -540,6 +578,7 @@ class TournamentTestRunner: ObservableObject {
     
     /// 執行基礎測試
     private func runFoundationTests() async {
+        await testConfiguration()
         await testTournamentModel()
         await testParticipantModel()
         await testPortfolioModel()
@@ -661,6 +700,7 @@ class TournamentTestRunner: ObservableObject {
 
 // MARK: - 測試錯誤類型
 enum TestError: LocalizedError {
+    case configurationError(String)
     case validationFailed(String)
     case calculationError(String)
     case networkError(String)
@@ -674,6 +714,7 @@ enum TestError: LocalizedError {
     
     var errorDescription: String? {
         switch self {
+        case .configurationError(let message): return "配置錯誤: \(message)"
         case .validationFailed(let message): return "驗證失敗: \(message)"
         case .calculationError(let message): return "計算錯誤: \(message)"
         case .networkError(let message): return "網路錯誤: \(message)"

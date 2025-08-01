@@ -158,6 +158,12 @@ struct TournamentTestView: View {
             accentColor: .blue,
             tests: [
                 TestItemModel(
+                    title: "常數配置測試",
+                    description: "驗證系統配置常數和參數範圍",
+                    iconName: "gearshape.fill",
+                    action: { await testRunner.testConfiguration() }
+                ),
+                TestItemModel(
                     title: "Tournament 模型驗證",
                     description: "測試錦標賽基本屬性和計算邏輯",
                     iconName: "trophy",
