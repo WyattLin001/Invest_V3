@@ -243,6 +243,44 @@ class TournamentStateManager: ObservableObject {
         return currentTournamentContext?.tournament.id
     }
     
+    /// 更新錦標賽上下文（切換錦標賽時使用）
+    func updateTournamentContext(_ tournament: Tournament) async {
+        print("🔄 [TournamentStateManager] 切換到錦標賽: \(tournament.name)")
+        
+        // 創建參與者資料
+        let participant = createParticipantForTournament(tournament)
+        
+        // 創建對應的投資組合（根據錦標賽載入或創建）
+        let portfolio = createInitialPortfolio(for: tournament)
+        
+        // 創建績效指標
+        let performance = createInitialPerformance()
+        
+        // 設定錦標賽上下文
+        let context = TournamentContext(
+            tournament: tournament,
+            participant: participant,
+            state: .active,
+            portfolio: portfolio,
+            performance: performance,
+            currentRank: nil,
+            joinedAt: Date()
+        )
+        
+        // 更新狀態
+        await MainActor.run {
+            currentTournamentContext = context
+            isParticipatingInTournament = true
+            participationState = .active
+            isJoining = false
+        }
+        
+        // 持久化狀態
+        persistTournamentState()
+        
+        print("✅ [TournamentStateManager] 已切換到錦標賽: \(tournament.name)")
+    }
+    
     // MARK: - 私有方法
     
     private func setupStateObservers() {

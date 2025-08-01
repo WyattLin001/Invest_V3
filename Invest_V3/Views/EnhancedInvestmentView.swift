@@ -272,23 +272,23 @@ struct EnhancedInvestmentView: View {
             loadSupabaseData()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToTournamentTrading"))) { notification in
-            // 接收到錦標賽報名通知，執行滑動轉場到投資組合頁面
+            // 接收到錦標賽報名通知，執行滑動轉場回到投資總覽頁面
             if let tournament = notification.object as? Tournament {
                 withAnimation(.easeInOut(duration: 0.6)) {
-                    // 先切換到投資總覽 tab
+                    // 切換到投資總覽 tab，顯示所選錦標賽的投資資料
                     selectedTab = .home
                 }
                 
-                // 延遲顯示錦標賽交易界面，創造滑動效果
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    withAnimation(.easeInOut(duration: 0.4)) {
-                        showingTournamentTrading = true
-                    }
+                // 更新當前活躍錦標賽，讓所有投資資料關聯到此錦標賽
+                currentActiveTournament = tournament
+                
+                // 更新錦標賽狀態管理器的上下文
+                Task {
+                    await TournamentStateManager.shared.updateTournamentContext(tournament)
                 }
                 
-                // 更新當前活躍錦標賽
-                currentActiveTournament = tournament
-                print("🎯 已切換到錦標賽交易界面: \(tournament.name)")
+                print("🎯 已切換到錦標賽投資模式: \(tournament.name)")
+                print("📊 投資組合、交易記錄等資料將關聯到當前錦標賽")
             }
         }
     }
