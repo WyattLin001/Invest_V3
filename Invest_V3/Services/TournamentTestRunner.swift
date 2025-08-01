@@ -293,8 +293,8 @@ class TournamentTestRunner: ObservableObject {
             let updatedPortfolio = simulateTrade(portfolio: portfolio, trade: buyTrade)
             
             // 驗證持股增加
-            let holding = updatedPortfolio.holdings.first { $0.symbol == buyTrade.symbol }
-            guard let holding = holding, holding.quantity > 0 else {
+            guard let holding = updatedPortfolio.holdings.first(where: { $0.symbol == buyTrade.symbol }), 
+                  holding.quantity > 0 else {
                 throw TestError.businessLogicError("買入交易後持股未正確更新")
             }
             
