@@ -424,6 +424,47 @@ struct EnhancedInvestmentView: View {
             // 繼續使用本地模擬數據
         }
     }
+    
+    // MARK: - 錦標賽切換處理
+    
+    /// 處理錦標賽切換的完整流程
+    private func handleTournamentSwitch(_ tournament: Tournament) {
+        // 1. 立即顯示切換狀態
+        withAnimation(.easeOut(duration: 0.3)) {
+            isSwitchingTournament = true
+        }
+        
+        // 2. 平滑滑動到投資總覽頁面
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.8, blendDuration: 0)) {
+                selectedTab = .home
+            }
+        }
+        
+        // 3. 開始載入數據
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            tournamentDataLoading = true
+            currentActiveTournament = tournament
+            
+            // 更新錦標賽狀態管理器的上下文
+            Task {
+                await TournamentStateManager.shared.updateTournamentContext(tournament)
+                
+                // 模擬數據載入時間
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        tournamentDataLoading = false
+                        isSwitchingTournament = false
+                    }
+                    
+                    print("🎯 已完成錦標賽切換: \(tournament.name)")
+                    print("📊 投資組合、交易記錄等資料已關聯到當前錦標賽")
+                }
+            }
+        }
+    }
 }
 
 // MARK: - 投資功能標籤
@@ -3318,48 +3359,6 @@ struct PersonalPerformanceInnerContent: View {
         
         return data
     }
-    
-    // MARK: - 錦標賽切換處理
-    
-    /// 處理錦標賽切換的完整流程
-    private func handleTournamentSwitch(_ tournament: Tournament) {
-        // 1. 立即顯示切換狀態
-        withAnimation(.easeOut(duration: 0.3)) {
-            isSwitchingTournament = true
-        }
-        
-        // 2. 平滑滑動到投資總覽頁面
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.8, blendDuration: 0)) {
-                selectedTab = .home
-            }
-        }
-        
-        // 3. 開始載入數據
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            tournamentDataLoading = true
-            currentActiveTournament = tournament
-            
-            // 更新錦標賽狀態管理器的上下文
-            Task {
-                await TournamentStateManager.shared.updateTournamentContext(tournament)
-                
-                // 模擬數據載入時間
-                try? await Task.sleep(nanoseconds: 1_500_000_000)
-                
-                await MainActor.run {
-                    withAnimation(.easeInOut(duration: 0.4)) {
-                        tournamentDataLoading = false
-                        isSwitchingTournament = false
-                    }
-                    
-                    print("🎯 已完成錦標賽切換: \(tournament.name)")
-                    print("📊 投資組合、交易記錄等資料已關聯到當前錦標賽")
-                }
-            }
-        }
-    }
-}
 
 // MARK: - 錦標賽切換 Loading 視圖
 struct TournamentSwitchLoadingView: View {
