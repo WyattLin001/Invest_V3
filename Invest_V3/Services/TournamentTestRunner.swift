@@ -327,18 +327,22 @@ class TournamentTestRunner: ObservableObject {
             let portfolio = mockDataGenerator.generateMockPortfolio()
             let initialHoldingsCount = portfolio.holdings.count
             
-            // 測試買入交易 - 使用已存在的股票
+            // 測試買入交易 - 使用已存在的股票，確保不超過現金餘額
             let existingSymbol = portfolio.holdings.first?.symbol ?? "AAPL"
+            let tradeAmount = min(portfolio.cashBalance * 0.1, 5000.0) // 使用10%現金或最多5000
+            let tradeQuantity = 50
+            let tradePrice = tradeAmount / Double(tradeQuantity)
+            
             let buyTrade = MockTrade(
                 id: UUID(),
                 symbol: existingSymbol,
                 name: "Test Stock",
                 type: .buy,
-                quantity: 100,
-                price: 100.0,
-                amount: 10000.0,
+                quantity: tradeQuantity,
+                price: tradePrice,
+                amount: tradeAmount,
                 timestamp: Date(),
-                fee: 14.25
+                fee: tradeAmount * 0.001425
             )
             
             let updatedPortfolio = simulateTrade(portfolio: portfolio, trade: buyTrade)
@@ -355,16 +359,20 @@ class TournamentTestRunner: ObservableObject {
             }
             
             // 測試買入新股票
+            let newTradeAmount = min(updatedPortfolio.cashBalance * 0.1, 3000.0) // 使用剩餘現金的10%或最多3000
+            let newTradeQuantity = 30
+            let newTradePrice = newTradeAmount / Double(newTradeQuantity)
+            
             let newTrade = MockTrade(
                 id: UUID(),
                 symbol: "TSLA",
                 name: "Tesla",
                 type: .buy,
-                quantity: 50,
-                price: 200.0,
-                amount: 10000.0,
+                quantity: newTradeQuantity,
+                price: newTradePrice,
+                amount: newTradeAmount,
                 timestamp: Date(),
-                fee: 14.25
+                fee: newTradeAmount * 0.001425
             )
             
             let finalPortfolio = simulateTrade(portfolio: updatedPortfolio, trade: newTrade)

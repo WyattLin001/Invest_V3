@@ -155,12 +155,11 @@ class TournamentMockDataGenerator {
     
     /// 生成模擬投資組合
     func generateMockPortfolio() -> MockPortfolio {
-        let totalValue = MockConfig.defaultInitialBalance * Double.random(in: 0.8...1.5)
-        let cashBalance = totalValue * Double.random(in: 0.1...0.5) // 10%-50% 現金
-        let investedValue = totalValue - cashBalance
+        let cashBalance = MockConfig.defaultInitialBalance * Double.random(in: 0.1...0.5) // 10%-50% 現金
         
         let holdingCount = Int.random(in: 3...10)
         var holdings: [MockHolding] = []
+        var totalInvestedValue: Double = 0
         
         for i in 0..<holdingCount {
             let symbol = stockSymbols[i % stockSymbols.count]
@@ -182,12 +181,16 @@ class TournamentMockDataGenerator {
             )
             
             holdings.append(holding)
+            totalInvestedValue += marketValue
         }
+        
+        // 計算一致的總價值
+        let totalValue = cashBalance + totalInvestedValue
         
         return MockPortfolio(
             totalValue: totalValue,
             cashBalance: cashBalance,
-            investedValue: investedValue,
+            investedValue: totalInvestedValue,
             holdings: holdings,
             cashPercentage: cashBalance / totalValue * 100
         )
