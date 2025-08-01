@@ -1,0 +1,277 @@
+{
+  "name": "股圈AI投資文章自動生成_簡化版",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "value": 1
+            }
+          ]
+        },
+        "triggerAtHour": 7,
+        "triggerAtMinute": 0
+      },
+      "name": "每日觸發",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "id": "trigger-node"
+    },
+    {
+      "parameters": {
+        "resource": "feedItems",
+        "operation": "getAll",
+        "url": "https://news.cnyes.com/rss/tw",
+        "limit": 3,
+        "options": {}
+      },
+      "name": "獲取新聞",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "id": "rss-node"
+    },
+    {
+      "parameters": {
+        "functionCode": "// 簡化的新聞整理\nconst items = $input.all();\nlet newsContent = \"今日投資新聞摘要：\\n\\n\";\n\nitems.forEach((item, index) => {\n  const news = item.json;\n  newsContent += `${index + 1}. ${news.title}\\n摘要: ${(news.contentSnippet || news.description || '').substring(0, 200)}\\n\\n`;\n});\n\nreturn [{\n  json: {\n    newsContent: newsContent,\n    newsCount: items.length,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "name": "整理新聞",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "process-news"
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "model": "gpt-4o-mini",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 1200
+        },
+        "prompt": "你是專業投資分析師。基於以下新聞，撰寫一篇投資分析文章：\n\n{{ $json.newsContent }}\n\n請按此格式撰寫：\n\n# [吸引人的標題]\n\n## 市場概況\n[當前市場分析]\n\n## 重點關注\n[值得注意的重點]\n\n## 投資觀點\n[客觀投資觀點，避免直接建議]\n\n## 風險提醒\n**重要聲明：本文僅供參考，投資有風險，請謹慎評估。**\n\n要求：\n- 語調專業客觀\n- 800-1000字\n- 繁體中文\n- 必須包含風險警示\n- 避免直接投資建議"
+      },
+      "name": "AI生成文章",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai_credentials",
+          "name": "OpenAI API"
+        }
+      },
+      "id": "ai-generate"
+    },
+    {
+      "parameters": {
+        "functionCode": "// 簡化的文章處理\nconst aiContent = $json.message.content;\nconst lines = aiContent.split('\\n');\n\n// 提取標題\nlet title = \"AI市場分析 - \" + new Date().toLocaleDateString('zh-TW');\nfor (let line of lines) {\n  if (line.startsWith('# ')) {\n    title = line.replace('# ', '').trim();\n    break;\n  }\n}\n\n// 生成摘要\nconst summary = aiContent.replace(/#{1,6}\\s/g, '').substring(0, 150) + \"...\";\n\n// 基本關鍵字\nconst keywords = [\"AI分析\", \"投資\", \"市場\", \"風險管理\"];\n\nreturn [{\n  json: {\n    title: title,\n    content: aiContent,\n    summary: summary,\n    keywords: keywords,\n    word_count: aiContent.length,\n    read_time: Math.ceil(aiContent.length / 300) + \" 分鐘\",\n    created_at: new Date().toISOString()\n  }\n}];"
+      },
+      "name": "處理文章",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "id": "process-article"
+    },
+    {
+      "parameters": {
+        "schema": "public",
+        "table": "articles",
+        "operation": "insert",
+        "records": [
+          {
+            "title": "={{ $json.title }}",
+            "author": "AI 投資分析師",
+            "author_id": "{{ $env.AI_AUTHOR_ID }}",
+            "summary": "={{ $json.summary }}",
+            "full_content": "={{ $json.content }}",
+            "body_md": "={{ $json.content }}",
+            "category": "每日市場分析",
+            "read_time": "={{ $json.read_time }}",
+            "is_free": false,
+            "status": "draft",
+            "source": "ai",
+            "keywords": "={{ $json.keywords }}",
+            "likes_count": 0,
+            "comments_count": 0,
+            "shares_count": 0
+          }
+        ],
+        "options": {
+          "returnFields": "id,title,created_at"
+        }
+      },
+      "name": "保存文章",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_credentials",
+          "name": "Supabase API"
+        }
+      },
+      "id": "save-article"
+    },
+    {
+      "parameters": {
+        "channel": "#股圈-內容審核",
+        "text": "🤖 AI 投資分析文章已生成，請審核：",
+        "blocks": [
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*📝 新的 AI 投資分析待審核*\n\n*標題：* {{ $('處理文章').json.title }}\n*字數：* {{ $('處理文章').json.word_count }} 字\n*閱讀時間：* {{ $('處理文章').json.read_time }}\n*文章 ID：* {{ $('保存文章').json.id }}"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*摘要：*\n{{ $('處理文章').json.summary }}"
+            }
+          },
+          {
+            "type": "actions",
+            "elements": [
+              {
+                "type": "button",
+                "text": {
+                  "type": "plain_text",
+                  "text": "✅ 通過發布"
+                },
+                "style": "primary",
+                "value": "approve_{{ $('保存文章').json.id }}",
+                "action_id": "approve_article"
+              },
+              {
+                "type": "button",
+                "text": {
+                  "type": "plain_text",
+                  "text": "❌ 拒絕發布"
+                },
+                "style": "danger",
+                "value": "reject_{{ $('保存文章').json.id }}",
+                "action_id": "reject_article"
+              },
+              {
+                "type": "button",
+                "text": {
+                  "type": "plain_text",
+                  "text": "📝 需要修改"
+                },
+                "value": "revise_{{ $('保存文章').json.id }}",
+                "action_id": "revise_article"
+              }
+            ]
+          }
+        ],
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "name": "Slack審核通知",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1560, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "slack_credentials",
+          "name": "Slack API"
+        }
+      },
+      "id": "slack-notify"
+    }
+  ],
+  "connections": {
+    "每日觸發": {
+      "main": [
+        [
+          {
+            "node": "獲取新聞",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "獲取新聞": {
+      "main": [
+        [
+          {
+            "node": "整理新聞",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "整理新聞": {
+      "main": [
+        [
+          {
+            "node": "AI生成文章",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI生成文章": {
+      "main": [
+        [
+          {
+            "node": "處理文章",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "處理文章": {
+      "main": [
+        [
+          {
+            "node": "保存文章",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "保存文章": {
+      "main": [
+        [
+          {
+            "node": "Slack審核通知",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "timezone": "Asia/Taipei",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-08-01T08:00:00.000Z",
+      "updatedAt": "2025-08-01T08:00:00.000Z",
+      "id": "ai-automation",
+      "name": "AI自動化"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-01T08:00:00.000Z",
+  "versionId": "simplified-1.0"
+}

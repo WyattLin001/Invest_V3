@@ -14,6 +14,8 @@ class ArticleViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: Error?
     @Published var selectedKeyword = "全部"
+    @Published var selectedSource: ArticleSource? = nil
+    @Published var showAIArticlesOnly = false
     @Published var trendingKeywords: [String] = ["全部"]
     @Published var freeArticlesReadToday = 0
     
@@ -44,9 +46,31 @@ class ArticleViewModel: ObservableObject {
                     commentsCount: 5,
                     sharesCount: 2,
                     isFree: true,
+                    status: .published,
+                    source: .human,
                     createdAt: Date(),
                     updatedAt: Date(),
                     keywords: ["測試", "投資"]
+                ),
+                Article(
+                    id: UUID(),
+                    title: "AI 市場分析：今日焦點股票推薦",
+                    author: "AI 投資分析師",
+                    authorId: UUID(),
+                    summary: "基於最新市場數據和技術指標，AI 為您分析今日值得關注的投資機會",
+                    fullContent: "# AI 市場分析\n\n根據今日市場表現...",
+                    bodyMD: "# AI 市場分析\n\n根據今日市場表現...",
+                    category: "每日市場分析",
+                    readTime: "5 分鐘",
+                    likesCount: 28,
+                    commentsCount: 12,
+                    sharesCount: 7,
+                    isFree: false,
+                    status: .published,
+                    source: .ai,
+                    createdAt: Date().addingTimeInterval(-3600),
+                    updatedAt: Date().addingTimeInterval(-3600),
+                    keywords: ["AI分析", "市場", "股票推薦"]
                 )
             ]
             filteredArticles = articles
@@ -107,24 +131,58 @@ class ArticleViewModel: ObservableObject {
         }
     }
     
+    /// 按文章來源篩選
+    func filterBySource(_ source: ArticleSource?) {
+        selectedSource = source
+        Task {
+            await applySourceFilter()
+        }
+    }
+    
+    /// 切換顯示僅 AI 文章
+    func toggleAIArticlesOnly() {
+        showAIArticlesOnly.toggle()
+        Task {
+            await applyFilters()
+        }
+    }
+    
     private func applyKeywordFilter() async {
-        if selectedKeyword == "全部" {
-            filteredArticles = articles
-        } else {
-            do {
-                // 使用 SupabaseService 的關鍵字篩選功能
-                filteredArticles = try await SupabaseService.shared.fetchArticlesByKeyword(selectedKeyword)
-            } catch {
-                print("❌ 關鍵字篩選失敗: \(error)")
-                // 發生錯誤時使用本地篩選作為備選方案
-                filteredArticles = articles.filter { article in
-                    article.keywords.contains { $0.localizedCaseInsensitiveContains(selectedKeyword) } ||
-                    article.title.localizedCaseInsensitiveContains(selectedKeyword) ||
-                    article.summary.localizedCaseInsensitiveContains(selectedKeyword)
-                }
+        await applyFilters()
+    }
+    
+    private func applySourceFilter() async {
+        await applyFilters()
+    }
+    
+    /// 統一應用所有篩選條件
+    private func applyFilters() async {
+        var result = articles
+        
+        // 按來源篩選
+        if let selectedSource = selectedSource {
+            result = result.filter { $0.source == selectedSource }
+        }
+        
+        // 僅顯示 AI 文章
+        if showAIArticlesOnly {
+            result = result.filter { $0.isAIGenerated }
+        }
+        
+        // 按關鍵字篩選
+        if selectedKeyword != "全部" {
+            result = result.filter { article in
+                article.keywords.contains { $0.localizedCaseInsensitiveContains(selectedKeyword) } ||
+                article.title.localizedCaseInsensitiveContains(selectedKeyword) ||
+                article.summary.localizedCaseInsensitiveContains(selectedKeyword)
             }
         }
-        print("✅ 關鍵字篩選完成，篩選到 \(filteredArticles.count) 篇文章")
+        
+        // 只顯示已發布的文章（除非是管理員模式）
+        result = result.filter { $0.status == .published }
+        
+        filteredArticles = result
+        print("✅ 篩選完成，顯示 \(filteredArticles.count) 篇文章")
     }
     
     func canReadFreeArticle() -> Bool {
@@ -137,6 +195,26 @@ class ArticleViewModel: ObservableObject {
     
     func getRemainingFreeArticles() -> Int {
         return max(0, maxFreeArticlesPerDay - freeArticlesReadToday)
+    }
+    
+    /// 獲取 AI 文章統計
+    func getAIArticleStats() -> (total: Int, published: Int, draft: Int) {
+        let aiArticles = articles.filter { $0.isAIGenerated }
+        let published = aiArticles.filter { $0.status == .published }.count
+        let draft = aiArticles.filter { $0.status == .draft }.count
+        
+        return (total: aiArticles.count, published: published, draft: draft)
+    }
+    
+    /// 獲取文章來源統計
+    func getSourceStats() -> [ArticleSource: Int] {
+        var stats: [ArticleSource: Int] = [:]
+        
+        for source in ArticleSource.allCases {
+            stats[source] = articles.filter { $0.source == source }.count
+        }
+        
+        return stats
     }
     
     // MARK: - Article Publishing

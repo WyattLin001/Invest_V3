@@ -7,6 +7,89 @@
 
 import SwiftUI
 
+// MARK: - 錦標賽切換 Loading 視圖
+struct TournamentSwitchLoadingView: View {
+    let tournamentName: String
+    @State private var loadingDots = ""
+    @State private var opacity: Double = 0.0
+    
+    var body: some View {
+        ZStack {
+            // 半透明背景
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+            
+            // Loading 卡片
+            VStack(spacing: 24) {
+                // 錦標賽圖標
+                ZStack {
+                    Circle()
+                        .fill(Color.brandGreen.opacity(0.2))
+                        .frame(width: 80, height: 80)
+                    
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.brandGreen)
+                }
+                
+                VStack(spacing: 8) {
+                    Text("切換錦標賽中")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    
+                    Text("正在載入 \(tournamentName)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("請稍後\(loadingDots)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .opacity(0.8)
+                }
+                
+                // Loading 指示器
+                ProgressView()
+                    .scaleEffect(1.2)
+                    .tint(.brandGreen)
+            }
+            .padding(32)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.regularMaterial)
+                    .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+            )
+            .scaleEffect(opacity)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.4)) {
+                opacity = 1.0
+            }
+            
+            // 動畫載入點點
+            startLoadingAnimation()
+        }
+    }
+    
+    private func startLoadingAnimation() {
+        Task {
+            while true {
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        if loadingDots.count < 3 {
+                            loadingDots += "."
+                        } else {
+                            loadingDots = ""
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// EnhancedInvestmentView - 新的投資總覽界面，取代現有的 InvestmentPanelView
 /// 提供更完整的投資管理體驗，包含以下五大功能模組：
 /// 1. InvestmentHomeView - 投資組合總覽
@@ -56,7 +139,7 @@ struct EnhancedInvestmentView: View {
             TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
             NavigationStack {
-                ScrollView {
+                ScrollView(.vertical) {
                     GeometryReader { geometry in
                         Color.clear
                             .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
@@ -109,7 +192,7 @@ struct EnhancedInvestmentView: View {
             .tag(InvestmentTab.home)
             // 2. 交易記錄
             NavigationStack {
-                ScrollView {
+                ScrollView(.vertical) {
                     GeometryReader { geometry in
                         Color.clear
                             .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
@@ -151,7 +234,7 @@ struct EnhancedInvestmentView: View {
             
             // 3. 錦標賽選擇
             NavigationStack {
-                ScrollView {
+                ScrollView(.vertical) {
                     GeometryReader { geometry in
                         Color.clear
                             .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
@@ -196,7 +279,7 @@ struct EnhancedInvestmentView: View {
             
             // 4. 排行榜與動態
             NavigationStack {
-                ScrollView {
+                ScrollView(.vertical) {
                     GeometryReader { geometry in
                         Color.clear
                             .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
@@ -2316,7 +2399,7 @@ struct TournamentSelectionSheet: View {
                     }
                     .padding()
                 } else {
-                    ScrollView {
+                    ScrollView(.vertical) {
                         LazyVStack(spacing: 12) {
                             ForEach(participatedTournaments, id: \.id) { tournament in
                                 TournamentSelectionRow(
@@ -3358,88 +3441,6 @@ struct PersonalPerformanceInnerContent: View {
         }
         
         return data
-    }
-
-// MARK: - 錦標賽切換 Loading 視圖
-struct TournamentSwitchLoadingView: View {
-    let tournamentName: String
-    @State private var loadingDots = ""
-    @State private var opacity: Double = 0.0
-    
-    var body: some View {
-        ZStack {
-            // 半透明背景
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-            
-            // Loading 卡片
-            VStack(spacing: 24) {
-                // 錦標賽圖標
-                ZStack {
-                    Circle()
-                        .fill(Color.brandGreen.opacity(0.2))
-                        .frame(width: 80, height: 80)
-                    
-                    Image(systemName: "trophy.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(.brandGreen)
-                }
-                
-                VStack(spacing: 8) {
-                    Text("切換錦標賽中")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                    
-                    Text("正在載入 \(tournamentName)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                    
-                    Text("請稍後\(loadingDots)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .opacity(0.8)
-                }
-                
-                // Loading 指示器
-                ProgressView()
-                    .scaleEffect(1.2)
-                    .tint(.brandGreen)
-            }
-            .padding(32)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(.regularMaterial)
-                    .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
-            )
-            .scaleEffect(opacity)
-        }
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.4)) {
-                opacity = 1.0
-            }
-            
-            // 動畫載入點點
-            startLoadingAnimation()
-        }
-    }
-    
-    private func startLoadingAnimation() {
-        Task {
-            while true {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-                await MainActor.run {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        if loadingDots.count < 3 {
-                            loadingDots += "."
-                        } else {
-                            loadingDots = ""
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 

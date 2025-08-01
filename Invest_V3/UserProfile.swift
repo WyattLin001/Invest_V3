@@ -13,6 +13,23 @@ struct UserProfile: Codable, Identifiable {
     var displayName: String
     var avatarUrl: String?
     var bio: String?
+    var firstName: String?
+    var lastName: String?
+    var fullName: String?
+    var phone: String?
+    var website: String?
+    var location: String?
+    var socialLinks: [String: String]?
+    var investmentPhilosophy: String?
+    var specializations: [String]
+    var yearsExperience: Int
+    var followerCount: Int
+    var followingCount: Int
+    var articleCount: Int
+    var totalReturnRate: Double
+    var isVerified: Bool
+    var status: String
+    let userId: String
     let createdAt: Date
     var updatedAt: Date
     
@@ -23,18 +40,52 @@ struct UserProfile: Codable, Identifiable {
         case displayName = "display_name"
         case avatarUrl = "avatar_url"
         case bio
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case fullName = "full_name"
+        case phone
+        case website
+        case location
+        case socialLinks = "social_links"
+        case investmentPhilosophy = "investment_philosophy"
+        case specializations
+        case yearsExperience = "years_experience"
+        case followerCount = "follower_count"
+        case followingCount = "following_count"
+        case articleCount = "article_count"
+        case totalReturnRate = "total_return_rate"
+        case isVerified = "is_verified"
+        case status
+        case userId = "user_id"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
     
     // 標準 init 方法
-    init(id: UUID, email: String, username: String, displayName: String, avatarUrl: String? = nil, bio: String? = nil, createdAt: Date, updatedAt: Date) {
+    init(id: UUID, email: String, username: String, displayName: String, avatarUrl: String? = nil, bio: String? = nil, firstName: String? = nil, lastName: String? = nil, fullName: String? = nil, phone: String? = nil, website: String? = nil, location: String? = nil, socialLinks: [String: String]? = nil, investmentPhilosophy: String? = nil, specializations: [String] = [], yearsExperience: Int = 0, followerCount: Int = 0, followingCount: Int = 0, articleCount: Int = 0, totalReturnRate: Double = 0.0, isVerified: Bool = false, status: String = "active", userId: String, createdAt: Date, updatedAt: Date) {
         self.id = id
         self.email = email
         self.username = username
         self.displayName = displayName
         self.avatarUrl = avatarUrl
         self.bio = bio
+        self.firstName = firstName
+        self.lastName = lastName
+        self.fullName = fullName
+        self.phone = phone
+        self.website = website
+        self.location = location
+        self.socialLinks = socialLinks
+        self.investmentPhilosophy = investmentPhilosophy
+        self.specializations = specializations
+        self.yearsExperience = yearsExperience
+        self.followerCount = followerCount
+        self.followingCount = followingCount
+        self.articleCount = articleCount
+        self.totalReturnRate = totalReturnRate
+        self.isVerified = isVerified
+        self.status = status
+        self.userId = userId
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -55,6 +106,23 @@ struct UserProfile: Codable, Identifiable {
         self.displayName = try container.decode(String.self, forKey: .displayName)
         self.avatarUrl = try container.decodeIfPresent(String.self, forKey: .avatarUrl)
         self.bio = try container.decodeIfPresent(String.self, forKey: .bio)
+        self.firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
+        self.lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
+        self.fullName = try container.decodeIfPresent(String.self, forKey: .fullName)
+        self.phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        self.website = try container.decodeIfPresent(String.self, forKey: .website)
+        self.location = try container.decodeIfPresent(String.self, forKey: .location)
+        self.socialLinks = try container.decodeIfPresent([String: String].self, forKey: .socialLinks)
+        self.investmentPhilosophy = try container.decodeIfPresent(String.self, forKey: .investmentPhilosophy)
+        self.specializations = try container.decodeIfPresent([String].self, forKey: .specializations) ?? []
+        self.yearsExperience = try container.decodeIfPresent(Int.self, forKey: .yearsExperience) ?? 0
+        self.followerCount = try container.decodeIfPresent(Int.self, forKey: .followerCount) ?? 0
+        self.followingCount = try container.decodeIfPresent(Int.self, forKey: .followingCount) ?? 0
+        self.articleCount = try container.decodeIfPresent(Int.self, forKey: .articleCount) ?? 0
+        self.totalReturnRate = try container.decodeIfPresent(Double.self, forKey: .totalReturnRate) ?? 0.0
+        self.isVerified = try container.decodeIfPresent(Bool.self, forKey: .isVerified) ?? false
+        self.status = try container.decodeIfPresent(String.self, forKey: .status) ?? "active"
+        self.userId = try container.decode(String.self, forKey: .userId)
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
         self.updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
@@ -69,6 +137,23 @@ struct UserProfile: Codable, Identifiable {
         try container.encode(displayName, forKey: .displayName)
         try container.encodeIfPresent(avatarUrl, forKey: .avatarUrl)
         try container.encodeIfPresent(bio, forKey: .bio)
+        try container.encodeIfPresent(firstName, forKey: .firstName)
+        try container.encodeIfPresent(lastName, forKey: .lastName)
+        try container.encodeIfPresent(fullName, forKey: .fullName)
+        try container.encodeIfPresent(phone, forKey: .phone)
+        try container.encodeIfPresent(website, forKey: .website)
+        try container.encodeIfPresent(location, forKey: .location)
+        try container.encodeIfPresent(socialLinks, forKey: .socialLinks)
+        try container.encodeIfPresent(investmentPhilosophy, forKey: .investmentPhilosophy)
+        try container.encode(specializations, forKey: .specializations)
+        try container.encode(yearsExperience, forKey: .yearsExperience)
+        try container.encode(followerCount, forKey: .followerCount)
+        try container.encode(followingCount, forKey: .followingCount)
+        try container.encode(articleCount, forKey: .articleCount)
+        try container.encode(totalReturnRate, forKey: .totalReturnRate)
+        try container.encode(isVerified, forKey: .isVerified)
+        try container.encode(status, forKey: .status)
+        try container.encode(userId, forKey: .userId)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
     }

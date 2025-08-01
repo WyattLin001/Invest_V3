@@ -42,10 +42,34 @@ struct ArticleCardView: View {
                     }
                 }
                 
-                // 作者
-                Text("作者: \(article.author)")
-                    .font(.caption)
-                    .foregroundColor(.gray600)
+                // 作者（含 AI 標識）
+                HStack(spacing: 4) {
+                    Text("作者:")
+                        .font(.caption)
+                        .foregroundColor(.gray600)
+                    
+                    // AI 作者標識
+                    if article.isAIGenerated {
+                        HStack(spacing: 2) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.caption2)
+                                .foregroundColor(.brandBlue)
+                            
+                            Text(article.author)
+                                .font(.caption)
+                                .foregroundColor(.brandBlue)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.brandBlue.opacity(0.1))
+                        .cornerRadius(3)
+                    } else {
+                        Text(article.author)
+                            .font(.caption)
+                            .foregroundColor(.gray600)
+                    }
+                }
                 
                 // 摘要 (50字限制)
                 Text(article.summary)
@@ -65,6 +89,18 @@ struct ArticleCardView: View {
                             .padding(.vertical, 2)
                             .background(Color.gray200)
                             .foregroundColor(.gray600)
+                            .cornerRadius(4)
+                    }
+                    
+                    // AI 文章狀態標籤（僅在非發布狀態時顯示）
+                    if article.isAIGenerated && article.status != .published {
+                        Text(article.status.displayName)
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(statusColor(for: article.status))
+                            .foregroundColor(.white)
                             .cornerRadius(4)
                     }
                     
@@ -105,5 +141,19 @@ struct ArticleCardView: View {
         .padding(DesignTokens.spacingMD)
         .frame(width: 343, height: 116)
         .brandCardStyle()
+    }
+    
+    /// 根據文章狀態返回對應的顏色
+    private func statusColor(for status: ArticleStatus) -> Color {
+        switch status {
+        case .draft:
+            return .gray
+        case .review:
+            return .orange
+        case .published:
+            return .green
+        case .archived:
+            return .red
+        }
     }
 } 
