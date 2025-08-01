@@ -412,6 +412,14 @@ struct TournamentSelectionView: View {
         
         Task {
             await TournamentStateManager.shared.joinTournament(tournament)
+            
+            // 報名成功後，通知父組件切換到錦標賽交易界面
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("SwitchToTournamentTrading"), 
+                    object: tournament
+                )
+            }
         }
     }
     

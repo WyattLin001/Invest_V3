@@ -321,7 +321,12 @@ struct TournamentCardView: View {
                 .disabled(true)
             
         case .ongoing:
-            NavigationLink(destination: TournamentTradingView()) {
+            Button(action: {
+                Task {
+                    await TournamentStateManager.shared.joinTournament(tournament)
+                    onEnroll?() // 觸發父組件的處理邏輯
+                }
+            }) {
                 Text("參加錦標賽")
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -329,11 +334,6 @@ struct TournamentCardView: View {
                     .background(Color.green)
                     .cornerRadius(8)
             }
-            .simultaneousGesture(TapGesture().onEnded {
-                Task {
-                    await TournamentStateManager.shared.joinTournament(tournament)
-                }
-            })
             
         case .finished:
             Button("查看結果") {
@@ -359,7 +359,7 @@ struct TournamentCardView: View {
             await TournamentStateManager.shared.joinTournament(tournament)
             await MainActor.run {
                 isEnrolling = false
-                onEnroll?()
+                onEnroll?() // 觸發父組件的處理邏輯，包括轉場動畫
             }
         }
     }

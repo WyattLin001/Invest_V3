@@ -27,6 +27,7 @@ struct EnhancedInvestmentView: View {
     @State private var selectedTournament: Tournament?
     @State private var showingTournamentSelection = false
     @State private var showingCreateTournament = false
+    @State private var showingTournamentTrading = false
     @State private var participatedTournaments: [Tournament] = []
     @State private var currentActiveTournament: Tournament?
     
@@ -72,7 +73,7 @@ struct EnhancedInvestmentView: View {
                         InvestmentHomeView(
                             currentActiveTournament: currentActiveTournament,
                             participatedTournaments: participatedTournaments,
-                            showingTournamentTrading: .constant(false),
+                            showingTournamentTrading: $showingTournamentTrading,
                             showingTournamentSelection: $showingTournamentSelection
                         )
                     }
@@ -269,6 +270,26 @@ struct EnhancedInvestmentView: View {
         .onAppear {
             initializeDefaultTournament()
             loadSupabaseData()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToTournamentTrading"))) { notification in
+            // 接收到錦標賽報名通知，執行滑動轉場到投資組合頁面
+            if let tournament = notification.object as? Tournament {
+                withAnimation(.easeInOut(duration: 0.6)) {
+                    // 先切換到投資總覽 tab
+                    selectedTab = .home
+                }
+                
+                // 延遲顯示錦標賽交易界面，創造滑動效果
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        showingTournamentTrading = true
+                    }
+                }
+                
+                // 更新當前活躍錦標賽
+                currentActiveTournament = tournament
+                print("🎯 已切換到錦標賽交易界面: \(tournament.name)")
+            }
         }
     }
     
