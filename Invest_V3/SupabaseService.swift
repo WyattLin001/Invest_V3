@@ -1222,83 +1222,6 @@ class SupabaseService: ObservableObject {
     
     // MARK: - AI Article Management
     
-    /// 創建 AI 生成的文章（草稿狀態）
-    public func createAIArticle(title: String, content: String, summary: String, category: String, keywords: [String] = [], isFree: Bool = true) async throws -> Article {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        // 獲取 AI 作者信息
-        guard let aiAuthor = AIAuthorService.shared.aiAuthorProfile else {
-            throw AIArticleError.aiAuthorNotFound
-        }
-        
-        struct AIArticleInsert: Codable {
-            let title: String
-            let author: String
-            let authorId: String
-            let summary: String
-            let fullContent: String
-            let bodyMD: String
-            let category: String
-            let isFree: Bool
-            let status: String
-            let source: String
-            let keywords: [String]
-            let likesCount: Int
-            let commentsCount: Int
-            let sharesCount: Int
-            let createdAt: Date
-            let updatedAt: Date
-            
-            enum CodingKeys: String, CodingKey {
-                case title
-                case author
-                case authorId = "author_id"
-                case summary
-                case fullContent = "full_content"
-                case bodyMD = "body_md"
-                case category
-                case isFree = "is_free"
-                case status
-                case source
-                case keywords
-                case likesCount = "likes_count"
-                case commentsCount = "comments_count"
-                case sharesCount = "shares_count"
-                case createdAt = "created_at"
-                case updatedAt = "updated_at"
-            }
-        }
-        
-        let articleData = AIArticleInsert(
-            title: title,
-            author: aiAuthor.displayName,
-            authorId: aiAuthor.id.uuidString,
-            summary: summary,
-            fullContent: content,
-            bodyMD: content,
-            category: category,
-            isFree: isFree,
-            status: ArticleStatus.draft.rawValue, // AI 文章初始狀態為草稿
-            source: ArticleSource.ai.rawValue,
-            keywords: keywords,
-            likesCount: 0,
-            commentsCount: 0,
-            sharesCount: 0,
-            createdAt: Date(),
-            updatedAt: Date()
-        )
-        
-        let insertedArticle: Article = try await client
-            .from("articles")
-            .insert(articleData)
-            .select()
-            .single()
-            .execute()
-            .value
-        
-        print("✅ [SupabaseService] AI 文章已創建: \(insertedArticle.title)")
-        return insertedArticle
-    }
     
     /// 更新文章狀態
     public func updateArticleStatus(_ articleId: UUID, status: ArticleStatus) async throws {
@@ -1316,53 +1239,7 @@ class SupabaseService: ObservableObject {
         print("✅ [SupabaseService] 文章狀態已更新: \(articleId) -> \(status.displayName)")
     }
     
-    /// 審核並發布 AI 文章
-    public func reviewAndPublishAIArticle(_ articleId: UUID, approved: Bool, moderatorNotes: String? = nil) async throws -> Article {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        let newStatus: ArticleStatus = approved ? .published : .archived
-        
-        // 更新文章狀態
-        try await updateArticleStatus(articleId, status: newStatus)
-        
-        // 如果有審核備註，可以添加到系統日誌中
-        if let notes = moderatorNotes {
-            try await logAIArticleReview(articleId: articleId, approved: approved, notes: notes)
-        }
-        
-        // 獲取更新後的文章
-        let updatedArticle: Article = try await client
-            .from("articles")
-            .select()
-            .eq("id", value: articleId.uuidString)
-            .single()
-            .execute()
-            .value
-        
-        // 如果文章被發布，更新 AI 作者統計
-        if approved {
-            try await AIAuthorService.shared.updateAIAuthorStats()
-        }
-        
-        print("✅ [SupabaseService] AI 文章審核完成: \(articleId) - \(approved ? "已發布" : "已歸檔")")
-        return updatedArticle
-    }
     
-    /// 獲取待審核的 AI 文章
-    public func getPendingAIArticles() async throws -> [Article] {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        let articles: [Article] = try await client
-            .from("articles")
-            .select()
-            .eq("source", value: ArticleSource.ai.rawValue)
-            .eq("status", value: ArticleStatus.draft.rawValue)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
-        
-        return articles
-    }
     
     /// 根據來源篩選文章
     public func getArticlesBySource(_ source: ArticleSource, status: ArticleStatus? = nil) async throws -> [Article] {
@@ -1385,11 +1262,6 @@ class SupabaseService: ObservableObject {
         return articles
     }
     
-    /// 記錄 AI 文章審核日誌
-    private func logAIArticleReview(articleId: UUID, approved: Bool, notes: String) async throws {
-        // 這裡可以添加到系統日誌表或創建專門的審核記錄表
-        print("📋 [SupabaseService] AI 文章審核記錄: \(articleId) - 結果: \(approved ? "通過" : "拒絕") - 備註: \(notes)")
-    }
     
     // 上傳圖片到 Supabase Storage
     public func uploadArticleImage(_ imageData: Data, fileName: String) async throws -> String {
@@ -5677,7 +5549,7 @@ extension SupabaseService {
                 investmentStyle: nil, // 暫時設為 nil
                 performanceScore: 0.0, // 預設值
                 totalReturn: 0.0, // 預設值
-                riskLevel: .moderate // 預設值
+                riskLevel: . 1moderate // 預設值
             )
         }
         
@@ -6555,29 +6427,3 @@ extension SupabaseService {
     }
 }
 
-// MARK: - AI Article Error Types
-enum AIArticleError: LocalizedError {
-    case aiAuthorNotFound
-    case creationFailed(String)
-    case updateFailed(String)
-    case reviewFailed(String)
-    case invalidStatus
-    case unauthorizedAccess
-    
-    var errorDescription: String? {
-        switch self {
-        case .aiAuthorNotFound:
-            return "找不到 AI 作者帳號"
-        case .creationFailed(let message):
-            return "AI 文章創建失敗: \(message)"
-        case .updateFailed(let message):
-            return "AI 文章更新失敗: \(message)"
-        case .reviewFailed(let message):
-            return "AI 文章審核失敗: \(message)"
-        case .invalidStatus:
-            return "無效的文章狀態"
-        case .unauthorizedAccess:
-            return "未授權的存取操作"
-        }
-    }
-}
