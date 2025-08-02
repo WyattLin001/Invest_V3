@@ -237,8 +237,9 @@ extension SupabaseService {
         // 扣除錢包餘額
         try await createWalletTransaction(
             type: "subscription",
-            amount: -Int(subscriptionCost),
-            description: "平台會員訂閱 (30天)"
+            amount: -subscriptionCost,
+            description: "平台會員訂閱 (30天)",
+            paymentMethod: "wallet"
         )
         
         print("✅ [SupabaseService] 平台訂閱成功")
