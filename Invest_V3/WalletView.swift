@@ -43,7 +43,7 @@ struct WalletView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 16)
                 }
-                .background(Color(red: 0.95, green: 0.95, blue: 0.95))
+                .background(Color.systemGroupedBackground)
             }
             .navigationBarHidden(true)
         }
@@ -84,7 +84,7 @@ struct WalletView: View {
         }
         .padding(.horizontal, 16)
         .frame(height: 44)
-        .background(Color(red: 0.98, green: 0.98, blue: 0.98))
+        .background(Color.systemSecondaryBackground)
         .overlay(
             Rectangle()
                 .frame(height: 1)

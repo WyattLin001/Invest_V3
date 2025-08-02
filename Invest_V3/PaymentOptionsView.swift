@@ -80,7 +80,7 @@ struct PaymentMethodCard: View {
                 .foregroundColor(.secondary)
         }
         .padding()
-        .background(Color(red: 0.98, green: 0.98, blue: 0.98))
+        .background(Color.systemSecondaryBackground)
         .cornerRadius(10)
     }
 }
