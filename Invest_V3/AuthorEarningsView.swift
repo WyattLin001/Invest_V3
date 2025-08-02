@@ -62,6 +62,16 @@ struct AuthorEarningsView: View {
                 .foregroundColor(.primary)
             Spacer()
             
+            // 測試系統按鈕 - 僅在DEBUG模式顯示
+            #if DEBUG
+            NavigationLink(destination: EligibilityTestingView()) {
+                Image(systemName: "testtube.2")
+                    .foregroundColor(.purple)
+                    .imageScale(.large)
+            }
+            .accessibilityLabel("測試收益資格系統")
+            #endif
+            
             // 初始化數據按鈕 - 適用於所有用戶
             Button(action: { Task { await viewModel.initializeUserData() } }) {
                 Image(systemName: "gear")
