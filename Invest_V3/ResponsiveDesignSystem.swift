@@ -361,6 +361,11 @@ struct HapticFeedback {
         let feedback = UINotificationFeedbackGenerator()
         feedback.notificationOccurred(type)
     }
+    
+    // 為了向後相容，提供 success 方法
+    static func success() {
+        impact(.light)
+    }
 }
 
 // MARK: - 響應式修飾器

@@ -5,9 +5,11 @@ struct ArticleDetailView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var interactionVM: ArticleInteractionViewModel
     @StateObject private var subscriptionService = UserSubscriptionService.shared
+    @StateObject private var readingTracker = ReadingTrackingService.shared
     @State private var showGroupPicker = false
     @State private var availableGroups: [InvestmentGroup] = []
     @State private var showSubscriptionSheet = false
+    @State private var scrollViewReader: ScrollViewReader?
     
     let article: Article
 
@@ -65,14 +67,31 @@ struct ArticleDetailView: View {
                 await interactionVM.loadInteractionStats()
                 await interactionVM.loadComments()
                 await loadAvailableGroups()
+                
+                // 開始閱讀追蹤
+                readingTracker.startReading(article: article)
             }
+        }
+        .onDisappear {
+            // 結束閱讀追蹤
+            readingTracker.endReading()
         }
     }
     
     // MARK: - 文章滾動視圖
     private var articleScrollView: some View {
-        ScrollView {
-            articleContentView
+        GeometryReader { outerGeometry in
+            ScrollView {
+                GeometryReader { innerGeometry in
+                    articleContentView
+                        .preference(key: ScrollOffsetKey.self, value: innerGeometry.frame(in: .named("scrollView")).minY)
+                }
+                .frame(minHeight: outerGeometry.size.height)
+            }
+            .coordinateSpace(name: "scrollView")
+            .onPreferenceChange(ScrollOffsetKey.self) { offset in
+                updateScrollProgress(offset: offset, viewHeight: outerGeometry.size.height)
+            }
         }
     }
     
@@ -1063,5 +1082,26 @@ struct MarkdownBlockStyleModifier: ViewModifier {
                     .background(Color.blue.opacity(0.05))
                     .cornerRadius(4)
             }
+    }
+    
+    // MARK: - Reading Progress Tracking
+    
+    /// 更新滾動進度並通知閱讀追蹤服務
+    private func updateScrollProgress(offset: CGFloat, viewHeight: CGFloat) {
+        // 計算滾動百分比
+        let maxOffset = viewHeight
+        let scrollPercentage = max(0, min(100, (abs(offset) / maxOffset) * 100))
+        
+        // 更新閱讀進度
+        readingTracker.updateReadingProgress(scrollPercentage: scrollPercentage)
+    }
+}
+
+// MARK: - ScrollOffsetKey
+struct ScrollOffsetKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }

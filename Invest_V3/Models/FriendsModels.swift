@@ -38,7 +38,7 @@ struct Friend: Identifiable, Codable {
     
     // 在線狀態顏色
     var onlineStatusColor: Color {
-        return isOnline ? .green : .gray
+        return isOnline ? .green : .secondary
     }
     
     // 風險等級顏色

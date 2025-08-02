@@ -2,8 +2,11 @@ import SwiftUI
 
 struct AuthorEarningsView: View {
     @StateObject private var viewModel = AuthorEarningsViewModel()
+    @StateObject private var eligibilityService = EligibilityEvaluationService.shared
     @State private var showWithdrawalAnimation = false
     @State private var animationPhase = 0
+    @State private var eligibilityStatus: AuthorEligibilityStatus?
+    @State private var eligibilityProgress: [EligibilityProgress] = []
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -22,7 +25,10 @@ struct AuthorEarningsView: View {
         }
         .overlay(withdrawalAnimationOverlay)
         .onAppear {
-            Task { await viewModel.loadData() }
+            Task { 
+                await viewModel.loadData() 
+                await loadEligibilityData()
+            }
         }
         .refreshable {
             await viewModel.refreshData()
@@ -39,6 +45,7 @@ struct AuthorEarningsView: View {
         ScrollView {
             LazyVStack(spacing: EarningsDesignTokens.spacing16) {
                 navigationHeader
+                eligibilityProgressCard
                 earningsCard
                 withdrawalSection
             }
@@ -121,6 +128,102 @@ struct AuthorEarningsView: View {
                 .fontWeight(.medium)
                 .foregroundColor(color)
         }
+    }
+    
+    // MARK: - Eligibility Progress Card
+    private var eligibilityProgressCard: some View {
+        VStack(alignment: .leading, spacing: EarningsDesignTokens.spacing16) {
+            HStack {
+                Text("收益資格狀態")
+                    .font(EarningsDesignTokens.headline)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                if let status = eligibilityStatus {
+                    HStack(spacing: 6) {
+                        Image(systemName: status.isEligible ? "checkmark.circle.fill" : "clock.circle.fill")
+                            .foregroundColor(status.isEligible ? .green : .orange)
+                        Text(status.isEligible ? "已達成" : "進行中")
+                            .font(EarningsDesignTokens.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(status.isEligible ? .green : .orange)
+                    }
+                }
+                
+                Button(action: { Task { await evaluateEligibility() } }) {
+                    Image(systemName: "arrow.clockwise")
+                        .foregroundColor(.accentColor)
+                        .imageScale(.medium)
+                }
+                .disabled(eligibilityService.isEvaluating)
+            }
+            
+            if eligibilityService.isEvaluating {
+                ProgressView("評估中...")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, EarningsDesignTokens.spacing8)
+            } else if !eligibilityProgress.isEmpty {
+                VStack(spacing: EarningsDesignTokens.spacing12) {
+                    ForEach(eligibilityProgress) { progress in
+                        eligibilityProgressRow(progress)
+                    }
+                }
+                
+                if let status = eligibilityStatus, !status.isEligible {
+                    Text("完成所有條件即可開始獲得收益分潤")
+                        .font(EarningsDesignTokens.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, EarningsDesignTokens.spacing8)
+                }
+            }
+        }
+        .padding(EarningsDesignTokens.spacing16)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(EarningsDesignTokens.cornerRadius12)
+        .shadow(color: EarningsDesignTokens.cardShadow,
+                radius: EarningsDesignTokens.shadowRadius,
+                x: EarningsDesignTokens.shadowOffset.width,
+                y: EarningsDesignTokens.shadowOffset.height)
+    }
+    
+    private func eligibilityProgressRow(_ progress: EligibilityProgress) -> some View {
+        VStack(alignment: .leading, spacing: EarningsDesignTokens.spacing8) {
+            HStack {
+                Image(systemName: progress.condition.icon)
+                    .foregroundColor(progress.isCompleted ? .green : .orange)
+                    .frame(width: 20)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(progress.condition.displayName)
+                        .font(EarningsDesignTokens.body)
+                        .foregroundColor(.primary)
+                    Text(progress.condition.requirement)
+                        .font(EarningsDesignTokens.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(progress.currentValue)/\(progress.requiredValue)")
+                        .font(EarningsDesignTokens.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(progress.isCompleted ? .green : .primary)
+                    
+                    if progress.isCompleted {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
+                }
+            }
+            
+            ProgressView(value: progress.progressPercentage / 100.0)
+                .progressViewStyle(LinearProgressViewStyle(tint: progress.isCompleted ? .green : .orange))
+                .scaleEffect(x: 1, y: 1.5)
+        }
+        .padding(.vertical, EarningsDesignTokens.spacing4)
     }
 
     // MARK: - Withdrawal Section
@@ -322,6 +425,92 @@ struct AuthorEarningsView: View {
             showWithdrawalAnimation = false
             animationPhase = 0
         }
+    }
+    
+    // MARK: - Eligibility Data Loading
+    
+    private func loadEligibilityData() async {
+        // Preview 模式安全檢查
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            // Preview 模式：使用模擬數據
+            eligibilityStatus = AuthorEligibilityStatus(
+                id: UUID(),
+                authorId: UUID(),
+                isEligible: false,
+                last90DaysArticles: 1,
+                last30DaysUniqueReaders: 75,
+                hasViolations: false,
+                hasWalletSetup: true,
+                eligibilityScore: 75.0,
+                lastEvaluatedAt: Date(),
+                nextEvaluationAt: Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date(),
+                notifications: [],
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            
+            eligibilityProgress = [
+                EligibilityProgress(condition: .articles90Days, currentValue: 1, requiredValue: 1),
+                EligibilityProgress(condition: .uniqueReaders30Days, currentValue: 75, requiredValue: 100),
+                EligibilityProgress(condition: .noViolations, currentValue: 1, requiredValue: 1),
+                EligibilityProgress(condition: .walletSetup, currentValue: 1, requiredValue: 1)
+            ]
+            return
+        }
+        #endif
+        
+        guard let currentUser = SupabaseService.shared.getCurrentUser() else {
+            print("❌ [AuthorEarningsView] 用戶未登入，無法載入資格數據")
+            return
+        }
+        
+        // 獲取當前資格狀態
+        eligibilityStatus = await eligibilityService.getAuthorEligibilityStatus(currentUser.id)
+        
+        // 如果沒有資格記錄，進行首次評估
+        if eligibilityStatus == nil {
+            await evaluateEligibility()
+        } else if let status = eligibilityStatus {
+            // 更新進度追蹤
+            updateEligibilityProgress(from: status)
+        }
+    }
+    
+    private func evaluateEligibility() async {
+        guard let currentUser = SupabaseService.shared.getCurrentUser() else {
+            print("❌ [AuthorEarningsView] 用戶未登入，無法評估資格")
+            return
+        }
+        
+        if let result = await eligibilityService.evaluateAuthor(currentUser.id) {
+            eligibilityStatus = AuthorEligibilityStatus(
+                id: UUID(),
+                authorId: currentUser.id,
+                isEligible: result.isEligible,
+                last90DaysArticles: result.progress.first(where: { $0.condition == .articles90Days })?.currentValue ?? 0,
+                last30DaysUniqueReaders: result.progress.first(where: { $0.condition == .uniqueReaders30Days })?.currentValue ?? 0,
+                hasViolations: !(result.conditions[.noViolations] ?? true),
+                hasWalletSetup: result.conditions[.walletSetup] ?? false,
+                eligibilityScore: result.eligibilityScore,
+                lastEvaluatedAt: Date(),
+                nextEvaluationAt: Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date(),
+                notifications: result.notifications,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            
+            eligibilityProgress = result.progress
+        }
+    }
+    
+    private func updateEligibilityProgress(from status: AuthorEligibilityStatus) {
+        eligibilityProgress = [
+            EligibilityProgress(condition: .articles90Days, currentValue: status.last90DaysArticles, requiredValue: 1),
+            EligibilityProgress(condition: .uniqueReaders30Days, currentValue: status.last30DaysUniqueReaders, requiredValue: 100),
+            EligibilityProgress(condition: .noViolations, currentValue: status.hasViolations ? 0 : 1, requiredValue: 1),
+            EligibilityProgress(condition: .walletSetup, currentValue: status.hasWalletSetup ? 1 : 0, requiredValue: 1)
+        ]
     }
 }
 

@@ -82,6 +82,7 @@ struct HomeView: View {
             .sheet(isPresented: $showFriendSearch) {
                 FriendsView()
                     .environmentObject(ThemeManager.shared)
+                    .presentationBackground(Color.systemBackground)
             }
             .sheet(isPresented: $showTournamentSwitcher) {
                 TournamentSwitcherView(currentTournament: $currentTournamentName)
@@ -119,13 +120,8 @@ struct HomeView: View {
             WalletView()
         }
         .fullScreenCover(isPresented: $viewModel.showInvestmentPanel) {
-            if tournamentStateManager.isParticipatingInTournament {
-                TournamentTradingView()
-                    .environmentObject(ThemeManager.shared)
-            } else {
-                EnhancedInvestmentView(currentTournamentName: currentTournamentName)
-                    .environmentObject(ThemeManager.shared)
-            }
+            EnhancedInvestmentView(currentTournamentName: currentTournamentName)
+                .environmentObject(ThemeManager.shared)
         }
         .onReceive(viewModel.$errorMessage) { errorMessage in
             if let errorMessage = errorMessage {

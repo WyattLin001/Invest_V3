@@ -24,29 +24,35 @@ struct WalletView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // 頂部導航欄
-                walletHeader
+            ZStack {
+                // 強制設定深色模式適配的背景
+                Color.systemGroupedBackground
+                    .ignoresSafeArea(.all)
                 
-                // 主要內容區域
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        // 餘額卡片
-                        balanceCard
-                        
-                        // 訂閱狀態卡片
-                        subscriptionCard
-                        
-                        // 交易紀錄
-                        transactionHistoryCard
+                VStack(spacing: 0) {
+                    // 頂部導航欄
+                    walletHeader
+                    
+                    // 主要內容區域
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            // 餘額卡片
+                            balanceCard
+                            
+                            // 訂閱狀態卡片
+                            subscriptionCard
+                            
+                            // 交易紀錄
+                            transactionHistoryCard
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 16)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
                 }
-                .background(Color.systemGroupedBackground)
             }
             .navigationBarHidden(true)
         }
+        .background(Color.systemGroupedBackground.ignoresSafeArea(.all))
         .sheet(isPresented: $showPaymentOptions) {
             PaymentOptionsView()
         }
@@ -60,6 +66,7 @@ struct WalletView: View {
                 }
                 showTopUpOptions = false
             }
+            .presentationBackground(Color.systemBackground)
         }
         .sheet(isPresented: $showTransactionHistory) {
             TransactionHistoryView()
@@ -88,7 +95,7 @@ struct WalletView: View {
         .overlay(
             Rectangle()
                 .frame(height: 1)
-                .foregroundColor(.gray),
+                .foregroundColor(Color.systemSeparator),
             alignment: .bottom
         )
     }
@@ -234,34 +241,45 @@ struct TopUpOptionsView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                Text("選擇充值金額")
-                    .font(.title2)
-                    .fontWeight(.bold)
+            ZStack {
+                // 強制設定深色模式適配的背景
+                Color.systemBackground
+                    .ignoresSafeArea(.all)
                 
-                Text("測試版本：選擇金額將直接加值到您的代幣錢包")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                
-                VStack(spacing: 16) {
-                    TopUpOptionButton(amount: 1000, tokens: 10, onTap: onTopUp)
-                    TopUpOptionButton(amount: 5000, tokens: 50, onTap: onTopUp)
-                    TopUpOptionButton(amount: 10000, tokens: 100, onTap: onTopUp)
+                VStack(spacing: 24) {
+                    Text("選擇充值金額")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text("測試版本：選擇金額將直接加值到您的代幣錢包")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    
+                    VStack(spacing: 16) {
+                        TopUpOptionButton(amount: 1000, tokens: 10, onTap: onTopUp)
+                        TopUpOptionButton(amount: 5000, tokens: 50, onTap: onTopUp)
+                        TopUpOptionButton(amount: 10000, tokens: 100, onTap: onTopUp)
+                    }
+                    
+                    Spacer()
                 }
-                
-                Spacer()
+                .padding(24)
             }
-            .padding(24)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("選擇充值金額")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("關閉") {
                         dismiss()
                     }
+                    .foregroundColor(.primary)
                 }
             }
         }
+        .background(Color.systemBackground.ignoresSafeArea(.all))
+        .presentationBackground(Color.systemBackground)
     }
 }
 
@@ -292,8 +310,12 @@ struct TopUpOptionButton: View {
                     .foregroundColor(.blue)
             }
             .padding(16)
-            .background(Color.gray.opacity(0.1))
+            .background(Color.systemSecondaryBackground)
             .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.systemSeparator, lineWidth: 0.5)
+            )
         }
         .buttonStyle(PlainButtonStyle())
     }

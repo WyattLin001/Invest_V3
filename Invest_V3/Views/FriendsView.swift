@@ -63,6 +63,7 @@ struct FriendsView: View {
             }
             .sheet(isPresented: $showingAddFriend) {
                 AddFriendView()
+                    .presentationBackground(Color.systemBackground)
             }
         }
     }
@@ -216,7 +217,7 @@ struct FriendsView: View {
             // 頭像
             ZStack {
                 Circle()
-                    .fill(Color.gray300)
+                    .fill(Color.systemTertiaryBackground)
                     .frame(width: 50, height: 50)
                 
                 if let avatarUrl = friend.avatarUrl {
@@ -417,7 +418,7 @@ struct FriendsView: View {
         HStack(spacing: 12) {
             // 頭像
             Circle()
-                .fill(Color.gray300)
+                .fill(Color.systemTertiaryBackground)
                 .frame(width: 50, height: 50)
                 .overlay(
                     Text(String(request.fromUserDisplayName.prefix(1)))
@@ -503,7 +504,7 @@ struct FriendsView: View {
         VStack(spacing: 16) {
             Image(systemName: "person.2.fill")
                 .font(.system(size: 48))
-                .foregroundColor(.gray400)
+                .foregroundColor(.secondary)
             
             Text("還沒有好友")
                 .font(.headline)
@@ -534,7 +535,7 @@ struct FriendsView: View {
         VStack(spacing: 16) {
             Image(systemName: "clock.arrow.circlepath")
                 .font(.system(size: 48))
-                .foregroundColor(.gray400)
+                .foregroundColor(.secondary)
             
             Text("暫無好友動態")
                 .font(.headline)
@@ -552,7 +553,7 @@ struct FriendsView: View {
         VStack(spacing: 16) {
             Image(systemName: "person.badge.plus")
                 .font(.system(size: 48))
-                .foregroundColor(.gray400)
+                .foregroundColor(.secondary)
             
             Text("沒有好友請求")
                 .font(.headline)
