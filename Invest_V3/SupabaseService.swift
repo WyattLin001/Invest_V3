@@ -951,7 +951,11 @@ class SupabaseService: ObservableObject {
         
         let response: [Article] = try await client
             .from("articles")
-            .select()
+            .select("""
+                id, title, author, author_id, summary, full_content, body_md, category, 
+                read_time, likes_count, comments_count, shares_count, is_free, 
+                status, source, cover_image_url, created_at, updated_at, keywords
+            """)
             .order("created_at", ascending: false)
             .execute()
             .value
@@ -1309,7 +1313,11 @@ class SupabaseService: ObservableObject {
         
         let articles: [Article] = try await client
             .from("articles")
-            .select()
+            .select("""
+                id, title, author, author_id, summary, full_content, body_md, category, 
+                read_time, likes_count, comments_count, shares_count, is_free, 
+                status, source, cover_image_url, created_at, updated_at, keywords
+            """)
             .eq("category", value: category)
             .order("created_at", ascending: false)
             .execute()
@@ -6425,5 +6433,48 @@ extension SupabaseService {
         print("✅ 錦標賽刪除成功")
         return true
     }
+    
+    // MARK: - 調試方法 (僅用於開發階段)
+    #if DEBUG
+    /// 測試 RLS 政策和用戶認證狀態
+    func testFriendRequestPermissions() async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🔍 [DEBUG] 開始測試好友請求權限...")
+        
+        // 1. 檢查當前認證狀態
+        if let session = client.auth.currentSession {
+            print("✅ [DEBUG] 用戶已認證 - User ID: \(session.user.id)")
+            print("✅ [DEBUG] Access Token: \(session.accessToken.prefix(20))...")
+        } else {
+            print("❌ [DEBUG] 用戶未認證")
+            throw SupabaseError.notAuthenticated
+        }
+        
+        // 2. 嘗試獲取當前用戶資料
+        do {
+            let currentUser = try await getCurrentUserAsync()
+            print("✅ [DEBUG] 獲取用戶資料成功: \(currentUser.displayName) (\(currentUser.id))")
+        } catch {
+            print("❌ [DEBUG] 獲取用戶資料失敗: \(error)")
+            throw error
+        }
+        
+        // 3. 測試讀取 friend_requests 表的權限
+        do {
+            let _: [FriendRequestResponse] = try await client
+                .from("friend_requests")
+                .select()
+                .limit(1)
+                .execute()
+                .value
+            print("✅ [DEBUG] 讀取 friend_requests 表權限正常")
+        } catch {
+            print("❌ [DEBUG] 讀取 friend_requests 表失敗: \(error)")
+        }
+        
+        print("🎯 [DEBUG] 權限測試完成")
+    }
+    #endif
 }
 

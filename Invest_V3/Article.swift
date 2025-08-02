@@ -60,6 +60,7 @@ struct Article: Codable, Identifiable {
     let isFree: Bool
     let status: ArticleStatus
     let source: ArticleSource
+    let coverImageUrl: String?
     let createdAt: Date
     let updatedAt: Date
     let keywords: [String]
@@ -80,13 +81,14 @@ struct Article: Codable, Identifiable {
         case isFree = "is_free"
         case status
         case source
+        case coverImageUrl = "cover_image_url"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case keywords
     }
     
     // 常規初始化器
-    init(id: UUID, title: String, author: String, authorId: UUID?, summary: String, fullContent: String, bodyMD: String? = nil, category: String, readTime: String, likesCount: Int, commentsCount: Int, sharesCount: Int, isFree: Bool, status: ArticleStatus = .published, source: ArticleSource = .human, createdAt: Date, updatedAt: Date, keywords: [String] = []) {
+    init(id: UUID, title: String, author: String, authorId: UUID?, summary: String, fullContent: String, bodyMD: String? = nil, category: String, readTime: String, likesCount: Int, commentsCount: Int, sharesCount: Int, isFree: Bool, status: ArticleStatus = .published, source: ArticleSource = .human, coverImageUrl: String? = nil, createdAt: Date, updatedAt: Date, keywords: [String] = []) {
         self.id = id
         self.title = title
         self.author = author
@@ -102,6 +104,7 @@ struct Article: Codable, Identifiable {
         self.isFree = isFree
         self.status = status
         self.source = source
+        self.coverImageUrl = coverImageUrl
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.keywords = keywords
@@ -137,6 +140,9 @@ struct Article: Codable, Identifiable {
             source = .human // 向後兼容：沒有 source 欄位的舊文章預設為人工
         }
         
+        // 封面圖片 URL（可選欄位）
+        coverImageUrl = try container.decodeIfPresent(String.self, forKey: .coverImageUrl)
+        
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         keywords = try container.decodeIfPresent([String].self, forKey: .keywords) ?? []
@@ -164,5 +170,17 @@ struct Article: Codable, Identifiable {
         case .human:
             return author
         }
+    }
+    
+    /// 是否有封面圖片
+    var hasCoverImage: Bool {
+        return coverImageUrl != nil && !coverImageUrl!.isEmpty
+    }
+    
+    /// 獲取封面圖片 URL（安全版本）
+    var safeCoverImageUrl: URL? {
+        guard let urlString = coverImageUrl,
+              !urlString.isEmpty else { return nil }
+        return URL(string: urlString)
     }
 } 
