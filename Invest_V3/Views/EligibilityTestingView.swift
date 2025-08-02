@@ -14,7 +14,7 @@ struct EligibilityTestingView: View {
     @StateObject private var notificationService = EligibilityNotificationService.shared
     @StateObject private var supabaseService = SupabaseService.shared
     
-    @State private var testResults: [TestResult] = []
+    @State private var testResults: [EligibilityTestResult] = []
     @State private var isRunningTests = false
     @State private var selectedTestCategory: TestCategory = .all
     @State private var showDetailedResults = false
@@ -41,7 +41,7 @@ struct EligibilityTestingView: View {
                     ArticleDetailView(article: article)
                         .onDisappear {
                             // 當文章詳情頁關閉時，添加測試結果
-                            addTestResult(TestResult(
+                            addTestResult(EligibilityTestResult(
                                 testName: "實際文章閱讀測試",
                                 isSuccess: true,
                                 message: "用戶已完成文章閱讀，閱讀記錄已保存",
@@ -307,7 +307,7 @@ struct EligibilityTestingView: View {
         .padding()
     }
     
-    private func testResultRow(_ result: TestResult) -> some View {
+    private func testResultRow(_ result: EligibilityTestResult) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: result.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -392,7 +392,7 @@ struct EligibilityTestingView: View {
             keywords: ["測試", "閱讀追蹤", "資格系統"]
         )
         
-        addTestResult(TestResult(
+        addTestResult(EligibilityTestResult(
             testName: "測試環境初始化",
             isSuccess: true,
             message: "測試環境和模擬數據已準備完成",
@@ -427,7 +427,7 @@ struct EligibilityTestingView: View {
                 
                 let executionTime = Date().timeIntervalSince(startTime)
                 
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "閱讀追蹤測試",
                     isSuccess: true,
                     message: "閱讀追蹤功能正常運作",
@@ -442,7 +442,7 @@ struct EligibilityTestingView: View {
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "閱讀追蹤測試",
                     isSuccess: false,
                     message: "測試失敗: \(error.localizedDescription)",
@@ -467,7 +467,7 @@ struct EligibilityTestingView: View {
             if let result = await eligibilityService.evaluateAuthor(testAuthorId) {
                 let executionTime = Date().timeIntervalSince(startTime)
                 
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "資格評估測試",
                     isSuccess: result.isEligible,
                     message: result.isEligible ? "作者符合收益資格" : "作者尚未符合收益資格",
@@ -483,7 +483,7 @@ struct EligibilityTestingView: View {
                 ))
             } else {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "資格評估測試",
                     isSuccess: false,
                     message: "資格評估服務無響應",
@@ -516,7 +516,7 @@ struct EligibilityTestingView: View {
                     
                     let executionTime = Date().timeIntervalSince(startTime)
                     
-                    addTestResult(TestResult(
+                    addTestResult(EligibilityTestResult(
                         testName: "通知系統測試",
                         isSuccess: true,
                         message: "通知功能正常運作",
@@ -529,7 +529,7 @@ struct EligibilityTestingView: View {
                     ))
                 } else {
                     let executionTime = Date().timeIntervalSince(startTime)
-                    addTestResult(TestResult(
+                    addTestResult(EligibilityTestResult(
                         testName: "通知系統測試",
                         isSuccess: false,
                         message: "通知權限未授權",
@@ -540,7 +540,7 @@ struct EligibilityTestingView: View {
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "通知系統測試",
                     isSuccess: false,
                     message: "通知測試失敗: \(error.localizedDescription)",
@@ -591,7 +591,7 @@ struct EligibilityTestingView: View {
                 if let analytics = try? await supabaseService.fetchAuthorReadingAnalytics(authorId: testUserId) {
                     let executionTime = Date().timeIntervalSince(startTime)
                     
-                    addTestResult(TestResult(
+                    addTestResult(EligibilityTestResult(
                         testName: "Supabase 連接測試",
                         isSuccess: true,
                         message: "Supabase 所有功能正常運作",
@@ -613,7 +613,7 @@ struct EligibilityTestingView: View {
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "Supabase 連接測試",
                     isSuccess: false,
                     message: "Supabase 測試失敗: \(error.localizedDescription)",
@@ -650,7 +650,7 @@ struct EligibilityTestingView: View {
             let totalCount = testResults.count
             let successRate = totalCount > 0 ? Double(successCount) / Double(totalCount) * 100 : 0
             
-            addTestResult(TestResult(
+            addTestResult(EligibilityTestResult(
                 testName: "🚀 完整系統測試",
                 isSuccess: successRate >= 75,
                 message: String(format: "系統測試完成，成功率: %.1f%%", successRate),
@@ -730,7 +730,7 @@ struct EligibilityTestingView: View {
                 
                 let executionTime = Date().timeIntervalSince(startTime)
                 
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "文章功能測試",
                     isSuccess: articles.count > 0,
                     message: articles.count > 0 ? "文章功能運作正常" : "沒有找到文章",
@@ -740,7 +740,7 @@ struct EligibilityTestingView: View {
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "文章功能測試",
                     isSuccess: false,
                     message: "文章功能測試失敗: \(error.localizedDescription)",
@@ -789,9 +789,11 @@ struct EligibilityTestingView: View {
                 await interactionVM.loadComments()
                 testDetails["評論載入"] = "\(interactionVM.comments.count)條評論"
                 
-                // 4. 測試文章分享
-                let shareResult = await interactionVM.shareArticle()
-                testDetails["分享功能"] = shareResult ? "可用" : "不可用"
+                // 4. 測試文章分享 (使用群組分享功能)
+                // 模擬分享到群組
+                let testGroupId = UUID()
+                interactionVM.shareToGroup(testGroupId, groupName: "測試群組")
+                testDetails["分享功能"] = "群組分享可用"
                 
                 // 5. 測試訂閱服務整合
                 let subscriptionService = UserSubscriptionService.shared
@@ -809,7 +811,7 @@ struct EligibilityTestingView: View {
                 
                 let executionTime = Date().timeIntervalSince(startTime)
                 
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "文章互動測試",
                     isSuccess: true,
                     message: "文章互動功能運作正常",
@@ -819,7 +821,7 @@ struct EligibilityTestingView: View {
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "文章互動測試",
                     isSuccess: false,
                     message: "文章互動測試失敗: \(error.localizedDescription)",
@@ -837,7 +839,7 @@ struct EligibilityTestingView: View {
     
     private func showTestArticleReading() {
         guard let article = testArticle else {
-            addTestResult(TestResult(
+            addTestResult(EligibilityTestResult(
                 testName: "實際文章閱讀測試",
                 isSuccess: false,
                 message: "測試文章尚未準備完成",
@@ -847,7 +849,7 @@ struct EligibilityTestingView: View {
             return
         }
         
-        addTestResult(TestResult(
+        addTestResult(EligibilityTestResult(
             testName: "開始實際文章閱讀",
             isSuccess: true,
             message: "準備打開測試文章，開始實際閱讀追蹤",
@@ -925,7 +927,7 @@ struct EligibilityTestingView: View {
                 
                 let executionTime = Date().timeIntervalSince(startTime)
                 
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "資訊頁面功能測試",
                     isSuccess: articleVM.articles.count > 0,
                     message: "資訊頁面所有功能運作正常",
@@ -935,7 +937,7 @@ struct EligibilityTestingView: View {
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(TestResult(
+                addTestResult(EligibilityTestResult(
                     testName: "資訊頁面功能測試",
                     isSuccess: false,
                     message: "資訊頁面測試失敗: \(error.localizedDescription)",
@@ -953,7 +955,7 @@ struct EligibilityTestingView: View {
     
     // MARK: - 輔助方法
     
-    private func addTestResult(_ result: TestResult) {
+    private func addTestResult(_ result: EligibilityTestResult) {
         DispatchQueue.main.async {
             testResults.insert(result, at: 0) // 最新的結果在頂部
             
@@ -1010,7 +1012,7 @@ enum TestCategory: String, CaseIterable {
     }
 }
 
-struct TestResult: Identifiable {
+struct EligibilityTestResult: Identifiable {
     let id = UUID()
     let testName: String
     let isSuccess: Bool
