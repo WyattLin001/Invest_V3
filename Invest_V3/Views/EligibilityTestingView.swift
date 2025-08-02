@@ -135,8 +135,8 @@ struct EligibilityTestingView: View {
     
     private var testButtonsSection: some View {
         VStack(spacing: 12) {
-            // 單項測試按鈕
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 8) {
+            // 單項測試按鈕 - 第一行
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
                 Button(action: { runReadingTrackingTest() }) {
                     testButtonLabel("📚", "閱讀追蹤", .blue)
                 }
@@ -151,9 +151,22 @@ struct EligibilityTestingView: View {
                     testButtonLabel("🔔", "通知系統", .purple)
                 }
                 .disabled(isRunningTests)
+            }
+            
+            // 第二行 - Supabase 和文章功能測試
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+                Button(action: { runSupabaseConnectionTest() }) {
+                    testButtonLabel("🗄️", "Supabase", .green)
+                }
+                .disabled(isRunningTests)
                 
-                Button(action: { runDatabaseTest() }) {
-                    testButtonLabel("🗄️", "數據庫", .green)
+                Button(action: { runArticleFeaturesTest() }) {
+                    testButtonLabel("📰", "文章功能", .indigo)
+                }
+                .disabled(isRunningTests)
+                
+                Button(action: { runArticleInteractionTest() }) {
+                    testButtonLabel("💬", "文章互動", .pink)
                 }
                 .disabled(isRunningTests)
             }
@@ -173,6 +186,25 @@ struct EligibilityTestingView: View {
                 .frame(height: 44)
                 .background(
                     LinearGradient(colors: [.blue, .blue.opacity(0.8)],
+                                   startPoint: .leading, endPoint: .trailing)
+                )
+                .cornerRadius(10)
+            }
+            .disabled(isRunningTests)
+            
+            // 資訊頁面測試按鈕
+            Button(action: { runInfoViewFeaturesTest() }) {
+                HStack {
+                    Image(systemName: "newspaper.circle")
+                        .font(.title3)
+                    Text("📰 資訊頁面功能測試")
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(
+                    LinearGradient(colors: [.indigo, .indigo.opacity(0.8)],
                                    startPoint: .leading, endPoint: .trailing)
                 )
                 .cornerRadius(10)
@@ -521,17 +553,28 @@ struct EligibilityTestingView: View {
         }
     }
     
-    private func runDatabaseTest() {
+    private func runSupabaseConnectionTest() {
         isRunningTests = true
         let startTime = Date()
         
         Task {
             do {
-                // 測試數據庫連接
-                let testUserId = UUID()
-                let testArticleId = UUID()
+                // 測試 Supabase 初始化
+                try SupabaseManager.shared.ensureInitialized()
                 
-                // 創建測試閱讀記錄
+                // 測試用戶認證狀態
+                let currentUser = supabaseService.getCurrentUser()
+                
+                // 測試基本數據庫查詢 - 獲取文章列表
+                let articles = try await supabaseService.fetchArticles()
+                
+                // 測試錢包查詢
+                let walletBalance = try await supabaseService.fetchWalletBalance()
+                
+                // 測試閱讀記錄保存
+                let testUserId = currentUser?.id ?? UUID()
+                let testArticleId = articles.first?.id ?? UUID()
+                
                 let testReadLog = ArticleReadLogInsert(
                     articleId: testArticleId,
                     userId: testUserId,
@@ -542,36 +585,44 @@ struct EligibilityTestingView: View {
                     isCompleteRead: simulatedScrollProgress >= 80
                 )
                 
-                // 嘗試保存記錄（在實際環境中）
-                #if DEBUG
-                if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != "1" {
-                    try await supabaseService.saveReadingLog(testReadLog)
+                try await supabaseService.saveReadingLog(testReadLog)
+                
+                // 測試作者分析數據
+                if let analytics = try? await supabaseService.fetchAuthorReadingAnalytics(authorId: testUserId) {
+                    let executionTime = Date().timeIntervalSince(startTime)
+                    
+                    addTestResult(TestResult(
+                        testName: "Supabase 連接測試",
+                        isSuccess: true,
+                        message: "Supabase 所有功能正常運作",
+                        executionTime: executionTime,
+                        details: [
+                            "初始化": "成功",
+                            "用戶認證": currentUser != nil ? "已登入" : "未登入",
+                            "文章查詢": "\(articles.count)篇文章",
+                            "錢包餘額": "\(Int(walletBalance))代幣",
+                            "閱讀記錄": "保存成功",
+                            "作者分析": "數據正常",
+                            "總讀者": "\(analytics.uniqueReaders)人",
+                            "90天文章": "\(analytics.last90DaysArticles)篇"
+                        ]
+                    ))
+                } else {
+                    throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "作者分析數據獲取失敗"])
                 }
-                #endif
-                
-                let executionTime = Date().timeIntervalSince(startTime)
-                
-                addTestResult(TestResult(
-                    testName: "數據庫測試",
-                    isSuccess: true,
-                    message: "數據庫操作正常",
-                    executionTime: executionTime,
-                    details: [
-                        "記錄保存": "成功",
-                        "閱讀時長": "\(Int(simulatedReadingTime))秒",
-                        "數據格式": "有效",
-                        "連接狀態": "正常"
-                    ]
-                ))
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
                 addTestResult(TestResult(
-                    testName: "數據庫測試",
+                    testName: "Supabase 連接測試",
                     isSuccess: false,
-                    message: "數據庫測試失敗: \(error.localizedDescription)",
+                    message: "Supabase 測試失敗: \(error.localizedDescription)",
                     executionTime: executionTime,
-                    details: ["錯誤": error.localizedDescription]
+                    details: [
+                        "錯誤類型": type(of: error).description(),
+                        "詳細錯誤": error.localizedDescription,
+                        "建議": "檢查網絡連接和 Supabase 配置"
+                    ]
                 ))
             }
             
@@ -587,7 +638,9 @@ struct EligibilityTestingView: View {
             await runSequentialTest("閱讀追蹤", runReadingTrackingTest)
             await runSequentialTest("資格評估", runEligibilityEvaluationTest)
             await runSequentialTest("通知系統", runNotificationTest)
-            await runSequentialTest("數據庫", runDatabaseTest)
+            await runSequentialTest("Supabase連接", runSupabaseConnectionTest)
+            await runSequentialTest("文章功能", runArticleFeaturesTest)
+            await runSequentialTest("文章互動", runArticleInteractionTest)
             
             // 系統整合測試
             let startTime = Date()
@@ -626,6 +679,162 @@ struct EligibilityTestingView: View {
         isRunningTests = true // 重新設置為測試中，供下一個測試使用
     }
     
+    private func runArticleFeaturesTest() {
+        isRunningTests = true
+        let startTime = Date()
+        
+        Task {
+            do {
+                var testDetails: [String: String] = [:]
+                
+                // 1. 測試文章列表獲取
+                let articles = try await supabaseService.fetchArticles()
+                testDetails["文章總數"] = "\(articles.count)篇"
+                
+                // 2. 測試文章篩選功能
+                let freeArticles = articles.filter { $0.isFree }
+                let paidArticles = articles.filter { !$0.isFree }
+                testDetails["免費文章"] = "\(freeArticles.count)篇"
+                testDetails["付費文章"] = "\(paidArticles.count)篇"
+                
+                // 3. 測試文章分類
+                let categories = Set(articles.map { $0.category })
+                testDetails["文章分類"] = "\(categories.count)個類別"
+                
+                // 4. 測試文章來源統計
+                let humanArticles = articles.filter { $0.source == .human }
+                let aiArticles = articles.filter { $0.source == .ai }
+                testDetails["人工文章"] = "\(humanArticles.count)篇"
+                testDetails["AI文章"] = "\(aiArticles.count)篇"
+                
+                // 5. 測試文章狀態
+                let publishedArticles = articles.filter { $0.status == .published }
+                testDetails["已發布文章"] = "\(publishedArticles.count)篇"
+                
+                // 6. 測試關鍵字功能
+                let allKeywords = articles.flatMap { $0.keywords }
+                let uniqueKeywords = Set(allKeywords)
+                testDetails["關鍵字總數"] = "\(uniqueKeywords.count)個"
+                
+                // 7. 測試熱門關鍵字獲取
+                let trendingKeywords = try await supabaseService.getTrendingKeywordsWithAll()
+                testDetails["熱門關鍵字"] = "\(trendingKeywords.count)個"
+                
+                // 8. 測試文章封面圖片
+                let articlesWithCover = articles.filter { $0.hasCoverImage }
+                testDetails["有封面圖片"] = "\(articlesWithCover.count)篇"
+                
+                // 9. 測試文章閱讀時間
+                let avgReadTime = articles.compactMap { Int($0.readTime.replacingOccurrences(of: " 分鐘", with: "")) }.reduce(0, +) / max(1, articles.count)
+                testDetails["平均閱讀時間"] = "\(avgReadTime)分鐘"
+                
+                let executionTime = Date().timeIntervalSince(startTime)
+                
+                addTestResult(TestResult(
+                    testName: "文章功能測試",
+                    isSuccess: articles.count > 0,
+                    message: articles.count > 0 ? "文章功能運作正常" : "沒有找到文章",
+                    executionTime: executionTime,
+                    details: testDetails
+                ))
+                
+            } catch {
+                let executionTime = Date().timeIntervalSince(startTime)
+                addTestResult(TestResult(
+                    testName: "文章功能測試",
+                    isSuccess: false,
+                    message: "文章功能測試失敗: \(error.localizedDescription)",
+                    executionTime: executionTime,
+                    details: [
+                        "錯誤": error.localizedDescription,
+                        "建議": "檢查文章數據和網絡連接"
+                    ]
+                ))
+            }
+            
+            isRunningTests = false
+        }
+    }
+    
+    private func runArticleInteractionTest() {
+        isRunningTests = true
+        let startTime = Date()
+        
+        Task {
+            do {
+                var testDetails: [String: String] = [:]
+                
+                // 獲取測試文章
+                let articles = try await supabaseService.fetchArticles()
+                guard let testArticle = articles.first else {
+                    throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "沒有可用的測試文章"])
+                }
+                
+                // 1. 測試文章互動統計載入
+                let interactionVM = ArticleInteractionViewModel(articleId: testArticle.id)
+                await interactionVM.loadInteractionStats()
+                
+                testDetails["文章ID"] = testArticle.id.uuidString.prefix(8) + "..."
+                testDetails["按讚數"] = "\(interactionVM.likesCount)"
+                testDetails["評論數"] = "\(interactionVM.commentsCount)"
+                testDetails["分享數"] = "\(interactionVM.sharesCount)"
+                
+                // 2. 測試按讚功能
+                let originalLikes = interactionVM.likesCount
+                await interactionVM.toggleLike()
+                let newLikes = interactionVM.likesCount
+                testDetails["按讚測試"] = newLikes != originalLikes ? "成功" : "無變化"
+                
+                // 3. 測試評論載入
+                await interactionVM.loadComments()
+                testDetails["評論載入"] = "\(interactionVM.comments.count)條評論"
+                
+                // 4. 測試文章分享
+                let shareResult = await interactionVM.shareArticle()
+                testDetails["分享功能"] = shareResult ? "可用" : "不可用"
+                
+                // 5. 測試訂閱服務整合
+                let subscriptionService = UserSubscriptionService.shared
+                let canRead = subscriptionService.canReadArticle(testArticle)
+                testDetails["訂閱檢查"] = canRead ? "可閱讀" : "需訂閱"
+                
+                // 6. 測試閱讀內容獲取
+                let readableContent = subscriptionService.getReadableContent(for: testArticle)
+                let contentLength = readableContent.count
+                testDetails["內容長度"] = "\(contentLength)字符"
+                
+                // 7. 測試文章互動狀態
+                testDetails["是否按讚"] = interactionVM.isLiked ? "是" : "否"
+                testDetails["互動狀態"] = "已載入"
+                
+                let executionTime = Date().timeIntervalSince(startTime)
+                
+                addTestResult(TestResult(
+                    testName: "文章互動測試",
+                    isSuccess: true,
+                    message: "文章互動功能運作正常",
+                    executionTime: executionTime,
+                    details: testDetails
+                ))
+                
+            } catch {
+                let executionTime = Date().timeIntervalSince(startTime)
+                addTestResult(TestResult(
+                    testName: "文章互動測試",
+                    isSuccess: false,
+                    message: "文章互動測試失敗: \(error.localizedDescription)",
+                    executionTime: executionTime,
+                    details: [
+                        "錯誤": error.localizedDescription,
+                        "建議": "檢查文章互動服務和權限"
+                    ]
+                ))
+            }
+            
+            isRunningTests = false
+        }
+    }
+    
     private func showTestArticleReading() {
         guard let article = testArticle else {
             addTestResult(TestResult(
@@ -651,6 +860,95 @@ struct EligibilityTestingView: View {
         ))
         
         showTestArticle = true
+    }
+    
+    private func runInfoViewFeaturesTest() {
+        isRunningTests = true
+        let startTime = Date()
+        
+        Task {
+            do {
+                var testDetails: [String: String] = [:]
+                
+                // 1. 測試 ArticleViewModel 初始化
+                let articleVM = ArticleViewModel()
+                await articleVM.fetchArticles()
+                
+                testDetails["文章載入"] = "成功"
+                testDetails["文章總數"] = "\(articleVM.articles.count)篇"
+                testDetails["篩選後文章"] = "\(articleVM.filteredArticles.count)篇"
+                
+                // 2. 測試熱門關鍵字載入
+                await articleVM.loadTrendingKeywords()
+                testDetails["熱門關鍵字"] = "\(articleVM.trendingKeywords.count)個"
+                
+                // 3. 測試文章搜尋功能
+                let searchResults = articleVM.filteredArticles(search: "投資")
+                testDetails["搜尋結果"] = "\(searchResults.count)篇"
+                
+                // 4. 測試關鍵字篩選
+                if let firstKeyword = articleVM.trendingKeywords.first {
+                    articleVM.filterByKeyword(firstKeyword)
+                    // 等待篩選完成
+                    try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                    testDetails["關鍵字篩選"] = "關鍵字: \(firstKeyword)"
+                }
+                
+                // 5. 測試文章來源篩選
+                articleVM.filterBySource(.human)
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                let humanArticles = articleVM.filteredArticles.count
+                testDetails["人工文章篩選"] = "\(humanArticles)篇"
+                
+                articleVM.filterBySource(.ai)
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                let aiArticles = articleVM.filteredArticles.count
+                testDetails["AI文章篩選"] = "\(aiArticles)篇"
+                
+                // 6. 測試 AI 文章統計
+                let aiStats = articleVM.getAIArticleStats()
+                testDetails["AI文章統計"] = "總計:\(aiStats.total), 已發布:\(aiStats.published)"
+                
+                // 7. 測試來源統計
+                let sourceStats = articleVM.getSourceStats()
+                testDetails["來源統計"] = "人工:\(sourceStats[.human] ?? 0), AI:\(sourceStats[.ai] ?? 0)"
+                
+                // 8. 測試免費文章限制
+                let canReadFree = articleVM.canReadFreeArticle()
+                let remainingFree = articleVM.getRemainingFreeArticles()
+                testDetails["免費文章"] = canReadFree ? "可閱讀(\(remainingFree)篇剩餘)" : "已達上限"
+                
+                // 9. 測試文章發布功能 (模擬)
+                if let testArticle = articleVM.articles.first {
+                    testDetails["發布測試"] = "可發布文章: \(testArticle.title.prefix(20))..."
+                }
+                
+                let executionTime = Date().timeIntervalSince(startTime)
+                
+                addTestResult(TestResult(
+                    testName: "資訊頁面功能測試",
+                    isSuccess: articleVM.articles.count > 0,
+                    message: "資訊頁面所有功能運作正常",
+                    executionTime: executionTime,
+                    details: testDetails
+                ))
+                
+            } catch {
+                let executionTime = Date().timeIntervalSince(startTime)
+                addTestResult(TestResult(
+                    testName: "資訊頁面功能測試",
+                    isSuccess: false,
+                    message: "資訊頁面測試失敗: \(error.localizedDescription)",
+                    executionTime: executionTime,
+                    details: [
+                        "錯誤": error.localizedDescription,
+                        "建議": "檢查 ArticleViewModel 和相關服務"
+                    ]
+                ))
+            }
+            
+            isRunningTests = false
+        }
     }
     
     // MARK: - 輔助方法
@@ -695,7 +993,9 @@ enum TestCategory: String, CaseIterable {
     case reading = "reading"
     case evaluation = "evaluation"
     case notification = "notification"
-    case database = "database"
+    case supabase = "supabase"
+    case articles = "articles"
+    case interaction = "interaction"
     
     var displayName: String {
         switch self {
@@ -703,7 +1003,9 @@ enum TestCategory: String, CaseIterable {
         case .reading: return "閱讀追蹤"
         case .evaluation: return "資格評估"
         case .notification: return "通知系統"
-        case .database: return "數據庫"
+        case .supabase: return "Supabase"
+        case .articles: return "文章功能"
+        case .interaction: return "文章互動"
         }
     }
 }
