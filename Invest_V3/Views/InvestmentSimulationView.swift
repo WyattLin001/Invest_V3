@@ -356,7 +356,7 @@ struct SummaryCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color.white)
+        .background(Color.surfacePrimary)
         .cornerRadius(8)
         .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
     }
@@ -415,7 +415,7 @@ struct TournamentParticipationCard: View {
                     .foregroundColor(.gray)
             }
             .padding()
-            .background(Color.white)
+            .background(Color.surfacePrimary)
             .cornerRadius(10)
             .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
         }

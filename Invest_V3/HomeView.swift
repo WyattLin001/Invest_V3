@@ -216,7 +216,7 @@ struct HomeView: View {
             // 錢包餘額區域 - 突出顯示
             walletBalanceCard
         }
-        .background(Color.white)
+        .background(Color.surfacePrimary)
     }
     
     // MARK: - 錢包餘額卡片
@@ -306,7 +306,7 @@ struct HomeView: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.gray50)
+                .fill(Color.surfaceSecondary)
                 .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
         )
         .padding(.horizontal, 20)
@@ -376,7 +376,7 @@ struct HomeView: View {
             }
         }
         .padding(.all, 20)
-        .background(Color.white)
+        .background(Color.surfacePrimary)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
         .padding(.horizontal, 16)
@@ -406,7 +406,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 20)
-        .background(Color.white)
+        .background(Color.surfacePrimary)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
         .padding(.horizontal, 16)
@@ -753,7 +753,7 @@ struct EmptyRankingCard: View {
         }
         .padding(6)
         .frame(width: 100, height: 150)
-        .background(Color.white)
+        .background(Color.surfacePrimary)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -830,7 +830,7 @@ struct ImprovedRankingRow: View {
                 .foregroundColor(.gray400)
         }
         .padding(16)
-        .background(Color.gray50.opacity(0.5))
+        .background(Color.surfaceSecondary.opacity(0.5))
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -900,7 +900,7 @@ struct EmptyRankingRow: View {
             }
         }
         .padding(16)
-        .background(Color.gray100.opacity(0.5))
+        .background(Color.surfaceSecondary.opacity(0.5))
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -980,7 +980,7 @@ struct TradingRankingCard: View {
         }
         .padding(6)
         .frame(width: 100, height: 150)
-        .background(Color.white)
+        .background(Color.surfacePrimary)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -1066,7 +1066,7 @@ struct GroupCard: View {
                             .font(.caption2)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
-                            .background(Color.gray200)
+                            .background(Color.surfaceTertiary)
                             .foregroundColor(.gray600)
                             .cornerRadius(8)
                     }
@@ -1093,7 +1093,7 @@ struct GroupCard: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(Color.surfacePrimary)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
         .accessibilityElement(children: .combine)
@@ -1155,7 +1155,7 @@ struct JoinGroupRequestView: View {
                     }
                 }
                 .padding(20)
-                .background(Color.gray100)
+                .background(Color.surfaceSecondary)
                 .cornerRadius(16)
                 
                 Spacer()
@@ -1269,7 +1269,7 @@ extension HomeView {
                                         .foregroundColor(.gray600)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 6)
-                                        .background(Color.gray200)
+                                        .background(Color.surfaceTertiary)
                                         .cornerRadius(8)
                                 }
                                 .disabled(viewModel.isProcessingInvitation)
@@ -1310,7 +1310,7 @@ extension HomeView {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.white)
+                .background(Color.surfacePrimary)
             }
         }
     }
@@ -1377,7 +1377,7 @@ struct TournamentSwitcherView: View {
                                 }
                             }
                             .padding(16)
-                            .background(currentTournament == tournament ? Color.brandGreen.opacity(0.1) : Color.gray50)
+                            .background(currentTournament == tournament ? Color.brandGreen.opacity(0.1) : Color.surfaceSecondary)
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)

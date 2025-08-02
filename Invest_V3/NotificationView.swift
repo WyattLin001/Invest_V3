@@ -41,7 +41,7 @@ struct NotificationView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.white)
+                .background(Color.surfacePrimary)
                 .overlay(
                     Rectangle()
                         .frame(height: 1)

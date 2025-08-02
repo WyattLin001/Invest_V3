@@ -110,7 +110,7 @@ struct TransactionHistoryView: View {
             }
         }
         .padding(16)
-        .background(Color.white)
+        .background(Color.surfacePrimary)
         .cornerRadius(12)
     }
     

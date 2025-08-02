@@ -32,7 +32,7 @@ struct SearchView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.white)
+                .background(Color.surfacePrimary)
                 
                 // 搜尋框
                 HStack(spacing: 12) {
@@ -66,7 +66,7 @@ struct SearchView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.white)
+                .background(Color.surfacePrimary)
                 .overlay(
                     Rectangle()
                         .frame(height: 1)
@@ -100,7 +100,7 @@ struct SearchView: View {
                     .padding(.horizontal, 16)
                 }
                 .padding(.vertical, 12)
-                .background(Color.white)
+                .background(Color.surfacePrimary)
                 .overlay(
                     Rectangle()
                         .frame(height: 1)
