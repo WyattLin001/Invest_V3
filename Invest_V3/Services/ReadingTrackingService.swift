@@ -229,7 +229,9 @@ class ReadingTrackingService: ObservableObject {
     // MARK: - 清理方法
     
     deinit {
-        stopReadingTimer()
+        // Timer cleanup will happen automatically when the object is deallocated
+        readingTimer?.invalidate()
+        readingTimer = nil
     }
 }
 
