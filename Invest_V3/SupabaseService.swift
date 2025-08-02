@@ -5549,7 +5549,7 @@ extension SupabaseService {
                 investmentStyle: nil, // 暫時設為 nil
                 performanceScore: 0.0, // 預設值
                 totalReturn: 0.0, // 預設值
-                riskLevel: . 1moderate // 預設值
+                riskLevel: .moderate // 預設值
             )
         }
         

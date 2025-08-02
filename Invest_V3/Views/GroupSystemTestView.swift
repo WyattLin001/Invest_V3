@@ -352,7 +352,7 @@ struct TestResultRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.tertiarySystemBackground)
+        .background(Color.systemSecondaryBackground)
         .cornerRadius(8)
     }
 }
@@ -601,8 +601,8 @@ class GroupSystemTestManager: ObservableObject {
                 testName: "群組加入測試",
                 isSuccess: true,
                 message: "群組加入功能可用",
-                details: "可加入的群組數量: \(groups.count)",
-                executionTime: duration
+                executionTime: duration,
+                details: ["群組數量": "\(groups.count)"]
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
@@ -656,8 +656,8 @@ class GroupSystemTestManager: ObservableObject {
                 testName: "數據庫完整性測試",
                 isSuccess: true,
                 message: "數據庫結構完整",
-                details: "總群組: \(groups.count), 用戶群組: \(userGroups.count)",
-                executionTime: duration
+                executionTime: duration,
+                details: ["總群組": "\(groups.count)", "用戶群組": "\(userGroups.count)"]
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
@@ -692,8 +692,8 @@ class GroupSystemTestManager: ObservableObject {
                 testName: "並發操作測試",
                 isSuccess: true,
                 message: "並發操作處理正常",
-                details: "5個並發請求全部完成",
-                executionTime: duration
+                executionTime: duration,
+                details: ["並發請求": "5個全部完成"]
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
@@ -720,8 +720,9 @@ class GroupSystemTestManager: ObservableObject {
             testResults.append(TestResult(
                 testName: "大量數據載入測試",
                 isSuccess: isSuccess,
-                message: "\(message)，載入時間: \(String(format: "%.2f", duration))秒",
-                executionTime: duration
+                message: message,
+                executionTime: duration,
+                details: ["載入時間": "\(String(format: "%.2f", duration))秒"]
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
@@ -749,8 +750,8 @@ class GroupSystemTestManager: ObservableObject {
                 testName: "連接穩定性測試",
                 isSuccess: true,
                 message: "連接穩定",
-                details: "3次連續請求全部成功",
-                executionTime: duration
+                executionTime: duration,
+                details: ["連續請求": "3次全部成功"]
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
