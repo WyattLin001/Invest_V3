@@ -169,6 +169,7 @@ class DatabaseTestHelper {
             displayName: "測試用戶",
             avatarUrl: nil,
             bio: "這是一個測试用戶",
+            userId: UUID().uuidString,
             createdAt: Date(),
             updatedAt: Date()
         )

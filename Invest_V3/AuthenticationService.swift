@@ -77,6 +77,7 @@ class AuthenticationService: ObservableObject {
                 username: username,
                 displayName: displayName,
                 avatarUrl: nil,
+                userId: user.id.uuidString,
                 createdAt: Date(),
                 updatedAt: Date()
             )
@@ -234,6 +235,7 @@ class AuthenticationService: ObservableObject {
                 username: username,
                 displayName: displayName,
                 avatarUrl: nil,
+                userId: user.id.uuidString,
                 createdAt: Date(),
                 updatedAt: Date()
             )

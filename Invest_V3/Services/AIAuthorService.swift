@@ -202,12 +202,19 @@ class AIAuthorService: ObservableObject {
     private func updateAIAuthorProfile(articleCount: Int) async throws {
         guard let aiAuthorId = aiAuthorProfile?.id else { return }
         
+        struct ProfileUpdate: Codable {
+            let article_count: Int
+            let updated_at: String
+        }
+        
+        let updateData = ProfileUpdate(
+            article_count: articleCount,
+            updated_at: Date().ISO8601Format()
+        )
+        
         try await supabaseService.client
             .from("user_profiles")
-            .update([
-                "article_count": articleCount,
-                "updated_at": Date().ISO8601Format()
-            ])
+            .update(updateData)
             .eq("id", value: aiAuthorId.uuidString)
             .execute()
     }

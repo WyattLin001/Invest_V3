@@ -59,6 +59,7 @@ class SettingsViewModel: ObservableObject {
             displayName: "投資達人",
             avatarUrl: nil,
             bio: "熱愛投資的新手",
+            userId: UUID().uuidString,
             createdAt: Date(),
             updatedAt: Date()
         )
