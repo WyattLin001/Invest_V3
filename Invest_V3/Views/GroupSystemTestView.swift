@@ -179,7 +179,7 @@ struct GroupSystemTestView: View {
                 .foregroundColor(.primary)
             
             LazyVStack(spacing: 8) {
-                ForEach(testManager.testResults) { result in
+                ForEach(testManager.testResults, id: \.id) { result in
                     TestResultRow(result: result)
                 }
             }
@@ -321,8 +321,8 @@ struct TestResultRow: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: result.status.iconName)
-                .foregroundColor(result.status.color)
+            Image(systemName: result.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundColor(result.isSuccess ? .green : .red)
                 .font(.title3)
                 .frame(width: 24)
             
@@ -337,13 +337,13 @@ struct TestResultRow: View {
                     .foregroundColor(.secondary)
                 
                 if let details = result.details {
-                    Text(details)
+                    Text(details.values.joined(separator: ", "))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .padding(.top, 2)
                 }
                 
-                Text("耗時: \(String(format: "%.2f", result.duration))秒")
+                Text("耗時: \(String(format: "%.2f", result.executionTime))秒")
                     .font(.caption2)
                     .foregroundColor(.secondary.opacity(0.7))
             }
@@ -461,9 +461,9 @@ class GroupSystemTestManager: ObservableObject {
             
             testResults.append(TestResult(
                 testName: "Supabase 連接測試",
-                status: .success,
+                isSuccess: true,
                 message: "成功連接到 Supabase",
-                duration: duration
+                executionTime: duration
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
@@ -472,9 +472,9 @@ class GroupSystemTestManager: ObservableObject {
             
             testResults.append(TestResult(
                 testName: "Supabase 連接測試",
-                status: .error,
+                isSuccess: false,
                 message: "連接失敗: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -497,10 +497,9 @@ class GroupSystemTestManager: ObservableObject {
             
             testResults.append(TestResult(
                 testName: "群組功能測試",
-                status: .success,
-                message: "成功獲取群組列表和用戶群組",
-                details: "發現 \(groups.count) 個群組",
-                duration: duration
+                isSuccess: true,
+                message: "成功獲取群組列表和用戶群組，發現 \(groups.count) 個群組",
+                executionTime: duration
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
@@ -509,9 +508,9 @@ class GroupSystemTestManager: ObservableObject {
             
             testResults.append(TestResult(
                 testName: "群組功能測試",
-                status: .error,
+                isSuccess: false,
                 message: "群組功能測試失敗: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -535,9 +534,9 @@ class GroupSystemTestManager: ObservableObject {
                 
                 testResults.append(TestResult(
                     testName: "聊天功能測試",
-                    status: .success,
+                    isSuccess: true,
                     message: "成功測試群組詳情獲取",
-                    duration: duration
+                    executionTime: duration
                 ))
             } else {
                 let duration = Date().timeIntervalSince(startTime)
@@ -546,9 +545,9 @@ class GroupSystemTestManager: ObservableObject {
                 
                 testResults.append(TestResult(
                     testName: "聊天功能測試",
-                    status: .warning,
+                    isSuccess: false,
                     message: "用戶未加入任何群組，無法完整測試聊天功能",
-                    duration: duration
+                    executionTime: duration
                 ))
             }
         } catch {
@@ -558,9 +557,9 @@ class GroupSystemTestManager: ObservableObject {
             
             testResults.append(TestResult(
                 testName: "聊天功能測試",
-                status: .error,
+                isSuccess: false,
                 message: "聊天功能測試失敗: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -575,17 +574,17 @@ class GroupSystemTestManager: ObservableObject {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "群組創建測試",
-                status: .success,
+                isSuccess: true,
                 message: "群組創建功能可用",
-                duration: duration
+                executionTime: duration
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "群組創建測試",
-                status: .error,
+                isSuccess: false,
                 message: "群組創建功能測試失敗: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -600,18 +599,18 @@ class GroupSystemTestManager: ObservableObject {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "群組加入測試",
-                status: .success,
+                isSuccess: true,
                 message: "群組加入功能可用",
                 details: "可加入的群組數量: \(groups.count)",
-                duration: duration
+                executionTime: duration
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "群組加入測試",
-                status: .error,
+                isSuccess: false,
                 message: "群組加入功能測試失敗: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -626,18 +625,17 @@ class GroupSystemTestManager: ObservableObject {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "訊息發送測試",
-                status: userGroups.isEmpty ? .warning : .success,
-                message: userGroups.isEmpty ? "無群組可發送訊息" : "訊息發送功能可用",
-                details: "可發送訊息的群組數量: \(userGroups.count)",
-                duration: duration
+                isSuccess: !userGroups.isEmpty,
+                message: userGroups.isEmpty ? "無群組可發送訊息" : "訊息發送功能可用，可發送訊息的群組數量: \(userGroups.count)",
+                executionTime: duration
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "訊息發送測試",
-                status: .error,
+                isSuccess: false,
                 message: "訊息發送功能測試失敗: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -656,18 +654,18 @@ class GroupSystemTestManager: ObservableObject {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "數據庫完整性測試",
-                status: .success,
+                isSuccess: true,
                 message: "數據庫結構完整",
                 details: "總群組: \(groups.count), 用戶群組: \(userGroups.count)",
-                duration: duration
+                executionTime: duration
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "數據庫完整性測試",
-                status: .error,
+                isSuccess: false,
                 message: "數據庫完整性測試失敗: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -692,18 +690,18 @@ class GroupSystemTestManager: ObservableObject {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "並發操作測試",
-                status: .success,
+                isSuccess: true,
                 message: "並發操作處理正常",
                 details: "5個並發請求全部完成",
-                duration: duration
+                executionTime: duration
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "並發操作測試",
-                status: .error,
+                isSuccess: false,
                 message: "並發操作測試失敗: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -716,23 +714,22 @@ class GroupSystemTestManager: ObservableObject {
             _ = try await supabaseService.fetchInvestmentGroups()
             
             let duration = Date().timeIntervalSince(startTime)
-            let status: TestStatus = duration > 5.0 ? .warning : .success
+            let isSuccess = duration <= 5.0
             let message = duration > 5.0 ? "載入速度較慢" : "載入速度正常"
             
             testResults.append(TestResult(
                 testName: "大量數據載入測試",
-                status: status,
-                message: message,
-                details: "載入時間: \(String(format: "%.2f", duration))秒",
-                duration: duration
+                isSuccess: isSuccess,
+                message: "\(message)，載入時間: \(String(format: "%.2f", duration))秒",
+                executionTime: duration
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "大量數據載入測試",
-                status: .error,
+                isSuccess: false,
                 message: "大量數據載入測試失敗: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -750,18 +747,18 @@ class GroupSystemTestManager: ObservableObject {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "連接穩定性測試",
-                status: .success,
+                isSuccess: true,
                 message: "連接穩定",
                 details: "3次連續請求全部成功",
-                duration: duration
+                executionTime: duration
             ))
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             testResults.append(TestResult(
                 testName: "連接穩定性測試",
-                status: .error,
+                isSuccess: false,
                 message: "連接不穩定: \(error.localizedDescription)",
-                duration: duration
+                executionTime: duration
             ))
         }
     }
@@ -821,22 +818,8 @@ enum TestStatus {
     }
 }
 
-struct TestResult: Identifiable {
-    let id = UUID()
-    let testName: String
-    let status: TestStatus
-    let message: String
-    let details: String?
-    let duration: TimeInterval
-    
-    init(testName: String, status: TestStatus, message: String, details: String? = nil, duration: TimeInterval) {
-        self.testName = testName
-        self.status = status
-        self.message = message
-        self.details = details
-        self.duration = duration
-    }
-}
+// 使用現有的 TestResult 從 TournamentTestRunner.swift
+// 不需要重複定義
 
 // MARK: - Preview
 
