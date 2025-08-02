@@ -33,7 +33,7 @@ class ReadingTrackingService: ObservableObject {
             currentReadingSession = ReadingSession(
                 articleId: article.id,
                 articleTitle: article.title,
-                authorId: article.authorId,
+                authorId: article.authorId ?? UUID(), // 提供默認值
                 startTime: Date()
             )
             isTracking = true
@@ -57,7 +57,7 @@ class ReadingTrackingService: ObservableObject {
         currentReadingSession = ReadingSession(
             articleId: article.id,
             articleTitle: article.title,
-            authorId: article.authorId,
+            authorId: article.authorId ?? UUID(), // 提供默認值
             startTime: Date()
         )
         
