@@ -39,6 +39,11 @@ struct HomeView: View {
                         // 投資動作區域
                         investmentActionSection
                         
+                        // 群組系統測試區域 (開發/測試用)
+                        #if DEBUG
+                        groupSystemTestSection
+                        #endif
+                        
                         // 邀請 Banner (B線功能)
                         invitationBanner
                         
@@ -647,6 +652,33 @@ struct HomeView: View {
         .padding(.vertical, 60)
         .padding(.horizontal, 32)
     }
+    
+    // MARK: - Group System Test Section
+    #if DEBUG
+    private var groupSystemTestSection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("開發測試")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("僅限開發模式")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.2))
+                    .cornerRadius(6)
+            }
+            
+            InlineGroupTestWidget()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+    #endif
     
     // MARK: - Create Group Floating Button
     private var createGroupFloatingButton: some View {
