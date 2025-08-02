@@ -4,8 +4,10 @@ import MarkdownUI
 struct ArticleDetailView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var interactionVM: ArticleInteractionViewModel
+    @StateObject private var subscriptionService = UserSubscriptionService.shared
     @State private var showGroupPicker = false
     @State private var availableGroups: [InvestmentGroup] = []
+    @State private var showSubscriptionSheet = false
     
     let article: Article
 
@@ -48,6 +50,15 @@ struct ArticleDetailView: View {
                     interactionVM.shareToGroup(group.id, groupName: group.name)
                 }
             )
+        }
+        .sheet(isPresented: $showSubscriptionSheet) {
+            PlatformMembershipView()
+                .onDisappear {
+                    // 訂閱彈窗關閉後刷新訂閱狀態
+                    Task {
+                        await subscriptionService.refreshSubscriptionStatus()
+                    }
+                }
         }
         .onAppear {
             Task {
@@ -126,23 +137,102 @@ struct ArticleDetailView: View {
                 .cornerRadius(16)
             
             Spacer()
-            if !article.isFree {
-                Label("付費文章", systemImage: "lock.fill")
-                    .font(.caption)
-                    .foregroundColor(.brandOrange)
+            
+            HStack(spacing: 8) {
+                // 付費文章標籤
+                if !article.isFree {
+                    Label("付費文章", systemImage: "lock.fill")
+                        .font(.caption)
+                        .foregroundColor(.brandOrange)
+                }
+                
+                // 會員狀態標籤
+                if subscriptionService.canAccessPaidContent() {
+                    Label("會員專享", systemImage: "star.fill")
+                        .font(.caption)
+                        .foregroundColor(.brandGreen)
+                }
             }
         }
     }
     
     // MARK: - Markdown 內容視圖
     private var markdownContentView: some View {
-        Markdown(article.bodyMD ?? article.fullContent)
-            .markdownTextStyle {
-                FontSize(.em(1.0))
+        VStack(alignment: .leading, spacing: 16) {
+            // 顯示可讀的內容（根據訂閱狀態決定完整或預覽）
+            let readableContent = subscriptionService.getReadableContent(for: article)
+            
+            Markdown(readableContent)
+                .markdownTextStyle {
+                    FontSize(.em(1.0))
+                }
+                .modifier(MarkdownHeadingStyleModifier())
+                .modifier(MarkdownBlockStyleModifier())
+                .multilineTextAlignment(.leading)
+            
+            // 付費文章的訂閱提示
+            if !article.isFree && !subscriptionService.canAccessPaidContent() {
+                paywallPromptView
             }
-            .modifier(MarkdownHeadingStyleModifier())
-            .modifier(MarkdownBlockStyleModifier())
-            .multilineTextAlignment(.leading)
+        }
+    }
+    
+    // MARK: - 付費牆提示視圖
+    private var paywallPromptView: some View {
+        VStack(spacing: 16) {
+            // 漸層遮罩效果
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color.clear,
+                    Color.surfacePrimary.opacity(0.8),
+                    Color.surfacePrimary
+                ]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 60)
+            .offset(y: -16)
+            
+            // 付費提示卡片
+            VStack(spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .font(.title2)
+                    .foregroundColor(.brandOrange)
+                
+                Text("解鎖完整內容")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.textPrimary)
+                
+                Text("訂閱平台會員，即可無限閱讀所有付費文章")
+                    .font(.subheadline)
+                    .foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center)
+                
+                Button(action: {
+                    showSubscriptionSheet = true
+                }) {
+                    HStack {
+                        Image(systemName: "star.fill")
+                        Text("立即解鎖")
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.brandOrange)
+                    .cornerRadius(25)
+                }
+                
+                Text("300 代幣/月 · 隨時可取消")
+                    .font(.caption)
+                    .foregroundColor(.textTertiary)
+            }
+            .padding(24)
+            .background(Color.surfaceSecondary)
+            .cornerRadius(16)
+            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        }
     }
     
     
