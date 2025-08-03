@@ -74,19 +74,24 @@ class EligibilityEvaluationService: ObservableObject {
             
             // 創建或更新資格狀態
             let status = AuthorEligibilityStatusInsert(
-                authorId: authorId,
+                authorId: authorId.uuidString,
                 isEligible: isEligible,
                 last90DaysArticles: analytics.last90DaysArticles,
                 last30DaysUniqueReaders: analytics.last30DaysUniqueReaders,
                 hasViolations: hasViolations,
                 hasWalletSetup: hasWalletSetup,
-                eligibilityScore: eligibilityScore
+                eligibilityScore: eligibilityScore,
+                lastEvaluatedAt: Date(),
+                nextEvaluationAt: Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date(),
+                notifications: notifications,
+                createdAt: Date(),
+                updatedAt: Date()
             )
             
             // 保存到數據庫
             try await supabaseService.saveAuthorEligibilityStatus(status)
             
-            print("✅ [EligibilityEvaluationService] 作者資格評估完成: \\(authorId), 符合資格: \\(isEligible)")
+            print("✅ [EligibilityEvaluationService] 作者資格評估完成: \(authorId), 符合資格: \(isEligible)")
             
             // 創建評估結果
             let fullStatus = AuthorEligibilityStatus(
@@ -109,7 +114,7 @@ class EligibilityEvaluationService: ObservableObject {
             return EligibilityEvaluationResult(status: fullStatus)
             
         } catch {
-            print("❌ [EligibilityEvaluationService] 評估作者資格失敗: \\(error)")
+            print("❌ [EligibilityEvaluationService] 評估作者資格失敗: \(error)")
             isEvaluating = false
             return nil
         }
@@ -149,7 +154,7 @@ class EligibilityEvaluationService: ObservableObject {
                 try? await Task.sleep(nanoseconds: 100_000_000) // 0.1秒
             }
             
-            print("✅ [EligibilityEvaluationService] 每日評估完成: 成功 \\(successCount), 失敗 \\(failureCount)")
+            print("✅ [EligibilityEvaluationService] 每日評估完成: 成功 \(successCount), 失敗 \(failureCount)")
             
             // 更新最後評估時間
             lastEvaluationDate = Date()

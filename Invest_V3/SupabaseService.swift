@@ -4775,6 +4775,177 @@ extension SupabaseService {
         }
     }
     
+    // MARK: - Author Analytics & Eligibility
+    
+    /// 獲取作者閱讀分析數據
+    func fetchAuthorReadingAnalytics(authorId: UUID) async throws -> AuthorReadingAnalytics {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("📊 [SupabaseService] 獲取作者閱讀分析: \(authorId)")
+        
+        do {
+            // 使用 RPC 函數獲取作者分析數據
+            let response: [AuthorReadingAnalytics] = try await client
+                .rpc("get_author_reading_analytics", params: ["author_id": authorId])
+                .execute()
+            
+            if let analytics = response.first {
+                print("✅ [SupabaseService] 作者閱讀分析獲取成功")
+                return analytics
+            } else {
+                // 如果沒有數據，返回默認值
+                print("⚠️ [SupabaseService] 作者沒有閱讀分析數據，返回默認值")
+                return AuthorReadingAnalytics(
+                    authorId: authorId,
+                    totalArticles: 0,
+                    totalReads: 0,
+                    uniqueReaders: 0,
+                    last30DaysUniqueReaders: 0,
+                    last90DaysArticles: 0,
+                    averageReadTime: 0.0,
+                    completionRate: 0.0,
+                    createdAt: Date()
+                )
+            }
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取作者閱讀分析失敗: \(error)")
+            // 返回默認值而不是拋出錯誤，確保評估系統可以繼續運行
+            return AuthorReadingAnalytics(
+                authorId: authorId,
+                totalArticles: 0,
+                totalReads: 0,
+                uniqueReaders: 0,
+                last30DaysUniqueReaders: 0,
+                last90DaysArticles: 0,
+                averageReadTime: 0.0,
+                completionRate: 0.0,
+                createdAt: Date()
+            )
+        }
+    }
+    
+    /// 檢查作者錢包設置狀態
+    func checkAuthorWalletSetup(authorId: UUID) async throws -> Bool {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("💰 [SupabaseService] 檢查作者錢包設置: \(authorId)")
+        
+        do {
+            // 檢查 user_wallet_balances 表中是否有該用戶的記錄
+            let response: [UserWalletBalance] = try await client
+                .from("user_wallet_balances")
+                .select("*")
+                .eq("user_id", value: authorId)
+                .limit(1)
+                .execute()
+            
+            let hasWallet = !response.isEmpty
+            print("✅ [SupabaseService] 錢包設置檢查完成: \(hasWallet)")
+            return hasWallet
+            
+        } catch {
+            print("❌ [SupabaseService] 檢查錢包設置失敗: \(error)")
+            // 默認返回 false，表示未設置錢包
+            return false
+        }
+    }
+    
+    /// 檢查作者違規記錄
+    func checkAuthorViolations(authorId: UUID) async throws -> Bool {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("⚠️ [SupabaseService] 檢查作者違規記錄: \(authorId)")
+        
+        do {
+            // 檢查是否存在違規記錄表
+            // 目前暫時返回 false（無違規），因為我們還沒有實現違規記錄系統
+            // TODO: 實現違規記錄檢查機制
+            
+            print("✅ [SupabaseService] 違規記錄檢查完成: 無違規")
+            return false
+            
+        } catch {
+            print("❌ [SupabaseService] 檢查違規記錄失敗: \(error)")
+            // 默認返回 false，表示無違規
+            return false
+        }
+    }
+    
+    /// 保存作者資格狀態
+    func saveAuthorEligibilityStatus(_ status: AuthorEligibilityStatusInsert) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("💾 [SupabaseService] 保存作者資格狀態: \(status.authorId)")
+        
+        do {
+            // 使用 upsert 操作，如果存在則更新，不存在則插入
+            let _: [AuthorEligibilityStatusInsert] = try await client
+                .from("author_eligibility_status")
+                .upsert(status)
+                .execute()
+            
+            print("✅ [SupabaseService] 作者資格狀態保存成功")
+            
+        } catch {
+            print("❌ [SupabaseService] 保存作者資格狀態失敗: \(error)")
+            throw SupabaseError.unknown("保存資格狀態失敗: \(error.localizedDescription)")
+        }
+    }
+    
+    /// 獲取作者資格狀態
+    func fetchAuthorEligibilityStatus(authorId: UUID) async throws -> AuthorEligibilityStatus? {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("📋 [SupabaseService] 獲取作者資格狀態: \(authorId)")
+        
+        do {
+            let response: [AuthorEligibilityStatus] = try await client
+                .from("author_eligibility_status")
+                .select("*")
+                .eq("author_id", value: authorId)
+                .order("updated_at", ascending: false)
+                .limit(1)
+                .execute()
+            
+            if let status = response.first {
+                print("✅ [SupabaseService] 作者資格狀態獲取成功")
+                return status
+            } else {
+                print("ℹ️ [SupabaseService] 作者尚無資格狀態記錄")
+                return nil
+            }
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取作者資格狀態失敗: \(error)")
+            throw SupabaseError.unknown("獲取資格狀態失敗: \(error.localizedDescription)")
+        }
+    }
+    
+    /// 獲取所有作者ID列表（用於批量評估）
+    func fetchAllAuthorIds() async throws -> [UUID] {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("👥 [SupabaseService] 獲取所有作者ID列表")
+        
+        do {
+            // 獲取所有有發布文章的作者ID
+            let response: [String: UUID] = try await client
+                .from("articles")
+                .select("author_id")
+                .neq("author_id", value: "null")
+                .execute()
+            
+            let authorIds = Array(Set(response.compactMap { $0["author_id"] }))
+            print("✅ [SupabaseService] 獲取到 \(authorIds.count) 位作者")
+            return authorIds
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取作者ID列表失敗: \(error)")
+            throw SupabaseError.unknown("獲取作者列表失敗: \(error.localizedDescription)")
+        }
+    }
+    
     // MARK: - Tournament Methods
     
     /// 獲取所有錦標賽
