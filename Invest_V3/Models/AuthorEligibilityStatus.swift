@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 // MARK: - 作者收益資格狀態
 struct AuthorEligibilityStatus: Codable, Identifiable {
@@ -154,7 +155,7 @@ enum EligibilityNotificationType: String, Codable {
         }
     }
     
-    var color: String {
+    var colorString: String {
         switch self {
         case .qualified:
             return "green"
@@ -164,6 +165,32 @@ enum EligibilityNotificationType: String, Codable {
             return "orange"
         case .warning:
             return "yellow"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .qualified:
+            return "checkmark.circle.fill"
+        case .disqualified:
+            return "xmark.circle.fill"
+        case .nearThreshold:
+            return "exclamationmark.triangle.fill"
+        case .warning:
+            return "bell.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .qualified:
+            return .green
+        case .disqualified:
+            return .red
+        case .nearThreshold:
+            return .orange
+        case .warning:
+            return .yellow
         }
     }
 }

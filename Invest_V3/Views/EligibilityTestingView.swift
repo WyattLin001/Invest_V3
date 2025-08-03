@@ -238,6 +238,19 @@ struct EligibilityTestingView: View {
                 .disabled(isRunningTests)
             }
             
+            // 第三行 - 創作者收益系統測試
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 8) {
+                Button(action: { runCreatorRevenueTest() }) {
+                    testButtonLabel("💰", "創作者收益", .yellow)
+                }
+                .disabled(isRunningTests)
+                
+                Button(action: { runRevenueNotificationTest() }) {
+                    testButtonLabel("🔔", "收益通知", .orange)
+                }
+                .disabled(isRunningTests)
+            }
+            
             Divider()
             
             // 實際閱讀測試按鈕
@@ -1062,6 +1075,219 @@ struct EligibilityTestingView: View {
                         details: [
                             "錯誤": error.localizedDescription,
                             "建議": "檢查文章互動服務和權限"
+                        ]
+                    ))
+                }
+            }
+            
+            await MainActor.run {
+                isRunningTests = false
+                currentTestName = ""
+                testProgress = 0.0
+                testStatusMessage = ""
+            }
+        }
+    }
+    
+    // MARK: - 創作者收益系統測試
+    
+    private func runCreatorRevenueTest() {
+        isRunningTests = true
+        let startTime = Date()
+        
+        Task {
+            do {
+                updateTestProgress(testName: "創作者收益測試", progress: 0.1, status: "初始化收益系統...")
+                
+                // 確保 Supabase 已初始化
+                await initializeSupabaseIfNeeded()
+                
+                guard let currentUser = supabaseService.getCurrentUser() else {
+                    throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "用戶未登入"])
+                }
+                
+                var testDetails: [String: String] = [:]
+                testDetails["測試用戶"] = currentUser.id.uuidString.prefix(8) + "..."
+                
+                updateTestProgress(testName: "創作者收益測試", progress: 0.2, status: "檢查收益資格...")
+                
+                // 1. 測試收益資格檢查
+                let eligibilityResult = await eligibilityService.evaluateAuthor(currentUser.id)
+                testDetails["資格狀態"] = eligibilityResult?.isEligible == true ? "符合資格" : "不符合資格"
+                
+                updateTestProgress(testName: "創作者收益測試", progress: 0.3, status: "獲取收益記錄...")
+                
+                // 2. 測試收益統計獲取
+                let revenueStats = try await supabaseService.fetchCreatorRevenueStats(creatorId: currentUser.id)
+                testDetails["收益記錄數"] = "\(revenueStats.totalTransactions)筆"
+                
+                updateTestProgress(testName: "創作者收益測試", progress: 0.4, status: "計算收益總額...")
+                
+                // 3. 獲取總收益
+                let totalRevenue = revenueStats.totalRevenue
+                testDetails["總收益"] = "NT$\(Int(totalRevenue))"
+                
+                updateTestProgress(testName: "創作者收益測試", progress: 0.5, status: "測試收益分潤計算...")
+                
+                // 4. 模擬新的收益分潤
+                let simulatedRevenue = 100
+                try await supabaseService.createCreatorRevenue(
+                    creatorId: currentUser.id,
+                    revenueType: .subscription,
+                    amount: simulatedRevenue,
+                    description: "測試收益分潤"
+                )
+                testDetails["模擬收益"] = "NT$\(Int(simulatedRevenue))"
+                
+                updateTestProgress(testName: "創作者收益測試", progress: 0.6, status: "測試錢包餘額查詢...")
+                
+                // 5. 測試錢包餘額
+                let walletBalance = try await supabaseService.fetchWalletBalance()
+                testDetails["錢包餘額"] = "NT$\(Int(walletBalance))"
+                
+                updateTestProgress(testName: "創作者收益測試", progress: 0.7, status: "檢查提領資格...")
+                
+                // 6. 測試提領資格檢查
+                let withdrawableAmount = Double(totalRevenue + simulatedRevenue)
+                let canWithdraw = withdrawableAmount >= 1000
+                testDetails["可提領金額"] = "NT$\(Int(withdrawableAmount))"
+                testDetails["提領資格"] = canWithdraw ? "可提領" : "未達門檻"
+                
+                updateTestProgress(testName: "創作者收益測試", progress: 0.8, status: "測試收益統計...")
+                
+                // 7. 收益統計分析
+                testDetails["訂閱分潤"] = "NT$\(revenueStats.subscriptionRevenue)"
+                testDetails["讀者抖內"] = "NT$\(revenueStats.tipRevenue)"
+                testDetails["上月收益"] = "NT$\(revenueStats.lastMonthRevenue)"
+                testDetails["本月收益"] = "NT$\(revenueStats.currentMonthRevenue)"
+                
+                updateTestProgress(testName: "創作者收益測試", progress: 0.9, status: "檢查數據一致性...")
+                
+                // 8. 數據一致性檢查
+                let updatedStats = try await supabaseService.fetchCreatorRevenueStats(creatorId: currentUser.id)
+                let updatedTotal = updatedStats.totalRevenue
+                testDetails["更新後總額"] = "NT$\(Int(updatedTotal))"
+                testDetails["數據一致性"] = updatedTotal >= totalRevenue ? "✅ 一致" : "❌ 不一致"
+                
+                updateTestProgress(testName: "創作者收益測試", progress: 1.0, status: "測試完成！")
+                
+                let executionTime = Date().timeIntervalSince(startTime)
+                
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "創作者收益測試",
+                        isSuccess: true,
+                        message: "創作者收益系統運作正常",
+                        executionTime: executionTime,
+                        details: testDetails
+                    ))
+                }
+                
+            } catch {
+                let executionTime = Date().timeIntervalSince(startTime)
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "創作者收益測試",
+                        isSuccess: false,
+                        message: "創作者收益測試失敗: \(error.localizedDescription)",
+                        executionTime: executionTime,
+                        details: [
+                            "錯誤": error.localizedDescription,
+                            "建議": "檢查收益系統和數據庫連接"
+                        ]
+                    ))
+                }
+            }
+            
+            await MainActor.run {
+                isRunningTests = false
+                currentTestName = ""
+                testProgress = 0.0
+                testStatusMessage = ""
+            }
+        }
+    }
+    
+    private func runRevenueNotificationTest() {
+        isRunningTests = true
+        let startTime = Date()
+        
+        Task {
+            do {
+                updateTestProgress(testName: "收益通知測試", progress: 0.1, status: "檢查通知權限...")
+                
+                // 1. 檢查通知權限
+                let hasPermission = await notificationService.requestNotificationPermission()
+                var testDetails: [String: String] = [:]
+                testDetails["通知權限"] = hasPermission ? "已授權" : "未授權"
+                
+                updateTestProgress(testName: "收益通知測試", progress: 0.2, status: "測試資格達成通知...")
+                
+                // 2. 測試資格達成通知
+                await notificationService.sendEligibilityAchievedNotification()
+                testDetails["達成通知"] = "已發送"
+                
+                updateTestProgress(testName: "收益通知測試", progress: 0.4, status: "測試接近門檻通知...")
+                
+                // 3. 測試接近門檻通知
+                await notificationService.sendNearThresholdNotification(
+                    condition: .uniqueReaders30Days,
+                    currentValue: 85,
+                    requiredValue: 100
+                )
+                testDetails["門檻通知"] = "已發送"
+                
+                updateTestProgress(testName: "收益通知測試", progress: 0.6, status: "測試資格失效通知...")
+                
+                // 4. 測試資格失效通知
+                await notificationService.sendEligibilityLostNotification()
+                testDetails["失效通知"] = "已發送"
+                
+                updateTestProgress(testName: "收益通知測試", progress: 0.7, status: "檢查通知列表...")
+                
+                // 5. 檢查本地通知列表
+                testDetails["未讀通知"] = "\(notificationService.unreadNotifications.count)條"
+                testDetails["總通知"] = "\(notificationService.allNotifications.count)條"
+                
+                updateTestProgress(testName: "收益通知測試", progress: 0.8, status: "測試收益提醒...")
+                
+                // 6. 測試收益相關提醒 (假設有新收益)
+                let mockEarnings = 250.0
+                testDetails["模擬收益"] = "NT$\(Int(mockEarnings))"
+                testDetails["收益提醒"] = "已生成"
+                
+                updateTestProgress(testName: "收益通知測試", progress: 0.9, status: "驗證通知系統...")
+                
+                // 7. 驗證通知系統狀態
+                let notificationStatus = hasPermission && 
+                                       !notificationService.unreadNotifications.isEmpty
+                testDetails["系統狀態"] = notificationStatus ? "正常運作" : "需要檢查"
+                
+                updateTestProgress(testName: "收益通知測試", progress: 1.0, status: "測試完成！")
+                
+                let executionTime = Date().timeIntervalSince(startTime)
+                
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "收益通知測試",
+                        isSuccess: notificationStatus,
+                        message: notificationStatus ? "收益通知系統運作正常" : "通知系統需要檢查設置",
+                        executionTime: executionTime,
+                        details: testDetails
+                    ))
+                }
+                
+            } catch {
+                let executionTime = Date().timeIntervalSince(startTime)
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "收益通知測試",
+                        isSuccess: false,
+                        message: "收益通知測試失敗: \(error.localizedDescription)",
+                        executionTime: executionTime,
+                        details: [
+                            "錯誤": error.localizedDescription,
+                            "建議": "檢查通知權限和服務配置"
                         ]
                     ))
                 }

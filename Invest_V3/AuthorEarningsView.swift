@@ -3,6 +3,7 @@ import SwiftUI
 struct AuthorEarningsView: View {
     @StateObject private var viewModel = AuthorEarningsViewModel()
     @StateObject private var eligibilityService = EligibilityEvaluationService.shared
+    @StateObject private var notificationService = EligibilityNotificationService.shared
     @State private var showWithdrawalAnimation = false
     @State private var animationPhase = 0
     @State private var eligibilityStatus: AuthorEligibilityStatus?
@@ -45,6 +46,12 @@ struct AuthorEarningsView: View {
         ScrollView {
             LazyVStack(spacing: EarningsDesignTokens.spacing16) {
                 navigationHeader
+                
+                // 通知區域
+                if !notificationService.unreadNotifications.isEmpty {
+                    notificationCard
+                }
+                
                 eligibilityProgressCard
                 earningsCard
                 withdrawalSection
@@ -434,6 +441,85 @@ struct AuthorEarningsView: View {
         withAnimation(.easeInOut(duration: 0.3)) {
             showWithdrawalAnimation = false
             animationPhase = 0
+        }
+    }
+    
+    // MARK: - Notification Card
+    private var notificationCard: some View {
+        VStack(alignment: .leading, spacing: EarningsDesignTokens.spacing12) {
+            HStack {
+                Text("📢 收益提醒")
+                    .font(EarningsDesignTokens.headline)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("\(notificationService.unreadNotifications.count)")
+                    .font(EarningsDesignTokens.caption)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.red)
+                    .cornerRadius(10)
+            }
+            
+            ForEach(notificationService.unreadNotifications.prefix(3), id: \.id) { notification in
+                HStack {
+                    Image(systemName: notification.type.icon)
+                        .foregroundColor(notification.type.color)
+                        .frame(width: 20)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(notification.title)
+                            .font(EarningsDesignTokens.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                        
+                        Text(notification.message)
+                            .font(EarningsDesignTokens.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    }
+                    
+                    Spacer()
+                    
+                    Text(timeAgoString(from: notification.createdAt))
+                        .font(EarningsDesignTokens.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+            
+            if notificationService.unreadNotifications.count > 3 {
+                Button(action: {
+                    // 顯示所有通知
+                }) {
+                    Text("查看全部 \(notificationService.unreadNotifications.count) 條通知")
+                        .font(EarningsDesignTokens.caption)
+                        .foregroundColor(.accentColor)
+                }
+            }
+        }
+        .padding(EarningsDesignTokens.spacing16)
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(EarningsDesignTokens.cornerRadius12)
+        .overlay(
+            RoundedRectangle(cornerRadius: EarningsDesignTokens.cornerRadius12)
+                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+        )
+    }
+    
+    private func timeAgoString(from date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        
+        if interval < 60 {
+            return "剛剛"
+        } else if interval < 3600 {
+            return "\(Int(interval / 60))分鐘前"
+        } else if interval < 86400 {
+            return "\(Int(interval / 3600))小時前"
+        } else {
+            return "\(Int(interval / 86400))天前"
         }
     }
     
