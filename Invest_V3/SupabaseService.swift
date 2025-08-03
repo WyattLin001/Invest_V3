@@ -4786,8 +4786,9 @@ extension SupabaseService {
         do {
             // 使用 RPC 函數獲取作者分析數據
             let response: [AuthorReadingAnalytics] = try await client
-                .rpc("get_author_reading_analytics", params: ["author_id": authorId])
+                .rpc("get_author_reading_analytics", params: ["author_id": authorId.uuidString])
                 .execute()
+                .value
             
             if let analytics = response.first {
                 print("✅ [SupabaseService] 作者閱讀分析獲取成功")
@@ -4836,9 +4837,10 @@ extension SupabaseService {
             let response: [UserWalletBalance] = try await client
                 .from("user_wallet_balances")
                 .select("*")
-                .eq("user_id", value: authorId)
+                .eq("user_id", value: authorId.uuidString)
                 .limit(1)
                 .execute()
+                .value
             
             let hasWallet = !response.isEmpty
             print("✅ [SupabaseService] 錢包設置檢查完成: \(hasWallet)")
@@ -4884,6 +4886,7 @@ extension SupabaseService {
                 .from("author_eligibility_status")
                 .upsert(status)
                 .execute()
+                .value
             
             print("✅ [SupabaseService] 作者資格狀態保存成功")
             
@@ -4903,10 +4906,11 @@ extension SupabaseService {
             let response: [AuthorEligibilityStatus] = try await client
                 .from("author_eligibility_status")
                 .select("*")
-                .eq("author_id", value: authorId)
+                .eq("author_id", value: authorId.uuidString)
                 .order("updated_at", ascending: false)
                 .limit(1)
                 .execute()
+                .value
             
             if let status = response.first {
                 print("✅ [SupabaseService] 作者資格狀態獲取成功")
@@ -4930,13 +4934,17 @@ extension SupabaseService {
         
         do {
             // 獲取所有有發布文章的作者ID
-            let response: [String: UUID] = try await client
+            let response: [[String: String]] = try await client
                 .from("articles")
                 .select("author_id")
                 .neq("author_id", value: "null")
                 .execute()
+                .value
             
-            let authorIds = Array(Set(response.compactMap { $0["author_id"] }))
+            let authorIds = Array(Set(response.compactMap { (item: [String: String]) -> UUID? in
+                guard let authorIdString = item["author_id"] else { return nil }
+                return UUID(uuidString: authorIdString)
+            }))
             print("✅ [SupabaseService] 獲取到 \(authorIds.count) 位作者")
             return authorIds
             

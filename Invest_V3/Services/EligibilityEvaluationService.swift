@@ -37,7 +37,7 @@ class EligibilityEvaluationService: ObservableObject {
     // MARK: - 公開方法
     
     /// 立即評估單個作者的資格狀態
-    func evaluateAuthor(_ authorId: UUID) async -> EligibilityEvaluationResult? {
+    func evaluateAuthor(_ authorId: UUID) async throws -> EligibilityEvaluationResult? {
         isEvaluating = true
         
         do {
@@ -74,18 +74,13 @@ class EligibilityEvaluationService: ObservableObject {
             
             // 創建或更新資格狀態
             let status = AuthorEligibilityStatusInsert(
-                authorId: authorId.uuidString,
+                authorId: authorId,
                 isEligible: isEligible,
                 last90DaysArticles: analytics.last90DaysArticles,
                 last30DaysUniqueReaders: analytics.last30DaysUniqueReaders,
                 hasViolations: hasViolations,
                 hasWalletSetup: hasWalletSetup,
-                eligibilityScore: eligibilityScore,
-                lastEvaluatedAt: Date(),
-                nextEvaluationAt: Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date(),
-                notifications: notifications,
-                createdAt: Date(),
-                updatedAt: Date()
+                eligibilityScore: eligibilityScore
             )
             
             // 保存到數據庫
@@ -125,7 +120,7 @@ class EligibilityEvaluationService: ObservableObject {
         do {
             return try await supabaseService.fetchAuthorEligibilityStatus(authorId: authorId)
         } catch {
-            print("❌ [EligibilityEvaluationService] 獲取作者資格狀態失敗: \\(error)")
+            print("❌ [EligibilityEvaluationService] 獲取作者資格狀態失敗: \(error)")
             return nil
         }
     }
@@ -144,9 +139,13 @@ class EligibilityEvaluationService: ObservableObject {
             
             // 批量評估每個作者
             for authorId in authorIds {
-                if let _ = await evaluateAuthor(authorId) {
-                    successCount += 1
-                } else {
+                do {
+                    if let _ = try await evaluateAuthor(authorId) {
+                        successCount += 1
+                    } else {
+                        failureCount += 1
+                    }
+                } catch {
                     failureCount += 1
                 }
                 
@@ -162,7 +161,7 @@ class EligibilityEvaluationService: ObservableObject {
             saveLastEvaluationDate()
             
         } catch {
-            print("❌ [EligibilityEvaluationService] 每日評估失敗: \\(error)")
+            print("❌ [EligibilityEvaluationService] 每日評估失敗: \(error)")
         }
         
         isEvaluating = false
@@ -235,7 +234,7 @@ class EligibilityEvaluationService: ObservableObject {
             notifications.append(EligibilityNotification(
                 type: notificationType,
                 title: remaining <= 20 ? "接近讀者門檻" : "需要更多讀者",
-                message: "還需要\\(remaining)位獨立讀者才能達成條件。",
+                message: "還需要\(remaining)位獨立讀者才能達成條件。",
                 condition: .uniqueReaders30Days,
                 currentValue: analytics.last30DaysUniqueReaders,
                 requiredValue: EligibilityThresholds.minUniqueReadersIn30Days
@@ -298,7 +297,7 @@ class EligibilityEvaluationService: ObservableObject {
             }
         }
         
-        print("⏰ [EligibilityEvaluationService] 下次評估時間: \\(finalEvaluationTime)")
+        print("⏰ [EligibilityEvaluationService] 下次評估時間: \(finalEvaluationTime)")
     }
     
     /// 保存最後評估時間
@@ -320,107 +319,3 @@ class EligibilityEvaluationService: ObservableObject {
     }
 }
 
-// MARK: - SupabaseService 擴展
-extension SupabaseService {
-    /// 獲取所有作者ID列表
-    func fetchAllAuthorIds() async throws -> [UUID] {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        let response: [AuthorIdOnly] = try await client
-            .from("articles")
-            .select("author_id")
-            .eq("status", value: "published")
-            .execute()
-            .value
-        
-        return Array(Set(response.map { UUID(uuidString: $0.authorId) }.compactMap { $0 }))
-    }
-    
-    /// 檢查作者錢包設置狀態
-    func checkAuthorWalletSetup(authorId: UUID) async throws -> Bool {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        let wallets: [WalletSetupCheck] = try await client
-            .from("wallets")
-            .select("id")
-            .eq("user_id", value: authorId.uuidString)
-            .limit(1)
-            .execute()
-            .value
-        
-        return !wallets.isEmpty
-    }
-    
-    /// 檢查作者違規記錄
-    func checkAuthorViolations(authorId: UUID) async throws -> Bool {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        // 這裡可以實現檢查違規記錄的邏輯
-        // 暫時返回 false（無違規）
-        return false
-    }
-    
-    /// 保存作者資格狀態
-    func saveAuthorEligibilityStatus(_ status: AuthorEligibilityStatusInsert) async throws {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        // 先檢查是否已存在記錄
-        let existing: [AuthorEligibilityStatus] = try await client
-            .from("author_eligibility_status")
-            .select("id")
-            .eq("author_id", value: status.authorId)
-            .limit(1)
-            .execute()
-            .value
-        
-        if existing.isEmpty {
-            // 插入新記錄
-            let _: [AuthorEligibilityStatus] = try await client
-                .from("author_eligibility_status")
-                .insert(status)
-                .select()
-                .execute()
-                .value
-        } else {
-            // 更新現有記錄
-            let _: [AuthorEligibilityStatus] = try await client
-                .from("author_eligibility_status")
-                .update(status)
-                .eq("author_id", value: status.authorId)
-                .select()
-                .execute()
-                .value
-        }
-        
-        print("✅ [SupabaseService] 作者資格狀態保存成功")
-    }
-    
-    /// 獲取作者資格狀態
-    func fetchAuthorEligibilityStatus(authorId: UUID) async throws -> AuthorEligibilityStatus? {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        let statuses: [AuthorEligibilityStatus] = try await client
-            .from("author_eligibility_status")
-            .select()
-            .eq("author_id", value: authorId.uuidString)
-            .order("updated_at", ascending: false)
-            .limit(1)
-            .execute()
-            .value
-        
-        return statuses.first
-    }
-}
-
-// MARK: - 輔助數據模型
-private struct AuthorIdOnly: Codable {
-    let authorId: String
-    
-    enum CodingKeys: String, CodingKey {
-        case authorId = "author_id"
-    }
-}
-
-private struct WalletSetupCheck: Codable {
-    let id: String
-}

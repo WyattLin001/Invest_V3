@@ -222,3 +222,25 @@ struct UserBalance: Identifiable, Codable {
         case updatedAt = "updated_at"
     }
 }
+
+// MARK: - 用戶錢包餘額模型 (用於 SupabaseService)
+struct UserWalletBalance: Codable {
+    let userId: String
+    let balance: Int
+    let withdrawableAmount: Int
+    let updatedAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case balance
+        case withdrawableAmount = "withdrawable_amount" 
+        case updatedAt = "updated_at"
+    }
+    
+    init(userId: String, balance: Int, withdrawableAmount: Int, updatedAt: Date) {
+        self.userId = userId
+        self.balance = balance
+        self.withdrawableAmount = withdrawableAmount
+        self.updatedAt = updatedAt
+    }
+}

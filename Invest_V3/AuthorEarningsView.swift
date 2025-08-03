@@ -579,7 +579,8 @@ struct AuthorEarningsView: View {
             return
         }
         
-        if let result = await eligibilityService.evaluateAuthor(currentUser.id) {
+        do {
+            if let result = try await eligibilityService.evaluateAuthor(currentUser.id) {
             eligibilityStatus = AuthorEligibilityStatus(
                 id: UUID(),
                 authorId: currentUser.id,
@@ -597,6 +598,9 @@ struct AuthorEarningsView: View {
             )
             
             eligibilityProgress = result.progress
+            }
+        } catch {
+            print("❌ [AuthorEarningsView] 評估資格失敗: \(error)")
         }
     }
     

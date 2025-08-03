@@ -503,6 +503,10 @@ struct EligibilityTestingView: View {
                     keywords: ["測試", "閱讀追蹤", "資格系統"]
                 )
                 
+                // 檢查是否有可用的測試用戶
+                let testUserId = await getValidTestUserId()
+                let userStatus = testUserId != nil ? "可用 (\(testUserId!.uuidString.prefix(8))...)" : "無可用用戶"
+                
                 addTestResult(EligibilityTestResult(
                     testName: "測試環境初始化",
                     isSuccess: true,
@@ -511,7 +515,9 @@ struct EligibilityTestingView: View {
                     details: [
                         "測試文章": "已創建",
                         "模擬參數": "已設置",
-                        "Supabase狀態": SupabaseManager.shared.isInitialized ? "已初始化" : "未初始化"
+                        "Supabase狀態": SupabaseManager.shared.isInitialized ? "已初始化" : "未初始化",
+                        "測試用戶": userStatus,
+                        "建議": testUserId == nil ? "請先登入或確保資料庫中有用戶資料" : "測試環境準備就緒"
                     ]
                 ))
             }
@@ -626,11 +632,25 @@ struct EligibilityTestingView: View {
         let startTime = Date()
         
         Task {
-            // 模擬作者ID
-            let testAuthorId = UUID()
-            
-            // 測試資格評估
-            if let result = await eligibilityService.evaluateAuthor(testAuthorId) {
+            do {
+                // 使用當前登入用戶ID，如果沒有則嘗試從資料庫獲取現有用戶
+                guard let testAuthorId = await getValidTestUserId() else {
+                    let executionTime = Date().timeIntervalSince(startTime)
+                    addTestResult(EligibilityTestResult(
+                        testName: "資格評估測試",
+                        isSuccess: false,
+                        message: "無法獲取有效的測試用戶ID",
+                        executionTime: executionTime,
+                        details: ["錯誤": "沒有登入用戶且無法創建測試用戶"]
+                    ))
+                    isRunningTests = false
+                    return
+                }
+                
+                updateTestProgress(testName: "資格評估測試", progress: 0.1, status: "獲取測試用戶...")
+                
+                // 測試資格評估
+                if let result = try await eligibilityService.evaluateAuthor(testAuthorId) {
                 let executionTime = Date().timeIntervalSince(startTime)
                 
                 addTestResult(EligibilityTestResult(
@@ -655,6 +675,16 @@ struct EligibilityTestingView: View {
                     message: "資格評估服務無響應",
                     executionTime: executionTime,
                     details: ["錯誤": "評估服務返回空結果"]
+                ))
+                }
+            } catch {
+                let executionTime = Date().timeIntervalSince(startTime)
+                addTestResult(EligibilityTestResult(
+                    testName: "資格評估測試",
+                    isSuccess: false,
+                    message: "資格評估失敗: \(error)",
+                    executionTime: executionTime,
+                    details: ["錯誤": "\(error)"]
                 ))
             }
             
@@ -723,7 +753,7 @@ struct EligibilityTestingView: View {
         isRunningTests = true
         let startTime = Date()
         
-        Task {
+        Task(priority: .medium) {
             do {
                 updateTestProgress(testName: "Supabase 連接測試", progress: 0.1, status: "初始化 Supabase...")
                 
@@ -748,8 +778,8 @@ struct EligibilityTestingView: View {
                 
                 updateTestProgress(testName: "Supabase 連接測試", progress: 0.7, status: "保存閱讀記錄...")
                 
-                // 測試閱讀記錄保存
-                let testUserId = currentUser?.id ?? UUID()
+                // 測試閱讀記錄保存  
+                let testUserId = await getValidTestUserId() ?? UUID()
                 let testArticleId = articles.first?.id ?? UUID()
                 
                 let testReadLog = ArticleReadLogInsert(
@@ -1102,29 +1132,29 @@ struct EligibilityTestingView: View {
                 // 確保 Supabase 已初始化
                 await initializeSupabaseIfNeeded()
                 
-                guard let currentUser = supabaseService.getCurrentUser() else {
-                    throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "用戶未登入"])
+                guard let currentUser = await getValidTestUserId() else {
+                    throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "無法獲取有效的測試用戶ID"])
                 }
                 
                 var testDetails: [String: String] = [:]
-                testDetails["測試用戶"] = currentUser.id.uuidString.prefix(8) + "..."
+                testDetails["測試用戶"] = currentUser.uuidString.prefix(8) + "..."
                 
                 updateTestProgress(testName: "創作者收益測試", progress: 0.2, status: "檢查收益資格...")
                 
                 // 1. 測試收益資格檢查
-                let eligibilityResult = await eligibilityService.evaluateAuthor(currentUser.id)
+                let eligibilityResult = try await eligibilityService.evaluateAuthor(currentUser)
                 testDetails["資格狀態"] = eligibilityResult?.isEligible == true ? "符合資格" : "不符合資格"
                 
                 updateTestProgress(testName: "創作者收益測試", progress: 0.3, status: "獲取收益記錄...")
                 
                 // 2. 測試收益統計獲取
-                let revenueStats = try await supabaseService.fetchCreatorRevenueStats(creatorId: currentUser.id)
+                let revenueStats = try await supabaseService.fetchCreatorRevenueStats(creatorId: currentUser)
                 testDetails["收益記錄數"] = "\(revenueStats.totalTransactions)筆"
                 
                 updateTestProgress(testName: "創作者收益測試", progress: 0.4, status: "計算收益總額...")
                 
                 // 3. 獲取總收益
-                let totalRevenue = revenueStats.totalRevenue
+                let totalRevenue = revenueStats.totalEarnings
                 testDetails["總收益"] = "NT$\(Int(totalRevenue))"
                 
                 updateTestProgress(testName: "創作者收益測試", progress: 0.5, status: "測試收益分潤計算...")
@@ -1132,8 +1162,8 @@ struct EligibilityTestingView: View {
                 // 4. 模擬新的收益分潤
                 let simulatedRevenue = 100
                 try await supabaseService.createCreatorRevenue(
-                    creatorId: currentUser.id,
-                    revenueType: .subscription,
+                    creatorId: currentUser,
+                    revenueType: .subscriptionShare,
                     amount: simulatedRevenue,
                     description: "測試收益分潤"
                 )
@@ -1148,7 +1178,7 @@ struct EligibilityTestingView: View {
                 updateTestProgress(testName: "創作者收益測試", progress: 0.7, status: "檢查提領資格...")
                 
                 // 6. 測試提領資格檢查
-                let withdrawableAmount = Double(totalRevenue + simulatedRevenue)
+                let withdrawableAmount = totalRevenue + Double(simulatedRevenue)
                 let canWithdraw = withdrawableAmount >= 1000
                 testDetails["可提領金額"] = "NT$\(Int(withdrawableAmount))"
                 testDetails["提領資格"] = canWithdraw ? "可提領" : "未達門檻"
@@ -1164,7 +1194,7 @@ struct EligibilityTestingView: View {
                 updateTestProgress(testName: "創作者收益測試", progress: 0.9, status: "檢查數據一致性...")
                 
                 // 8. 數據一致性檢查
-                let updatedStats = try await supabaseService.fetchCreatorRevenueStats(creatorId: currentUser.id)
+                let updatedStats = try await supabaseService.fetchCreatorRevenueStats(creatorId: currentUser)
                 let updatedTotal = updatedStats.totalRevenue
                 testDetails["更新後總額"] = "NT$\(Int(updatedTotal))"
                 testDetails["數據一致性"] = updatedTotal >= totalRevenue ? "✅ 一致" : "❌ 不一致"
@@ -1428,6 +1458,56 @@ struct EligibilityTestingView: View {
             if testResults.count > 20 {
                 testResults = Array(testResults.prefix(20))
             }
+        }
+    }
+    
+    /// 獲取有效的測試用戶ID - 優先使用當前登入用戶，否則從資料庫獲取現有用戶
+    private func getValidTestUserId() async -> UUID? {
+        // 確保 Supabase 已初始化
+        await initializeSupabaseIfNeeded()
+        
+        // 1. 優先使用當前登入用戶
+        if let currentUser = SupabaseService.shared.getCurrentUser() {
+            print("✅ [EligibilityTestingView] 使用當前登入用戶: \(currentUser.id)")
+            return currentUser.id
+        }
+        
+        // 2. 如果沒有登入用戶，嘗試從資料庫獲取現有用戶
+        do {
+            let authorIds = try await SupabaseService.shared.fetchAllAuthorIds()
+            if let firstAuthorId = authorIds.first {
+                print("✅ [EligibilityTestingView] 使用資料庫中的用戶: \(firstAuthorId)")
+                return firstAuthorId
+            }
+        } catch {
+            print("❌ [EligibilityTestingView] 無法獲取現有用戶ID: \(error)")
+        }
+        
+        // 3. 嘗試創建一個測試專用用戶（如果測試環境允許）
+        do {
+            // 檢查是否為測試或開發環境
+            #if DEBUG
+            print("⚠️ [EligibilityTestingView] 嘗試在測試環境中創建模擬用戶...")
+            
+            // 生成固定的測試用戶ID，避免每次都創建新的
+            let testUserId = UUID(uuidString: "12345678-1234-1234-1234-123456789012") ?? UUID()
+            
+            // 檢查此測試用戶是否已存在
+            if let existingStatus = try? await SupabaseService.shared.fetchAuthorEligibilityStatus(authorId: testUserId) {
+                print("✅ [EligibilityTestingView] 使用現有測試用戶: \(testUserId)")
+                return testUserId
+            }
+            
+            // 如果測試用戶不存在，返回 nil 而不是嘗試創建
+            print("⚠️ [EligibilityTestingView] 測試用戶不存在，建議先登入或在資料庫中創建用戶")
+            return nil
+            #else
+            print("❌ [EligibilityTestingView] 生產環境不允許創建測試用戶")
+            return nil
+            #endif
+        } catch {
+            print("❌ [EligibilityTestingView] 測試環境檢查失敗: \(error)")
+            return nil
         }
     }
     

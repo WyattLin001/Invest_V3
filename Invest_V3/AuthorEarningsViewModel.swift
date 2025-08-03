@@ -429,4 +429,13 @@ struct CreatorRevenueStats {
     var groupEntryFeeEarnings: Double = 0
     var groupTipEarnings: Double = 0
     var withdrawableAmount: Double = 0
+    var totalTransactions: Int = 0
+    
+    // 新增缺少的屬性
+    var subscriptionRevenue: Double = 0  // 訂閱分潤
+    var readerTipRevenue: Double = 0     // 讀者抖內
+    var tipRevenue: Double = 0           // 抖內收益
+    var totalRevenue: Double = 0         // 總收益
+    var lastMonthRevenue: Double = 0     // 上月收益
+    var currentMonthRevenue: Double = 0  // 本月收益
 }

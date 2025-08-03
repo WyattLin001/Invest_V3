@@ -282,18 +282,6 @@ extension SupabaseService {
         return stats
     }
     
-    /// 獲取作者閱讀分析數據
-    func fetchAuthorReadingAnalytics(authorId: UUID) async throws -> AuthorReadingAnalytics {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        // 使用 RPC 函數獲取作者統計數據
-        let response = try await client
-            .rpc("get_author_reading_analytics", params: ["author_id": authorId.uuidString])
-            .execute()
-        
-        let analytics = try JSONDecoder().decode(AuthorReadingAnalytics.self, from: response.data)
-        return analytics
-    }
     
     /// 檢查用戶今日是否已閱讀過該文章
     func checkUserReadArticleToday(userId: UUID, articleId: UUID) async throws -> Bool {
