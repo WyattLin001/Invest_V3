@@ -22,6 +22,9 @@ struct EligibilityTestingView: View {
     @State private var simulatedReadingTime: Double = 30.0
     @State private var simulatedScrollProgress: Double = 75.0
     @State private var showTestArticle = false
+    @State private var currentTestName: String = ""
+    @State private var testProgress: Double = 0.0
+    @State private var testStatusMessage: String = ""
     
     private let testCategories = TestCategory.allCases
     
@@ -64,6 +67,11 @@ struct EligibilityTestingView: View {
             // 測試類別選擇
             testCategorySelector
             
+            // 測試進度顯示
+            if isRunningTests {
+                testProgressSection
+            }
+            
             // 模擬參數設置
             simulationParametersSection
             
@@ -99,6 +107,65 @@ struct EligibilityTestingView: View {
                 .padding(.horizontal, 4)
             }
         }
+    }
+    
+    // MARK: - 測試進度顯示
+    private var testProgressSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "gear")
+                    .foregroundColor(.orange)
+                    .rotationEffect(.degrees(isRunningTests ? 360 : 0))
+                    .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: isRunningTests)
+                
+                Text("正在執行測試")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Button(action: {
+                    // 停止測試的功能
+                    stopCurrentTest()
+                }) {
+                    Image(systemName: "stop.circle")
+                        .foregroundColor(.red)
+                        .imageScale(.large)
+                }
+                .accessibilityLabel("停止測試")
+            }
+            
+            if !currentTestName.isEmpty {
+                Text("當前測試：\(currentTestName)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            if !testStatusMessage.isEmpty {
+                Text(testStatusMessage)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            // 進度條
+            ProgressView(value: testProgress)
+                .progressViewStyle(LinearProgressViewStyle(tint: .orange))
+                .scaleEffect(x: 1, y: 1.5)
+            
+            // 估計剩餘時間
+            if testProgress > 0 {
+                Text("進度：\(Int(testProgress * 100))%")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+        )
     }
     
     private var simulationParametersSection: some View {
@@ -366,43 +433,109 @@ struct EligibilityTestingView: View {
         }
     }
     
+    // MARK: - 測試控制函數
+    
+    private func stopCurrentTest() {
+        isRunningTests = false
+        currentTestName = ""
+        testProgress = 0.0
+        testStatusMessage = ""
+        
+        addTestResult(EligibilityTestResult(
+            testName: "測試中斷",
+            isSuccess: false,
+            message: "用戶手動停止了測試執行",
+            executionTime: 0.0,
+            details: [
+                "狀態": "已中斷",
+                "原因": "用戶操作"
+            ]
+        ))
+    }
+    
+    private func updateTestProgress(testName: String, progress: Double, status: String) {
+        DispatchQueue.main.async {
+            self.currentTestName = testName
+            self.testProgress = progress
+            self.testStatusMessage = status
+        }
+    }
+    
     // MARK: - 測試實現
     
     private func setupTestEnvironment() {
-        // 創建測試用文章
-        testArticle = Article(
-            id: UUID(),
-            title: "測試文章：台積電AI晶片分析",
-            author: "測試作者",
-            authorId: UUID(),
-            summary: "這是一篇用於測試閱讀追蹤系統的模擬文章，包含完整的內容和互動功能。",
-            fullContent: generateTestArticleContent(),
-            bodyMD: generateTestArticleContent(),
-            category: "測試分析",
-            readTime: "5 分鐘",
-            likesCount: 156,
-            commentsCount: 42,
-            sharesCount: 28,
-            isFree: true,
-            status: .published,
-            source: .human,
-            coverImageUrl: "https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=400&h=250&fit=crop",
-            createdAt: Date(),
-            updatedAt: Date(),
-            keywords: ["測試", "閱讀追蹤", "資格系統"]
-        )
-        
-        addTestResult(EligibilityTestResult(
-            testName: "測試環境初始化",
-            isSuccess: true,
-            message: "測試環境和模擬數據已準備完成",
-            executionTime: 0.01,
-            details: [
-                "測試文章": "已創建",
-                "模擬參數": "已設置",
-                "服務狀態": "就緒"
-            ]
-        ))
+        Task {
+            await initializeSupabaseIfNeeded()
+            await MainActor.run {
+                // 創建測試用文章
+                testArticle = Article(
+                    id: UUID(),
+                    title: "測試文章：台積電AI晶片分析",
+                    author: "測試作者",
+                    authorId: UUID(),
+                    summary: "這是一篇用於測試閱讀追蹤系統的模擬文章，包含完整的內容和互動功能。",
+                    fullContent: generateTestArticleContent(),
+                    bodyMD: generateTestArticleContent(),
+                    category: "測試分析",
+                    readTime: "5 分鐘",
+                    likesCount: 156,
+                    commentsCount: 42,
+                    sharesCount: 28,
+                    isFree: true,
+                    status: .published,
+                    source: .human,
+                    coverImageUrl: "https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=400&h=250&fit=crop",
+                    createdAt: Date(),
+                    updatedAt: Date(),
+                    keywords: ["測試", "閱讀追蹤", "資格系統"]
+                )
+                
+                addTestResult(EligibilityTestResult(
+                    testName: "測試環境初始化",
+                    isSuccess: true,
+                    message: "測試環境和模擬數據已準備完成",
+                    executionTime: 0.01,
+                    details: [
+                        "測試文章": "已創建",
+                        "模擬參數": "已設置",
+                        "Supabase狀態": SupabaseManager.shared.isInitialized ? "已初始化" : "未初始化"
+                    ]
+                ))
+            }
+        }
+    }
+    
+    private func initializeSupabaseIfNeeded() async {
+        if !SupabaseManager.shared.isInitialized {
+            do {
+                try await SupabaseManager.shared.initialize()
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "Supabase 初始化",
+                        isSuccess: true,
+                        message: "SupabaseManager 已成功初始化",
+                        executionTime: 0.1,
+                        details: [
+                            "初始化狀態": "成功",
+                            "客戶端狀態": "就緒"
+                        ]
+                    ))
+                }
+            } catch {
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "Supabase 初始化",
+                        isSuccess: false,
+                        message: "SupabaseManager 初始化失敗: \(error.localizedDescription)",
+                        executionTime: 0.1,
+                        details: [
+                            "錯誤信息": error.localizedDescription,
+                            "初始化狀態": "失敗"
+                        ]
+                    ))
+                }
+            }
+        }
     }
     
     private func runReadingTrackingTest() {
@@ -413,45 +546,65 @@ struct EligibilityTestingView: View {
         
         Task {
             do {
+                updateTestProgress(testName: "閱讀追蹤測試", progress: 0.1, status: "開始閱讀追蹤...")
+                
                 // 測試開始閱讀追蹤
                 readingTracker.startReading(article: article)
                 
+                updateTestProgress(testName: "閱讀追蹤測試", progress: 0.3, status: "模擬閱讀過程...")
+                
                 // 模擬閱讀過程
-                for progress in stride(from: 0, through: simulatedScrollProgress, by: 10) {
+                let progressSteps = Array(stride(from: 0, through: simulatedScrollProgress, by: 10))
+                for (index, progress) in progressSteps.enumerated() {
                     readingTracker.updateReadingProgress(scrollPercentage: progress)
+                    let testProgress = 0.3 + (Double(index) / Double(progressSteps.count)) * 0.6
+                    updateTestProgress(testName: "閱讀追蹤測試", progress: testProgress, status: "閱讀進度: \(Int(progress))%")
                     try await Task.sleep(nanoseconds: UInt64(simulatedReadingTime * 1_000_000_000 / 10))
                 }
+                
+                updateTestProgress(testName: "閱讀追蹤測試", progress: 0.9, status: "結束閱讀追蹤...")
                 
                 // 結束閱讀追蹤
                 readingTracker.endReading(scrollPercentage: simulatedScrollProgress)
                 
+                updateTestProgress(testName: "閱讀追蹤測試", progress: 1.0, status: "測試完成！")
+                
                 let executionTime = Date().timeIntervalSince(startTime)
                 
-                addTestResult(EligibilityTestResult(
-                    testName: "閱讀追蹤測試",
-                    isSuccess: true,
-                    message: "閱讀追蹤功能正常運作",
-                    executionTime: executionTime,
-                    details: [
-                        "閱讀時長": "\(Int(simulatedReadingTime))秒",
-                        "滾動進度": "\(Int(simulatedScrollProgress))%",
-                        "完整閱讀": simulatedScrollProgress >= 80 ? "是" : "否",
-                        "會話狀態": readingTracker.isTracking ? "追蹤中" : "已結束"
-                    ]
-                ))
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "閱讀追蹤測試",
+                        isSuccess: true,
+                        message: "閱讀追蹤功能正常運作",
+                        executionTime: executionTime,
+                        details: [
+                            "閱讀時長": "\(Int(simulatedReadingTime))秒",
+                            "滾動進度": "\(Int(simulatedScrollProgress))%",
+                            "完整閱讀": simulatedScrollProgress >= 80 ? "是" : "否",
+                            "會話狀態": readingTracker.isTracking ? "追蹤中" : "已結束"
+                        ]
+                    ))
+                }
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(EligibilityTestResult(
-                    testName: "閱讀追蹤測試",
-                    isSuccess: false,
-                    message: "測試失敗: \(error.localizedDescription)",
-                    executionTime: executionTime,
-                    details: ["錯誤": error.localizedDescription]
-                ))
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "閱讀追蹤測試",
+                        isSuccess: false,
+                        message: "測試失敗: \(error.localizedDescription)",
+                        executionTime: executionTime,
+                        details: ["錯誤": error.localizedDescription]
+                    ))
+                }
             }
             
-            isRunningTests = false
+            await MainActor.run {
+                isRunningTests = false
+                currentTestName = ""
+                testProgress = 0.0
+                testStatusMessage = ""
+            }
         }
     }
     
@@ -559,17 +712,28 @@ struct EligibilityTestingView: View {
         
         Task {
             do {
-                // 測試 Supabase 初始化
+                updateTestProgress(testName: "Supabase 連接測試", progress: 0.1, status: "初始化 Supabase...")
+                
+                // 確保 Supabase 已初始化
+                await initializeSupabaseIfNeeded()
                 try SupabaseManager.shared.ensureInitialized()
+                
+                updateTestProgress(testName: "Supabase 連接測試", progress: 0.2, status: "檢查用戶認證狀態...")
                 
                 // 測試用戶認證狀態
                 let currentUser = supabaseService.getCurrentUser()
                 
+                updateTestProgress(testName: "Supabase 連接測試", progress: 0.4, status: "獲取文章列表...")
+                
                 // 測試基本數據庫查詢 - 獲取文章列表
                 let articles = try await supabaseService.fetchArticles()
                 
+                updateTestProgress(testName: "Supabase 連接測試", progress: 0.6, status: "查詢錢包餘額...")
+                
                 // 測試錢包查詢
                 let walletBalance = try await supabaseService.fetchWalletBalance()
+                
+                updateTestProgress(testName: "Supabase 連接測試", progress: 0.7, status: "保存閱讀記錄...")
                 
                 // 測試閱讀記錄保存
                 let testUserId = currentUser?.id ?? UUID()
@@ -587,46 +751,59 @@ struct EligibilityTestingView: View {
                 
                 try await supabaseService.saveReadingLog(testReadLog)
                 
+                updateTestProgress(testName: "Supabase 連接測試", progress: 0.9, status: "獲取作者分析數據...")
+                
                 // 測試作者分析數據
                 if let analytics = try? await supabaseService.fetchAuthorReadingAnalytics(authorId: testUserId) {
+                    updateTestProgress(testName: "Supabase 連接測試", progress: 1.0, status: "測試完成！")
+                    
                     let executionTime = Date().timeIntervalSince(startTime)
                     
-                    addTestResult(EligibilityTestResult(
-                        testName: "Supabase 連接測試",
-                        isSuccess: true,
-                        message: "Supabase 所有功能正常運作",
-                        executionTime: executionTime,
-                        details: [
-                            "初始化": "成功",
-                            "用戶認證": currentUser != nil ? "已登入" : "未登入",
-                            "文章查詢": "\(articles.count)篇文章",
-                            "錢包餘額": "\(Int(walletBalance))代幣",
-                            "閱讀記錄": "保存成功",
-                            "作者分析": "數據正常",
-                            "總讀者": "\(analytics.uniqueReaders)人",
-                            "90天文章": "\(analytics.last90DaysArticles)篇"
-                        ]
-                    ))
+                    await MainActor.run {
+                        addTestResult(EligibilityTestResult(
+                            testName: "Supabase 連接測試",
+                            isSuccess: true,
+                            message: "Supabase 所有功能正常運作",
+                            executionTime: executionTime,
+                            details: [
+                                "初始化": "成功",
+                                "用戶認證": currentUser != nil ? "已登入" : "未登入",
+                                "文章查詢": "\(articles.count)篇文章",
+                                "錢包餘額": "\(Int(walletBalance))代幣",
+                                "閱讀記錄": "保存成功",
+                                "作者分析": "數據正常",
+                                "總讀者": "\(analytics.uniqueReaders)人",
+                                "90天文章": "\(analytics.last90DaysArticles)篇"
+                            ]
+                        ))
+                    }
                 } else {
                     throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "作者分析數據獲取失敗"])
                 }
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(EligibilityTestResult(
-                    testName: "Supabase 連接測試",
-                    isSuccess: false,
-                    message: "Supabase 測試失敗: \(error.localizedDescription)",
-                    executionTime: executionTime,
-                    details: [
-                        "錯誤類型": type(of: error).description(),
-                        "詳細錯誤": error.localizedDescription,
-                        "建議": "檢查網絡連接和 Supabase 配置"
-                    ]
-                ))
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "Supabase 連接測試",
+                        isSuccess: false,
+                        message: "Supabase 測試失敗: \(error.localizedDescription)",
+                        executionTime: executionTime,
+                        details: [
+                            "錯誤類型": String(describing: type(of: error)),
+                            "詳細錯誤": error.localizedDescription,
+                            "建議": "檢查網絡連接和 Supabase 配置"
+                        ]
+                    ))
+                }
             }
             
-            isRunningTests = false
+            await MainActor.run {
+                isRunningTests = false
+                currentTestName = ""
+                testProgress = 0.0
+                testStatusMessage = ""
+            }
         }
     }
     
@@ -685,11 +862,20 @@ struct EligibilityTestingView: View {
         
         Task {
             do {
+                updateTestProgress(testName: "文章功能測試", progress: 0.1, status: "初始化系統...")
+                
+                // 確保 Supabase 已初始化
+                await initializeSupabaseIfNeeded()
+                
                 var testDetails: [String: String] = [:]
+                
+                updateTestProgress(testName: "文章功能測試", progress: 0.2, status: "獲取文章列表...")
                 
                 // 1. 測試文章列表獲取
                 let articles = try await supabaseService.fetchArticles()
                 testDetails["文章總數"] = "\(articles.count)篇"
+                
+                updateTestProgress(testName: "文章功能測試", progress: 0.3, status: "分析文章篩選...")
                 
                 // 2. 測試文章篩選功能
                 let freeArticles = articles.filter { $0.isFree }
@@ -697,9 +883,13 @@ struct EligibilityTestingView: View {
                 testDetails["免費文章"] = "\(freeArticles.count)篇"
                 testDetails["付費文章"] = "\(paidArticles.count)篇"
                 
+                updateTestProgress(testName: "文章功能測試", progress: 0.4, status: "統計文章分類...")
+                
                 // 3. 測試文章分類
                 let categories = Set(articles.map { $0.category })
                 testDetails["文章分類"] = "\(categories.count)個類別"
+                
+                updateTestProgress(testName: "文章功能測試", progress: 0.5, status: "檢查文章來源...")
                 
                 // 4. 測試文章來源統計
                 let humanArticles = articles.filter { $0.source == .human }
@@ -707,18 +897,26 @@ struct EligibilityTestingView: View {
                 testDetails["人工文章"] = "\(humanArticles.count)篇"
                 testDetails["AI文章"] = "\(aiArticles.count)篇"
                 
+                updateTestProgress(testName: "文章功能測試", progress: 0.6, status: "驗證文章狀態...")
+                
                 // 5. 測試文章狀態
                 let publishedArticles = articles.filter { $0.status == .published }
                 testDetails["已發布文章"] = "\(publishedArticles.count)篇"
+                
+                updateTestProgress(testName: "文章功能測試", progress: 0.7, status: "分析關鍵字...")
                 
                 // 6. 測試關鍵字功能
                 let allKeywords = articles.flatMap { $0.keywords }
                 let uniqueKeywords = Set(allKeywords)
                 testDetails["關鍵字總數"] = "\(uniqueKeywords.count)個"
                 
+                updateTestProgress(testName: "文章功能測試", progress: 0.8, status: "獲取熱門關鍵字...")
+                
                 // 7. 測試熱門關鍵字獲取
                 let trendingKeywords = try await supabaseService.getTrendingKeywordsWithAll()
                 testDetails["熱門關鍵字"] = "\(trendingKeywords.count)個"
+                
+                updateTestProgress(testName: "文章功能測試", progress: 0.9, status: "檢查封面圖片和閱讀時間...")
                 
                 // 8. 測試文章封面圖片
                 let articlesWithCover = articles.filter { $0.hasCoverImage }
@@ -728,31 +926,42 @@ struct EligibilityTestingView: View {
                 let avgReadTime = articles.compactMap { Int($0.readTime.replacingOccurrences(of: " 分鐘", with: "")) }.reduce(0, +) / max(1, articles.count)
                 testDetails["平均閱讀時間"] = "\(avgReadTime)分鐘"
                 
+                updateTestProgress(testName: "文章功能測試", progress: 1.0, status: "測試完成！")
+                
                 let executionTime = Date().timeIntervalSince(startTime)
                 
-                addTestResult(EligibilityTestResult(
-                    testName: "文章功能測試",
-                    isSuccess: articles.count > 0,
-                    message: articles.count > 0 ? "文章功能運作正常" : "沒有找到文章",
-                    executionTime: executionTime,
-                    details: testDetails
-                ))
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "文章功能測試",
+                        isSuccess: articles.count > 0,
+                        message: articles.count > 0 ? "文章功能運作正常" : "沒有找到文章",
+                        executionTime: executionTime,
+                        details: testDetails
+                    ))
+                }
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(EligibilityTestResult(
-                    testName: "文章功能測試",
-                    isSuccess: false,
-                    message: "文章功能測試失敗: \(error.localizedDescription)",
-                    executionTime: executionTime,
-                    details: [
-                        "錯誤": error.localizedDescription,
-                        "建議": "檢查文章數據和網絡連接"
-                    ]
-                ))
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "文章功能測試",
+                        isSuccess: false,
+                        message: "文章功能測試失敗: \(error.localizedDescription)",
+                        executionTime: executionTime,
+                        details: [
+                            "錯誤": error.localizedDescription,
+                            "建議": "檢查文章數據和網絡連接"
+                        ]
+                    ))
+                }
             }
             
-            isRunningTests = false
+            await MainActor.run {
+                isRunningTests = false
+                currentTestName = ""
+                testProgress = 0.0
+                testStatusMessage = ""
+            }
         }
     }
     
@@ -762,13 +971,22 @@ struct EligibilityTestingView: View {
         
         Task {
             do {
+                updateTestProgress(testName: "文章互動測試", progress: 0.1, status: "初始化系統...")
+                
+                // 確保 Supabase 已初始化
+                await initializeSupabaseIfNeeded()
+                
                 var testDetails: [String: String] = [:]
+                
+                updateTestProgress(testName: "文章互動測試", progress: 0.2, status: "獲取測試文章...")
                 
                 // 獲取測試文章
                 let articles = try await supabaseService.fetchArticles()
                 guard let testArticle = articles.first else {
                     throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "沒有可用的測試文章"])
                 }
+                
+                updateTestProgress(testName: "文章互動測試", progress: 0.3, status: "載入互動統計...")
                 
                 // 1. 測試文章互動統計載入
                 let interactionVM = ArticleInteractionViewModel(articleId: testArticle.id)
@@ -779,15 +997,21 @@ struct EligibilityTestingView: View {
                 testDetails["評論數"] = "\(interactionVM.commentsCount)"
                 testDetails["分享數"] = "\(interactionVM.sharesCount)"
                 
+                updateTestProgress(testName: "文章互動測試", progress: 0.5, status: "測試按讚功能...")
+                
                 // 2. 測試按讚功能
                 let originalLikes = interactionVM.likesCount
                 await interactionVM.toggleLike()
                 let newLikes = interactionVM.likesCount
                 testDetails["按讚測試"] = newLikes != originalLikes ? "成功" : "無變化"
                 
+                updateTestProgress(testName: "文章互動測試", progress: 0.6, status: "載入評論...")
+                
                 // 3. 測試評論載入
                 await interactionVM.loadComments()
                 testDetails["評論載入"] = "\(interactionVM.comments.count)條評論"
+                
+                updateTestProgress(testName: "文章互動測試", progress: 0.7, status: "測試分享功能...")
                 
                 // 4. 測試文章分享 (使用群組分享功能)
                 // 模擬分享到群組
@@ -795,10 +1019,14 @@ struct EligibilityTestingView: View {
                 interactionVM.shareToGroup(testGroupId, groupName: "測試群組")
                 testDetails["分享功能"] = "群組分享可用"
                 
+                updateTestProgress(testName: "文章互動測試", progress: 0.8, status: "檢查訂閱狀態...")
+                
                 // 5. 測試訂閱服務整合
                 let subscriptionService = UserSubscriptionService.shared
                 let canRead = subscriptionService.canReadArticle(testArticle)
                 testDetails["訂閱檢查"] = canRead ? "可閱讀" : "需訂閱"
+                
+                updateTestProgress(testName: "文章互動測試", progress: 0.9, status: "獲取閱讀內容...")
                 
                 // 6. 測試閱讀內容獲取
                 let readableContent = subscriptionService.getReadableContent(for: testArticle)
@@ -809,31 +1037,42 @@ struct EligibilityTestingView: View {
                 testDetails["是否按讚"] = interactionVM.isLiked ? "是" : "否"
                 testDetails["互動狀態"] = "已載入"
                 
+                updateTestProgress(testName: "文章互動測試", progress: 1.0, status: "測試完成！")
+                
                 let executionTime = Date().timeIntervalSince(startTime)
                 
-                addTestResult(EligibilityTestResult(
-                    testName: "文章互動測試",
-                    isSuccess: true,
-                    message: "文章互動功能運作正常",
-                    executionTime: executionTime,
-                    details: testDetails
-                ))
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "文章互動測試",
+                        isSuccess: true,
+                        message: "文章互動功能運作正常",
+                        executionTime: executionTime,
+                        details: testDetails
+                    ))
+                }
                 
             } catch {
                 let executionTime = Date().timeIntervalSince(startTime)
-                addTestResult(EligibilityTestResult(
-                    testName: "文章互動測試",
-                    isSuccess: false,
-                    message: "文章互動測試失敗: \(error.localizedDescription)",
-                    executionTime: executionTime,
-                    details: [
-                        "錯誤": error.localizedDescription,
-                        "建議": "檢查文章互動服務和權限"
-                    ]
-                ))
+                await MainActor.run {
+                    addTestResult(EligibilityTestResult(
+                        testName: "文章互動測試",
+                        isSuccess: false,
+                        message: "文章互動測試失敗: \(error.localizedDescription)",
+                        executionTime: executionTime,
+                        details: [
+                            "錯誤": error.localizedDescription,
+                            "建議": "檢查文章互動服務和權限"
+                        ]
+                    ))
+                }
             }
             
-            isRunningTests = false
+            await MainActor.run {
+                isRunningTests = false
+                currentTestName = ""
+                testProgress = 0.0
+                testStatusMessage = ""
+            }
         }
     }
     
