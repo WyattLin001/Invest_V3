@@ -179,57 +179,11 @@ class WalletViewModel: ObservableObject {
             // 從 Supabase 載入真實的交易記錄（最近5筆）
             let fetchedTransactions = try await supabaseService.fetchUserTransactions(limit: 5)
             self.transactions = fetchedTransactions
-            print("✅ [WalletViewModel] 載入交易記錄成功: \(fetchedTransactions.count) 筆")
+            // 交易記錄載入成功
         } catch {
-            print("❌ [WalletViewModel] 載入交易記錄失敗: \(error.localizedDescription)")
-            // 發生錯誤時使用模擬資料作為後備
-            self.transactions = createMockTransactions()
+            // 載入失敗時顯示空列表
+            self.transactions = []
         }
-    }
-    
-    // 創建模擬交易記錄（作為後備）
-    private func createMockTransactions() -> [WalletTransaction] {
-        return [
-            WalletTransaction(
-                id: UUID(),
-                userId: UUID(),
-                transactionType: "deposit",
-                amount: 1000,
-                description: "儲值",
-                status: "confirmed",
-                paymentMethod: "apple_pay",
-                blockchainId: nil as String?,
-                recipientId: nil as String?,
-                groupId: nil as String?,
-                createdAt: Date().addingTimeInterval(-86400)
-            ),
-            WalletTransaction(
-                id: UUID(),
-                userId: UUID(),
-                transactionType: "tip",
-                amount: 100,
-                description: "抖內給用戶",
-                status: "confirmed",
-                paymentMethod: "wallet",
-                blockchainId: nil as String?,
-                recipientId: UUID().uuidString,
-                groupId: UUID().uuidString,
-                createdAt: Date().addingTimeInterval(-3600)
-            ),
-            WalletTransaction(
-                id: UUID(),
-                userId: UUID(),
-                transactionType: "subscription",
-                amount: 300,
-                description: "月費訂閱",
-                status: "confirmed",
-                paymentMethod: "wallet",
-                blockchainId: nil as String?,
-                recipientId: nil as String?,
-                groupId: nil as String?,
-                createdAt: Date().addingTimeInterval(-1800)
-            )
-        ]
     }
     
     // MARK: - 抖內功能

@@ -3148,11 +3148,11 @@ class SupabaseService: ObservableObject {
         if let userBalance = balanceResponse.first {
             return Double(userBalance.balance)
         } else {
-            // 如果沒有記錄，創建一個初始餘額為 10000 的記錄
+            // 如果沒有記錄，創建一個初始餘額記錄
             let newBalance = UserBalance(
                 id: UUID(),
                 userId: userId,
-                balance: 10000,
+                balance: 0,
                 withdrawableAmount: 0,
                 updatedAt: Date()
             )
@@ -3162,7 +3162,7 @@ class SupabaseService: ObservableObject {
                 .insert(newBalance)
                 .execute()
             
-            return 10000.0
+            return 0.0
         }
     }
     

@@ -567,32 +567,10 @@ struct HomeView: View {
                 // 如果無法獲取餘額，使用預設值
                 self.walletBalance = 0.0
                 self.isLoadingBalance = false
-                print("❌ 載入錢包餘額失敗: \(error.localizedDescription)")
+                // 載入錢包餘額失敗
             }
         }
     }
-    
-    // 假充值功能 - 增加 100 代幣（相當於 10000 NTD）
-    private func fakeTopUp() async {
-        do {
-            // 增加 10000 NTD（相當於 100 代幣）
-            try await supabaseService.updateWalletBalance(delta: 100)
-            
-            await MainActor.run {
-                // 直接更新顯示的代幣數量
-                self.walletBalance += 100.0
-                print("✅ [HomeView] 假充值成功: +100 代幣")
-                
-                // 發送通知給其他頁面更新餘額
-                NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
-            }
-        } catch {
-            await MainActor.run {
-                print("❌ [HomeView] 假充值失敗: \(error.localizedDescription)")
-            }
-        }
-    }
-    
     
     // MARK: - Empty & Loading States
     

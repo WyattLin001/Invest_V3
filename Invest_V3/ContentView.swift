@@ -56,16 +56,6 @@ struct ContentView: View {
                     Text("設定")
                 }
                 .tag(5)
-            
-            // 測試 - 系統測試界面 (僅開發環境)
-            #if DEBUG
-            ComprehensiveAppTestView()
-                .tabItem {
-                    Image(systemName: selectedTab == 6 ? "testtube.2" : "testtube.2")
-                    Text("測試")
-                }
-                .tag(6)
-            #endif
         }
         .accentColor(.brandGreen)
         .onAppear {
