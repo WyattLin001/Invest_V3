@@ -555,33 +555,37 @@ struct EligibilityTestingView: View {
     private func setupTestEnvironment() {
         Task {
             await initializeSupabaseIfNeeded()
+            
+            // 先在異步上下文中創建測試文章
+            let createdTestArticle = Article(
+                id: UUID(),
+                title: "測試文章：台積電AI晶片分析",
+                author: "測試作者",
+                authorId: UUID(),
+                summary: "這是一篇用於測試閱讀追蹤系統的模擬文章，包含完整的內容和互動功能。",
+                fullContent: generateTestArticleContent(),
+                bodyMD: generateTestArticleContent(),
+                category: "測試分析",
+                readTime: "5 分鐘",
+                likesCount: 156,
+                commentsCount: 42,
+                sharesCount: 28,
+                isFree: true,
+                status: .published,
+                source: .human,
+                coverImageUrl: "https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=400&h=250&fit=crop",
+                createdAt: Date(),
+                updatedAt: Date(),
+                keywords: ["測試", "閱讀追蹤", "資格系統"]
+            )
+            
+            // 檢查是否有可用的測試用戶
+            let testUserId = await getValidTestUserId()
+            let userStatus = testUserId != nil ? "可用 (\(testUserId!.uuidString.prefix(8))...)" : "無可用用戶"
+            
             await MainActor.run {
-                // 創建測試用文章
-                testArticle = Article(
-                    id: UUID(),
-                    title: "測試文章：台積電AI晶片分析",
-                    author: "測試作者",
-                    authorId: UUID(),
-                    summary: "這是一篇用於測試閱讀追蹤系統的模擬文章，包含完整的內容和互動功能。",
-                    fullContent: generateTestArticleContent(),
-                    bodyMD: generateTestArticleContent(),
-                    category: "測試分析",
-                    readTime: "5 分鐘",
-                    likesCount: 156,
-                    commentsCount: 42,
-                    sharesCount: 28,
-                    isFree: true,
-                    status: .published,
-                    source: .human,
-                    coverImageUrl: "https://images.unsplash.com/photo-1518186285589-2f7649de83e0?w=400&h=250&fit=crop",
-                    createdAt: Date(),
-                    updatedAt: Date(),
-                    keywords: ["測試", "閱讀追蹤", "資格系統"]
-                )
-                
-                // 檢查是否有可用的測試用戶
-                let testUserId = await getValidTestUserId()
-                let userStatus = testUserId != nil ? "可用 (\(testUserId!.uuidString.prefix(8))...)" : "無可用用戶"
+                // 在 MainActor 中只進行簡單的賦值和同步操作
+                testArticle = createdTestArticle
                 
                 addTestResult(EligibilityTestResult(
                     testName: "測試環境初始化",
