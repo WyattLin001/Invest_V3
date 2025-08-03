@@ -59,7 +59,7 @@ struct ContentView: View {
             
             // 測試 - 系統測試界面 (僅開發環境)
             #if DEBUG
-            EligibilityTestingView()
+            ComprehensiveAppTestView()
                 .tabItem {
                     Image(systemName: selectedTab == 6 ? "testtube.2" : "testtube.2")
                     Text("測試")

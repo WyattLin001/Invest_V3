@@ -34,6 +34,11 @@ struct WalletTransaction: Identifiable, Codable {
         WalletTransactionType(rawValue: transactionType) ?? .deposit
     }
     
+    // 為測試兼容性提供 Double 類型的 amount
+    var amountAsDouble: Double {
+        return Double(amount)
+    }
+    
     var transactionStatus: TransactionStatus {
         TransactionStatus(rawValue: status) ?? .pending
     }

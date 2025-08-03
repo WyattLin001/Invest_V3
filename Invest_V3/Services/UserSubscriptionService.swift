@@ -84,6 +84,14 @@ class UserSubscriptionService: ObservableObject {
             }
         } catch {
             print("❌ [UserSubscriptionService] 獲取訂閱狀態失敗: \(error)")
+            
+            // 檢查是否是數據庫表不存在的錯誤
+            let errorDescription = error.localizedDescription
+            if errorDescription.contains("does not exist") || errorDescription.contains("relation") {
+                print("🔧 [UserSubscriptionService] 檢測到數據庫表不存在，使用默認狀態")
+                print("💡 [UserSubscriptionService] 請執行 '缺失數據庫表格修復.sql' 來創建必要的表格")
+            }
+            
             // 發生錯誤時假設未訂閱
             isSubscribed = false
             subscriptionExpiryDate = nil

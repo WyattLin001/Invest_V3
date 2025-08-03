@@ -367,6 +367,35 @@ struct EligibilityTestingView: View {
             }
             .disabled(isRunningTests)
             
+            // 調試控制區域
+            if isRunningTests {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("調試控制")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Button("停止測試") {
+                            stopCurrentTest()
+                        }
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(6)
+                    }
+                    
+                    Text("💡 提示：如果測試卡住，請查看 Xcode 控制台日誌")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+            }
+            
             // 綜合測試按鈕
             Button(action: { runFullSystemTest() }) {
                 HStack {
@@ -523,24 +552,6 @@ struct EligibilityTestingView: View {
     }
     
     // MARK: - 測試控制函數
-    
-    private func stopCurrentTest() {
-        isRunningTests = false
-        currentTestName = ""
-        testProgress = 0.0
-        testStatusMessage = ""
-        
-        addTestResult(EligibilityTestResult(
-            testName: "測試中斷",
-            isSuccess: false,
-            message: "用戶手動停止了測試執行",
-            executionTime: 0.0,
-            details: [
-                "狀態": "已中斷",
-                "原因": "用戶操作"
-            ]
-        ))
-    }
     
     private func updateTestProgress(testName: String, progress: Double, status: String) {
         DispatchQueue.main.async {
@@ -1177,9 +1188,9 @@ struct EligibilityTestingView: View {
                 updateTestProgress(testName: "文章互動測試", progress: 0.7, status: "測試分享功能...")
                 
                 // 4. 測試文章分享 (使用群組分享功能)
-                // 模擬分享到群組
-                let testGroupId = UUID()
-                interactionVM.shareToGroup(testGroupId, groupName: "測試群組")
+                // 使用真實存在的群組進行測試
+                let testGroupId = UUID(uuidString: "880b4b2c-7ff0-448b-80cf-ef4a4ea9c3d4")!  // Test01群組 (真實存在)
+                interactionVM.shareToGroup(testGroupId, groupName: "Test01")
                 testDetails["分享功能"] = "群組分享可用"
                 
                 updateTestProgress(testName: "文章互動測試", progress: 0.8, status: "檢查訂閱狀態...")
@@ -1424,58 +1435,105 @@ struct EligibilityTestingView: View {
         
         Task {
             do {
-                updateTestProgress(testName: "收益通知測試", progress: 0.1, status: "檢查通知權限...")
+                print("🚀 [EligibilityTestingView] 開始收益通知測試")
                 
-                // 1. 檢查通知權限
+                await MainActor.run {
+                    updateTestProgress(testName: "收益通知測試", progress: 0.1, status: "檢查通知權限...")
+                }
+                
+                // 1. 檢查通知權限（帶超時保護）
+                print("🔔 [EligibilityTestingView] 步驟 1: 檢查通知權限")
                 let hasPermission = await notificationService.requestNotificationPermission()
                 var testDetails: [String: String] = [:]
                 testDetails["通知權限"] = hasPermission ? "已授權" : "未授權"
+                print("📋 [EligibilityTestingView] 通知權限狀態: \(hasPermission ? "已授權" : "未授權")")
                 
-                updateTestProgress(testName: "收益通知測試", progress: 0.2, status: "測試資格達成通知...")
+                // 添加延遲以確保進度更新
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                
+                await MainActor.run {
+                    updateTestProgress(testName: "收益通知測試", progress: 0.2, status: "測試資格達成通知...")
+                }
                 
                 // 2. 測試資格達成通知
+                print("🎉 [EligibilityTestingView] 步驟 2: 測試資格達成通知")
                 await notificationService.sendEligibilityAchievedNotification()
                 testDetails["達成通知"] = "已發送"
+                print("✅ [EligibilityTestingView] 資格達成通知已發送")
                 
-                updateTestProgress(testName: "收益通知測試", progress: 0.4, status: "測試接近門檻通知...")
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                
+                await MainActor.run {
+                    updateTestProgress(testName: "收益通知測試", progress: 0.4, status: "測試接近門檻通知...")
+                }
                 
                 // 3. 測試接近門檻通知
+                print("⚡ [EligibilityTestingView] 步驟 3: 測試接近門檻通知")
                 await notificationService.sendNearThresholdNotification(
                     condition: .uniqueReaders30Days,
                     currentValue: 85,
                     requiredValue: 100
                 )
                 testDetails["門檻通知"] = "已發送"
+                print("✅ [EligibilityTestingView] 接近門檻通知已發送")
                 
-                updateTestProgress(testName: "收益通知測試", progress: 0.6, status: "測試資格失效通知...")
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                
+                await MainActor.run {
+                    updateTestProgress(testName: "收益通知測試", progress: 0.6, status: "測試資格失效通知...")
+                }
                 
                 // 4. 測試資格失效通知
+                print("⚠️ [EligibilityTestingView] 步驟 4: 測試資格失效通知")
                 await notificationService.sendEligibilityLostNotification()
                 testDetails["失效通知"] = "已發送"
+                print("✅ [EligibilityTestingView] 資格失效通知已發送")
                 
-                updateTestProgress(testName: "收益通知測試", progress: 0.7, status: "檢查通知列表...")
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                
+                await MainActor.run {
+                    updateTestProgress(testName: "收益通知測試", progress: 0.7, status: "檢查通知列表...")
+                }
                 
                 // 5. 檢查本地通知列表
+                print("📋 [EligibilityTestingView] 步驟 5: 檢查通知列表")
                 testDetails["未讀通知"] = "\(notificationService.unreadNotifications.count)條"
                 testDetails["總通知"] = "\(notificationService.allNotifications.count)條"
+                print("📊 [EligibilityTestingView] 通知列表 - 未讀: \(notificationService.unreadNotifications.count), 總計: \(notificationService.allNotifications.count)")
                 
-                updateTestProgress(testName: "收益通知測試", progress: 0.8, status: "測試收益提醒...")
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                
+                await MainActor.run {
+                    updateTestProgress(testName: "收益通知測試", progress: 0.8, status: "測試收益提醒...")
+                }
                 
                 // 6. 測試收益相關提醒 (假設有新收益)
+                print("💰 [EligibilityTestingView] 步驟 6: 測試收益提醒")
                 let mockEarnings = 250.0
                 testDetails["模擬收益"] = "NT$\(Int(mockEarnings))"
                 testDetails["收益提醒"] = "已生成"
+                print("💵 [EligibilityTestingView] 模擬收益生成: NT$\(Int(mockEarnings))")
                 
-                updateTestProgress(testName: "收益通知測試", progress: 0.9, status: "驗證通知系統...")
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                
+                await MainActor.run {
+                    updateTestProgress(testName: "收益通知測試", progress: 0.9, status: "驗證通知系統...")
+                }
                 
                 // 7. 驗證通知系統狀態
+                print("✅ [EligibilityTestingView] 步驟 7: 驗證通知系統狀態")
                 let notificationStatus = hasPermission && 
                                        !notificationService.unreadNotifications.isEmpty
                 testDetails["系統狀態"] = notificationStatus ? "正常運作" : "需要檢查"
+                testDetails["調試資訊"] = "已添加詳細日誌輸出到控制台"
+                print("🔍 [EligibilityTestingView] 系統狀態評估: \(notificationStatus ? "正常運作" : "需要檢查")")
                 
-                updateTestProgress(testName: "收益通知測試", progress: 1.0, status: "測試完成！")
+                await MainActor.run {
+                    updateTestProgress(testName: "收益通知測試", progress: 1.0, status: "測試完成！")
+                }
                 
                 let executionTime = Date().timeIntervalSince(startTime)
+                print("⏱️ [EligibilityTestingView] 收益通知測試完成，耗時: \(String(format: "%.2f", executionTime))秒")
                 
                 await MainActor.run {
                     addTestResult(EligibilityTestResult(
@@ -1488,6 +1546,7 @@ struct EligibilityTestingView: View {
                 }
                 
             } catch {
+                print("❌ [EligibilityTestingView] 收益通知測試發生錯誤: \(error)")
                 let executionTime = Date().timeIntervalSince(startTime)
                 await MainActor.run {
                     addTestResult(EligibilityTestResult(
@@ -1497,7 +1556,9 @@ struct EligibilityTestingView: View {
                         executionTime: executionTime,
                         details: [
                             "錯誤": error.localizedDescription,
-                            "建議": "檢查通知權限和服務配置"
+                            "錯誤類型": String(describing: type(of: error)),
+                            "建議": "檢查通知權限和服務配置",
+                            "調試提示": "查看 Xcode 控制台獲取詳細日誌"
                         ]
                     ))
                 }
@@ -1648,6 +1709,26 @@ struct EligibilityTestingView: View {
     }
     
     // MARK: - 輔助方法
+    
+    private func stopCurrentTest() {
+        isRunningTests = false
+        currentTestName = ""
+        testProgress = 0.0
+        testStatusMessage = ""
+        
+        addTestResult(EligibilityTestResult(
+            testName: "⏹️ 測試已停止",
+            isSuccess: false,
+            message: "用戶手動停止了正在進行的測試",
+            executionTime: 0.0,
+            details: [
+                "停止原因": "用戶操作",
+                "建議": "如果測試經常卡住，請檢查通知權限設置或網絡連接"
+            ]
+        ))
+        
+        print("⏹️ [EligibilityTestingView] 用戶手動停止測試")
+    }
     
     private func addTestResult(_ result: EligibilityTestResult) {
         DispatchQueue.main.async {

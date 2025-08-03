@@ -5,7 +5,7 @@ import Realtime
 
 // MARK: - 測試常數
 struct TestConstants {
-    static let testGroupId = UUID(uuidString: "123e4567-e89b-12d3-a456-426614174000")!
+    static let testGroupId = UUID(uuidString: "880b4b2c-7ff0-448b-80cf-ef4a4ea9c3d4")!  // Test01群組 (真實存在)
     static let testUserEmail = "f227006900@gmail.com"
     static let yukaUserEmail = "yuka@gmail.com"
 }

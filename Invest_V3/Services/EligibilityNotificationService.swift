@@ -46,12 +46,37 @@ class EligibilityNotificationService: NSObject, ObservableObject {
         }
     }
     
-    /// 請求通知權限
+    /// 請求通知權限（帶超時機制）
     func requestNotificationPermission() async -> Bool {
+        print("🔔 [EligibilityNotificationService] 開始請求通知權限...")
+        
         do {
-            let granted = try await UNUserNotificationCenter.current().requestAuthorization(
-                options: [.alert, .badge, .sound]
-            )
+            // 首先檢查當前權限狀態
+            let currentSettings = await UNUserNotificationCenter.current().notificationSettings()
+            
+            switch currentSettings.authorizationStatus {
+            case .authorized:
+                print("✅ [EligibilityNotificationService] 通知權限已存在")
+                hasNotificationPermission = true
+                return true
+            case .denied:
+                print("❌ [EligibilityNotificationService] 通知權限已被用戶拒絕")
+                hasNotificationPermission = false
+                return false
+            case .notDetermined:
+                print("🔄 [EligibilityNotificationService] 權限未確定，正在請求...")
+                break
+            default:
+                print("⚠️ [EligibilityNotificationService] 未知權限狀態: \(currentSettings.authorizationStatus)")
+                break
+            }
+            
+            // 使用 withTimeout 來防止卡住
+            let granted = try await withTimeout(seconds: 5) {
+                try await UNUserNotificationCenter.current().requestAuthorization(
+                    options: [.alert, .badge, .sound]
+                )
+            }
             
             hasNotificationPermission = granted
             
@@ -64,7 +89,32 @@ class EligibilityNotificationService: NSObject, ObservableObject {
             return granted
         } catch {
             print("❌ [EligibilityNotificationService] 請求通知權限失敗: \(error)")
+            hasNotificationPermission = false
             return false
+        }
+    }
+    
+    /// 超時輔助函數
+    private func withTimeout<T>(seconds: Double, operation: @escaping () async throws -> T) async throws -> T {
+        return try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw TimeoutError()
+            }
+            
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+    
+    private struct TimeoutError: Error {
+        var localizedDescription: String {
+            return "操作超時"
         }
     }
     
@@ -72,7 +122,12 @@ class EligibilityNotificationService: NSObject, ObservableObject {
     
     /// 發送資格達成通知
     func sendEligibilityAchievedNotification() async {
-        guard hasNotificationPermission else { return }
+        print("🎉 [EligibilityNotificationService] 嘗試發送資格達成通知...")
+        
+        guard hasNotificationPermission else { 
+            print("❌ [EligibilityNotificationService] 通知權限未授予，跳過通知發送")
+            return 
+        }
         
         let content = UNMutableNotificationContent()
         content.title = "🎉 恭喜！收益資格已達成"
@@ -87,7 +142,9 @@ class EligibilityNotificationService: NSObject, ObservableObject {
         )
         
         do {
+            print("📤 [EligibilityNotificationService] 正在發送資格達成通知...")
             try await UNUserNotificationCenter.current().add(request)
+            print("✅ [EligibilityNotificationService] 資格達成通知發送成功")
             
             // 添加到本地通知列表
             let notification = EligibilityNotification(

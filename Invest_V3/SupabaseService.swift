@@ -954,7 +954,7 @@ class SupabaseService: ObservableObject {
             .select("""
                 id, title, author, author_id, summary, full_content, body_md, category, 
                 read_time, likes_count, comments_count, shares_count, is_free, 
-                status, source, cover_image_url, created_at, updated_at, keywords
+                cover_image_url, created_at, updated_at, keywords
             """)
             .order("created_at", ascending: false)
             .execute()
@@ -1249,19 +1249,28 @@ class SupabaseService: ObservableObject {
     public func getArticlesBySource(_ source: ArticleSource, status: ArticleStatus? = nil) async throws -> [Article] {
         try SupabaseManager.shared.ensureInitialized()
         
-        var query = client
+        // 由於數據庫中可能沒有 source 和 status 列，我們先獲取所有文章，然後在應用層過濾
+        let allArticles: [Article] = try await client
             .from("articles")
-            .select()
-            .eq("source", value: source.rawValue)
-        
-        if let status = status {
-            query = query.eq("status", value: status.rawValue)
-        }
-        
-        let articles: [Article] = try await query
+            .select("""
+                id, title, author, author_id, summary, full_content, body_md, category, 
+                read_time, likes_count, comments_count, shares_count, is_free, 
+                cover_image_url, created_at, updated_at, keywords
+            """)
             .order("created_at", ascending: false)
             .execute()
             .value
+        
+        // 在應用層進行過濾
+        let articles = allArticles.filter { article in
+            var matches = (article.source == source)
+            
+            if let status = status {
+                matches = matches && (article.status == status)
+            }
+            
+            return matches
+        }
         
         return articles
     }
@@ -1316,7 +1325,7 @@ class SupabaseService: ObservableObject {
             .select("""
                 id, title, author, author_id, summary, full_content, body_md, category, 
                 read_time, likes_count, comments_count, shares_count, is_free, 
-                status, source, cover_image_url, created_at, updated_at, keywords
+                cover_image_url, created_at, updated_at, keywords
             """)
             .eq("category", value: category)
             .order("created_at", ascending: false)
@@ -3208,7 +3217,7 @@ class SupabaseService: ObservableObject {
     
     /// 獲取用戶交易記錄
     func fetchUserTransactions(limit: Int = 5) async throws -> [WalletTransaction] {
-        try SupabaseManager.shared.ensureInitialized()
+        try await SupabaseManager.shared.ensureInitializedAsync()
         
         guard let authUser = try? await client.auth.user() else {
             throw SupabaseError.notAuthenticated
@@ -4786,7 +4795,7 @@ extension SupabaseService {
         do {
             // 使用 RPC 函數獲取作者分析數據
             let response: [AuthorReadingAnalytics] = try await client
-                .rpc("get_author_reading_analytics", params: ["author_id": authorId.uuidString])
+                .rpc("get_author_reading_analytics", params: ["input_author_id": authorId.uuidString])
                 .execute()
                 .value
             
@@ -4881,10 +4890,10 @@ extension SupabaseService {
         print("💾 [SupabaseService] 保存作者資格狀態: \(status.authorId)")
         
         do {
-            // 使用 upsert 操作，如果存在則更新，不存在則插入
+            // 使用 upsert 操作，指定衝突解決策略
             let _: [AuthorEligibilityStatusInsert] = try await client
                 .from("author_eligibility_status")
-                .upsert(status)
+                .upsert(status, onConflict: "author_id", ignoreDuplicates: false)
                 .execute()
                 .value
             

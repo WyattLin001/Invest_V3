@@ -257,6 +257,9 @@ struct TestStatusRow: View {
             case .pending:
                 ProgressView()
                     .scaleEffect(0.8)
+            case .running:
+                ProgressView()
+                    .scaleEffect(0.8)
             case .unknown:
                 Image(systemName: "questionmark.circle")
                     .foregroundColor(.gray)
@@ -773,6 +776,9 @@ class GroupSystemTestManager: ObservableObject {
         } else if allStatuses.contains(.error) {
             overallStatus = .error
             overallMessage = "部分系統異常"
+        } else if allStatuses.contains(.running) {
+            overallStatus = .running
+            overallMessage = "系統測試進行中"
         } else if allStatuses.contains(.warning) {
             overallStatus = .warning
             overallMessage = "系統運行有警告"
@@ -784,40 +790,7 @@ class GroupSystemTestManager: ObservableObject {
 }
 
 // MARK: - Supporting Types
-
-enum TestStatus {
-    case success, error, warning, pending, unknown
-    
-    var color: Color {
-        switch self {
-        case .success: return .green
-        case .error: return .red
-        case .warning: return .orange
-        case .pending: return .blue
-        case .unknown: return .gray
-        }
-    }
-    
-    var backgroundColor: Color {
-        switch self {
-        case .success: return .green.opacity(0.1)
-        case .error: return .red.opacity(0.1)
-        case .warning: return .orange.opacity(0.1)
-        case .pending: return .blue.opacity(0.1)
-        case .unknown: return .gray.opacity(0.1)
-        }
-    }
-    
-    var iconName: String {
-        switch self {
-        case .success: return "checkmark.circle.fill"
-        case .error: return "xmark.circle.fill"
-        case .warning: return "exclamationmark.triangle.fill"
-        case .pending: return "clock.fill"
-        case .unknown: return "questionmark.circle"
-        }
-    }
-}
+// TestStatus is now defined in ComprehensiveTestManager.swift
 
 // 使用現有的 TestResult 從 TournamentTestRunner.swift
 // 不需要重複定義

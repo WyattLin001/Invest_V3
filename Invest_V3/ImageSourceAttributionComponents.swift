@@ -65,7 +65,7 @@ struct ImageAttribution {
 // MARK: - 圖片來源選擇器
 struct ImageSourceAttributionPicker: View {
     @Binding var selectedAttribution: ImageAttribution?
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
     
     @State private var selectedSource: ImageAttribution.ImageSource = .author
     @State private var customSourceText = ""
@@ -118,15 +118,19 @@ struct ImageSourceAttributionPicker: View {
             }
             .navigationTitle("選擇圖片來源")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                leading: Button("取消") {
-                    presentationMode.wrappedValue.dismiss()
-                },
-                trailing: Button("確定") {
-                    confirmSelection()
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") {
+                        dismiss()
+                    }
                 }
-                .disabled(selectedSource == .custom && customSourceText.isEmpty)
-            )
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("確定") {
+                        confirmSelection()
+                    }
+                    .disabled(selectedSource == .custom && customSourceText.isEmpty)
+                }
+            }
         }
     }
     
@@ -143,7 +147,7 @@ struct ImageSourceAttributionPicker: View {
             source: selectedSource,
             customText: selectedSource == .custom ? customSourceText : nil
         )
-        presentationMode.wrappedValue.dismiss()
+        dismiss()
     }
 }
 
