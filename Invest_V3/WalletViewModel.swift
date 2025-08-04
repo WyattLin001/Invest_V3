@@ -149,17 +149,16 @@ class WalletViewModel: ObservableObject {
     }
     
     // MARK: - 測試充值功能
-    func performTestTopUp(tokens: Int) async {
-        let amountNTD = Double(tokens * 100) // 1 代幣 = 100 NTD
-        
+    func performTestTopUp(amountNTD: Double) async {
         do {
-            // 實際更新 Supabase 餘額
+            // 直接以 NTD 金額更新 Supabase 餘額
             try await supabaseService.updateWalletBalance(delta: Int(amountNTD))
             
             // 重新載入餘額以確保同步
             await loadBalance()
             
             await MainActor.run {
+                let tokens = amountNTD / 100 // 計算對應的代幣數量用於顯示
                 print("✅ [WalletViewModel] 測試充值成功: 增加 \(tokens) 代幣 (\(amountNTD) NTD)")
             }
             

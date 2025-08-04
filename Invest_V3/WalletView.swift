@@ -202,11 +202,8 @@ struct WalletView: View {
         topUpAmount = amount
         showTopUpAnimation = true
         
-        // 計算代幣數量 (1代幣 = 100 NTD)
-        let tokens = Int(amount / 100)
-        
-        // 執行充值
-        await viewModel.performTestTopUp(tokens: tokens)
+        // 直接以 NTD 金額進行充值，WalletViewModel 會處理轉換
+        await viewModel.performTestTopUp(amountNTD: amount)
         
         // 動畫效果
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
