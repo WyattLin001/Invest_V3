@@ -80,10 +80,6 @@ struct WalletView: View {
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
             Spacer()
-            Text(TokenSystem.formatTokens(viewModel.balance))
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(.green)
         }
         .padding(.horizontal, 16)
         .frame(height: 44)
