@@ -193,7 +193,7 @@ struct TradingStatsCard: View {
 // MARK: - 趨勢指示器
 
 /// 交易趨勢指示器數據模型
-struct TradingTradingTrendIndicator {
+struct TradingTrendIndicator {
     let type: TrendType
     let percentage: Double?
     

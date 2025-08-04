@@ -48,7 +48,7 @@ struct AlignedDataRow: View {
                 // 數值和趨勢
                 HStack(spacing: DesignTokens.spacingXS) {
                     if let trend = trend {
-                        Image(systemName: trend.iconName)
+                        Image(systemName: trend.icon)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(trend.color)
                     }
@@ -264,7 +264,7 @@ struct RankingListItem: View {
             VStack(alignment: .trailing, spacing: 2) {
                 HStack(spacing: DesignTokens.spacingXS) {
                     if let trend = trend {
-                        Image(systemName: trend.iconName)
+                        Image(systemName: trend.icon)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(trend.color)
                     }
