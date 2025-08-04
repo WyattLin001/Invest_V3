@@ -85,22 +85,9 @@ class ChatPortfolioManager: ObservableObject {
         return changes
     }
     
-    /// 為 DynamicPieChart 提供數據
+    /// 為 DynamicPieChart 提供增強數據
     var pieChartData: [PieChartData] {
-        let total = totalPortfolioValue
-        guard total > 0 else {
-            return [PieChartData(category: "無投資", value: 100, color: .gray)]
-        }
-        
-        return holdings.map { holding in
-            let percentage = (holding.totalValue / total) * 100
-            let color = StockColorPalette.colorForStock(symbol: holding.symbol)
-            return PieChartData(
-                category: "\(holding.symbol) \(holding.name)",
-                value: percentage,
-                color: color
-            )
-        }.sorted { $0.value > $1.value } // 按比例大小排序
+        return AssetAllocationCalculator.calculateEnhancedAllocation(from: self)
     }
     
     private func colorForSymbol(_ symbol: String) -> Color {
