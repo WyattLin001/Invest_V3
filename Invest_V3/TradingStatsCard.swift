@@ -230,7 +230,7 @@ struct TradingTradingTrendIndicator {
         TradingTrendIndicator(type: .down, percentage: percentage)
     }
     
-    static let flat = TradingTrendIndicator(type: .flat, percentage: nil)
+    static let flat = TradingTrendIndicator(type: .flat, percentage: nil as Double?)
 }
 
 // MARK: - 統計卡片網格
@@ -249,16 +249,16 @@ struct TradingStatsGrid: View {
         LazyVGrid(columns: gridColumns, spacing: 12) {
             // 總交易筆數
             TradingStatsCard(
-                type: .totalTrades,
+                type: TradingStatsCardType.totalTrades,
                 value: "\(statistics.totalTrades)",
                 subtitle: trendDescription,
-                trend: .up(5.2), // 模擬趨勢
+                trend: TradingTrendIndicator.up(5.2), // 模擬趨勢
                 isLoading: isLoading
             )
             
             // 總成交金額
             TradingStatsCard(
-                type: .totalVolume,
+                type: TradingStatsCardType.totalVolume,
                 value: formatLargeAmount(statistics.totalVolume),
                 subtitle: "本月交易量",
                 isLoading: isLoading
@@ -266,7 +266,7 @@ struct TradingStatsGrid: View {
             
             // 買賣比例
             TradingStatsCard(
-                type: .buyToSellRatio,
+                type: TradingStatsCardType.buyToSellRatio,
                 value: statistics.buyToSellRatio,
                 subtitle: buyToSellDescription,
                 trend: buyToSellTrend,
@@ -275,7 +275,7 @@ struct TradingStatsGrid: View {
             
             // 已實現損益
             TradingStatsCard(
-                type: .realizedGainLoss,
+                type: TradingStatsCardType.realizedGainLoss,
                 value: formatGainLoss(statistics.totalRealizedGainLoss),
                 subtitle: String(format: "勝率 %.1f%%", statistics.winRate),
                 trend: gainLossTrend,
@@ -436,15 +436,15 @@ struct CompactTradingStatsCard: View {
             
             VStack(spacing: 8) {
                 CompactTradingStatsCard(
-                    type: .totalTrades,
+                    type: TradingStatsCardType.totalTrades,
                     value: "5",
-                    trend: .up(12.5)
+                    trend: TradingTrendIndicator.up(12.5)
                 )
                 
                 CompactTradingStatsCard(
-                    type: .realizedGainLoss,
+                    type: TradingStatsCardType.realizedGainLoss,
                     value: "+$104.5K",
-                    trend: .up(18.3)
+                    trend: TradingTrendIndicator.up(18.3)
                 )
             }
             .padding()

@@ -316,7 +316,8 @@ struct EnhancedLegendItem: View {
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
                     
-                    if let category = data.category.split(separator: " ").dropFirst().joined(separator: " "), !category.isEmpty {
+                    let category = data.category.split(separator: " ").dropFirst().joined(separator: " ")
+                    if !category.isEmpty {
                         Text(category)
                             .font(.caption2)
                             .foregroundColor(.secondary)
@@ -392,10 +393,13 @@ struct DetailPopupView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
                     
-                    if let symbol = data.symbol, let category = data.category.split(separator: " ").dropFirst().joined(separator: " "), !category.isEmpty {
+                    if data.symbol != nil {
+                        let category = data.category.split(separator: " ").dropFirst().joined(separator: " ")
+                        if !category.isEmpty {
                         Text(category)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                        }
                     }
                 }
                 
