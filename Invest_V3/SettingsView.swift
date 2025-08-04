@@ -16,6 +16,7 @@ import PhotosUI
 struct SettingsView: View {
     @EnvironmentObject private var authService: AuthenticationService
     @StateObject private var viewModel = SettingsViewModel()
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     
     @State private var showImagePicker = false
     @State private var showQRCodeFullScreen = false
@@ -23,6 +24,7 @@ struct SettingsView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showLogoutAlert = false
     @State private var nicknameInput = ""
+    @State private var showTournamentSelector = false
 
     var body: some View {
         NavigationView {
@@ -457,6 +459,12 @@ struct SettingsView: View {
                 Divider()
                     .dividerStyle()
                 
+                // 錦標賽模式切換
+                tournamentModeRow
+                
+                Divider()
+                    .dividerStyle()
+                
                 // 其他設定項目預留位置
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -642,6 +650,62 @@ struct SettingsView: View {
         .accessibilityHint("點擊後會要求確認是否登出帳戶")
     }
     
+    // MARK: - 錦標賽模式切換
+    private var tournamentModeRow: some View {
+        VStack(spacing: DesignTokens.spacingSM) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("錦標賽模式")
+                        .font(.bodyText)
+                        .adaptiveTextColor()
+                    Text(tournamentModeDescription)
+                        .font(.caption)
+                        .adaptiveTextColor(primary: false)
+                }
+                Spacer()
+                
+                Button(action: {
+                    showTournamentSelector = true
+                }) {
+                    HStack(spacing: 4) {
+                        Text(currentModeText)
+                            .font(.caption)
+                            .foregroundColor(.brandGreen)
+                        
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                            .foregroundColor(.brandGreen)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.brandGreen.opacity(0.1))
+                    .cornerRadius(6)
+                }
+            }
+            .padding(.vertical, DesignTokens.spacingMD)
+        }
+        .sheet(isPresented: $showTournamentSelector) {
+            TournamentModeSelector()
+                .environmentObject(tournamentStateManager)
+        }
+    }
+    
+    private var currentModeText: String {
+        if tournamentStateManager.isParticipatingInTournament {
+            return tournamentStateManager.getCurrentTournamentDisplayName() ?? "錦標賽模式"
+        } else {
+            return "一般模式"
+        }
+    }
+    
+    private var tournamentModeDescription: String {
+        if tournamentStateManager.isParticipatingInTournament {
+            return "目前使用錦標賽投資組合"
+        } else {
+            return "選擇投資模式：一般交易或錦標賽"
+        }
+    }
+    
     // MARK: - 輔助方法
     private func settingRow(title: String, isOn: Binding<Bool>) -> some View {
         Toggle(title, isOn: isOn)
@@ -681,6 +745,180 @@ struct SettingsView: View {
         }
         .accessibilityLabel(hasChevron ? "\(title)，點擊查看詳情" : "\(title): \(value)")
         .accessibilityHint(hasChevron ? "點擊查看\(title)的詳細資訊" : "")
+    }
+}
+
+// MARK: - 錦標賽模式選擇器
+struct TournamentModeSelector: View {
+    @EnvironmentObject private var tournamentStateManager: TournamentStateManager
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var tournamentService = TournamentService.shared
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // 標題說明
+                VStack(spacing: 12) {
+                    Text("選擇投資模式")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("您可以在一般交易和錦標賽模式之間切換")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 20)
+                
+                // 模式選項
+                VStack(spacing: 16) {
+                    // 一般模式
+                    ModeOptionCard(
+                        title: "一般模式",
+                        description: "使用您的個人投資組合進行交易",
+                        icon: "chart.bar.fill",
+                        isSelected: !tournamentStateManager.isParticipatingInTournament,
+                        action: {
+                            Task {
+                                await switchToGeneralMode()
+                            }
+                        }
+                    )
+                    
+                    // 錦標賽模式
+                    if !tournamentStateManager.enrolledTournaments.isEmpty {
+                        ForEach(availableTournaments, id: \.id) { tournament in
+                            ModeOptionCard(
+                                title: tournament.name,
+                                description: "參與錦標賽：\(formatCurrency(tournament.initialBalance)) 起始資金",
+                                icon: "trophy.fill",
+                                isSelected: tournamentStateManager.isParticipatingInTournament && 
+                                           tournamentStateManager.getCurrentTournamentId() == tournament.id,
+                                action: {
+                                    Task {
+                                        await switchToTournamentMode(tournament)
+                                    }
+                                }
+                            )
+                        }
+                    } else {
+                        VStack(spacing: 12) {
+                            Image(systemName: "trophy")
+                                .font(.system(size: 40))
+                                .foregroundColor(.secondary)
+                            
+                            Text("尚未參加任何錦標賽")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            
+                            Text("前往錦標賽頁面參加錦標賽後即可切換模式")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.vertical, 40)
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .onAppear {
+            Task {
+                await tournamentService.loadTournaments()
+            }
+        }
+    }
+    
+    private var availableTournaments: [Tournament] {
+        return tournamentService.tournaments.filter { tournament in
+            tournamentStateManager.enrolledTournaments.contains(tournament.id)
+        }
+    }
+    
+    private func switchToGeneralMode() async {
+        await tournamentStateManager.leaveTournament()
+        dismiss()
+    }
+    
+    private func switchToTournamentMode(_ tournament: Tournament) async {
+        await tournamentStateManager.updateTournamentContext(tournament)
+        dismiss()
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "NT$"
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: amount)) ?? "NT$0"
+    }
+}
+
+// MARK: - 模式選項卡片
+struct ModeOptionCard: View {
+    let title: String
+    let description: String
+    let icon: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                // 圖標
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? Color.brandGreen : Color.gray.opacity(0.2))
+                        .frame(width: 50, height: 50)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(isSelected ? .white : .gray)
+                }
+                
+                // 內容
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text(description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+                
+                Spacer()
+                
+                // 選中指示器
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.brandGreen)
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isSelected ? Color.brandGreen : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

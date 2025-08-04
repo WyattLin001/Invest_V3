@@ -150,36 +150,51 @@ class TournamentStateManager: ObservableObject {
         isJoining = false
     }
     
-    /// 離開錦標賽
+    /// 離開錦標賽（僅切換到一般模式，不退出錦標賽）
     func leaveTournament() async {
-        guard let context = currentTournamentContext else { return }
+        print("🏆 [TournamentStateManager] 切換到一般模式")
         
+        // 僅清除當前錦標賽上下文，但保留報名狀態
+        currentTournamentContext = nil
+        isParticipatingInTournament = false
+        participationState = .none
+        
+        // 持久化狀態（保留已報名的錦標賽）
+        persistTournamentState()
+        
+        print("✅ [TournamentStateManager] 已切換到一般模式")
+    }
+    
+    /// 完全退出錦標賽（真正離開）
+    func exitTournament(_ tournamentId: UUID) async {
         do {
-            print("🏆 [TournamentStateManager] 開始離開錦標賽: \(context.tournament.name)")
+            print("🏆 [TournamentStateManager] 開始退出錦標賽")
             
             // 使用 SupabaseService 進行真實的錦標賽離開
-            let success = try await SupabaseService.shared.leaveTournament(tournamentId: context.tournament.id)
+            let success = try await SupabaseService.shared.leaveTournament(tournamentId: tournamentId)
             
             if success {
                 // 移除報名狀態
-                enrolledTournaments.remove(context.tournament.id)
+                enrolledTournaments.remove(tournamentId)
                 
-                // 清除狀態
-                currentTournamentContext = nil
-                isParticipatingInTournament = false
-                participationState = .none
+                // 如果正在參與的是這個錦標賽，清除狀態
+                if let context = currentTournamentContext, context.tournament.id == tournamentId {
+                    currentTournamentContext = nil
+                    isParticipatingInTournament = false
+                    participationState = .none
+                }
                 
-                // 清除持久化狀態
-                clearPersistedTournamentState()
+                // 持久化狀態
+                persistTournamentState()
                 
-                print("✅ [TournamentStateManager] 成功離開錦標賽")
+                print("✅ [TournamentStateManager] 成功退出錦標賽")
             } else {
-                print("❌ [TournamentStateManager] 離開錦標賽失敗")
+                print("❌ [TournamentStateManager] 退出錦標賽失敗")
             }
             
         } catch {
-            print("❌ [TournamentStateManager] 離開錦標賽失敗: \(error.localizedDescription)")
-            joinError = "離開錦標賽失敗：\(error.localizedDescription)"
+            print("❌ [TournamentStateManager] 退出錦標賽失敗: \(error.localizedDescription)")
+            joinError = "退出錦標賽失敗：\(error.localizedDescription)"
         }
     }
     
