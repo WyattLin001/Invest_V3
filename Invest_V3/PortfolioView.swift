@@ -57,8 +57,16 @@ struct PortfolioView: View {
     }
     
     private func loadData() async {
-        await tradingService.loadPortfolio()
-        await tradingService.loadTransactions()
+        // Check if we're in tournament mode
+        if tournamentStateManager.isParticipatingInTournament {
+            // In tournament mode, don't load regular trading data
+            // Tournament data comes from tournamentStateManager.currentTournamentContext
+            print("🏆 [PortfolioView] Tournament mode active - using tournament portfolio data")
+        } else {
+            // Regular mode - load trading service data
+            await tradingService.loadPortfolio()
+            await tradingService.loadTransactions()
+        }
     }
     
     // MARK: - 計算屬性
@@ -75,25 +83,44 @@ struct PortfolioView: View {
 // MARK: - 投資組合總覽
 struct PortfolioOverviewView: View {
     @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // 資產總覽卡片
-                if let user = tradingService.currentUser {
-                    AssetOverviewCard(user: user)
+                if tournamentStateManager.isParticipatingInTournament {
+                    // Tournament mode - show tournament portfolio
+                    if let context = tournamentStateManager.currentTournamentContext,
+                       let portfolio = context.portfolio {
+                        TournamentAssetOverviewCard(portfolio: portfolio, tournament: context.tournament)
+                    }
+                } else {
+                    // Regular mode - show trading service data
+                    if let user = tradingService.currentUser {
+                        AssetOverviewCard(user: user)
+                    }
                 }
                 
                 // 投資組合分析
-                if let portfolio = tradingService.portfolio {
-                    PortfolioAnalysisCard(portfolio: portfolio)
+                if tournamentStateManager.isParticipatingInTournament {
+                    // Tournament mode - use tournament portfolio
+                    if let context = tournamentStateManager.currentTournamentContext,
+                       let portfolio = context.portfolio {
+                        TournamentPortfolioAnalysisCard(portfolio: portfolio)
+                    }
+                } else {
+                    // Regular mode
+                    if let portfolio = tradingService.portfolio {
+                        PortfolioAnalysisCard(portfolio: portfolio)
+                    }
                 }
                 
                 // 資產分配圖
-                AssetAllocationCard()
+                TournamentAwareAssetAllocationCard()
                 
                 // 績效圖表
-                PerformanceChartCard()
+                TournamentAwarePerformanceChartCard()
             }
             .padding()
         }
@@ -383,20 +410,43 @@ struct PerformanceChartCard: View {
 // MARK: - 投資組合持股視圖
 struct PortfolioHoldingsView: View {
     @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     
     var body: some View {
-        if let portfolio = tradingService.portfolio, !portfolio.positions.isEmpty {
-            List(portfolio.positions) { position in
-                PortfolioPositionRow(position: position)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        Group {
+            if tournamentStateManager.isParticipatingInTournament {
+                // Tournament mode - show tournament portfolio holdings
+                if let context = tournamentStateManager.currentTournamentContext,
+                   let portfolio = context.portfolio,
+                   !portfolio.allocations.isEmpty {
+                    List(portfolio.allocations) { allocation in
+                        TournamentAllocationRow(allocation: allocation)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    }
+                    .listStyle(PlainListStyle())
+                } else {
+                    GeneralEmptyStateView(
+                        icon: "trophy",
+                        title: "錦標賽尚無持股",
+                        message: "開始您的錦標賽投資之旅吧！"
+                    )
+                }
+            } else {
+                // Regular mode
+                if let portfolio = tradingService.portfolio, !portfolio.positions.isEmpty {
+                    List(portfolio.positions) { position in
+                        PortfolioPositionRow(position: position)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    }
+                    .listStyle(PlainListStyle())
+                } else {
+                    GeneralEmptyStateView(
+                        icon: "briefcase",
+                        title: "暫無持股",
+                        message: "開始您的第一筆投資吧！"
+                    )
+                }
             }
-            .listStyle(PlainListStyle())
-        } else {
-            GeneralEmptyStateView(
-                icon: "briefcase",
-                title: "暫無持股",
-                message: "開始您的第一筆投資吧！"
-            )
         }
     }
 }
@@ -481,28 +531,41 @@ struct PortfolioPositionRow: View {
 // MARK: - 交易記錄視圖
 struct TradingHistoryView: View {
     @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     
     var body: some View {
         NavigationView {
             Group {
-                if tradingService.transactions.isEmpty {
+                if tournamentStateManager.isParticipatingInTournament {
+                    // Tournament mode - show tournament transactions (empty for now)
                     GeneralEmptyStateView(
-                        icon: "list.bullet",
-                        title: "暫無交易記錄",
-                        message: "開始您的第一筆交易吧！"
+                        icon: "trophy",
+                        title: "錦標賽交易記錄",
+                        message: "錦標賽交易記錄將在此顯示"
                     )
                 } else {
-                    List(tradingService.transactions) { transaction in
-                        TransactionHistoryRow(transaction: transaction)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    // Regular mode
+                    if tradingService.transactions.isEmpty {
+                        GeneralEmptyStateView(
+                            icon: "list.bullet",
+                            title: "暫無交易記錄",
+                            message: "開始您的第一筆交易吧！"
+                        )
+                    } else {
+                        List(tradingService.transactions) { transaction in
+                            TransactionHistoryRow(transaction: transaction)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        }
+                        .listStyle(PlainListStyle())
                     }
-                    .listStyle(PlainListStyle())
                 }
             }
-            .navigationTitle("交易記錄")
+            .navigationTitle(tournamentStateManager.isParticipatingInTournament ? "錦標賽交易記錄" : "交易記錄")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await tradingService.loadTransactions()
+                if !tournamentStateManager.isParticipatingInTournament {
+                    await tradingService.loadTransactions()
+                }
             }
         }
     }
@@ -572,6 +635,377 @@ struct TransactionHistoryRow: View {
             return formatter.string(from: date)
         }
         return timestamp
+    }
+}
+
+// MARK: - Tournament-Specific Components
+
+// MARK: - 錦標賽資產總覽卡片
+struct TournamentAssetOverviewCard: View {
+    let portfolio: PortfolioData
+    let tournament: Tournament
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            // 總資產
+            VStack(spacing: 8) {
+                Text("錦標賽總資產")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                
+                Text(TradingService.shared.formatCurrency(portfolio.totalValue))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(.primary)
+            }
+            
+            // 資產分佈
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("現金")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(TradingService.shared.formatCurrency(portfolio.cashBalance))
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .center, spacing: 4) {
+                    Text("持股市值")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    let stockValue = portfolio.totalValue - portfolio.cashBalance
+                    Text(TradingService.shared.formatCurrency(stockValue))
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("總損益")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    let totalProfit = portfolio.totalValue - tournament.initialBalance
+                    Text(TradingService.shared.formatCurrency(totalProfit))
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(totalProfit >= 0 ? .green : .red)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - 錦標賽投資組合分析卡片
+struct TournamentPortfolioAnalysisCard: View {
+    let portfolio: PortfolioData
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("錦標賽投資組合分析")
+                .font(.headline)
+                .fontWeight(.bold)
+            
+            VStack(spacing: 12) {
+                AnalysisRow(
+                    title: "持股檔數",
+                    value: "\(portfolio.allocations.count)檔",
+                    icon: "chart.pie"
+                )
+                
+                AnalysisRow(
+                    title: "未實現損益",
+                    value: TradingService.shared.formatCurrency(portfolio.totalValue - portfolio.cashBalance - portfolio.investedAmount),
+                    icon: "arrow.up.arrow.down",
+                    valueColor: (portfolio.totalValue - portfolio.cashBalance - portfolio.investedAmount) >= 0 ? .green : .red
+                )
+                
+                AnalysisRow(
+                    title: "累計報酬率",
+                    value: String(format: "%.2f%%", portfolio.totalReturnPercentage),
+                    icon: "percent",
+                    valueColor: portfolio.totalReturnPercentage >= 0 ? .green : .red
+                )
+                
+                AnalysisRow(
+                    title: "現金比重",
+                    value: String(format: "%.1f%%", (portfolio.cashBalance / portfolio.totalValue) * 100),
+                    icon: "dollarsign.circle"
+                )
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - 錦標賽感知資產分配卡片
+struct TournamentAwareAssetAllocationCard: View {
+    @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
+    
+    private var allocationData: [PieChartData] {
+        if tournamentStateManager.isParticipatingInTournament,
+           let context = tournamentStateManager.currentTournamentContext,
+           let portfolio = context.portfolio {
+            return TournamentAssetAllocationCalculator.calculateAllocation(from: portfolio)
+        } else {
+            return AssetAllocationCalculator.calculateAllocation(from: tradingService.portfolio)
+        }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("資產分配")
+                .font(.headline)
+                .fontWeight(.bold)
+            
+            if allocationData.isEmpty {
+                // 空狀態
+                HStack {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Image(systemName: "chart.pie")
+                            .font(.system(size: 32))
+                            .foregroundColor(.secondary)
+                        Text(tournamentStateManager.isParticipatingInTournament ? "錦標賽尚未開始投資" : "暫無資產分配資料")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .frame(height: 120)
+            } else {
+                DynamicPieChart(data: allocationData, size: 120)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - 錦標賽感知績效圖表卡片
+struct TournamentAwarePerformanceChartCard: View {
+    @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
+    @State private var selectedTimeRange: PerformanceTimeRange = .month
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // 標題和時間選擇器
+            HStack {
+                Text("績效走勢")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                // 時間範圍選擇器
+                Menu {
+                    ForEach(PerformanceTimeRange.allCases, id: \.self) { range in
+                        Button(range.rawValue) {
+                            selectedTimeRange = range
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(selectedTimeRange.rawValue)
+                            .font(.caption)
+                            .foregroundColor(.brandGreen)
+                        
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                            .foregroundColor(.brandGreen)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.brandGreen.opacity(0.1))
+                    .cornerRadius(8)
+                }
+            }
+            
+            // 績效圖表
+            let performanceData: [PerformanceDataPoint]
+            
+            if tournamentStateManager.isParticipatingInTournament,
+               let context = tournamentStateManager.currentTournamentContext,
+               let portfolio = context.portfolio {
+                performanceData = TournamentPerformanceDataGenerator.generateData(
+                    for: selectedTimeRange,
+                    portfolio: portfolio,
+                    tournament: context.tournament
+                )
+            } else {
+                performanceData = PerformanceDataGenerator.generateData(
+                    for: selectedTimeRange,
+                    portfolio: tradingService.portfolio
+                )
+            }
+            
+            if performanceData.isEmpty {
+                // 空狀態
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray6))
+                    .frame(height: 150)
+                    .overlay(
+                        VStack {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .font(.system(size: 32))
+                                .foregroundColor(.secondary)
+                            
+                            Text(tournamentStateManager.isParticipatingInTournament ? "錦標賽績效數據收集中" : "暫無績效數據")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    )
+            } else {
+                PerformanceChart(
+                    data: performanceData,
+                    timeRange: selectedTimeRange,
+                    width: UIScreen.main.bounds.width - 64, // 考慮 padding
+                    height: 150
+                )
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - Tournament Asset Allocation Calculator
+struct TournamentAssetAllocationCalculator {
+    static func calculateAllocation(from portfolio: PortfolioData?) -> [PieChartData] {
+        guard let portfolio = portfolio, !portfolio.allocations.isEmpty else {
+            return []
+        }
+        
+        return portfolio.allocations.enumerated().map { index, allocation in
+            PieChartData(
+                id: allocation.symbol,
+                value: allocation.percentage,
+                color: StockColorPalette.colorForStock(symbol: allocation.symbol),
+                label: allocation.symbol
+            )
+        }
+    }
+}
+
+// MARK: - Tournament Performance Data Generator
+struct TournamentPerformanceDataGenerator {
+    static func generateData(for timeRange: PerformanceTimeRange, portfolio: PortfolioData, tournament: Tournament) -> [PerformanceDataPoint] {
+        // Generate tournament-specific performance data
+        // This would normally come from the tournament service
+        let days = timeRange.days
+        let startValue = tournament.initialBalance
+        let currentValue = portfolio.totalValue
+        
+        return (0..<days).map { day in
+            let progress = Double(day) / Double(days - 1)
+            let value = startValue + (currentValue - startValue) * progress
+            let date = Calendar.current.date(byAdding: .day, value: -days + day + 1, to: Date()) ?? Date()
+            
+            return PerformanceDataPoint(
+                date: date,
+                value: value,
+                returnPercentage: ((value - startValue) / startValue) * 100
+            )
+        }
+    }
+}
+
+// MARK: - 錦標賽配置行
+struct TournamentAllocationRow: View {
+    let allocation: AssetAllocation
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                // 股票顏色指示器
+                Circle()
+                    .fill(StockColorPalette.colorForStock(symbol: allocation.symbol))
+                    .frame(width: 16, height: 16)
+                    .overlay(
+                        Circle()
+                            .stroke(Color(.systemBackground), lineWidth: 2)
+                    )
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(allocation.symbol)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                    
+                    Text("配置比重: \(String(format: "%.1f%%", allocation.percentage))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(TradingService.shared.formatCurrency(allocation.value))
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    Text("目標配置")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("投資金額")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    Text(TradingService.shared.formatCurrency(allocation.investedAmount))
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("目前價值")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    let currentValue = allocation.value
+                    let profit = currentValue - allocation.investedAmount
+                    let profitPercent = allocation.investedAmount > 0 ? (profit / allocation.investedAmount) * 100 : 0
+                    
+                    HStack(spacing: 4) {
+                        Text(TradingService.shared.formatCurrency(profit))
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(profit >= 0 ? .green : .red)
+                        
+                        Text(String(format: "(%.2f%%)", profitPercent))
+                            .font(.caption2)
+                            .foregroundColor(profit >= 0 ? .green : .red)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
 }
 
