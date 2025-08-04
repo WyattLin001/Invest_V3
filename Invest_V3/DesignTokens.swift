@@ -177,4 +177,69 @@ enum DesignTokens {
     static var chartBackgroundColor: Color {
         Color(light: "#FAFAFA", dark: "#2C2C2E")
     }
+    
+    // MARK: - Professional Investment Metrics Colors (專業投資指標顏色)
+    
+    /// 優秀表現顏色
+    static var excellentPerformanceColor: Color {
+        Color(light: "#FF4444", dark: "#F44336") // 台股紅色 - 優秀
+    }
+    
+    /// 良好表現顏色  
+    static var goodPerformanceColor: Color {
+        Color(light: "#4CAF50", dark: "#66BB6A") // 深綠色 - 良好
+    }
+    
+    /// 一般表現顏色
+    static var averagePerformanceColor: Color {
+        Color(light: "#2196F3", dark: "#64B5F6") // 藍色 - 一般
+    }
+    
+    /// 警告表現顏色
+    static var warningPerformanceColor: Color {
+        Color(light: "#FF9800", dark: "#FFB74D") // 橙色 - 警告
+    }
+    
+    /// 不佳表現顏色
+    static var poorPerformanceColor: Color {
+        Color(light: "#00C851", dark: "#4CAF50") // 台股綠色 - 不佳
+    }
+    
+    /// 中性指標顏色
+    static var neutralMetricColor: Color {
+        Color(light: "#9E9E9E", dark: "#BDBDBD") // 灰色 - 中性
+    }
+    
+    /// 風險指標顏色
+    static var riskIndicatorColor: Color {
+        Color(light: "#F44336", dark: "#EF5350") // 紅色 - 風險
+    }
+    
+    /// 安全指標顏色
+    static var safeIndicatorColor: Color {
+        Color(light: "#4CAF50", dark: "#66BB6A") // 綠色 - 安全
+    }
+    
+    // MARK: - Investment Card Styles (投資卡片樣式)
+    
+    /// 專業指標卡片陰影
+    @MainActor
+    static var professionalCardShadow: (radius: CGFloat, offset: CGSize, opacity: Double) {
+        let isDark = ThemeManager.shared.isDarkMode
+        return (
+            radius: isDark ? 6 : 4,
+            offset: CGSize(width: 0, height: isDark ? 3 : 2),
+            opacity: isDark ? 0.2 : 0.08
+        )
+    }
+    
+    /// 指標卡片背景顏色
+    static var metricCardBackground: Color {
+        Color(light: "#FFFFFF", dark: "#1E1E1E")
+    }
+    
+    /// 指標卡片邊框顏色
+    static var metricCardBorder: Color {
+        Color(light: "#E0E0E0", dark: "#404040")
+    }
 }

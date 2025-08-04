@@ -209,12 +209,29 @@ struct InvestmentPanelView: View {
                             }
                         }
                     }
+                    
+                    // 專業投資分析區塊
+                    if !portfolioManager.holdings.isEmpty {
+                        VStack(spacing: 16) {
+                            let metrics = InvestmentMetricsCalculator.calculateMetrics(from: portfolioManager)
+                            ProfessionalMetricsCard(metrics: metrics)
+                        }
+                    }
                 
                 // 交易區域
                 VStack(spacing: 16) {
-                    Text("進行交易")
-                        .font(.headline)
-                        .fontWeight(.semibold)
+                    HStack {
+                        Text("進行交易")
+                            .font(DesignTokens.sectionHeader)
+                            .fontWeight(.bold)
+                            .adaptiveTextColor()
+                        
+                        Spacer()
+                        
+                        Text("Trading Panel")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                     
                     // 股票代號輸入 - 使用智能搜尋組件
                     VStack(alignment: .leading, spacing: 8) {
