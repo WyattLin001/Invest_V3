@@ -128,11 +128,11 @@ enum InvestmentGrade: String, CaseIterable {
     
     var color: Color {
         switch self {
-        case .excellent: return Color.taiwanStockUp
-        case .good: return Color.brandGreen
-        case .average: return Color.brandBlue
-        case .belowAverage: return Color.warning
-        case .poor: return Color.taiwanStockDown
+        case .excellent: return DesignTokens.excellentPerformanceColor
+        case .good: return DesignTokens.goodPerformanceColor
+        case .average: return DesignTokens.averagePerformanceColor
+        case .belowAverage: return DesignTokens.warningPerformanceColor
+        case .poor: return DesignTokens.poorPerformanceColor
         }
     }
     
@@ -325,7 +325,7 @@ struct ProfessionalMetricsCard: View {
                     value: String(format: "%.1f%%", metrics.annualizedReturn),
                     subtitle: "Annualized Return",
                     icon: "chart.line.uptrend.xyaxis",
-                    color: metrics.annualizedReturn >= 0 ? Color.taiwanStockUp : Color.taiwanStockDown,
+                    color: metrics.annualizedReturn >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor,
                     trend: metrics.annualizedReturn >= 10 ? .up : (metrics.annualizedReturn >= 0 ? .flat : .down)
                 )
                 
@@ -352,7 +352,7 @@ struct ProfessionalMetricsCard: View {
                     value: String(format: "%.1f%%", metrics.winRate),
                     subtitle: "Win Rate",
                     icon: "target",
-                    color: metrics.winRate >= 60 ? Color.taiwanStockUp : (metrics.winRate >= 50 ? Color.brandBlue : Color.taiwanStockDown),
+                    color: metrics.winRate >= 60 ? DesignTokens.priceUpColor : (metrics.winRate >= 50 ? DesignTokens.averagePerformanceColor : DesignTokens.priceDownColor),
                     trend: metrics.winRate >= 70 ? .up : (metrics.winRate >= 50 ? .flat : .down)
                 )
             }
@@ -546,9 +546,9 @@ enum TrendDirection {
     
     var color: Color {
         switch self {
-        case .up: return Color.taiwanStockUp
-        case .down: return Color.taiwanStockDown
-        case .flat: return .secondary
+        case .up: return DesignTokens.priceUpColor
+        case .down: return DesignTokens.priceDownColor
+        case .flat: return DesignTokens.neutralMetricColor
         }
     }
 }

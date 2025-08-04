@@ -337,12 +337,12 @@ struct EnhancedLegendItem: View {
                     HStack(spacing: 2) {
                         Image(systemName: gainLoss >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
                             .font(.system(size: 8))
-                            .foregroundColor(gainLoss >= 0 ? Color.taiwanStockUp : Color.taiwanStockDown)
+                            .foregroundColor(gainLoss >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                         
                         Text(String(format: "%+.0f", gainLoss))
                             .font(.caption2)
                             .fontWeight(.medium)
-                            .foregroundColor(gainLoss >= 0 ? Color.taiwanStockUp : Color.taiwanStockDown)
+                            .foregroundColor(gainLoss >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                     }
                 }
             }
@@ -448,7 +448,7 @@ struct DetailPopupView: View {
                         icon: isProfit ? "arrowtriangle.up.circle.fill" : "arrowtriangle.down.circle.fill",
                         title: "未實現損益",
                         value: String(format: "%+.0f", gainLoss),
-                        color: isProfit ? Color.taiwanStockUp : Color.taiwanStockDown
+                        color: isProfit ? DesignTokens.priceUpColor : DesignTokens.priceDownColor
                     )
                     
                     // 計算損益百分比
@@ -459,7 +459,7 @@ struct DetailPopupView: View {
                             icon: isProfit ? "percent" : "percent",
                             title: "報酬率",
                             value: String(format: "%+.2f%%", gainLossPercent),
-                            color: isProfit ? Color.taiwanStockUp : Color.taiwanStockDown
+                            color: isProfit ? DesignTokens.priceUpColor : DesignTokens.priceDownColor
                         )
                     }
                 }

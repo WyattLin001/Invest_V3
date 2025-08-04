@@ -73,14 +73,14 @@ struct InvestmentPanelView: View {
                                 title: "未實現損益",
                                 value: String(format: "%+.0f", portfolioManager.totalUnrealizedGainLoss),
                                 icon: portfolioManager.totalUnrealizedGainLoss >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill",
-                                color: portfolioManager.totalUnrealizedGainLoss >= 0 ? Color.taiwanStockUp : Color.taiwanStockDown
+                                color: portfolioManager.totalUnrealizedGainLoss >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor
                             )
                             
                             StatisticCard(
                                 title: "報酬率",
                                 value: String(format: "%+.1f%%", portfolioManager.totalUnrealizedGainLossPercent),
                                 icon: "percent",
-                                color: portfolioManager.totalUnrealizedGainLossPercent >= 0 ? Color.taiwanStockUp : Color.taiwanStockDown
+                                color: portfolioManager.totalUnrealizedGainLossPercent >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor
                             )
                         }
                     }
@@ -803,12 +803,12 @@ struct EnhancedHoldingCard: View {
                         
                         Image(systemName: isProfit ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
                             .font(.system(size: 8))
-                            .foregroundColor(isProfit ? Color.taiwanStockUp : Color.taiwanStockDown)
+                            .foregroundColor(isProfit ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                         
                         Text(String(format: "%+.0f", gainLoss))
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(isProfit ? Color.taiwanStockUp : Color.taiwanStockDown)
+                            .foregroundColor(isProfit ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                     }
                 }
             }
@@ -827,12 +827,12 @@ struct EnhancedHoldingCard: View {
                         
                         Image(systemName: isUp ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
                             .font(.system(size: 6))
-                            .foregroundColor(isUp ? Color.taiwanStockUp : Color.taiwanStockDown)
+                            .foregroundColor(isUp ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                         
                         Text(String(format: "%+.2f%%", dailyChange.percent))
                             .font(.caption2)
                             .fontWeight(.medium)
-                            .foregroundColor(isUp ? Color.taiwanStockUp : Color.taiwanStockDown)
+                            .foregroundColor(isUp ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                     }
                 }
             }
