@@ -72,6 +72,7 @@ class TournamentStateManager: ObservableObject {
     @Published var participationState: TournamentParticipationState = .none
     @Published var isJoining: Bool = false
     @Published var joinError: String?
+    @Published var enrolledTournaments: Set<UUID> = []
     
     // MARK: - Private Properties
     private let tournamentService = TournamentService.shared
@@ -130,6 +131,7 @@ class TournamentStateManager: ObservableObject {
                 currentTournamentContext = context
                 isParticipatingInTournament = true
                 participationState = .active
+                enrolledTournaments.insert(tournament.id)
                 
                 // 持久化狀態
                 persistTournamentState()
@@ -159,6 +161,9 @@ class TournamentStateManager: ObservableObject {
             let success = try await SupabaseService.shared.leaveTournament(tournamentId: context.tournament.id)
             
             if success {
+                // 移除報名狀態
+                enrolledTournaments.remove(context.tournament.id)
+                
                 // 清除狀態
                 currentTournamentContext = nil
                 isParticipatingInTournament = false
@@ -260,6 +265,16 @@ class TournamentStateManager: ObservableObject {
         return currentTournamentContext?.tournament.id
     }
     
+    /// 檢查是否已報名特定錦標賽
+    func isEnrolledInTournament(_ tournamentId: UUID) -> Bool {
+        return enrolledTournaments.contains(tournamentId)
+    }
+    
+    /// 檢查是否已報名特定錦標賽（使用 Tournament 對象）
+    func isEnrolledInTournament(_ tournament: Tournament) -> Bool {
+        return enrolledTournaments.contains(tournament.id)
+    }
+    
     /// 更新錦標賽上下文（切換錦標賽時使用）
     func updateTournamentContext(_ tournament: Tournament) async {
         print("🔄 [TournamentStateManager] 切換到錦標賽: \(tournament.name)")
@@ -290,6 +305,7 @@ class TournamentStateManager: ObservableObject {
             isParticipatingInTournament = true
             participationState = .active
             isJoining = false
+            enrolledTournaments.insert(tournament.id)
         }
         
         // 持久化狀態
@@ -412,7 +428,8 @@ class TournamentStateManager: ObservableObject {
                 tournamentName: context.tournament.name,
                 participationState: context.state,
                 joinedAt: context.joinedAt,
-                currentRank: context.currentRank
+                currentRank: context.currentRank,
+                enrolledTournaments: enrolledTournaments
             )
             
             let data = try encoder.encode(persistentData)
@@ -436,6 +453,7 @@ class TournamentStateManager: ObservableObject {
             // 從持久化資料重建狀態（簡化版本）
             participationState = persistentData.participationState
             isParticipatingInTournament = persistentData.participationState != .none
+            enrolledTournaments = persistentData.enrolledTournaments
             
             print("💾 [TournamentStateManager] 已載入持久化的錦標賽狀態: \(persistentData.tournamentName)")
             
@@ -460,6 +478,7 @@ private struct TournamentPersistentData: Codable {
     let participationState: TournamentParticipationState
     let joinedAt: Date
     let currentRank: Int?
+    let enrolledTournaments: Set<UUID>
 }
 
 // MARK: - TournamentParticipationState Codable 支援

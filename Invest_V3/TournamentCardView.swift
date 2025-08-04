@@ -18,6 +18,7 @@ struct TournamentCardView: View {
     let onViewDetails: (() -> Void)?
     
     @State private var isEnrolling = false
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     
     init(
         tournament: Tournament,
@@ -291,7 +292,19 @@ struct TournamentCardView: View {
     private var mainActionButton: some View {
         switch tournament.status {
         case .enrolling:
-            if tournament.currentParticipants < tournament.maxParticipants {
+            if tournamentStateManager.isEnrolledInTournament(tournament) {
+                // 已報名狀態
+                Button(action: handleEnterTournament) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14, weight: .medium))
+                        
+                        Text("已報名")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                }
+                .buttonStyle(EnrolledButtonStyle())
+            } else if tournament.currentParticipants < tournament.maxParticipants {
                 Button(action: handleEnroll) {
                     HStack(spacing: 4) {
                         if isEnrolling {
@@ -321,18 +334,32 @@ struct TournamentCardView: View {
                 .disabled(true)
             
         case .ongoing:
-            Button(action: {
-                Task {
-                    await TournamentStateManager.shared.joinTournament(tournament)
-                    onEnroll?() // 觸發父組件的處理邏輯
+            if tournamentStateManager.isEnrolledInTournament(tournament) {
+                // 已參與錦標賽
+                Button(action: handleEnterTournament) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 14, weight: .medium))
+                        
+                        Text("進入錦標賽")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
                 }
-            }) {
-                Text("參加錦標賽")
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Color.green)
-                    .cornerRadius(8)
+                .buttonStyle(PrimaryButtonStyle())
+            } else {
+                Button(action: {
+                    Task {
+                        await TournamentStateManager.shared.joinTournament(tournament)
+                        onEnroll?() // 觸發父組件的處理邏輯
+                    }
+                }) {
+                    Text("參加錦標賽")
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.green)
+                        .cornerRadius(8)
+                }
             }
             
         case .finished:
@@ -373,6 +400,21 @@ struct TournamentCardView: View {
                         isEnrolling = false
                     }
                 }
+            }
+        }
+    }
+    
+    /// 處理進入錦標賽（已報名用戶）
+    private func handleEnterTournament() {
+        // 提供觸覺反饋
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        Task {
+            // 切換到錦標賽上下文
+            await TournamentStateManager.shared.updateTournamentContext(tournament)
+            await MainActor.run {
+                onEnroll?() // 觸發父組件的處理邏輯，包括導航
             }
         }
     }
@@ -543,6 +585,22 @@ private struct DisabledButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(.gray.opacity(0.1))
             )
+    }
+}
+
+private struct EnrolledButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(.blue)
+                    .opacity(configuration.isPressed ? 0.8 : 1.0)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 

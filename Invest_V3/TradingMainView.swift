@@ -2,51 +2,64 @@ import SwiftUI
 
 struct TradingMainView: View {
     @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var selectedTab = 0
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // 首頁 - 投資組合總覽
-            TradingHomeView()
-                .tabItem {
-                    Image(systemName: selectedTab == 0 ? "house.fill" : "house")
-                    Text("首頁")
-                }
-                .tag(0)
+        VStack(spacing: 0) {
+            // 錦標賽Header（如果參與了錦標賽）
+            if tournamentStateManager.isParticipatingInTournament {
+                TournamentHeaderView()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
+            }
             
-            // 股票市場
-            StockMarketView()
-                .tabItem {
-                    Image(systemName: selectedTab == 1 ? "chart.bar.fill" : "chart.bar")
-                    Text("市場")
-                }
-                .tag(1)
-            
-            // 交易
-            TradingView()
-                .tabItem {
-                    Image(systemName: selectedTab == 2 ? "arrow.left.arrow.right.circle.fill" : "arrow.left.arrow.right.circle")
-                    Text("交易")
-                }
-                .tag(2)
-            
-            // 投資組合
-            PortfolioView()
-                .tabItem {
-                    Image(systemName: selectedTab == 3 ? "briefcase.fill" : "briefcase")
-                    Text("投資組合")
-                }
-                .tag(3)
-            
-            // 排行榜
-            RankingsView()
-                .tabItem {
-                    Image(systemName: selectedTab == 4 ? "crown.fill" : "crown")
-                    Text("排行榜")
-                }
-                .tag(4)
+            // 主要TabView
+            TabView(selection: $selectedTab) {
+                // 首頁 - 投資組合總覽
+                HomeView()
+                    .tabItem {
+                        Image(systemName: selectedTab == 0 ? "house.fill" : "house")
+                        Text("首頁")
+                    }
+                    .tag(0)
+                
+                // 股票市場
+                StockMarketView()
+                    .tabItem {
+                        Image(systemName: selectedTab == 1 ? "chart.bar.fill" : "chart.bar")
+                        Text("市場")
+                    }
+                    .tag(1)
+                
+                // 交易
+                TradingView()
+                    .tabItem {
+                        Image(systemName: selectedTab == 2 ? "arrow.left.arrow.right.circle.fill" : "arrow.left.arrow.right.circle")
+                        Text("交易")
+                    }
+                    .tag(2)
+                
+                // 投資組合
+                PortfolioView()
+                    .tabItem {
+                        Image(systemName: selectedTab == 3 ? "briefcase.fill" : "briefcase")
+                        Text("投資組合")
+                    }
+                    .tag(3)
+                
+                // 排行榜
+                RankingsView()
+                    .tabItem {
+                        Image(systemName: selectedTab == 4 ? "crown.fill" : "crown")
+                        Text("排行榜")
+                    }
+                    .tag(4)
+            }
+            .accentColor(Color.brandGreen)
         }
-        .accentColor(Color.brandGreen)
+        .background(Color(.systemBackground))
         .onAppear {
             configureTabBarAppearance()
             loadInitialData()
