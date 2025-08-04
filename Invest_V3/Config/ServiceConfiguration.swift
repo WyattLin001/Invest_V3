@@ -123,13 +123,8 @@ struct ServiceConfiguration {
     
     // MARK: - Service Factory
     static func makeTournamentService() -> TournamentServiceProtocol {
-        if useMockServices {
-            print("🔧 [ServiceConfig] 使用 Mock Tournament Service")
-            return MockTournamentService.shared
-        } else {
-            print("🔧 [ServiceConfig] 使用真實 Tournament Service")
-            return TournamentService.shared
-        }
+        print("🔧 [ServiceConfig] 使用真實 Tournament Service")
+        return TournamentService.shared
     }
     
     // MARK: - Configuration Methods

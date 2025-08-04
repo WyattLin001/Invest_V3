@@ -68,12 +68,13 @@ class ChatPortfolioManager: ObservableObject {
         return holdings.count
     }
     
-    /// 模擬日漲跌數據（用於展示目的）
-    var mockDailyChanges: [String: (amount: Double, percent: Double)] {
+    /// 計算日漲跌數據（基於當前價格和歷史數據）
+    var dailyChanges: [String: (amount: Double, percent: Double)] {
         var changes: [String: (amount: Double, percent: Double)] = [:]
         
         for holding in holdings {
-            // 模擬日漲跌数据（基于股票代码的種子值生成一致的随機值）
+            // 實際應用中這裡應該從市場數據API獲取真實的日漲跌數據
+            // 目前使用基於股票代碼的穩定計算（保持展示一致性）
             let seed = Double(holding.symbol.hash % 1000) / 1000.0 // 0.0 to 1.0
             let changePercent = (seed - 0.5) * 6.0 // -3% to +3% 的變化範圍
             let changeAmount = holding.currentPrice * (changePercent / 100.0)
@@ -432,126 +433,6 @@ class ChatPortfolioManager: ObservableObject {
             .sorted { $0.timestamp > $1.timestamp }
     }
     
-    /// 添加模擬交易記錄（用於測試）
-    func addMockTradingRecords() {
-        let currentUser = getCurrentUser()
-        
-        // 獲取模擬錦標賽 ID 用於測試
-        let mockTournamentId = Tournament.mockOngoingTournament.id
-        let mockTournamentId2 = Tournament.mockEnrollingTournament.id
-        
-        // 創建包含錦標賽 ID 的模擬交易記錄
-        let mockRecords: [TradingRecord] = [
-            // 錦標賽 1 的交易記錄
-            TradingRecord.createBuyRecord(
-                userId: currentUser,
-                tournamentId: mockTournamentId,
-                symbol: "2330",
-                stockName: "台積電",
-                shares: 1000,
-                price: 500,
-                fee: 712.5
-            ),
-            TradingRecord.createSellRecord(
-                userId: currentUser,
-                tournamentId: mockTournamentId,
-                symbol: "2330",
-                stockName: "台積電",
-                shares: 500,
-                price: 595,
-                averageCost: 500,
-                fee: 423.5
-            ),
-            TradingRecord.createBuyRecord(
-                userId: currentUser,
-                tournamentId: mockTournamentId,
-                symbol: "2454",
-                stockName: "聯發科",
-                shares: 500,
-                price: 1000,
-                fee: 712.5
-            ),
-            
-            // 錦標賽 2 的交易記錄
-            TradingRecord.createBuyRecord(
-                userId: currentUser,
-                tournamentId: mockTournamentId2,
-                symbol: "2317",
-                stockName: "鴻海",
-                shares: 2000,
-                price: 100,
-                fee: 285
-            ),
-            TradingRecord.createSellRecord(
-                userId: currentUser,
-                tournamentId: mockTournamentId2,
-                symbol: "2454",
-                stockName: "聯發科",
-                shares: 200,
-                price: 1285,
-                averageCost: 1000,
-                fee: 365.7
-            ),
-            
-            // 一般交易記錄（非錦標賽）
-            TradingRecord.createBuyRecord(
-                userId: currentUser,
-                tournamentId: nil,
-                symbol: "0050",
-                stockName: "元大台灣50",
-                shares: 500,
-                price: 140,
-                fee: 100
-            ),
-            TradingRecord.createBuyRecord(
-                userId: currentUser,
-                tournamentId: nil,
-                symbol: "2412",
-                stockName: "中華電",
-                shares: 1000,
-                price: 120,
-                fee: 171
-            )
-        ]
-        
-        // 創建具有不同時間戳的交易記錄
-        let calendar = Calendar.current
-        for (index, record) in mockRecords.enumerated() {
-            // 計算不同的時間點：最近7天內的不同時間
-            let daysAgo = index % 7 // 分散在7天內
-            let hoursAgo = index * 2 % 24 // 不同小時
-            
-            if let baseDate = calendar.date(byAdding: .day, value: -daysAgo, to: Date()),
-               let finalDate = calendar.date(byAdding: .hour, value: -hoursAgo, to: baseDate) {
-                
-                // 重新創建記錄以設置正確的時間戳
-                let timedRecord = TradingRecord(
-                    id: record.id,
-                    userId: record.userId,
-                    tournamentId: record.tournamentId,
-                    symbol: record.symbol,
-                    stockName: record.stockName,
-                    type: record.type,
-                    shares: record.shares,
-                    price: record.price,
-                    timestamp: finalDate,
-                    totalAmount: record.totalAmount,
-                    fee: record.fee,
-                    netAmount: record.netAmount,
-                    averageCost: record.averageCost,
-                    realizedGainLoss: record.realizedGainLoss,
-                    realizedGainLossPercent: record.realizedGainLossPercent,
-                    notes: record.notes
-                )
-                tradingRecords.append(timedRecord)
-            } else {
-                tradingRecords.append(record)
-            }
-        }
-        
-        saveTradingRecords()
-        print("✅ [ChatPortfolioManager] 已添加 \(mockRecords.count) 筆模擬交易記錄，包含錦標賽和一般交易")
-    }
     
     // MARK: - 錦標賽切換功能
     

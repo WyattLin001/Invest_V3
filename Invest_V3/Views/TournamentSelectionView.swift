@@ -25,7 +25,7 @@ struct TournamentSelectionView: View {
     @State private var errorMessage = ""
     
     // 服務依賴
-    // private let tournamentService = ServiceConfiguration.makeTournamentService()
+    private let tournamentService = TournamentService.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -354,27 +354,32 @@ struct TournamentSelectionView: View {
     
     private func loadTournaments(for filter: TournamentFilter? = nil) {
         let targetFilter = filter ?? selectedFilter
-        isLoading = true
         
         // 模擬API呼叫
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            switch targetFilter {
-            case .featured:
-                tournaments = Tournament.featuredMockTournaments
-            case .all:
-                tournaments = Tournament.allMockTournaments
-            case .daily:
-                tournaments = Tournament.mockTournaments(for: .daily)
-            case .weekly:
-                tournaments = Tournament.mockTournaments(for: .weekly)
-            case .monthly:
-                tournaments = Tournament.mockTournaments(for: .monthly)
-            case .quarterly:
-                tournaments = Tournament.mockTournaments(for: .quarterly)
-            case .yearly:
-                tournaments = Tournament.mockTournaments(for: .yearly)
-            case .special:
-                tournaments = Tournament.mockTournaments(for: .special)
+        Task { @MainActor in
+            isLoading = true
+            do {
+                switch targetFilter {
+                case .featured:
+                    tournaments = try await tournamentService.fetchFeaturedTournaments()
+                case .all:
+                    tournaments = try await tournamentService.fetchTournaments()
+                case .daily:
+                    tournaments = try await tournamentService.fetchTournaments(type: .daily)
+                case .weekly:
+                    tournaments = try await tournamentService.fetchTournaments(type: .weekly)
+                case .monthly:
+                    tournaments = try await tournamentService.fetchTournaments(type: .monthly)
+                case .quarterly:
+                    tournaments = try await tournamentService.fetchTournaments(type: .quarterly)
+                case .yearly:
+                    tournaments = try await tournamentService.fetchTournaments(type: .yearly)
+                case .special:
+                    tournaments = try await tournamentService.fetchTournaments(type: .special)
+                }
+            } catch {
+                print("❌ [TournamentSelectionView] 載入錦標賽失敗: \(error.localizedDescription)")
+                tournaments = []
             }
             isLoading = false
         }
@@ -391,16 +396,39 @@ struct TournamentSelectionView: View {
     }
     
     private func filterTournaments(by status: TournamentStatus) {
-        tournaments = Tournament.mockTournaments(for: status)
+        Task { @MainActor in
+            do {
+                tournaments = try await tournamentService.fetchTournaments(status: status)
+            } catch {
+                print("❌ [TournamentSelectionView] 按狀態篩選錦標賽失敗: \(error.localizedDescription)")
+                tournaments = []
+            }
+        }
     }
     
     private func filterHighPrizeTournaments() {
-        tournaments = Tournament.allMockTournaments.filter { $0.prizePool >= 200000 }
+        Task { @MainActor in
+            do {
+                let allTournaments = try await tournamentService.fetchTournaments()
+                tournaments = allTournaments.filter { $0.prizePool >= 200000 }
+            } catch {
+                print("❌ [TournamentSelectionView] 篩選高獎金錦標賽失敗: \(error.localizedDescription)")
+                tournaments = []
+            }
+        }
     }
     
     private func filterBeginnerFriendlyTournaments() {
-        tournaments = Tournament.allMockTournaments.filter { 
-            $0.type == .daily || $0.type == .weekly 
+        Task { @MainActor in
+            do {
+                let allTournaments = try await tournamentService.fetchTournaments()
+                tournaments = allTournaments.filter { 
+                    $0.type == .daily || $0.type == .weekly 
+                }
+            } catch {
+                print("❌ [TournamentSelectionView] 篩選新手友善錦標賽失敗: \(error.localizedDescription)")
+                tournaments = []
+            }
         }
     }
     

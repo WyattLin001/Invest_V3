@@ -229,12 +229,10 @@ class TournamentSimulationService: ObservableObject {
             return tournaments
         } catch {
             print("❌ 載入錦標賽失敗: \(error)")
-            // 使用模擬數據
-            let mockTournaments = Tournament.allMockTournaments
             await MainActor.run {
-                self.currentTournaments = mockTournaments
+                self.currentTournaments = []
             }
-            return mockTournaments
+            return []
         }
     }
     

@@ -546,42 +546,4 @@ private struct DisabledButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Preview
-
-/*
-#Preview("錦標賽卡片") {
-    ScrollView {
-        LazyVStack(spacing: 16) {
-            // 報名中的錦標賽
-            TournamentCardView(
-                tournament: Tournament.mockEnrollingTournament,
-                onEnroll: {
-                    print("報名錦標賽")
-                },
-                onViewDetails: {
-                    print("查看詳情")
-                }
-            )
-            
-            // 進行中的錦標賽
-            TournamentCardView(
-                tournament: Tournament.mockOngoingTournament,
-                onViewDetails: {
-                    print("參加錦標賽")
-                }
-            )
-            
-            // 已結束的錦標賽
-            TournamentCardView(
-                tournament: Tournament.mockFinishedTournament,
-                onViewDetails: {
-                    print("查看結果")
-                }
-            )
-        }
-        .padding()
-    }
-    .background(.gray.opacity(0.05))
-}
-*/
 

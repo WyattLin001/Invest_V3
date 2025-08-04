@@ -689,7 +689,28 @@ struct TournamentEligibilityView: View {
 
 #Preview {
     TournamentEligibilityView(
-        tournament: Tournament.mockOngoingTournament,
+        tournament: Tournament(
+            id: UUID(),
+            name: "樣本競賽",
+            type: .monthly,
+            status: .ongoing,
+            startDate: Date(),
+            endDate: Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date(),
+            description: "範例競賽描述",
+            shortDescription: "範例競賽",
+            initialBalance: 1000000,
+            maxParticipants: 1000,
+            currentParticipants: 500,
+            entryFee: 0,
+            prizePool: 100000,
+            riskLimitPercentage: 0.20,
+            minHoldingRate: 0.50,
+            maxSingleStockRate: 0.30,
+            rules: ["範例規則"],
+            createdAt: Date(),
+            updatedAt: Date(),
+            isFeatured: false
+        ),
         user: nil
     )
 }

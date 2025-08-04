@@ -185,13 +185,16 @@ class TournamentRankingSystem: ObservableObject {
         // 從 TournamentPortfolioManager 獲取數據
         let portfolioManager = TournamentPortfolioManager.shared
         
-        // 這裡應該從後端獲取所有參賽者列表
-        // 暫時使用模擬數據
-        let mockParticipants = await getMockParticipants(for: tournamentId)
-        
-        return mockParticipants.map { participant in
-            let portfolio = portfolioManager.getPortfolio(for: tournamentId)
-            return (userId: participant.userId, userName: participant.userName, portfolio: portfolio)
+        // 從後端獲取所有參賽者列表
+        do {
+            let participants = try await SupabaseService.shared.fetchTournamentParticipants(tournamentId: tournamentId)
+            return participants.map { participant in
+                let portfolio = portfolioManager.getPortfolio(for: tournamentId)
+                return (userId: participant.userId, userName: participant.userName, portfolio: portfolio)
+            }
+        } catch {
+            print("❌ [TournamentRankingSystem] 載入參賽者失敗: \(error.localizedDescription)")
+            return []
         }
     }
     
@@ -354,17 +357,6 @@ class TournamentRankingSystem: ObservableObject {
         return tournamentRankings[tournamentId]?.first { $0.userId == userId }?.currentRank ?? 0
     }
     
-    /// 獲取模擬參賽者數據
-    private func getMockParticipants(for tournamentId: UUID) async -> [(userId: UUID, userName: String)] {
-        // 這裡應該從後端獲取實際參賽者列表
-        return [
-            (userId: UUID(), userName: "投資大師"),
-            (userId: UUID(), userName: "穩健投資人"),
-            (userId: UUID(), userName: "價值投資者"),
-            (userId: UUID(), userName: "成長股獵人"),
-            (userId: UUID(), userName: "量化交易員")
-        ]
-    }
     
     // MARK: - Data Persistence
     

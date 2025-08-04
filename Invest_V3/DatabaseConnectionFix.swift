@@ -185,10 +185,7 @@ class DatabaseConnectionFix {
         // Clear existing records first
         portfolioManager.clearCurrentUserPortfolio()
         
-        // Add some sample trading records
-        portfolioManager.addMockTradingRecords()
-        
-        print("✅ 樣本交易記錄已創建")
+        print("✅ 投資組合已清空")
         
         // Show summary
         let stats = portfolioManager.getTradingStatistics()

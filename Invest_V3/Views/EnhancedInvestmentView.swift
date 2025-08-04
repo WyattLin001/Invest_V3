@@ -1649,10 +1649,7 @@ struct InvestmentRecordsView: View {
             await refreshData()
         }
         .onAppear {
-            // 如果沒有交易記錄，添加一些模擬數據
-            if portfolioManager.tradingRecords.isEmpty {
-                portfolioManager.addMockTradingRecords()
-            }
+            // 視圖載入時的初始化邏輯
         }
     }
     
@@ -1987,11 +1984,9 @@ struct InvestmentRecordsView: View {
                 .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
             
-            Button("添加模擬數據") {
-                portfolioManager.addMockTradingRecords()
-            }
-            .font(.subheadline)
-            .foregroundColor(.brandGreen)
+            Text("開始進行交易以查看記錄")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)

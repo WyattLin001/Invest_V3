@@ -161,20 +161,24 @@ struct FeaturedTournamentsView: View {
     // MARK: - 資料載入
     
     private func loadFeaturedTournaments() {
-        isLoading = true
-        
-        // 模擬API呼叫
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            featuredTournaments = Tournament.featuredMockTournaments
+        Task { @MainActor in
+            isLoading = true
+            do {
+                featuredTournaments = try await TournamentService.shared.fetchFeaturedTournaments()
+            } catch {
+                featuredTournaments = []
+            }
             isLoading = false
         }
     }
     
     @MainActor
     private func refreshFeaturedTournaments() async {
-        // 模擬刷新
-        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1秒
-        featuredTournaments = Tournament.featuredMockTournaments
+        do {
+            featuredTournaments = try await TournamentService.shared.fetchFeaturedTournaments()
+        } catch {
+            featuredTournaments = []
+        }
     }
     
     // MARK: - 事件處理

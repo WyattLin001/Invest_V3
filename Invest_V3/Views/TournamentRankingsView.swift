@@ -33,15 +33,6 @@ struct TournamentRankingsView: View {
     @State private var isLoadingMore = false
     private let itemsPerPage = 10
     
-    // 模擬統計數據 - 當 Supabase 數據載入失敗時使用
-    private var fallbackStats: TournamentStats {
-        TournamentStats(
-            totalParticipants: 1247,
-            averageReturn: 0.156,
-            daysRemaining: 18,
-            lastUpdated: Date()
-        )
-    }
     
     // 格式化時間輔助函數
     private func formatTime(_ date: Date) -> String {
@@ -50,203 +41,16 @@ struct TournamentRankingsView: View {
         return formatter.string(from: date)
     }
     
-    // 分頁相關計算屬性 - 顯示從開始到當前頁的所有數據
-    private var paginatedParticipants: [MockParticipant] {
-        let endIndex = min((currentPage + 1) * itemsPerPage, mockParticipants.count)
-        return Array(mockParticipants[0..<endIndex])
+    // 分頁相關計算屬性
+    private var paginatedParticipants: [TournamentParticipant] {
+        let endIndex = min((currentPage + 1) * itemsPerPage, participants.count)
+        return Array(participants[0..<endIndex])
     }
     
     private var hasMorePages: Bool {
-        let totalItems = mockParticipants.count
+        let totalItems = participants.count
         let currentItems = (currentPage + 1) * itemsPerPage
         return currentItems < totalItems
-    }
-    
-    // 模擬參與者數據
-    private var mockParticipants: [MockParticipant] {
-        [
-            MockParticipant(
-                code: "TR",
-                name: "TradingMaster",
-                badges: ["👑", "🏆", "⚡"],
-                balance: "$1,450,000",
-                returnRate: "+45.00%",
-                dailyChange: "+1.75% 今日",
-                trendIcon: "arrow.up",
-                trendColor: .green,
-                trendText: "+1",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "ST",
-                name: "StockWizard",
-                badges: ["🥈", "📈"],
-                balance: "$1,425,000",
-                returnRate: "+42.50%",
-                dailyChange: "-1.04% 今日",
-                trendIcon: "arrow.down",
-                trendColor: .red,
-                trendText: "-1",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "MA",
-                name: "MarketSage",
-                badges: ["🥉", "🎯"],
-                balance: "$1,380,000",
-                returnRate: "+38.00%",
-                dailyChange: "+1.32% 今日",
-                trendIcon: "arrow.up",
-                trendColor: .green,
-                trendText: "+1",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "IN",
-                name: "InvestorPro",
-                badges: ["📊"],
-                balance: "$1,350,000",
-                returnRate: "+35.00%",
-                dailyChange: "-0.59% 今日",
-                trendIcon: "arrow.down",
-                trendColor: .red,
-                trendText: "-1",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "YO",
-                name: "You",
-                badges: ["🌟"],
-                balance: "$1,275,000",
-                returnRate: "+27.50%",
-                dailyChange: "+0.95% 今日",
-                trendIcon: "minus",
-                trendColor: .gray,
-                trendText: "0",
-                returnColor: .green
-            ),
-            // 添加更多模擬數據以測試分頁
-            MockParticipant(
-                code: "AL",
-                name: "AlgoTrader",
-                badges: ["🤖"],
-                balance: "$1,200,000",
-                returnRate: "+20.00%",
-                dailyChange: "+0.85% 今日",
-                trendIcon: "arrow.up",
-                trendColor: .green,
-                trendText: "+2",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "QU",
-                name: "QuantKing",
-                badges: ["📊", "⚡"],
-                balance: "$1,180,000",
-                returnRate: "+18.00%",
-                dailyChange: "-0.35% 今日",
-                trendIcon: "arrow.down",
-                trendColor: .red,
-                trendText: "-1",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "SP",
-                name: "StockPro",
-                badges: ["💎"],
-                balance: "$1,150,000",
-                returnRate: "+15.00%",
-                dailyChange: "+1.20% 今日",
-                trendIcon: "arrow.up",
-                trendColor: .green,
-                trendText: "+1",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "DI",
-                name: "DiamondHands",
-                badges: ["💎", "🚀"],
-                balance: "$1,120,000",
-                returnRate: "+12.00%",
-                dailyChange: "+0.55% 今日",
-                trendIcon: "arrow.up",
-                trendColor: .green,
-                trendText: "+3",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "RI",
-                name: "RiskTaker",
-                badges: ["🔥"],
-                balance: "$1,080,000",
-                returnRate: "+8.00%",
-                dailyChange: "-1.15% 今日",
-                trendIcon: "arrow.down",
-                trendColor: .red,
-                trendText: "-2",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "VA",
-                name: "ValueHunter",
-                badges: ["🎯"],
-                balance: "$1,050,000",
-                returnRate: "+5.00%",
-                dailyChange: "+0.75% 今日",
-                trendIcon: "arrow.up",
-                trendColor: .green,
-                trendText: "+1",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "GR",
-                name: "GrowthSeeker",
-                badges: ["📈"],
-                balance: "$1,020,000",
-                returnRate: "+2.00%",
-                dailyChange: "+0.45% 今日",
-                trendIcon: "minus",
-                trendColor: .gray,
-                trendText: "0",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "CO",
-                name: "Conservative",
-                badges: ["🛡️"],
-                balance: "$1,010,000",
-                returnRate: "+1.00%",
-                dailyChange: "+0.15% 今日",
-                trendIcon: "arrow.up",
-                trendColor: .green,
-                trendText: "+1",
-                returnColor: .green
-            ),
-            MockParticipant(
-                code: "NE",
-                name: "NewTrader",
-                badges: ["🌱"],
-                balance: "$995,000",
-                returnRate: "-0.50%",
-                dailyChange: "-0.25% 今日",
-                trendIcon: "arrow.down",
-                trendColor: .red,
-                trendText: "-1",
-                returnColor: .red
-            ),
-            MockParticipant(
-                code: "LE",
-                name: "Learner",
-                badges: ["📚"],
-                balance: "$980,000",
-                returnRate: "-2.00%",
-                dailyChange: "-0.80% 今日",
-                trendIcon: "arrow.down",
-                trendColor: .red,
-                trendText: "-3",
-                returnColor: .red
-            )
-        ]
     }
     
     var body: some View {
@@ -272,11 +76,7 @@ struct TournamentRankingsView: View {
                     // 排行榜列表
                     LazyVStack(spacing: 10) {
                         ForEach(paginatedParticipants.indices, id: \.self) { index in
-                            modernRankingCard(
-                                paginatedParticipants[index], 
-                                rank: index + 1, 
-                                isCurrentUser: index == 4
-                            )
+                            participantRankingCard(paginatedParticipants[index], rank: index + 1)
                         }
                         
                         // 載入更多按鈕 - HIG 遵循設計
@@ -350,9 +150,11 @@ struct TournamentRankingsView: View {
     
     // 統計信息橫幅
     private var statisticsHeader: some View {
-        let stats = tournamentStats ?? fallbackStats
+        guard let stats = tournamentStats else {
+            return AnyView(EmptyView())
+        }
         
-        return VStack(spacing: 16) {
+        return AnyView(VStack(spacing: 16) {
             // 新增頂部導航和標題
             HStack {
                 Text("排行榜")
@@ -440,118 +242,9 @@ struct TournamentRankingsView: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.surfaceSecondary)
-        )
+        ))
     }
     
-    // 現代化的排行榜卡片
-    private func modernRankingCard(_ participant: MockParticipant, rank: Int, isCurrentUser: Bool = false) -> some View {
-        HStack(spacing: 12) {
-            // 排名徽章 - HIG 遵循的觸控目標和無障礙支援
-            Button(action: {
-                // 排名詳情動作
-            }) {
-                ZStack {
-                    Circle()
-                        .fill(rankColor(rank))
-                        .frame(width: 36, height: 36) // 視覺尺寸，保持平衡
-                        .shadow(color: rankColor(rank).opacity(0.3), radius: 6, x: 0, y: 3)
-                    
-                    if rank <= 3 {
-                        Image(systemName: rank == 1 ? "crown.fill" : rank == 2 ? "medal.fill" : "star.fill")
-                            .foregroundColor(.white)
-                            .font(.system(size: 16, weight: .bold))
-                    } else {
-                        Text("\(rank)")
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                            .minimumScaleFactor(0.8)
-                    }
-                }
-            }
-            .frame(width: 44, height: 44) // HIG 要求的最小觸控目標
-            .contentShape(Rectangle()) // 確保整個區域可點擊
-            .accessibilityLabel("排名第\(rank)名")
-            .accessibilityHint("點擊查看詳細資訊")
-            .accessibilityAddTraits(.isButton)
-            
-            // 排名變化指示器
-            VStack(spacing: 2) {
-                Image(systemName: participant.trendIcon)
-                    .foregroundColor(participant.trendColor)
-                    .font(.system(size: 10))
-                Text(participant.trendText)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(participant.trendColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(width: 25)
-            
-            // 用戶信息 - 確保水平布局
-            VStack(alignment: .leading, spacing: 4) {
-                // 用戶名稱 - 水平顯示
-                HStack(spacing: 6) {
-                    Text(participant.code)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
-                        .fixedSize(horizontal: true, vertical: false)
-                    
-                    Text(participant.name)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                    
-                    // 成就徽章 - 緊接在名稱後
-                    HStack(spacing: 2) {
-                        ForEach(participant.badges, id: \.self) { badge in
-                            Text(badge)
-                                .font(.system(size: 10))
-                        }
-                    }
-                }
-                
-                // 當前用戶標識
-                if isCurrentUser {
-                    Text("你")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(3)
-                }
-            }
-            
-            Spacer()
-            
-            // 績效數據 - 右對齊布局
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(participant.balance)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.primary)
-                
-                Text(participant.returnRate)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(participant.returnColor)
-                
-                Text(participant.dailyChange)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isCurrentUser ? Color.blue.opacity(0.08) : Color.surfacePrimary)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isCurrentUser ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
-    }
     
     // 排名顏色
     private func rankColor(_ rank: Int) -> Color {
@@ -958,16 +651,6 @@ struct TournamentRankingsView: View {
         do {
             tournaments = try await tournamentService.fetchTournaments()
             
-            // 如果沒有錦標賽數據，使用預設錦標賽
-            if tournaments.isEmpty {
-                #if DEBUG
-                tournaments = Tournament.sampleData
-                #else
-                // 生產環境創建一個預設錦標賽用於顯示
-                tournaments = [createDefaultTournament()]
-                #endif
-            }
-            
             if selectedTournament == nil {
                 selectedTournament = tournaments.first
             }
@@ -976,14 +659,8 @@ struct TournamentRankingsView: View {
                 await loadTournamentData(tournament.id)
             }
         } catch {
-            // 載入失敗時使用備用數據
-            #if DEBUG
-            tournaments = Tournament.sampleData
-            #else
-            tournaments = [createDefaultTournament()]
-            #endif
-            selectedTournament = tournaments.first
-            await loadMockParticipants()
+            print("❌ [TournamentRankingsView] 載入錦標賽失敗: \(error.localizedDescription)")
+            showingError = true
         }
     }
     
@@ -995,71 +672,12 @@ struct TournamentRankingsView: View {
             
             participants = try await participantsTask
             activities = try await activitiesTask
-            
-            // 如果參與者數據為空，載入模擬數據
-            if participants.isEmpty {
-                await loadMockParticipants()
-            }
         } catch {
-            // 載入失敗時使用模擬數據
-            await loadMockParticipants()
+            print("❌ [TournamentRankingsView] 載入錦標賽數據失敗: \(error.localizedDescription)")
+            showingError = true
         }
     }
     
-    private func createDefaultTournament() -> Tournament {
-        Tournament(
-            id: UUID(),
-            name: "2025年度投資錦標賽",
-            type: .monthly,
-            status: .ongoing,
-            startDate: Calendar.current.date(byAdding: .day, value: -15, to: Date()) ?? Date(),
-            endDate: Calendar.current.date(byAdding: .day, value: 15, to: Date()) ?? Date(),
-            description: "展示投資組合管理和績效追蹤功能",
-            shortDescription: "2025年度投資錦標賽",
-            initialBalance: 1000000,
-            maxParticipants: 1000,
-            currentParticipants: 1247,
-            entryFee: 0,
-            prizePool: 0,
-            riskLimitPercentage: 0.20,
-            minHoldingRate: 0.50,
-            maxSingleStockRate: 0.30,
-            rules: ["初始虛擬資金：100萬", "展示真實投資績效"],
-            createdAt: Date(),
-            updatedAt: Date(),
-            isFeatured: true
-        )
-    }
-    
-    @MainActor
-    private func loadMockParticipants() async {
-        let mockData = mockParticipants
-        let mockTournamentParticipants = mockData.enumerated().map { index, mock in
-            TournamentParticipant(
-                id: UUID(),
-                tournamentId: selectedTournament?.id ?? UUID(),
-                userId: UUID(),
-                userName: mock.name,
-                userAvatar: nil,
-                currentRank: index + 1,
-                previousRank: index + 1,
-                virtualBalance: Double(mock.balance.replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: "")) ?? 1000000,
-                initialBalance: 1000000,
-                returnRate: Double(mock.returnRate.replacingOccurrences(of: "+", with: "").replacingOccurrences(of: "%", with: "")) ?? 0 / 100,
-                totalTrades: Int.random(in: 20...50),
-                winRate: Double.random(in: 0.6...0.8),
-                maxDrawdown: Double.random(in: 0.05...0.15),
-                sharpeRatio: Double.random(in: 1.2...2.5),
-                isEliminated: false,
-                eliminationReason: nil,
-                joinedAt: Date().addingTimeInterval(-Double.random(in: 86400...864000)),
-                lastUpdated: Date()
-            )
-        }
-        
-        self.participants = mockTournamentParticipants
-        self.activities = [] // 模擬空的活動列表
-    }
     
     /// 從 Supabase 載入錦標賽統計數據
     @MainActor
@@ -1079,7 +697,6 @@ struct TournamentRankingsView: View {
             print("✅ [TournamentRankingsView] 成功載入錦標賽統計數據")
         } catch {
             print("❌ [TournamentRankingsView] 載入統計數據失敗: \(error.localizedDescription)")
-            // 使用 fallback 數據，不顯示錯誤給用戶
         }
     }
     
@@ -1212,19 +829,6 @@ struct TournamentPickerSheet: View {
     }
 }
 
-// MARK: - Mock Data Models
-struct MockParticipant {
-    let code: String
-    let name: String
-    let badges: [String]
-    let balance: String
-    let returnRate: String
-    let dailyChange: String
-    let trendIcon: String
-    let trendColor: Color
-    let trendText: String
-    let returnColor: Color
-}
 
 // MARK: - 預覽
 #Preview {

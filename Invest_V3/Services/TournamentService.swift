@@ -181,24 +181,23 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     /// 獲取個人績效數據
     func fetchPersonalPerformance(userId: UUID) async throws -> PersonalPerformance {
         do {
-            // 目前使用模擬數據，未來可以擴展為從 Supabase 獲取
-            let mockPerformance = PersonalPerformance(
-                totalReturn: 0.15,
-                annualizedReturn: 0.18,
-                maxDrawdown: 0.08,
-                sharpeRatio: 1.5,
-                winRate: 0.65,
-                totalTrades: 45,
-                profitableTrades: 29,
-                avgHoldingDays: 12.5,
-                riskScore: 0.3,
+            // 目前返回空的績效數據，實際應用中需要從 Supabase 實現此方法
+            let performance = PersonalPerformance(
+                totalReturn: 0.0,
+                annualizedReturn: 0.0,
+                maxDrawdown: 0.0,
+                sharpeRatio: nil,
+                winRate: 0.0,
+                totalTrades: 0,
+                profitableTrades: 0,
+                avgHoldingDays: 0.0,
+                riskScore: 0.0,
                 performanceHistory: [],
                 rankingHistory: [],
                 achievements: []
             )
-            
             print("✅ [TournamentService] 成功獲取個人績效數據")
-            return mockPerformance
+            return performance
         } catch {
             let apiError = handleError(error)
             print("❌ [TournamentService] 獲取個人績效數據失敗: \(error.localizedDescription)")
@@ -345,75 +344,3 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     }
 }
 
-// MARK: - Mock Service for Development
-class MockTournamentService: TournamentServiceProtocol {
-    static let shared = MockTournamentService()
-    
-    private init() {}
-    
-    func fetchTournaments() async throws -> [Tournament] {
-        // 模擬網路延遲
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-        #if DEBUG
-        return Tournament.sampleData
-        #else
-        return [] // 生產環境返回空陣列
-        #endif
-    }
-    
-    func fetchTournament(id: UUID) async throws -> Tournament {
-        try await Task.sleep(nanoseconds: 500_000_000)
-        #if DEBUG
-        return Tournament.sampleData.first { $0.id == id } ?? Tournament.sampleData[0]
-        #else
-        throw NSError(domain: "TournamentService", code: 404, userInfo: [NSLocalizedDescriptionKey: "錦標賽不存在"])
-        #endif
-    }
-    
-    func fetchTournamentParticipants(tournamentId: UUID) async throws -> [TournamentParticipant] {
-        try await Task.sleep(nanoseconds: 800_000_000)
-        #if DEBUG
-        return TournamentParticipant.sampleData
-        #else
-        return [] // 生產環境返回空陣列
-        #endif
-    }
-    
-    func fetchTournamentActivities(tournamentId: UUID) async throws -> [TournamentActivity] {
-        try await Task.sleep(nanoseconds: 600_000_000)
-        return [] // 返回空數組，讓UI顯示空狀態
-    }
-    
-    func joinTournament(tournamentId: UUID) async throws -> Bool {
-        try await Task.sleep(nanoseconds: 1_500_000_000)
-        return true
-    }
-    
-    func leaveTournament(tournamentId: UUID) async throws -> Bool {
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-        return true
-    }
-    
-    func fetchPersonalPerformance(userId: UUID) async throws -> PersonalPerformance {
-        try await Task.sleep(nanoseconds: 1_200_000_000)
-        return PersonalPerformance(
-            totalReturn: 0.0,
-            annualizedReturn: 0.0,
-            maxDrawdown: 0.0,
-            sharpeRatio: nil,
-            winRate: 0.0,
-            totalTrades: 0,
-            profitableTrades: 0,
-            avgHoldingDays: 0.0,
-            riskScore: 0.0,
-            performanceHistory: [],
-            rankingHistory: [],
-            achievements: []
-        )
-    }
-    
-    func refreshTournamentData(tournamentId: UUID) async throws -> Tournament {
-        try await Task.sleep(nanoseconds: 2_000_000_000)
-        return try await fetchTournament(id: tournamentId)
-    }
-}
