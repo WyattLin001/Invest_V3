@@ -60,45 +60,6 @@ class WalletViewModel: ObservableObject {
     
     // MARK: - 初始化資料
     func loadData() async {
-        // Preview 安全檢查
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
-            print("🔍 Preview 模式：使用模擬錢包數據")
-            self.balance = 50000.0
-            self.withdrawableAmount = 12500.0
-            self.transactions = [
-                WalletTransaction(
-                    id: UUID(),
-                    userId: UUID(),
-                    transactionType: "deposit",
-                    amount: 10000,
-                    description: "初始充值",
-                    status: "confirmed",
-                    paymentMethod: nil,
-                    blockchainId: nil,
-                    recipientId: nil,
-                    groupId: nil,
-                    createdAt: Date()
-                ),
-                WalletTransaction(
-                    id: UUID(),
-                    userId: UUID(),
-                    transactionType: "subscription",
-                    amount: -2500,
-                    description: "訂閱專家服務",
-                    status: "confirmed",
-                    paymentMethod: nil,
-                    blockchainId: nil,
-                    recipientId: nil,
-                    groupId: nil,
-                    createdAt: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
-                )
-            ]
-            self.isLoading = false
-            return
-        }
-        #endif
-        
         isLoading = true
         errorMessage = nil
         
@@ -132,11 +93,13 @@ class WalletViewModel: ObservableObject {
     // MARK: - 充值功能
     func topUp10K() async {
         do {
-            try await supabaseService.updateWalletBalance(delta: 10000)
+            // 充值 10000 台幣 = 100 代幣 (10000 ÷ 100)
+            let tokens = 100
+            try await supabaseService.updateWalletBalance(delta: tokens)
             await loadBalance()
             
             await MainActor.run {
-                print("✅ [WalletViewModel] 充值成功: 餘額增加 10000 NTD")
+                print("✅ [WalletViewModel] 充值成功: 支付 10000 台幣，獲得 \(tokens) 代幣")
                 
                 // 發送通知給其他頁面更新餘額
                 NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
@@ -151,15 +114,17 @@ class WalletViewModel: ObservableObject {
     // MARK: - 測試充值功能
     func performTestTopUp(amountNTD: Double) async {
         do {
-            // 直接以 NTD 金額更新 Supabase 餘額
-            try await supabaseService.updateWalletBalance(delta: Int(amountNTD))
+            // 計算代幣數量：100 台幣 = 1 代幣
+            let tokens = Int(amountNTD / 100)
+            
+            // 以代幣數量更新 Supabase 餘額
+            try await supabaseService.updateWalletBalance(delta: tokens)
             
             // 重新載入餘額以確保同步
             await loadBalance()
             
             await MainActor.run {
-                let tokens = amountNTD / 100 // 計算對應的代幣數量用於顯示
-                print("✅ [WalletViewModel] 測試充值成功: 增加 \(tokens) 代幣 (\(amountNTD) NTD)")
+                print("✅ [WalletViewModel] 充值成功: 支付 \(amountNTD) 台幣，獲得 \(tokens) 代幣")
             }
             
             // 發送通知給其他頁面更新餘額
@@ -167,7 +132,7 @@ class WalletViewModel: ObservableObject {
             
         } catch {
             await MainActor.run {
-                print("❌ [WalletViewModel] 測試充值失敗: \(error.localizedDescription)")
+                print("❌ [WalletViewModel] 充值失敗: \(error.localizedDescription)")
             }
         }
     }
