@@ -413,6 +413,14 @@ class ChatPortfolioManager: ObservableObject {
         )
     }
     
+    /// 刷新統計數據（觸發 UI 更新）
+    func refreshStatistics() {
+        DispatchQueue.main.async { [weak self] in
+            self?.objectWillChange.send()
+        }
+        print("📊 [ChatPortfolioManager] 統計數據已刷新")
+    }
+    
     /// 根據篩選條件獲取交易記錄
     func getFilteredTradingRecords(_ filter: TradingRecordFilter) -> [TradingRecord] {
         return tradingRecords

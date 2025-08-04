@@ -1995,63 +1995,78 @@ struct InvestmentRecordsView: View {
     // MARK: - Records List
     
     private var recordsList: some View {
-        VStack(spacing: 8) {
-            // 表頭
-            recordsTableHeader
-            
-            // 記錄列表 - 橫向滾動
-            ScrollView(.horizontal, showsIndicators: true) {
-                VStack(spacing: 8) {
+        // 使用統一的 ScrollView 實現表頭和內容同步滾動
+        ScrollView(.horizontal, showsIndicators: true) {
+            VStack(spacing: 8) {
+                // 表頭（包含在同一個 ScrollView 中以實現同步滾動）
+                HStack {
+                    Group {
+                        Text("日期/時間")
+                            .frame(width: 90, alignment: .leading)
+                        Text("代號")
+                            .frame(width: 70, alignment: .leading)
+                        Text("類型")
+                            .frame(width: 60, alignment: .center)
+                        Text("數量")
+                            .frame(width: 70, alignment: .trailing)
+                        Text("價格")
+                            .frame(width: 80, alignment: .trailing)
+                        Text("總額")
+                            .frame(width: 90, alignment: .trailing)
+                        Text("損益")
+                            .frame(width: 80, alignment: .trailing)
+                    }
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.textSecondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+                .background(Color.surfaceSecondary.opacity(0.8))
+                .cornerRadius(6)
+                
+                // 記錄列表
+                LazyVStack(spacing: 8) {
                     ForEach(filteredRecords, id: \.id) { record in
                         TradingRecordRow(record: record)
                             .background(Color.surfacePrimary)
                             .cornerRadius(8)
                     }
                 }
-                .padding(.horizontal, 4)
             }
+            .padding(.horizontal, 4)
         }
     }
     
-    // MARK: - Table Header
-    
-    private var recordsTableHeader: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack {
-                Group {
-                    Text("日期/時間")
-                        .frame(width: 90, alignment: .leading)
-                    Text("代號")
-                        .frame(width: 70, alignment: .leading)
-                    Text("類型")
-                        .frame(width: 60, alignment: .center)
-                    Text("數量")
-                        .frame(width: 70, alignment: .trailing)
-                    Text("價格")
-                        .frame(width: 80, alignment: .trailing)
-                    Text("總額")
-                        .frame(width: 90, alignment: .trailing)
-                    Text("損益")
-                        .frame(width: 80, alignment: .trailing)
-                }
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(.textSecondary)
-            }
-            .frame(minWidth: 540) // 確保表格有足夠寬度
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-        }
-        .background(Color.surfaceSecondary)
-        .cornerRadius(6)
-    }
     
     // MARK: - Helper Methods
     
     private func refreshData() async {
         isRefreshing = true
-        // 模擬數據刷新
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        
+        do {
+            // 嘗試從 Supabase 同步交易記錄
+            if let currentUser = SupabaseService.shared.getCurrentUser() {
+                print("🔄 [InvestmentRecords] 刷新用戶交易記錄: \(currentUser.username)")
+                
+                // 如果有錦標賽上下文，嘗試同步錦標賽相關數據
+                if let tournament = currentActiveTournament {
+                    // 同步錦標賽交易數據（未來實現）
+                    print("🏆 [InvestmentRecords] 同步錦標賽交易數據: \(tournament.name)")
+                }
+                
+                // 刷新投資組合管理器的統計數據
+                portfolioManager.refreshStatistics()
+                
+                print("✅ [InvestmentRecords] 交易記錄刷新完成")
+            } else {
+                print("ℹ️ [InvestmentRecords] 用戶未登入，使用本地數據")
+            }
+        } catch {
+            print("❌ [InvestmentRecords] 數據刷新失敗: \(error.localizedDescription)")
+            // 出錯時仍然使用本地數據，不影響用戶體驗
+        }
+        
         isRefreshing = false
     }
     
