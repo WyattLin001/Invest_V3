@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - 動態圓餅圖資料模型
-struct PieChartData: Identifiable {
+struct PieChartData: Identifiable, Equatable {
     let id = UUID()
     let category: String
     let value: Double
@@ -46,6 +46,11 @@ struct PieChartData: Identifiable {
         self.currentPrice = currentPrice
         self.unrealizedGainLoss = unrealizedGainLoss
         self.symbol = symbol
+    }
+    
+    // Equatable 實現
+    static func == (lhs: PieChartData, rhs: PieChartData) -> Bool {
+        return lhs.id == rhs.id
     }
 }
 
@@ -470,7 +475,7 @@ struct DetailPopupView: View {
                 Spacer()
                 Text("點擊任意處關閉")
                     .font(.caption2)
-                    .foregroundColor(.tertiary)
+                    .foregroundColor(.secondary)
                 Spacer()
             }
         }

@@ -84,13 +84,13 @@ struct DataDisplayRow: View {
 }
 
 // MARK: - 統一的指標卡片
-struct MetricCard: View {
+struct LayoutMetricCard: View {
     let title: String
     let value: String
     let subtitle: String?
     let icon: String?
     let color: Color
-    let trend: TrendDirection?
+    let trend: LayoutTrendDirection?
     
     init(
         title: String,
@@ -98,7 +98,7 @@ struct MetricCard: View {
         subtitle: String? = nil,
         icon: String? = nil,
         color: Color = .brandBlue,
-        trend: TrendDirection? = nil
+        trend: LayoutTrendDirection? = nil
     ) {
         self.title = title
         self.value = value
@@ -161,8 +161,8 @@ struct MetricCard: View {
     }
 }
 
-// MARK: - 趨勢方向枚舉
-enum TrendDirection {
+// MARK: - 佈局趨勢方向枚舉
+enum LayoutTrendDirection {
     case up
     case down
     case neutral
@@ -177,9 +177,9 @@ enum TrendDirection {
     
     var color: Color {
         switch self {
-        case .up: return .success
-        case .down: return .danger
-        case .neutral: return .textSecondary
+        case .up: return DesignTokens.priceUpColor
+        case .down: return DesignTokens.priceDownColor
+        case .neutral: return .secondary
         }
     }
 }
@@ -426,7 +426,7 @@ struct SectionContainer<Content: View>: View {
 
 #Preview("指標卡片") {
     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: DesignTokens.spacingMD) {
-        MetricCard(
+        LayoutMetricCard(
             title: "科技股佔比",
             value: "45.2%",
             icon: "building.2",
@@ -434,7 +434,7 @@ struct SectionContainer<Content: View>: View {
             trend: .up
         )
         
-        MetricCard(
+        LayoutMetricCard(
             title: "7日趨勢",
             value: "上升",
             subtitle: "持續向好",
@@ -443,7 +443,7 @@ struct SectionContainer<Content: View>: View {
             trend: .up
         )
         
-        MetricCard(
+        LayoutMetricCard(
             title: "波動率",
             value: "12.4%",
             icon: "waveform.path.ecg",
@@ -451,7 +451,7 @@ struct SectionContainer<Content: View>: View {
             trend: .down
         )
         
-        MetricCard(
+        LayoutMetricCard(
             title: "β係數",
             value: "1.15",
             subtitle: "vs 大盤",

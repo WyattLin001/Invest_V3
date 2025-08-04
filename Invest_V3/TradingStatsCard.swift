@@ -65,14 +65,14 @@ struct TradingStatsCard: View {
     let type: TradingStatsCardType
     let value: String
     let subtitle: String?
-    let trend: TrendIndicator?
+    let trend: TradingTrendIndicator?
     let isLoading: Bool
     
     init(
         type: TradingStatsCardType,
         value: String,
         subtitle: String? = nil,
-        trend: TrendIndicator? = nil,
+        trend: TradingTrendIndicator? = nil,
         isLoading: Bool = false
     ) {
         self.type = type
@@ -169,7 +169,7 @@ struct TradingStatsCard: View {
     
     // MARK: - Trend Indicator
     
-    private func trendIndicatorView(_ trend: TrendIndicator) -> some View {
+    private func trendIndicatorView(_ trend: TradingTrendIndicator) -> some View {
         HStack(spacing: 2) {
             Image(systemName: trend.iconName)
                 .font(.caption2)
@@ -192,8 +192,8 @@ struct TradingStatsCard: View {
 
 // MARK: - 趨勢指示器
 
-/// 趨勢指示器數據模型
-struct TrendIndicator {
+/// 交易趨勢指示器數據模型
+struct TradingTradingTrendIndicator {
     let type: TrendType
     let percentage: Double?
     
@@ -222,15 +222,15 @@ struct TrendIndicator {
     var iconName: String { type.iconName }
     var color: Color { type.color }
     
-    static func up(_ percentage: Double) -> TrendIndicator {
-        TrendIndicator(type: .up, percentage: percentage)
+    static func up(_ percentage: Double) -> TradingTrendIndicator {
+        TradingTrendIndicator(type: .up, percentage: percentage)
     }
     
-    static func down(_ percentage: Double) -> TrendIndicator {
-        TrendIndicator(type: .down, percentage: percentage)
+    static func down(_ percentage: Double) -> TradingTrendIndicator {
+        TradingTrendIndicator(type: .down, percentage: percentage)
     }
     
-    static let flat = TrendIndicator(type: .flat, percentage: nil)
+    static let flat = TradingTrendIndicator(type: .flat, percentage: nil)
 }
 
 // MARK: - 統計卡片網格
@@ -309,7 +309,7 @@ struct TradingStatsGrid: View {
         return String(format: "買進佔 %.0f%%", buyPercent)
     }
     
-    private var buyToSellTrend: TrendIndicator? {
+    private var buyToSellTrend: TradingTrendIndicator? {
         if statistics.buyTrades > statistics.sellTrades {
             return .up(10.5) // 模擬數據
         } else if statistics.sellTrades > statistics.buyTrades {
@@ -319,7 +319,7 @@ struct TradingStatsGrid: View {
         }
     }
     
-    private var gainLossTrend: TrendIndicator? {
+    private var gainLossTrend: TradingTrendIndicator? {
         if statistics.totalRealizedGainLoss > 0 {
             return .up(statistics.winRate)
         } else if statistics.totalRealizedGainLoss < 0 {
@@ -361,7 +361,7 @@ struct TradingStatsGrid: View {
 struct CompactTradingStatsCard: View {
     let type: TradingStatsCardType
     let value: String
-    let trend: TrendIndicator?
+    let trend: TradingTrendIndicator?
     
     var body: some View {
         HStack(spacing: 12) {

@@ -172,7 +172,7 @@ struct InvestmentPanelView: View {
                                     
                                     Text("開始您的第一筆投資")
                                         .font(.caption)
-                                        .foregroundColor(.tertiary)
+                                        .foregroundColor(.secondary)
                                 }
                                 .padding(.vertical, 40)
                                 .frame(maxWidth: .infinity)
@@ -818,7 +818,7 @@ struct EnhancedHoldingCard: View {
                 HStack {
                     Text("今日")
                         .font(.caption2)
-                        .foregroundColor(.tertiary)
+                        .foregroundColor(.secondary)
                     
                     Spacer()
                     

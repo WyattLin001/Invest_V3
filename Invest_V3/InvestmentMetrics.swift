@@ -326,7 +326,7 @@ struct ProfessionalMetricsCard: View {
                     subtitle: "Annualized Return",
                     icon: "chart.line.uptrend.xyaxis",
                     color: metrics.annualizedReturn >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor,
-                    trend: metrics.annualizedReturn >= 10 ? .up : (metrics.annualizedReturn >= 0 ? .flat : .down)
+                    trend: metrics.annualizedReturn >= 10 ? TrendDirection.up : (metrics.annualizedReturn >= 0 ? TrendDirection.flat : TrendDirection.down)
                 )
                 
                 MetricCard(
@@ -334,8 +334,8 @@ struct ProfessionalMetricsCard: View {
                     value: metrics.sharpeRatio != nil ? String(format: "%.2f", metrics.sharpeRatio!) : "N/A",
                     subtitle: "Sharpe Ratio",
                     icon: "target",
-                    color: (metrics.sharpeRatio ?? 0) >= 1.0 ? Color.brandGreen : Color.brandBlue,
-                    trend: (metrics.sharpeRatio ?? 0) >= 1.5 ? .up : ((metrics.sharpeRatio ?? 0) >= 1.0 ? .flat : .down)
+                    color: (metrics.sharpeRatio ?? 0) >= 1.0 ? DesignTokens.goodPerformanceColor : DesignTokens.averagePerformanceColor,
+                    trend: (metrics.sharpeRatio ?? 0) >= 1.5 ? TrendDirection.up : ((metrics.sharpeRatio ?? 0) >= 1.0 ? TrendDirection.flat : TrendDirection.down)
                 )
                 
                 MetricCard(
@@ -343,8 +343,8 @@ struct ProfessionalMetricsCard: View {
                     value: String(format: "%.1f%%", metrics.maxDrawdown),
                     subtitle: "Max Drawdown",
                     icon: "arrow.down.circle",
-                    color: metrics.maxDrawdown >= -10 ? Color.brandGreen : Color.warning,
-                    trend: metrics.maxDrawdown >= -5 ? .up : (metrics.maxDrawdown >= -15 ? .flat : .down)
+                    color: metrics.maxDrawdown >= -10 ? DesignTokens.goodPerformanceColor : DesignTokens.warningPerformanceColor,
+                    trend: metrics.maxDrawdown >= -5 ? TrendDirection.up : (metrics.maxDrawdown >= -15 ? TrendDirection.flat : TrendDirection.down)
                 )
                 
                 MetricCard(
@@ -353,7 +353,7 @@ struct ProfessionalMetricsCard: View {
                     subtitle: "Win Rate",
                     icon: "target",
                     color: metrics.winRate >= 60 ? DesignTokens.priceUpColor : (metrics.winRate >= 50 ? DesignTokens.averagePerformanceColor : DesignTokens.priceDownColor),
-                    trend: metrics.winRate >= 70 ? .up : (metrics.winRate >= 50 ? .flat : .down)
+                    trend: metrics.winRate >= 70 ? TrendDirection.up : (metrics.winRate >= 50 ? TrendDirection.flat : TrendDirection.down)
                 )
             }
             
@@ -370,14 +370,14 @@ struct ProfessionalMetricsCard: View {
                         title: "波動率",
                         value: String(format: "%.2f", metrics.volatility),
                         icon: "waveform.path.ecg",
-                        color: .brandBlue
+                        color: DesignTokens.averagePerformanceColor
                     )
                     
                     AdvancedMetricRow(
                         title: "盈利因子",
                         value: String(format: "%.2f", metrics.profitFactor),
                         icon: "multiply.circle",
-                        color: metrics.profitFactor >= 1.5 ? Color.brandGreen : Color.warning
+                        color: metrics.profitFactor >= 1.5 ? DesignTokens.goodPerformanceColor : DesignTokens.warningPerformanceColor
                     )
                     
                     if let calmar = metrics.calmarRatio {
@@ -385,7 +385,7 @@ struct ProfessionalMetricsCard: View {
                             title: "卡瑪比率",
                             value: String(format: "%.2f", calmar),
                             icon: "chart.bar.xaxis",
-                            color: calmar >= 1.0 ? Color.brandGreen : Color.brandBlue
+                            color: calmar >= 1.0 ? DesignTokens.goodPerformanceColor : DesignTokens.averagePerformanceColor
                         )
                     }
                     
@@ -393,14 +393,14 @@ struct ProfessionalMetricsCard: View {
                         title: "最大連續虧損",
                         value: "\(metrics.maximumConsecutiveLosses) 次",
                         icon: "arrow.down.forward.and.arrow.up.backward",
-                        color: metrics.maximumConsecutiveLosses <= 3 ? Color.brandGreen : Color.warning
+                        color: metrics.maximumConsecutiveLosses <= 3 ? DesignTokens.goodPerformanceColor : DesignTokens.warningPerformanceColor
                     )
                     
                     AdvancedMetricRow(
                         title: "平均持有天數",
                         value: String(format: "%.1f 天", metrics.averageHoldingPeriod),
                         icon: "calendar",
-                        color: .secondary
+                        color: DesignTokens.neutralMetricColor
                     )
                 }
             }
