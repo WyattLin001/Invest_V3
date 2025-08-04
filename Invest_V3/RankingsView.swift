@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RankingsView: View {
     @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var selectedPeriod = 0
     
     private let periods = ["週榜", "月榜", "總榜"]
@@ -15,7 +16,7 @@ struct RankingsView: View {
                 // 排行榜內容
                 rankingsList
             }
-            .navigationTitle("排行榜")
+            .navigationTitle(rankingsTitle)
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
                 await tradingService.loadRankings()
@@ -138,6 +139,16 @@ struct RankingsView: View {
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
             }
+        }
+    }
+    
+    // MARK: - 計算屬性
+    
+    private var rankingsTitle: String {
+        if let tournamentName = tournamentStateManager.getCurrentTournamentDisplayName() {
+            return "\(tournamentName) - 排行榜"
+        } else {
+            return "排行榜"
         }
     }
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PortfolioView: View {
     @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var selectedSegment = 0
     
     private let segments = ["總覽", "持股", "交易記錄"]
@@ -15,7 +16,7 @@ struct PortfolioView: View {
                 // 內容區域
                 contentView
             }
-            .navigationTitle("投資組合")
+            .navigationTitle(portfolioTitle)
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
                 await loadData()
@@ -58,6 +59,16 @@ struct PortfolioView: View {
     private func loadData() async {
         await tradingService.loadPortfolio()
         await tradingService.loadTransactions()
+    }
+    
+    // MARK: - 計算屬性
+    
+    private var portfolioTitle: String {
+        if let tournamentName = tournamentStateManager.getCurrentTournamentDisplayName() {
+            return "\(tournamentName) - 投資組合"
+        } else {
+            return "投資組合"
+        }
     }
 }
 
