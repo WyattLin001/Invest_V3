@@ -97,38 +97,48 @@ class TournamentStateManager: ObservableObject {
         do {
             print("🏆 [TournamentStateManager] 開始加入錦標賽: \(tournament.name)")
             
-            // 模擬加入過程
-            try await Task.sleep(nanoseconds: 1_500_000_000)
+            // 使用 SupabaseService 進行真實的錦標賽加入
+            let success = try await SupabaseService.shared.joinTournament(tournamentId: tournament.id)
             
-            // 創建參與者資料 (模擬)
-            let participant = createParticipantForTournament(tournament)
-            
-            // 創建初始投資組合
-            let initialPortfolio = createInitialPortfolio(for: tournament)
-            
-            // 創建初始績效指標
-            let initialPerformance = createInitialPerformance()
-            
-            // 設定錦標賽上下文
-            let context = TournamentContext(
-                tournament: tournament,
-                participant: participant,
-                state: .active,
-                portfolio: initialPortfolio,
-                performance: initialPerformance,
-                currentRank: nil,
-                joinedAt: Date()
-            )
-            
-            // 更新狀態
-            currentTournamentContext = context
-            isParticipatingInTournament = true
-            participationState = .active
-            
-            // 持久化狀態
-            persistTournamentState()
-            
-            print("✅ [TournamentStateManager] 成功加入錦標賽: \(tournament.name)")
+            if success {
+                // 獲取參與者資料
+                let participants = try await SupabaseService.shared.fetchTournamentParticipants(tournamentId: tournament.id)
+                let currentUser = SupabaseService.shared.getCurrentUser()
+                let participant = participants.first { participant in
+                    guard let user = currentUser else { return false }
+                    return participant.userId == user.id
+                }
+                
+                // 創建初始投資組合
+                let initialPortfolio = createInitialPortfolio(for: tournament)
+                
+                // 創建初始績效指標
+                let initialPerformance = createInitialPerformance()
+                
+                // 設定錦標賽上下文
+                let context = TournamentContext(
+                    tournament: tournament,
+                    participant: participant,
+                    state: .active,
+                    portfolio: initialPortfolio,
+                    performance: initialPerformance,
+                    currentRank: participant?.currentRank,
+                    joinedAt: Date()
+                )
+                
+                // 更新狀態
+                currentTournamentContext = context
+                isParticipatingInTournament = true
+                participationState = .active
+                
+                // 持久化狀態
+                persistTournamentState()
+                
+                print("✅ [TournamentStateManager] 成功加入錦標賽: \(tournament.name)")
+            } else {
+                joinError = "加入錦標賽失敗"
+                print("❌ [TournamentStateManager] 加入錦標賽失敗")
+            }
             
         } catch {
             print("❌ [TournamentStateManager] 加入錦標賽失敗: \(error.localizedDescription)")
@@ -145,18 +155,22 @@ class TournamentStateManager: ObservableObject {
         do {
             print("🏆 [TournamentStateManager] 開始離開錦標賽: \(context.tournament.name)")
             
-            // 模擬離開過程
-            try await Task.sleep(nanoseconds: 1_000_000_000)
+            // 使用 SupabaseService 進行真實的錦標賽離開
+            let success = try await SupabaseService.shared.leaveTournament(tournamentId: context.tournament.id)
             
-            // 清除狀態
-            currentTournamentContext = nil
-            isParticipatingInTournament = false
-            participationState = .none
-            
-            // 清除持久化狀態
-            clearPersistedTournamentState()
-            
-            print("✅ [TournamentStateManager] 成功離開錦標賽")
+            if success {
+                // 清除狀態
+                currentTournamentContext = nil
+                isParticipatingInTournament = false
+                participationState = .none
+                
+                // 清除持久化狀態
+                clearPersistedTournamentState()
+                
+                print("✅ [TournamentStateManager] 成功離開錦標賽")
+            } else {
+                print("❌ [TournamentStateManager] 離開錦標賽失敗")
+            }
             
         } catch {
             print("❌ [TournamentStateManager] 離開錦標賽失敗: \(error.localizedDescription)")
