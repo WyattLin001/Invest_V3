@@ -371,7 +371,9 @@ struct SettingsView: View {
                 .fontWeight(.semibold)
                 .foregroundColor(.gray900)
             
-            NavigationLink(destination: NotificationTestView()) {
+            Button(action: {
+                // 通知測試功能暫時停用
+            }) {
                 HStack {
                     Image(systemName: "bell.badge")
                         .font(.title3)

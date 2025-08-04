@@ -75,7 +75,6 @@ class TournamentStateManager: ObservableObject {
     
     // MARK: - Private Properties
     private let tournamentService = TournamentService.shared
-    private let mockDataGenerator = TournamentMockDataGenerator()
     private var cancellables = Set<AnyCancellable>()
     
     private init() {
@@ -183,7 +182,9 @@ class TournamentStateManager: ObservableObject {
         currentTournamentContext = updatedContext
         persistTournamentState()
         
-        print("📊 [TournamentStateManager] 投資組合已更新，總價值: \(portfolio.totalValue)")
+        if let portfolio = portfolio {
+            print("📊 [TournamentStateManager] 投資組合已更新，總價值: \(portfolio.totalValue)")
+        }
     }
     
     /// 更新績效指標
@@ -204,7 +205,9 @@ class TournamentStateManager: ObservableObject {
         currentTournamentContext = updatedContext
         persistTournamentState()
         
-        print("📈 [TournamentStateManager] 績效指標已更新，總回報: \(performance.totalReturn)%")
+        if let performance = performance {
+            print("📈 [TournamentStateManager] 績效指標已更新，總回報: \(performance.totalReturn)%")
+        }
     }
     
     /// 更新排名

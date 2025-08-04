@@ -244,10 +244,9 @@ struct HomeView: View {
                                 .accessibilityLabel("目前餘額 \(Int(walletBalance)) 代幣")
                             
                             // 快速充值按鈕
-                            Button(action: { 
-                                Task {
-                                    await fakeTopUp()
-                                }
+                            Button(action: {
+                                // 切換到錢包頁面進行充值
+                                NotificationCenter.default.post(name: NSNotification.Name("ShowWalletForTopUp"), object: nil)
                             }) {
                                 HStack(spacing: 4) {
                                     Image(systemName: "plus")
@@ -286,7 +285,9 @@ struct HomeView: View {
                     }
                     
                     VStack(spacing: 8) {
-                        Button(action: { showTournamentTest = true }) {
+                        Button(action: { 
+                            // 錦標賽功能暫時停用
+                        }) {
                             Image(systemName: "trophy.fill")
                                 .font(.title3)
                                 .foregroundColor(.orange)
@@ -643,7 +644,6 @@ struct HomeView: View {
                     .cornerRadius(6)
             }
             
-            InlineGroupTestWidget()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

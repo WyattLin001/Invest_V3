@@ -177,7 +177,7 @@ struct TournamentTradingView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        Text(String(format: "%.1f%%", portfolio.cashPercentage))
+                        Text(String(format: "%.1f%%", (portfolio.cashBalance / portfolio.totalValue) * 100))
                             .font(.title3)
                             .fontWeight(.medium)
                     }
@@ -188,8 +188,8 @@ struct TournamentTradingView: View {
                 HStack(spacing: 16) {
                     TradingMetricItem(
                         title: "夏普比率",
-                        value: String(format: "%.2f", performance.sharpeRatio),
-                        color: performance.sharpeRatio > 1 ? .green : (performance.sharpeRatio > 0 ? .orange : .red)
+                        value: String(format: "%.2f", performance.sharpeRatio ?? 0.0),
+                        color: (performance.sharpeRatio ?? 0.0) > 1 ? .green : ((performance.sharpeRatio ?? 0.0) > 0 ? .orange : .red)
                     )
                     
                     TradingMetricItem(
@@ -360,9 +360,9 @@ struct TournamentHoldingsView: View {
     
     var body: some View {
         if let portfolio = tournamentStateManager.currentTournamentContext?.portfolio,
-           !portfolio.holdings.isEmpty {
-            List(portfolio.holdings, id: \.symbol) { holding in
-                TournamentHoldingRow(holding: holding)
+           !portfolio.allocations.isEmpty {
+            List(portfolio.allocations) { allocation in
+                TournamentAllocationRow(allocation: allocation)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
             .listStyle(PlainListStyle())
@@ -513,11 +513,53 @@ struct TournamentHoldingRow: View {
                         .fontWeight(.medium)
                         .foregroundColor(holding.unrealizedGainLoss >= 0 ? .green : .red)
                     
-                    Text(String(format: "(%.2f%%)", holding.unrealizedGainLossPercentage))
+                    Text(String(format: "(%.2f%%)", holding.unrealizedGainLossPercent))
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(holding.unrealizedGainLoss >= 0 ? .green : .red)
                 }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "$"
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: amount)) ?? "$0"
+    }
+}
+
+// MARK: - 錦標賽資產配置行
+struct TournamentAllocationRow: View {
+    let allocation: AssetAllocation
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(allocation.symbol)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                
+                Text(allocation.name)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(formatCurrency(allocation.value))
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Text(String(format: "%.1f%%", allocation.percentage))
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
             }
         }
         .padding(.vertical, 4)
