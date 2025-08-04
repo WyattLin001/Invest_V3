@@ -212,8 +212,8 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     
     // MARK: - Private Helper Methods
     
-    /// 載入錦標賽數據的內部方法
-    private func loadTournaments() async {
+    /// 載入錦標賽數據
+    func loadTournaments() async {
         do {
             let tournaments = try await supabaseService.fetchTournaments()
             await MainActor.run {
