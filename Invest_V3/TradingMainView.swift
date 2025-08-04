@@ -347,11 +347,6 @@ struct RecentTransactionsSection: View {
                 
                 Spacer()
                 
-                NavigationLink(destination: TransactionHistoryView()) {
-                    Text("查看全部")
-                        .font(.caption)
-                        .foregroundColor(Color.brandGreen)
-                }
             }
             
             if tradingService.transactions.isEmpty {

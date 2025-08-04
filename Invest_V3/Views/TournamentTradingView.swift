@@ -486,7 +486,7 @@ struct TournamentStockRow: View {
 
 // MARK: - 錦標賽持股行
 struct TournamentHoldingRow: View {
-    let holding: MockHolding
+    let holding: PortfolioHolding
     
     var body: some View {
         HStack {
@@ -503,7 +503,7 @@ struct TournamentHoldingRow: View {
             Spacer()
             
             VStack(alignment: .trailing, spacing: 4) {
-                Text(formatCurrency(holding.marketValue))
+                Text(formatCurrency(holding.totalValue))
                     .font(.headline)
                     .fontWeight(.semibold)
                 

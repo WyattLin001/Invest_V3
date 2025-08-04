@@ -43,8 +43,8 @@ struct TournamentContext {
     let tournament: Tournament
     let participant: TournamentParticipant?
     let state: TournamentParticipationState
-    let portfolio: MockPortfolio?
-    let performance: MockPerformanceMetrics?
+    let portfolio: PortfolioData?
+    let performance: PerformanceMetrics?
     let currentRank: Int?
     let joinedAt: Date
     
@@ -166,7 +166,7 @@ class TournamentStateManager: ObservableObject {
     }
     
     /// 更新投資組合
-    func updatePortfolio(_ portfolio: MockPortfolio) {
+    func updatePortfolio(_ portfolio: PortfolioData?) {
         guard var context = currentTournamentContext else { return }
         
         // 更新上下文中的投資組合
@@ -187,7 +187,7 @@ class TournamentStateManager: ObservableObject {
     }
     
     /// 更新績效指標
-    func updatePerformance(_ performance: MockPerformanceMetrics) {
+    func updatePerformance(_ performance: PerformanceMetrics?) {
         guard var context = currentTournamentContext else { return }
         
         // 更新上下文中的績效指標
@@ -349,28 +349,34 @@ class TournamentStateManager: ObservableObject {
         )
     }
     
-    private func createInitialPortfolio(for tournament: Tournament) -> MockPortfolio {
-        return MockPortfolio(
+    private func createInitialPortfolio(for tournament: Tournament) -> PortfolioData? {
+        return PortfolioData(
             totalValue: tournament.initialBalance,
             cashBalance: tournament.initialBalance,
-            investedValue: 0.0,
-            holdings: [],
-            cashPercentage: 100.0
+            investedAmount: 0.0,
+            dailyChange: 0.0,
+            dailyChangePercentage: 0.0,
+            totalReturnPercentage: 0.0,
+            weeklyReturn: 0.0,
+            monthlyReturn: 0.0,
+            quarterlyReturn: 0.0,
+            allocations: [],
+            lastUpdated: Date()
         )
     }
     
-    private func createInitialPerformance() -> MockPerformanceMetrics {
-        return MockPerformanceMetrics(
+    private func createInitialPerformance() -> PerformanceMetrics? {
+        return PerformanceMetrics(
             totalReturn: 0.0,
             annualizedReturn: 0.0,
-            volatility: 0.0,
-            sharpeRatio: 0.0,
             maxDrawdown: 0.0,
+            sharpeRatio: nil,
             winRate: 0.0,
-            averageGain: 0.0,
-            averageLoss: 0.0,
+            avgHoldingDays: 0.0,
+            diversificationScore: 0.0,
+            riskScore: 0.0,
             totalTrades: 0,
-            profitFactor: 0.0
+            profitableTrades: 0
         )
     }
     

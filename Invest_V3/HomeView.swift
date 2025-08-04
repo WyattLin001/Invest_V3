@@ -24,7 +24,6 @@ struct HomeView: View {
     @State private var showFriendSearch = false // 好友搜尋頁面
     @State private var currentTournamentName = "2025年度投資錦標賽" // 當前錦標賽名稱
     @State private var showTournamentSwitcher = false // 錦標賽切換器
-    @State private var showTournamentTest = false // 錦標賽測試界面
     @StateObject private var tournamentStateManager = TournamentStateManager.shared
     
 
@@ -86,9 +85,6 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showTournamentSwitcher) {
                 TournamentSwitcherView(currentTournament: $currentTournamentName)
-            }
-            .sheet(isPresented: $showTournamentTest) {
-                TournamentTestView()
             }
         }
         .alert("錯誤", isPresented: $showErrorAlert) {

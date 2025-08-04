@@ -396,7 +396,20 @@ class MockTournamentService: TournamentServiceProtocol {
     
     func fetchPersonalPerformance(userId: UUID) async throws -> PersonalPerformance {
         try await Task.sleep(nanoseconds: 1_200_000_000)
-        return MockPortfolioData.samplePerformance
+        return PersonalPerformance(
+            totalReturn: 0.0,
+            annualizedReturn: 0.0,
+            maxDrawdown: 0.0,
+            sharpeRatio: nil,
+            winRate: 0.0,
+            totalTrades: 0,
+            profitableTrades: 0,
+            avgHoldingDays: 0.0,
+            riskScore: 0.0,
+            performanceHistory: [],
+            rankingHistory: [],
+            achievements: []
+        )
     }
     
     func refreshTournamentData(tournamentId: UUID) async throws -> Tournament {

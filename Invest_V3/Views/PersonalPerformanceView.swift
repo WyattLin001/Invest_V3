@@ -11,7 +11,20 @@ import SwiftUI
 struct PersonalPerformanceContentView: View {
     private let tournamentService = ServiceConfiguration.makeTournamentService()
     @State private var selectedTimeframe: PerformanceTimeframe = .month
-    @State private var performanceData: PersonalPerformance = MockPortfolioData.samplePerformance
+    @State private var performanceData: PersonalPerformance = PersonalPerformance(
+        totalReturn: 0.0,
+        annualizedReturn: 0.0,
+        maxDrawdown: 0.0,
+        sharpeRatio: nil,
+        winRate: 0.0,
+        totalTrades: 0,
+        profitableTrades: 0,
+        avgHoldingDays: 0.0,
+        riskScore: 0.0,
+        performanceHistory: [],
+        rankingHistory: [],
+        achievements: []
+    )
     @State private var isRefreshing = false
     @State private var showingShareSheet = false
     @State private var selectedTab: PerformanceTab = .overview
