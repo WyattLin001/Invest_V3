@@ -45,10 +45,12 @@ struct AssetAllocation: Identifiable, Codable {
     let name: String
     let percentage: Double
     let value: Double
+    let investedAmount: Double
     let color: String
     
     enum CodingKeys: String, CodingKey {
         case symbol, name, percentage, value, color
+        case investedAmount = "invested_amount"
     }
 }
 
@@ -213,12 +215,12 @@ struct MockPortfolioData {
     ]
     
     static let sampleAllocations: [AssetAllocation] = [
-        AssetAllocation(symbol: "2330", name: "台積電", percentage: 31.0, value: 620000, color: "#FF6B6B"),
-        AssetAllocation(symbol: "0050", name: "台灣50", percentage: 14.5, value: 290000, color: "#4ECDC4"),
-        AssetAllocation(symbol: "2454", name: "聯發科", percentage: 21.3, value: 425000, color: "#45B7D1"),
-        AssetAllocation(symbol: "2317", name: "鴻海", percentage: 17.3, value: 345000, color: "#96CEB4"),
-        AssetAllocation(symbol: "2881", name: "富邦金", percentage: 15.0, value: 300000, color: "#FFEAA7"),
-        AssetAllocation(symbol: "CASH", name: "現金", percentage: 0.9, value: 18000, color: "#DDA0DD")
+        AssetAllocation(symbol: "2330", name: "台積電", percentage: 31.0, value: 620000, investedAmount: 580000, color: "#FF6B6B"),
+        AssetAllocation(symbol: "0050", name: "台灣50", percentage: 14.5, value: 290000, investedAmount: 280000, color: "#4ECDC4"),
+        AssetAllocation(symbol: "2454", name: "聯發科", percentage: 21.3, value: 425000, investedAmount: 400000, color: "#45B7D1"),
+        AssetAllocation(symbol: "2317", name: "鴻海", percentage: 17.3, value: 345000, investedAmount: 330000, color: "#96CEB4"),
+        AssetAllocation(symbol: "2881", name: "富邦金", percentage: 15.0, value: 300000, investedAmount: 280000, color: "#FFEAA7"),
+        AssetAllocation(symbol: "CASH", name: "現金", percentage: 0.9, value: 18000, investedAmount: 18000, color: "#DDA0DD")
     ]
     
     static let sampleTransactions: [TransactionRecord] = [

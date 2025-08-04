@@ -533,47 +533,7 @@ struct TournamentHoldingRow: View {
     }
 }
 
-// MARK: - 錦標賽資產配置行
-struct TournamentAllocationRow: View {
-    let allocation: AssetAllocation
-    
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(allocation.symbol)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                
-                Text(allocation.name)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(formatCurrency(allocation.value))
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Text(String(format: "%.1f%%", allocation.percentage))
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-    
-    private func formatCurrency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencySymbol = "$"
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: amount)) ?? "$0"
-    }
-}
+// NOTE: TournamentAllocationRow is now defined in PortfolioView.swift to avoid duplicate declaration
 
 #Preview {
     TournamentTradingView()

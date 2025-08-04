@@ -771,29 +771,34 @@ struct TournamentAwareAssetAllocationCard: View {
                 .font(.headline)
                 .fontWeight(.bold)
             
-            if allocationData.isEmpty {
-                // 空狀態
-                HStack {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        Image(systemName: "chart.pie")
-                            .font(.system(size: 32))
-                            .foregroundColor(.secondary)
-                        Text(tournamentStateManager.isParticipatingInTournament ? "錦標賽尚未開始投資" : "暫無資產分配資料")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                }
-                .frame(height: 120)
-            } else {
-                DynamicPieChart(data: allocationData, size: 120)
-            }
+            chartContent
         }
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+    
+    @ViewBuilder
+    private var chartContent: some View {
+        if allocationData.isEmpty {
+            // 空狀態
+            HStack {
+                Spacer()
+                VStack(spacing: 12) {
+                    Image(systemName: "chart.pie")
+                        .font(.system(size: 32))
+                        .foregroundColor(.secondary)
+                    Text(tournamentStateManager.isParticipatingInTournament ? "錦標賽尚未開始投資" : "暫無資產分配資料")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            }
+            .frame(height: 120)
+        } else {
+            DynamicPieChart(data: allocationData, size: 120)
+        }
     }
 }
 
@@ -838,52 +843,57 @@ struct TournamentAwarePerformanceChartCard: View {
             }
             
             // 績效圖表
-            let performanceData: [PerformanceDataPoint]
-            
-            if tournamentStateManager.isParticipatingInTournament,
-               let context = tournamentStateManager.currentTournamentContext,
-               let portfolio = context.portfolio {
-                performanceData = TournamentPerformanceDataGenerator.generateData(
-                    for: selectedTimeRange,
-                    portfolio: portfolio,
-                    tournament: context.tournament
-                )
-            } else {
-                performanceData = PerformanceDataGenerator.generateData(
-                    for: selectedTimeRange,
-                    portfolio: tradingService.portfolio
-                )
-            }
-            
-            if performanceData.isEmpty {
-                // 空狀態
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.systemGray6))
-                    .frame(height: 150)
-                    .overlay(
-                        VStack {
-                            Image(systemName: "chart.line.uptrend.xyaxis")
-                                .font(.system(size: 32))
-                                .foregroundColor(.secondary)
-                            
-                            Text(tournamentStateManager.isParticipatingInTournament ? "錦標賽績效數據收集中" : "暫無績效數據")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    )
-            } else {
-                PerformanceChart(
-                    data: performanceData,
-                    timeRange: selectedTimeRange,
-                    width: UIScreen.main.bounds.width - 64, // 考慮 padding
-                    height: 150
-                )
-            }
+            performanceChartContent
         }
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+    
+    private var performanceData: [PerformanceDataPoint] {
+        if tournamentStateManager.isParticipatingInTournament,
+           let context = tournamentStateManager.currentTournamentContext,
+           let portfolio = context.portfolio {
+            return TournamentPerformanceDataGenerator.generateData(
+                for: selectedTimeRange,
+                portfolio: portfolio,
+                tournament: context.tournament
+            )
+        } else {
+            return PerformanceDataGenerator.generateData(
+                for: selectedTimeRange,
+                portfolio: tradingService.portfolio
+            )
+        }
+    }
+    
+    @ViewBuilder
+    private var performanceChartContent: some View {
+        if performanceData.isEmpty {
+            // 空狀態
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemGray6))
+                .frame(height: 150)
+                .overlay(
+                    VStack {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.system(size: 32))
+                            .foregroundColor(.secondary)
+                        
+                        Text(tournamentStateManager.isParticipatingInTournament ? "錦標賽績效數據收集中" : "暫無績效數據")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                )
+        } else {
+            PerformanceChart(
+                data: performanceData,
+                timeRange: selectedTimeRange,
+                width: UIScreen.main.bounds.width - 64, // 考慮 padding
+                height: 150
+            )
+        }
     }
 }
 
@@ -894,12 +904,17 @@ struct TournamentAssetAllocationCalculator {
             return []
         }
         
-        return portfolio.allocations.enumerated().map { index, allocation in
+        return portfolio.allocations.map { allocation in
             PieChartData(
-                id: allocation.symbol,
+                category: allocation.symbol,
                 value: allocation.percentage,
                 color: StockColorPalette.colorForStock(symbol: allocation.symbol),
-                label: allocation.symbol
+                holdingQuantity: nil,
+                purchasePrice: nil,
+                currentValue: allocation.value,
+                currentPrice: nil,
+                unrealizedGainLoss: allocation.value - allocation.investedAmount,
+                symbol: allocation.symbol
             )
         }
     }

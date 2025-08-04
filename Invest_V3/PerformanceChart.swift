@@ -8,6 +8,16 @@ struct PerformanceDataPoint: Identifiable {
     let portfolioValue: Double
     let dailyChange: Double
     let cumulativeReturn: Double
+    let returnPercentage: Double
+    
+    init(date: Date, value: Double, portfolioValue: Double? = nil, dailyChange: Double = 0, cumulativeReturn: Double = 0, returnPercentage: Double = 0) {
+        self.date = date
+        self.value = value
+        self.portfolioValue = portfolioValue ?? value
+        self.dailyChange = dailyChange
+        self.cumulativeReturn = cumulativeReturn
+        self.returnPercentage = returnPercentage
+    }
 }
 
 // MARK: - 績效圖表時間範圍
@@ -17,6 +27,16 @@ enum PerformanceTimeRange: String, CaseIterable {
     case quarter = "3月"
     case year = "1年"
     case all = "全部"
+    
+    var days: Int {
+        switch self {
+        case .week: return 7
+        case .month: return 30
+        case .quarter: return 90
+        case .year: return 365
+        case .all: return 1000
+        }
+    }
 }
 
 // MARK: - 績效圖表元件
