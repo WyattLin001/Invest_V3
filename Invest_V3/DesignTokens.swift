@@ -151,16 +151,16 @@ enum DesignTokens {
     /// 淡入淡出動畫
     static let fadeAnimation: Animation = .easeInOut(duration: 0.25)
     
-    // MARK: - Investment-specific Tokens (投資應用專用)
+    // MARK: - Investment-specific Tokens (投資應用專用 - 台股配色)
     
-    /// 股價上漲顏色 (深色模式適配)
+    /// 股價上漲顏色 - 台股紅漲 (深色模式適配)
     static var priceUpColor: Color {
-        Color(light: "#00C851", dark: "#4CAF50") // 深色模式下稍微柔和一些
+        Color(light: "#FF4444", dark: "#F44336") // 台股：紅色代表上漲
     }
     
-    /// 股價下跌顏色 (深色模式適配)
+    /// 股價下跌顏色 - 台股綠跌 (深色模式適配)
     static var priceDownColor: Color {
-        Color(light: "#FF4444", dark: "#F44336") // 深色模式下稍微柔和一些
+        Color(light: "#00C851", dark: "#4CAF50") // 台股：綠色代表下跌
     }
     
     /// 股價平盤顏色

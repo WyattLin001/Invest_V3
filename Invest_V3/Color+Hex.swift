@@ -102,6 +102,23 @@ extension Color {
     /// 資訊 - 深色模式適配
     static let info = Color(light: "#17A2B8", dark: "#4FC3F7")
     
+    // MARK: - Taiwan Stock Market Colors (台股配色)
+    
+    /// 台股上漲色 - 紅色 (深色模式適配)
+    static let taiwanStockUp = Color(light: "#FF4444", dark: "#F44336")
+    
+    /// 台股下跌色 - 綠色 (深色模式適配)
+    static let taiwanStockDown = Color(light: "#00C851", dark: "#4CAF50")
+    
+    /// 台股平盤色 - 灰色 (深色模式適配)
+    static let taiwanStockFlat = Color(light: "#6C757D", dark: "#9E9E9E")
+    
+    /// 投資盈利色 - 台股紅色
+    static let investmentProfit = Color(light: "#FF4444", dark: "#F44336")
+    
+    /// 投資虧損色 - 台股綠色
+    static let investmentLoss = Color(light: "#00C851", dark: "#4CAF50")
+    
     // MARK: - Additional Colors
     
     /// 投資深灰色
