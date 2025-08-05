@@ -10,6 +10,8 @@ import UserNotifications
 
 @main
 struct Invest_V3App: App {
+    // 註冊 AppDelegate
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
         WindowGroup {

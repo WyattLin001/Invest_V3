@@ -431,7 +431,9 @@ struct SettingsView: View {
                 .foregroundColor(.gray900)
             
             Button(action: {
-                // 通知測試功能暫時停用
+                Task {
+                    await NotificationService.shared.testNotificationSystem()
+                }
             }) {
                 HStack {
                     Image(systemName: "bell.badge")

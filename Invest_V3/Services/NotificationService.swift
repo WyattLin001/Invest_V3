@@ -80,11 +80,75 @@ class NotificationService: NSObject, ObservableObject {
     func checkAuthorizationStatus() {
         notificationCenter.getNotificationSettings { settings in
             DispatchQueue.main.async {
+                let wasAuthorized = self.isAuthorized
                 self.isAuthorized = settings.authorizationStatus == .authorized ||
                                  settings.authorizationStatus == .provisional
+                
+                // 如果權限狀態發生變化，進行相應處理
+                if wasAuthorized != self.isAuthorized {
+                    self.handleAuthorizationStatusChange(
+                        from: wasAuthorized,
+                        to: self.isAuthorized,
+                        settings: settings
+                    )
+                }
+                
                 print("📱 [NotificationService] 權限狀態: \(settings.authorizationStatus.rawValue)")
+                print("📱 [NotificationService] Alert設定: \(settings.alertSetting.rawValue)")
+                print("📱 [NotificationService] Sound設定: \(settings.soundSetting.rawValue)")
+                print("📱 [NotificationService] Badge設定: \(settings.badgeSetting.rawValue)")
             }
         }
+    }
+    
+    /// 處理權限狀態變化
+    private func handleAuthorizationStatusChange(from wasAuthorized: Bool, to isAuthorized: Bool, settings: UNNotificationSettings) {
+        if !wasAuthorized && isAuthorized {
+            // 用戶剛授權了推播通知
+            print("✅ [NotificationService] 用戶授權了推播通知")
+            Task {
+                // 重新註冊遠程推播
+                await MainActor.run {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        } else if wasAuthorized && !isAuthorized {
+            // 用戶取消了推播通知授權
+            print("⚠️ [NotificationService] 用戶取消了推播通知授權")
+            self.deviceToken = nil
+        }
+    }
+    
+    /// 獲取詳細的權限狀態
+    func getNotificationSettings() async -> UNNotificationSettings {
+        return await withCheckedContinuation { continuation in
+            notificationCenter.getNotificationSettings { settings in
+                continuation.resume(returning: settings)
+            }
+        }
+    }
+    
+    /// 檢查是否可以發送特定類型的通知
+    func canSendNotifications(requireSound: Bool = false, requireAlert: Bool = true, requireBadge: Bool = false) async -> Bool {
+        let settings = await getNotificationSettings()
+        
+        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+            return false
+        }
+        
+        if requireAlert && settings.alertSetting != .enabled {
+            return false
+        }
+        
+        if requireSound && settings.soundSetting != .enabled {
+            return false
+        }
+        
+        if requireBadge && settings.badgeSetting != .enabled {
+            return false
+        }
+        
+        return true
     }
     
 
@@ -380,6 +444,53 @@ class NotificationService: NSObject, ObservableObject {
             ]
         )
     }
+    
+    // MARK: - Testing and Debug
+    
+    /// 測試推播通知功能
+    func testNotificationSystem() async {
+        print("🧪 [NotificationService] 開始測試推播通知系統")
+        
+        // 1. 檢查權限狀態
+        let settings = await getNotificationSettings()
+        print("📱 權限狀態: \(settings.authorizationStatus.rawValue)")
+        print("📱 Device Token: \(deviceToken ?? "未設置")")
+        
+        // 2. 測試本地通知
+        await sendLocalNotification(
+            title: "測試通知",
+            body: "這是一個測試推播通知，用於驗證系統功能",
+            categoryIdentifier: "TEST",
+            userInfo: ["type": "test"],
+            delay: 2.0
+        )
+        
+        // 3. 創建測試通知記錄
+        await createNotificationRecord(
+            title: "系統測試",
+            body: "推播通知系統測試完成",
+            type: .systemAlert,
+            data: ["test": true]
+        )
+        
+        print("✅ [NotificationService] 推播通知系統測試完成")
+    }
+    
+    /// 獲取系統診斷信息
+    func getDiagnosticInfo() async -> [String: Any] {
+        let settings = await getNotificationSettings()
+        
+        return [
+            "isAuthorized": isAuthorized,
+            "authorizationStatus": settings.authorizationStatus.rawValue,
+            "alertSetting": settings.alertSetting.rawValue,
+            "soundSetting": settings.soundSetting.rawValue,
+            "badgeSetting": settings.badgeSetting.rawValue,
+            "deviceToken": deviceToken ?? "未設置",
+            "unreadCount": unreadCount,
+            "canSendNotifications": await canSendNotifications()
+        ]
+    }
 }
 
 // MARK: - UNUserNotificationCenterDelegate
@@ -439,6 +550,51 @@ extension NotificationService: UNUserNotificationCenterDelegate {
                 print("⚠️ [NotificationService] 未知的通知類型: \(type)")
             }
         }
+    }
+    
+    // MARK: - Remote Notification Handling
+    
+    /// 處理註冊失敗
+    func handleRegistrationFailure(_ error: Error) async {
+        await MainActor.run {
+            self.isAuthorized = false
+            self.deviceToken = nil
+        }
+        print("❌ [NotificationService] 推播註冊失敗處理完成")
+    }
+    
+    /// 處理遠程推播通知
+    func handleRemoteNotification(_ userInfo: [AnyHashable: Any]) async {
+        print("📱 [NotificationService] 處理遠程推播通知: \(userInfo)")
+        
+        // 解析通知類型
+        if let typeString = userInfo["type"] as? String,
+           let type = AppNotificationType(rawValue: typeString) {
+            
+            // 創建通知記錄
+            let title = userInfo["title"] as? String ?? "新通知"
+            let body = userInfo["body"] as? String ?? ""
+            
+            await createNotificationRecord(
+                title: title,
+                body: body,
+                type: type,
+                data: userInfo as? [String: Any]
+            )
+        }
+        
+        // 更新未讀數量
+        await loadUnreadCount()
+    }
+    
+    /// 處理帶完成回調的遠程推播通知
+    func handleRemoteNotificationWithCompletion(_ userInfo: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
+        print("📱 [NotificationService] 處理背景遠程推播通知: \(userInfo)")
+        
+        await handleRemoteNotification(userInfo)
+        
+        // 根據處理結果返回相應的狀態
+        return .newData
     }
     
     // MARK: - 導航處理
