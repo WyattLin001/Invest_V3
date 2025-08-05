@@ -59,6 +59,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     
     // MARK: - Properties
     private let supabaseService = SupabaseService.shared
+    private let portfolioManager = TournamentPortfolioManager.shared
     
     // Published properties for UI binding
     @Published var tournaments: [Tournament] = []
@@ -118,17 +119,92 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
     }
     
-    /// 獲取錦標賽參與者列表
+    /// 獲取錦標賽參與者列表（整合本地投資組合數據）
     func fetchTournamentParticipants(tournamentId: UUID) async throws -> [TournamentParticipant] {
         do {
-            let participants = try await supabaseService.fetchTournamentParticipants(tournamentId: tournamentId)
-            print("✅ [TournamentService] 成功獲取 \(participants.count) 個參與者")
+            var participants = try await supabaseService.fetchTournamentParticipants(tournamentId: tournamentId)
+            
+            // 整合本地投資組合數據以獲得最新績效
+            participants = await integratLocalPortfolioData(participants: participants, tournamentId: tournamentId)
+            
+            // 按回報率排序
+            participants.sort { $0.returnRate > $1.returnRate }
+            
+            // 更新排名
+            for (index, participant) in participants.enumerated() {
+                participants[index] = updateParticipantRank(participant: participant, newRank: index + 1)
+            }
+            
+            print("✅ [TournamentService] 成功獲取並排序 \(participants.count) 個參與者")
             return participants
         } catch {
             let apiError = handleError(error)
             print("❌ [TournamentService] 獲取錦標賽參與者失敗: \(error.localizedDescription)")
             throw apiError
         }
+    }
+    
+    /// 整合本地投資組合數據
+    private func integratLocalPortfolioData(participants: [TournamentParticipant], tournamentId: UUID) async -> [TournamentParticipant] {
+        var updatedParticipants: [TournamentParticipant] = []
+        
+        for participant in participants {
+            // 檢查是否有本地投資組合數據
+            if let localPortfolio = portfolioManager.getPortfolio(for: tournamentId),
+               localPortfolio.userId == participant.userId {
+                
+                // 使用本地數據更新參與者資訊
+                let updatedParticipant = TournamentParticipant(
+                    id: participant.id,
+                    tournamentId: participant.tournamentId,
+                    userId: participant.userId,
+                    userName: participant.userName,
+                    userAvatar: participant.userAvatar,
+                    currentRank: participant.currentRank,
+                    previousRank: participant.previousRank,
+                    virtualBalance: localPortfolio.totalPortfolioValue,
+                    initialBalance: localPortfolio.initialBalance,
+                    returnRate: localPortfolio.totalReturnPercentage / 100.0,
+                    totalTrades: localPortfolio.performanceMetrics.totalTrades,
+                    winRate: localPortfolio.performanceMetrics.winRate,
+                    maxDrawdown: localPortfolio.performanceMetrics.maxDrawdownPercentage,
+                    sharpeRatio: localPortfolio.performanceMetrics.sharpeRatio,
+                    isEliminated: participant.isEliminated,
+                    eliminationReason: participant.eliminationReason,
+                    joinedAt: participant.joinedAt,
+                    lastUpdated: Date()
+                )
+                updatedParticipants.append(updatedParticipant)
+            } else {
+                updatedParticipants.append(participant)
+            }
+        }
+        
+        return updatedParticipants
+    }
+    
+    /// 更新參與者排名
+    private func updateParticipantRank(participant: TournamentParticipant, newRank: Int) -> TournamentParticipant {
+        return TournamentParticipant(
+            id: participant.id,
+            tournamentId: participant.tournamentId,
+            userId: participant.userId,
+            userName: participant.userName,
+            userAvatar: participant.userAvatar,
+            currentRank: newRank,
+            previousRank: participant.currentRank, // 當前排名變為上次排名
+            virtualBalance: participant.virtualBalance,
+            initialBalance: participant.initialBalance,
+            returnRate: participant.returnRate,
+            totalTrades: participant.totalTrades,
+            winRate: participant.winRate,
+            maxDrawdown: participant.maxDrawdown,
+            sharpeRatio: participant.sharpeRatio,
+            isEliminated: participant.isEliminated,
+            eliminationReason: participant.eliminationReason,
+            joinedAt: participant.joinedAt,
+            lastUpdated: Date()
+        )
     }
     
     /// 獲取錦標賽活動列表
@@ -144,16 +220,51 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
     }
     
-    /// 加入錦標賽
+    /// 加入錦標賽（整合投資組合管理）
     func joinTournament(tournamentId: UUID) async throws -> Bool {
         do {
+            // 步驟1：獲取錦標賽詳情
+            let tournament = try await fetchTournament(id: tournamentId)
+            
+            // 步驟2：獲取當前用戶資訊
+            guard let currentUser = supabaseService.getCurrentUser() else {
+                throw TournamentAPIError.unauthorized
+            }
+            
+            // 步驟3：初始化錦標賽專用投資組合
+            let portfolioInitialized = await portfolioManager.initializePortfolio(
+                for: tournament,
+                userId: currentUser.id,
+                userName: currentUser.username ?? "Unknown User"
+            )
+            
+            guard portfolioInitialized else {
+                print("❌ 初始化錦標賽投資組合失敗")
+                throw TournamentAPIError.unknown
+            }
+            
+            // 步驟4：加入錦標賽（後端）
             let success = try await supabaseService.joinTournament(tournamentId: tournamentId)
-            print("✅ [TournamentService] 成功加入錦標賽")
             
-            // 重新載入錦標賽數據以更新參與者數量
-            await loadTournaments()
+            if success {
+                print("✅ [TournamentService] 成功加入錦標賽並初始化投資組合")
+                
+                // 重新載入錦標賽數據以更新參與者數量
+                await loadTournaments()
+                
+                // 同步投資組合到後端
+                if let portfolio = portfolioManager.getPortfolio(for: tournamentId) {
+                    // 觸發投資組合同步
+                    await portfolioManager.updatePerformanceMetrics(for: tournamentId)
+                }
+                
+                return true
+            } else {
+                // 如果後端加入失敗，清理本地投資組合
+                portfolioManager.removePortfolio(for: tournamentId)
+                return false
+            }
             
-            return success
         } catch {
             let apiError = handleError(error)
             print("❌ [TournamentService] 加入錦標賽失敗: \(error.localizedDescription)")
@@ -161,16 +272,34 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
     }
     
-    /// 離開錦標賽
+    /// 離開錦標賽（整合投資組合管理）
     func leaveTournament(tournamentId: UUID) async throws -> Bool {
         do {
+            // 步驟1：檢查是否有投資組合
+            guard portfolioManager.hasPortfolio(for: tournamentId) else {
+                print("⚠️ 沒有找到錦標賽投資組合")
+                // 仍然嘗試從後端離開
+                return try await supabaseService.leaveTournament(tournamentId: tournamentId)
+            }
+            
+            // 步驟2：先從後端離開錦標賽
             let success = try await supabaseService.leaveTournament(tournamentId: tournamentId)
-            print("✅ [TournamentService] 成功離開錦標賽")
             
-            // 重新載入錦標賽數據以更新參與者數量
-            await loadTournaments()
+            if success {
+                // 步驟3：清理本地投資組合
+                portfolioManager.removePortfolio(for: tournamentId)
+                
+                print("✅ [TournamentService] 成功離開錦標賽並清理投資組合")
+                
+                // 重新載入錦標賽數據以更新參與者數量
+                await loadTournaments()
+                
+                return true
+            } else {
+                print("❌ [TournamentService] 後端離開錦標賽失敗")
+                return false
+            }
             
-            return success
         } catch {
             let apiError = handleError(error)
             print("❌ [TournamentService] 離開錦標賽失敗: \(error.localizedDescription)")
@@ -334,6 +463,58 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     func reconnectRealtime() async {
         print("📊 [TournamentService] 重新連接即時更新")
         await startRealtimeUpdates()
+    }
+    
+    // MARK: - 錦標賽投資組合整合方法
+    
+    /// 獲取用戶在特定錦標賽中的投資組合
+    func getUserTournamentPortfolio(tournamentId: UUID) -> TournamentPortfolio? {
+        return portfolioManager.getPortfolio(for: tournamentId)
+    }
+    
+    /// 獲取用戶參與的所有錦標賽投資組合
+    func getUserAllTournamentPortfolios(userId: UUID) -> [TournamentPortfolio] {
+        return portfolioManager.getUserPortfolios(userId: userId)
+    }
+    
+    /// 執行錦標賽交易
+    func executeTournamentTrade(
+        tournamentId: UUID,
+        symbol: String,
+        stockName: String,
+        action: TradingType,
+        shares: Double,
+        price: Double
+    ) async -> Bool {
+        return await portfolioManager.executeTrade(
+            tournamentId: tournamentId,
+            symbol: symbol,
+            stockName: stockName,
+            action: action,
+            shares: shares,
+            price: price
+        )
+    }
+    
+    /// 檢查用戶是否已加入錦標賽
+    func isUserJoinedTournament(tournamentId: UUID) -> Bool {
+        return portfolioManager.hasPortfolio(for: tournamentId)
+    }
+    
+    /// 獲取錦標賽排名（整合版本）
+    func fetchIntegratedTournamentRanking(tournamentId: UUID) async throws -> [TournamentParticipant] {
+        return try await fetchTournamentParticipants(tournamentId: tournamentId)
+    }
+    
+    /// 刷新所有錦標賽投資組合績效
+    func refreshAllTournamentPerformance() async {
+        let allPortfolios = portfolioManager.getAllPortfolios()
+        
+        for portfolio in allPortfolios {
+            await portfolioManager.updatePerformanceMetrics(for: portfolio.tournamentId)
+        }
+        
+        print("📊 [TournamentService] 已刷新 \(allPortfolios.count) 個錦標賽投資組合績效")
     }
     
     deinit {

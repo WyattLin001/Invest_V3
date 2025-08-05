@@ -6585,6 +6585,237 @@ extension SupabaseService {
         print("✅ 錦標賽交易記錄同步成功")
     }
     
+    // MARK: - 錦標賽同步方法
+    
+    /// 同步錦標賽參賽者到資料庫
+    public func upsertTournamentParticipant(_ participant: TournamentParticipant) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🔄 [SupabaseService] 同步錦標賽參賽者: \(participant.userName) (\(participant.tournamentId))")
+        
+        do {
+            struct TournamentParticipantInsert: Codable {
+                let id: String
+                let tournamentId: String
+                let userId: String
+                let userName: String
+                let userAvatar: String?
+                let currentRank: Int
+                let previousRank: Int
+                let virtualBalance: Double
+                let initialBalance: Double
+                let returnRate: Double
+                let totalTrades: Int
+                let winRate: Double
+                let maxDrawdown: Double
+                let sharpeRatio: Double?
+                let isEliminated: Bool
+                let eliminationReason: String?
+                let joinedAt: Date
+                let lastUpdated: Date
+                
+                enum CodingKeys: String, CodingKey {
+                    case id
+                    case tournamentId = "tournament_id"
+                    case userId = "user_id"
+                    case userName = "user_name"
+                    case userAvatar = "user_avatar"
+                    case currentRank = "current_rank"
+                    case previousRank = "previous_rank"
+                    case virtualBalance = "virtual_balance"
+                    case initialBalance = "initial_balance"
+                    case returnRate = "return_rate"
+                    case totalTrades = "total_trades"
+                    case winRate = "win_rate"
+                    case maxDrawdown = "max_drawdown"
+                    case sharpeRatio = "sharpe_ratio"
+                    case isEliminated = "is_eliminated"
+                    case eliminationReason = "elimination_reason"
+                    case joinedAt = "joined_at"
+                    case lastUpdated = "last_updated"
+                }
+            }
+            
+            let participantData = TournamentParticipantInsert(
+                id: participant.id.uuidString,
+                tournamentId: participant.tournamentId.uuidString,
+                userId: participant.userId.uuidString,
+                userName: participant.userName,
+                userAvatar: participant.userAvatar,
+                currentRank: participant.currentRank,
+                previousRank: participant.previousRank,
+                virtualBalance: participant.virtualBalance,
+                initialBalance: participant.initialBalance,
+                returnRate: participant.returnRate,
+                totalTrades: participant.totalTrades,
+                winRate: participant.winRate,
+                maxDrawdown: participant.maxDrawdown,
+                sharpeRatio: participant.sharpeRatio,
+                isEliminated: participant.isEliminated,
+                eliminationReason: participant.eliminationReason,
+                joinedAt: participant.joinedAt,
+                lastUpdated: participant.lastUpdated
+            )
+            
+            try await client
+                .from("tournament_participants")
+                .upsert(participantData)
+                .execute()
+            
+            print("✅ [SupabaseService] 成功同步錦標賽參賽者: \(participant.userName)")
+            
+        } catch {
+            print("❌ [SupabaseService] 同步錦標賽參賽者失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 同步錦標賽持股到資料庫
+    public func upsertTournamentHolding(_ holding: TournamentHolding) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🔄 [SupabaseService] 同步錦標賽持股: \(holding.symbol) (\(holding.tournamentId))")
+        
+        do {
+            struct TournamentHoldingInsert: Codable {
+                let id: String
+                let tournamentId: String
+                let userId: String
+                let symbol: String
+                let name: String
+                let shares: Double
+                let averagePrice: Double
+                let currentPrice: Double
+                let firstPurchaseDate: Date
+                let lastUpdated: Date
+                
+                enum CodingKeys: String, CodingKey {
+                    case id, symbol, name, shares, currentPrice
+                    case tournamentId = "tournament_id"
+                    case userId = "user_id"
+                    case averagePrice = "average_price"
+                    case firstPurchaseDate = "first_purchase_date"
+                    case lastUpdated = "last_updated"
+                }
+            }
+            
+            let holdingData = TournamentHoldingInsert(
+                id: holding.id.uuidString,
+                tournamentId: holding.tournamentId.uuidString,
+                userId: holding.userId.uuidString,
+                symbol: holding.symbol,
+                name: holding.name,
+                shares: holding.shares,
+                averagePrice: holding.averagePrice,
+                currentPrice: holding.currentPrice,
+                firstPurchaseDate: holding.firstPurchaseDate,
+                lastUpdated: holding.lastUpdated
+            )
+            
+            try await client
+                .from("tournament_holdings")
+                .upsert(holdingData)
+                .execute()
+            
+            print("✅ [SupabaseService] 成功同步錦標賽持股: \(holding.symbol)")
+            
+        } catch {
+            print("❌ [SupabaseService] 同步錦標賽持股失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 插入錦標賽交易記錄到資料庫
+    public func insertTournamentTrade(_ record: TournamentTradingRecord) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("📝 [SupabaseService] 插入錦標賽交易記錄: \(record.symbol) \(record.type.rawValue) (\(record.tournamentId))")
+        
+        do {
+            struct TournamentTradingRecordInsert: Codable {
+                let id: String
+                let tournamentId: String
+                let userId: String
+                let symbol: String
+                let stockName: String
+                let type: String
+                let shares: Double
+                let price: Double
+                let totalAmount: Double
+                let fee: Double
+                let netAmount: Double
+                let timestamp: Date
+                let realizedGainLoss: Double?
+                let realizedGainLossPercent: Double?
+                let notes: String?
+                
+                enum CodingKeys: String, CodingKey {
+                    case id, symbol, type, shares, price, timestamp, notes, fee
+                    case tournamentId = "tournament_id"
+                    case userId = "user_id"
+                    case stockName = "stock_name"
+                    case totalAmount = "total_amount"
+                    case netAmount = "net_amount"
+                    case realizedGainLoss = "realized_gain_loss"
+                    case realizedGainLossPercent = "realized_gain_loss_percent"
+                }
+            }
+            
+            let recordData = TournamentTradingRecordInsert(
+                id: record.id.uuidString,
+                tournamentId: record.tournamentId.uuidString,
+                userId: record.userId.uuidString,
+                symbol: record.symbol,
+                stockName: record.stockName,
+                type: record.type.rawValue,
+                shares: record.shares,
+                price: record.price,
+                totalAmount: record.totalAmount,
+                fee: record.fee,
+                netAmount: record.netAmount,
+                timestamp: record.timestamp,
+                realizedGainLoss: record.realizedGainLoss,
+                realizedGainLossPercent: record.realizedGainLossPercent,
+                notes: record.notes
+            )
+            
+            try await client
+                .from("tournament_trades")
+                .insert(recordData)
+                .execute()
+            
+            print("✅ [SupabaseService] 成功插入錦標賽交易記錄: \(record.symbol) \(record.type.rawValue)")
+            
+        } catch {
+            print("❌ [SupabaseService] 插入錦標賽交易記錄失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 獲取錦標賽排名（優化版本）
+    public func fetchTournamentRankings(tournamentId: UUID) async throws -> [TournamentParticipant] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("📊 [SupabaseService] 獲取錦標賽排名: \(tournamentId)")
+        
+        do {
+            let participants: [TournamentParticipant] = try await client
+                .from("tournament_participants")
+                .select()
+                .eq("tournament_id", value: tournamentId.uuidString)
+                .order("current_rank", ascending: true)
+                .execute()
+                .value
+            
+            print("✅ [SupabaseService] 成功獲取錦標賽排名: \(participants.count) 位參賽者")
+            return participants
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取錦標賽排名失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
     // MARK: - User Management Methods
     
     /// 獲取所有用戶

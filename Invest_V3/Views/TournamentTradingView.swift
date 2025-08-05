@@ -146,7 +146,7 @@ struct TournamentTradingView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        Text(formatCurrency(portfolio.totalValue))
+                        Text(formatCurrency(portfolio.totalPortfolioValue))
                             .font(.title2)
                             .fontWeight(.bold)
                     }
@@ -158,14 +158,14 @@ struct TournamentTradingView: View {
                             .foregroundColor(.secondary)
                         
                         HStack(spacing: 4) {
-                            Text(String(format: "%.2f%%", performance.totalReturn))
+                            Text(String(format: "%.2f%%", performance.totalReturnPercentage))
                                 .font(.title3)
                                 .fontWeight(.semibold)
-                                .foregroundColor(performance.totalReturn >= 0 ? .green : .red)
+                                .foregroundColor(performance.totalReturnPercentage >= 0 ? .green : .red)
                             
-                            Image(systemName: performance.totalReturn >= 0 ? "arrow.up.right" : "arrow.down.right")
+                            Image(systemName: performance.totalReturnPercentage >= 0 ? "arrow.up.right" : "arrow.down.right")
                                 .font(.caption)
-                                .foregroundColor(performance.totalReturn >= 0 ? .green : .red)
+                                .foregroundColor(performance.totalReturnPercentage >= 0 ? .green : .red)
                         }
                     }
                     
@@ -177,7 +177,7 @@ struct TournamentTradingView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        Text(String(format: "%.1f%%", (portfolio.cashBalance / portfolio.totalValue) * 100))
+                        Text(String(format: "%.1f%%", portfolio.cashPercentage))
                             .font(.title3)
                             .fontWeight(.medium)
                     }
@@ -360,9 +360,9 @@ struct TournamentHoldingsView: View {
     
     var body: some View {
         if let portfolio = tournamentStateManager.currentTournamentContext?.portfolio,
-           !portfolio.allocations.isEmpty {
-            List(portfolio.allocations) { allocation in
-                TournamentAllocationRow(allocation: allocation)
+           !portfolio.holdings.isEmpty {
+            List(portfolio.holdings) { holding in
+                TournamentHoldingRow(holding: holding)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
             .listStyle(PlainListStyle())
@@ -486,7 +486,7 @@ struct TournamentStockRow: View {
 
 // MARK: - 錦標賽持股行
 struct TournamentHoldingRow: View {
-    let holding: PortfolioHolding
+    let holding: TournamentHolding
     
     var body: some View {
         HStack {
@@ -495,7 +495,7 @@ struct TournamentHoldingRow: View {
                     .font(.headline)
                     .fontWeight(.bold)
                 
-                Text("\(holding.quantity)股")
+                Text("\(Int(holding.shares))股")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

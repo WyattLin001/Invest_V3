@@ -10,6 +10,20 @@ import Foundation
 import SwiftUI
 import Combine
 
+// MARK: - TradeAction 定義
+/// 交易動作類型
+enum TradeAction: String, CaseIterable {
+    case buy = "buy"
+    case sell = "sell"
+    
+    var displayName: String {
+        switch self {
+        case .buy: return "買入"
+        case .sell: return "賣出"
+        }
+    }
+}
+
 /// 錦標賽投資組合持股結構
 struct TournamentHolding: Identifiable, Codable {
     let id: UUID
@@ -221,6 +235,18 @@ class TournamentPortfolioManager: ObservableObject {
             return true
         }
         
+        // 驗證錦標賽狀態
+        guard tournament.status == .enrolling || tournament.status == .ongoing else {
+            print("❌ 錦標賽狀態不允許加入: \(tournament.status)")
+            return false
+        }
+        
+        // 檢查參賽人數限制
+        guard tournament.currentParticipants < tournament.maxParticipants else {
+            print("❌ 錦標賽參賽人數已滿")
+            return false
+        }
+        
         let newPortfolio = TournamentPortfolio(
             id: UUID(),
             tournamentId: tournament.id,
@@ -244,9 +270,9 @@ class TournamentPortfolioManager: ObservableObject {
                 averageHoldingDays: 0,
                 riskScore: 0,
                 diversificationScore: 0,
-                currentRank: 0,
-                previousRank: 0,
-                percentile: 0,
+                currentRank: 999999, // 初始排名設為最後
+                previousRank: 999999,
+                percentile: 100.0,
                 lastUpdated: Date()
             ),
             lastUpdated: Date()
@@ -258,11 +284,33 @@ class TournamentPortfolioManager: ObservableObject {
         // 同步到後端
         await syncPortfolioToBackend(portfolio: newPortfolio)
         
-        print("✅ 錦標賽投資組合初始化成功")
+        print("✅ 錦標賽投資組合初始化成功 - 初始資金: \(tournament.initialBalance)")
         return true
     }
     
-    /// 執行錦標賽交易
+    /// 檢查錦標賽投資組合是否存在
+    func hasPortfolio(for tournamentId: UUID) -> Bool {
+        return tournamentPortfolios[tournamentId] != nil
+    }
+    
+    /// 獲取所有錦標賽投資組合
+    func getAllPortfolios() -> [TournamentPortfolio] {
+        return Array(tournamentPortfolios.values)
+    }
+    
+    /// 獲取用戶參與的所有錦標賽投資組合
+    func getUserPortfolios(userId: UUID) -> [TournamentPortfolio] {
+        return tournamentPortfolios.values.filter { $0.userId == userId }
+    }
+    
+    /// 刪除錦標賽投資組合
+    func removePortfolio(for tournamentId: UUID) {
+        tournamentPortfolios.removeValue(forKey: tournamentId)
+        saveTournamentPortfolios()
+        print("🗑️ [TournamentPortfolioManager] 已刪除錦標賽投資組合: \(tournamentId)")
+    }
+    
+    /// 執行錦標賽交易（包含完整驗證和風險控制）
     func executeTrade(
         tournamentId: UUID,
         symbol: String,
@@ -274,18 +322,144 @@ class TournamentPortfolioManager: ObservableObject {
         
         print("🔄 [TournamentPortfolioManager] 執行錦標賽交易: \(action), \(symbol), 股數: \(shares)")
         
+        // 步驟1：基本驗證
         guard var portfolio = tournamentPortfolios[tournamentId] else {
             print("❌ 找不到錦標賽投資組合")
+            return false
+        }
+        
+        // 步驟2：交易參數驗證
+        guard shares > 0 && price > 0 else {
+            print("❌ 無效的交易參數：股數(\(shares)) 或價格(\(price))")
+            return false
+        }
+        
+        // 步驟3：獲取錦標賽規則並驗證
+        guard let tournament = await getTournament(for: tournamentId) else {
+            print("❌ 無法獲取錦標賽資訊")
+            return false
+        }
+        
+        // 步驟4：錦標賽狀態驗證
+        guard tournament.status == .ongoing else {
+            print("❌ 錦標賽不在進行中，無法執行交易")
+            return false
+        }
+        
+        // 步驟5：風險控制驗證
+        if !await validateTradeRiskLimits(portfolio: portfolio, tournament: tournament, symbol: symbol, action: action, shares: shares, price: price) {
             return false
         }
         
         let totalAmount = shares * price
         let fees = feeCalculator.calculateTradingFees(amount: totalAmount, action: action.toTradeAction())
         
+        // 步驟6：執行交易
+        let success: Bool
         if action == .buy {
-            return await executeBuyTrade(&portfolio, symbol: symbol, stockName: stockName, shares: shares, price: price, fees: fees)
+            success = await executeBuyTrade(&portfolio, symbol: symbol, stockName: stockName, shares: shares, price: price, fees: fees)
         } else {
-            return await executeSellTrade(&portfolio, symbol: symbol, stockName: stockName, shares: shares, price: price, fees: fees)
+            success = await executeSellTrade(&portfolio, symbol: symbol, stockName: stockName, shares: shares, price: price, fees: fees)
+        }
+        
+        // 步驟7：如果交易成功，更新排名
+        if success {
+            await updatePortfolioRanking(for: tournamentId)
+        }
+        
+        return success
+    }
+    
+    /// 驗證交易風險限制
+    private func validateTradeRiskLimits(
+        portfolio: TournamentPortfolio,
+        tournament: Tournament,
+        symbol: String,
+        action: TradingType,
+        shares: Double,
+        price: Double
+    ) async -> Bool {
+        
+        let totalAmount = shares * price
+        
+        if action == .buy {
+            // 買入交易的風險控制
+            let fees = feeCalculator.calculateTradingFees(amount: totalAmount, action: .buy)
+            let totalCost = totalAmount + fees.totalFees
+            
+            // 檢查資金是否足夠
+            guard portfolio.currentBalance >= totalCost else {
+                print("❌ 資金不足 - 需要: \(totalCost), 可用: \(portfolio.currentBalance)")
+                return false
+            }
+            
+            // 檢查單一股票配置限制
+            let currentHolding = portfolio.holdings.first { $0.symbol == symbol }
+            let currentValue = currentHolding?.totalValue ?? 0
+            let newTotalValue = currentValue + totalAmount
+            let portfolioValue = portfolio.totalPortfolioValue
+            let allocationPercentage = (newTotalValue / portfolioValue) * 100
+            
+            if allocationPercentage > tournament.maxSingleStockRate {
+                print("❌ 超過單一股票配置限制: \(allocationPercentage)% > \(tournament.maxSingleStockRate)%")
+                return false
+            }
+            
+            // 檢查最低持股率要求（如果投資後現金比例過高）
+            let newCashBalance = portfolio.currentBalance - totalCost
+            let newCashPercentage = (newCashBalance / portfolioValue) * 100
+            let newStockPercentage = 100 - newCashPercentage
+            
+            if newStockPercentage < tournament.minHoldingRate {
+                print("❌ 未達最低持股率要求: \(newStockPercentage)% < \(tournament.minHoldingRate)%")
+                return false
+            }
+            
+        } else {
+            // 賣出交易的驗證
+            guard let holding = portfolio.holdings.first(where: { $0.symbol == symbol }) else {
+                print("❌ 沒有持有該股票: \(symbol)")
+                return false
+            }
+            
+            guard holding.shares >= shares else {
+                print("❌ 持股不足 - 要賣: \(shares), 持有: \(holding.shares)")
+                return false
+            }
+        }
+        
+        return true
+    }
+    
+    /// 獲取錦標賽資訊（從 TournamentService）
+    private func getTournament(for tournamentId: UUID) async -> Tournament? {
+        do {
+            return try await TournamentService.shared.fetchTournament(id: tournamentId)
+        } catch {
+            print("❌ 獲取錦標賽資訊失敗: \(error)")
+            return nil
+        }
+    }
+    
+    /// 更新投資組合排名
+    private func updatePortfolioRanking(for tournamentId: UUID) async {
+        // 更新績效指標
+        await updatePerformanceMetrics(for: tournamentId)
+        
+        // 從TournamentService獲取最新排名
+        let rankings = await getTournamentRanking(for: tournamentId)
+        
+        if var portfolio = tournamentPortfolios[tournamentId] {
+            if let userRanking = rankings.first(where: { $0.userId == portfolio.userId }) {
+                portfolio.performanceMetrics.previousRank = portfolio.performanceMetrics.currentRank
+                portfolio.performanceMetrics.currentRank = userRanking.currentRank
+                portfolio.performanceMetrics.percentile = Double(userRanking.currentRank) / Double(max(rankings.count, 1)) * 100
+                
+                tournamentPortfolios[tournamentId] = portfolio
+                saveTournamentPortfolios()
+                
+                print("📊 [TournamentPortfolioManager] 排名更新: \(portfolio.performanceMetrics.currentRank)")
+            }
         }
     }
     
@@ -573,10 +747,61 @@ class TournamentPortfolioManager: ObservableObject {
     private func syncPortfolioToBackend(portfolio: TournamentPortfolio) async {
         // 同步到 Supabase 後端
         do {
-            try await supabaseService.syncTournamentPortfolio(portfolio)
+            // 將錦標賽投資組合同步到 tournament_participants 表
+            try await syncToTournamentParticipants(portfolio: portfolio)
+            
+            // 同步持股到 tournament_holdings 表
+            try await syncToTournamentHoldings(portfolio: portfolio)
+            
+            // 同步交易記錄到 tournament_trades 表
+            try await syncToTournamentTrades(portfolio: portfolio)
+            
             print("✅ 錦標賽投資組合同步成功")
         } catch {
             print("❌ 錦標賽投資組合同步失敗: \(error)")
+        }
+    }
+    
+    /// 同步到錦標賽參賽者表
+    private func syncToTournamentParticipants(portfolio: TournamentPortfolio) async throws {
+        let participant = TournamentParticipant(
+            id: portfolio.id,
+            tournamentId: portfolio.tournamentId,
+            userId: portfolio.userId,
+            userName: portfolio.userName,
+            userAvatar: nil,
+            currentRank: portfolio.performanceMetrics.currentRank,
+            previousRank: portfolio.performanceMetrics.previousRank,
+            virtualBalance: portfolio.totalPortfolioValue,
+            initialBalance: portfolio.initialBalance,
+            returnRate: portfolio.totalReturnPercentage / 100.0, // 轉換為小數
+            totalTrades: portfolio.performanceMetrics.totalTrades,
+            winRate: portfolio.performanceMetrics.winRate,
+            maxDrawdown: portfolio.performanceMetrics.maxDrawdownPercentage,
+            sharpeRatio: portfolio.performanceMetrics.sharpeRatio,
+            isEliminated: false,
+            eliminationReason: nil,
+            joinedAt: portfolio.lastUpdated,
+            lastUpdated: Date()
+        )
+        
+        // 呼叫 SupabaseService 的同步方法
+        try await supabaseService.upsertTournamentParticipant(participant)
+    }
+    
+    /// 同步持股資料
+    private func syncToTournamentHoldings(portfolio: TournamentPortfolio) async throws {
+        // 將投資組合的持股同步到資料庫
+        for holding in portfolio.holdings {
+            try await supabaseService.upsertTournamentHolding(holding)
+        }
+    }
+    
+    /// 同步交易記錄
+    private func syncToTournamentTrades(portfolio: TournamentPortfolio) async throws {
+        // 將新的交易記錄同步到資料庫
+        for record in portfolio.tradingRecords {
+            try await supabaseService.insertTournamentTrade(record)
         }
     }
 }

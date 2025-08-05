@@ -43,8 +43,8 @@ struct TournamentContext {
     let tournament: Tournament
     let participant: TournamentParticipant?
     let state: TournamentParticipationState
-    let portfolio: PortfolioData?
-    let performance: PerformanceMetrics?
+    let portfolio: TournamentPortfolio?  // 使用新的錦標賽投資組合
+    let performance: TournamentPerformanceMetrics?  // 使用錦標賽專用績效指標
     let currentRank: Int?
     let joinedAt: Date
     
@@ -76,6 +76,7 @@ class TournamentStateManager: ObservableObject {
     
     // MARK: - Private Properties
     private let tournamentService = TournamentService.shared
+    private let portfolioManager = TournamentPortfolioManager.shared
     private var cancellables = Set<AnyCancellable>()
     
     private init() {
@@ -110,19 +111,16 @@ class TournamentStateManager: ObservableObject {
                     return participant.userId == user.id
                 }
                 
-                // 創建初始投資組合
-                let initialPortfolio = createInitialPortfolio(for: tournament)
-                
-                // 創建初始績效指標
-                let initialPerformance = createInitialPerformance()
+                // 獲取錦標賽專用投資組合（應該已經由TournamentService.joinTournament創建）
+                let tournamentPortfolio = portfolioManager.getPortfolio(for: tournament.id)
                 
                 // 設定錦標賽上下文
                 let context = TournamentContext(
                     tournament: tournament,
                     participant: participant,
                     state: .active,
-                    portfolio: initialPortfolio,
-                    performance: initialPerformance,
+                    portfolio: tournamentPortfolio,
+                    performance: tournamentPortfolio?.performanceMetrics,
                     currentRank: participant?.currentRank,
                     joinedAt: Date()
                 )
@@ -297,11 +295,8 @@ class TournamentStateManager: ObservableObject {
         // 創建參與者資料
         let participant = createParticipantForTournament(tournament)
         
-        // 創建對應的投資組合（根據錦標賽載入或創建）
-        let portfolio = createInitialPortfolio(for: tournament)
-        
-        // 創建績效指標
-        let performance = createInitialPerformance()
+        // 獲取錦標賽專用投資組合
+        let portfolio = portfolioManager.getPortfolio(for: tournament.id)
         
         // 設定錦標賽上下文
         let context = TournamentContext(
@@ -309,7 +304,7 @@ class TournamentStateManager: ObservableObject {
             participant: participant,
             state: .active,
             portfolio: portfolio,
-            performance: performance,
+            performance: portfolio?.performanceMetrics,
             currentRank: nil,
             joinedAt: Date()
         )
@@ -397,35 +392,45 @@ class TournamentStateManager: ObservableObject {
         )
     }
     
-    private func createInitialPortfolio(for tournament: Tournament) -> PortfolioData? {
-        return PortfolioData(
-            totalValue: tournament.initialBalance,
-            cashBalance: tournament.initialBalance,
-            investedAmount: 0.0,
-            dailyChange: 0.0,
-            dailyChangePercentage: 0.0,
-            totalReturnPercentage: 0.0,
-            weeklyReturn: 0.0,
-            monthlyReturn: 0.0,
-            quarterlyReturn: 0.0,
-            allocations: [],
-            lastUpdated: Date()
-        )
-    }
+    // MARK: - 錦標賽上下文管理方法
     
-    private func createInitialPerformance() -> PerformanceMetrics? {
-        return PerformanceMetrics(
-            totalReturn: 0.0,
-            annualizedReturn: 0.0,
-            maxDrawdown: 0.0,
-            sharpeRatio: nil,
-            winRate: 0.0,
-            avgHoldingDays: 0.0,
-            diversificationScore: 0.0,
-            riskScore: 0.0,
-            totalTrades: 0,
-            profitableTrades: 0
-        )
+    /// 刷新當前錦標賽上下文
+    func refreshCurrentTournamentContext() async {
+        guard let context = currentTournamentContext else { return }
+        
+        do {
+            // 獲取最新錦標賽資訊
+            let updatedTournament = try await tournamentService.fetchTournament(id: context.tournament.id)
+            
+            // 獲取最新投資組合
+            let updatedPortfolio = portfolioManager.getPortfolio(for: context.tournament.id)
+            
+            // 獲取最新參與者資訊
+            let participants = try await tournamentService.fetchTournamentParticipants(tournamentId: context.tournament.id)
+            let currentUser = tournamentService.supabaseService.getCurrentUser()
+            let updatedParticipant = participants.first { participant in
+                guard let user = currentUser else { return false }
+                return participant.userId == user.id
+            }
+            
+            // 更新上下文
+            let updatedContext = TournamentContext(
+                tournament: updatedTournament,
+                participant: updatedParticipant,
+                state: context.state,
+                portfolio: updatedPortfolio,
+                performance: updatedPortfolio?.performanceMetrics,
+                currentRank: updatedParticipant?.currentRank,
+                joinedAt: context.joinedAt
+            )
+            
+            currentTournamentContext = updatedContext
+            
+            print("🔄 [TournamentStateManager] 錦標賽上下文已刷新")
+            
+        } catch {
+            print("❌ [TournamentStateManager] 刷新錦標賽上下文失敗: \(error)")
+        }
     }
     
     // MARK: - 持久化方法
