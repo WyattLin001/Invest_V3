@@ -9,7 +9,7 @@ import Foundation
 struct UserProfile: Codable, Identifiable {
     let id: UUID
     let email: String
-    let username: String
+    var username: String
     var displayName: String
     var avatarUrl: String?
     var bio: String?

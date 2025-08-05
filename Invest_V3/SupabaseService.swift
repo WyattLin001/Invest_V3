@@ -6664,5 +6664,91 @@ extension SupabaseService {
         print("🎯 [DEBUG] 權限測試完成")
     }
     #endif
+    
+    // MARK: - User ID Management Methods
+    
+    /// 檢查用戶ID是否可用
+    func checkUserIDAvailability(_ userID: String) async -> Bool {
+        do {
+            try await SupabaseManager.shared.ensureInitializedAsync()
+            
+            // 查詢是否有用戶使用該ID
+            let users: [UserProfileResponse] = try await client
+                .from("user_profiles")
+                .select("id")
+                .eq("username", value: userID)
+                .limit(1)
+                .execute()
+                .value
+            
+            // 如果沒有找到用戶，則ID可用
+            return users.isEmpty
+        } catch {
+            print("❌ [SupabaseService] 檢查用戶ID可用性失敗: \(error)")
+            return false
+        }
+    }
+    
+    /// 更新用戶ID（username）
+    func updateUserID(_ newUserID: String) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        // 獲取當前用戶
+        let currentUser = try await getCurrentUserAsync()
+        
+        // 再次檢查ID是否可用
+        let isAvailable = await checkUserIDAvailability(newUserID)
+        guard isAvailable else {
+            throw SupabaseError.unknown("用戶ID已被使用")
+        }
+        
+        print("🔄 [SupabaseService] 更新用戶ID: \(currentUser.username) -> \(newUserID)")
+        
+        // 更新數據庫中的用戶名
+        try await client
+            .from("user_profiles")
+            .update([
+                "username": newUserID,
+                "updated_at": ISO8601DateFormatter().string(from: Date())
+            ])
+            .eq("id", value: currentUser.id.uuidString)
+            .execute()
+        
+        // 更新本地緩存 - 創建新的UserProfile實例
+        let updatedProfile = UserProfile(
+            id: currentUser.id,
+            email: currentUser.email,
+            username: newUserID, // 使用新的用戶ID
+            displayName: currentUser.displayName,
+            avatarUrl: currentUser.avatarUrl,
+            bio: currentUser.bio,
+            firstName: currentUser.firstName,
+            lastName: currentUser.lastName,
+            fullName: currentUser.fullName,
+            phone: currentUser.phone,
+            website: currentUser.website,
+            location: currentUser.location,
+            socialLinks: currentUser.socialLinks,
+            investmentPhilosophy: currentUser.investmentPhilosophy,
+            specializations: currentUser.specializations,
+            yearsExperience: currentUser.yearsExperience,
+            followerCount: currentUser.followerCount,
+            followingCount: currentUser.followingCount,
+            articleCount: currentUser.articleCount,
+            totalReturnRate: currentUser.totalReturnRate,
+            isVerified: currentUser.isVerified,
+            status: currentUser.status,
+            userId: currentUser.userId,
+            createdAt: currentUser.createdAt,
+            updatedAt: Date() // 更新時間戳
+        )
+        
+        // 保存到 UserDefaults
+        if let encoded = try? JSONEncoder().encode(updatedProfile) {
+            UserDefaults.standard.set(encoded, forKey: "current_user")
+        }
+        
+        print("✅ [SupabaseService] 用戶ID更新成功")
+    }
 }
 

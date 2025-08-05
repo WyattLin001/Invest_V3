@@ -14,7 +14,7 @@ struct StatisticsBanner: View {
     @ObservedObject var statisticsManager: StatisticsManager
     @ObservedObject var portfolioManager: ChatPortfolioManager
     @ObservedObject private var syncService = PortfolioSyncService.shared
-    let currentTournamentName: String
+    @ObservedObject var tournamentStateManager: TournamentStateManager
     
     // MARK: - Properties
     
@@ -81,7 +81,7 @@ struct StatisticsBanner: View {
     
     private var platformTitle: some View {
         VStack(spacing: 4) {
-            Text(currentTournamentName)
+            Text(currentDisplayName)
                 .font(.headline)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
@@ -92,6 +92,17 @@ struct StatisticsBanner: View {
             
             // 更新狀態指示器
             updateStatusIndicator
+        }
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var currentDisplayName: String {
+        if tournamentStateManager.isParticipatingInTournament,
+           let tournamentName = tournamentStateManager.getCurrentTournamentDisplayName() {
+            return tournamentName
+        } else {
+            return "智能投資管理平台"
         }
     }
     
@@ -226,7 +237,7 @@ struct StatisticsBanner: View {
 struct CompactStatisticsBanner: View {
     @ObservedObject var statisticsManager: StatisticsManager
     @ObservedObject var portfolioManager: ChatPortfolioManager
-    let currentTournamentName: String
+    @ObservedObject var tournamentStateManager: TournamentStateManager
     
     var body: some View {
         HStack(spacing: 16) {
@@ -354,13 +365,13 @@ private struct RefreshIndicator: View {
         StatisticsBanner(
             statisticsManager: StatisticsManager.shared,
             portfolioManager: ChatPortfolioManager.shared,
-            currentTournamentName: "2025年度投資錦標賽"
+            tournamentStateManager: TournamentStateManager.shared
         )
         
         CompactStatisticsBanner(
             statisticsManager: StatisticsManager.shared,
             portfolioManager: ChatPortfolioManager.shared,
-            currentTournamentName: "2025年度投資錦標賽"
+            tournamentStateManager: TournamentStateManager.shared
         )
         
         Spacer()

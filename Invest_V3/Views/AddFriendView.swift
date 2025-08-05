@@ -88,8 +88,10 @@ struct AddFriendView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
                 
-                TextField("搜尋用戶名稱或代號...", text: $searchText)
+                TextField("搜尋用戶ID或名稱...", text: $searchText)
                     .textFieldStyle(PlainTextFieldStyle())
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
                     .onSubmit {
                         performSearch()
                     }

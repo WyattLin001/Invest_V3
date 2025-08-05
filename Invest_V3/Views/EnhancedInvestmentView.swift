@@ -103,6 +103,10 @@ struct EnhancedInvestmentView: View {
     @State private var selectedTab: InvestmentTab = .home
     let currentTournamentName: String?
     
+    // Tournament state management
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
+    @State private var showTournamentModeSelector = false
+    
     init(currentTournamentName: String? = nil) {
         self.currentTournamentName = currentTournamentName
     }
@@ -151,7 +155,7 @@ struct EnhancedInvestmentView: View {
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: displayTournamentName
+                            tournamentStateManager: tournamentStateManager
                         )
                         .padding(.top, 8)
                         
@@ -182,7 +186,20 @@ struct EnhancedInvestmentView: View {
                     }
                     
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        tournamentSelectionButton
+                        HStack(spacing: 12) {
+                            // Tournament mode switcher
+                            tournamentModeSwitchButton
+                            
+                            // Original tournament selection for admin
+                            if isAdminUser {
+                                Button(action: {
+                                    showingCreateTournament = true
+                                }) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .foregroundColor(.brandOrange)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -204,7 +221,7 @@ struct EnhancedInvestmentView: View {
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: displayTournamentName
+                            tournamentStateManager: tournamentStateManager
                         )
                         .padding(.top, 8)
                         
@@ -246,7 +263,7 @@ struct EnhancedInvestmentView: View {
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: displayTournamentName
+                            tournamentStateManager: tournamentStateManager
                         )
                         .padding(.top, 8)
                         
@@ -291,7 +308,7 @@ struct EnhancedInvestmentView: View {
                         StatisticsBanner(
                             statisticsManager: statisticsManager,
                             portfolioManager: ChatPortfolioManager.shared,
-                            currentTournamentName: displayTournamentName
+                            tournamentStateManager: tournamentStateManager
                         )
                         .padding(.top, 8)
                         
@@ -353,6 +370,10 @@ struct EnhancedInvestmentView: View {
             CreateTournamentView()
                 .environmentObject(themeManager)
         }
+        .sheet(isPresented: $showTournamentModeSelector) {
+            TournamentModeSelector()
+                .environmentObject(tournamentStateManager)
+        }
         .onAppear {
             initializeDefaultTournament()
             loadSupabaseData()
@@ -393,6 +414,39 @@ struct EnhancedInvestmentView: View {
                         .foregroundColor(.brandOrange)
                 }
             }
+        }
+    }
+    
+    // MARK: - Tournament Mode Switch Button
+    private var tournamentModeSwitchButton: some View {
+        Button(action: {
+            showTournamentModeSelector = true
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: "trophy.fill")
+                    .font(.caption)
+                    .foregroundColor(.brandGreen)
+                
+                Text(currentModeDisplayText)
+                    .font(.caption)
+                    .foregroundColor(.brandGreen)
+                
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+                    .foregroundColor(.brandGreen)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.brandGreen.opacity(0.1))
+            .cornerRadius(6)
+        }
+    }
+    
+    private var currentModeDisplayText: String {
+        if tournamentStateManager.isParticipatingInTournament {
+            return "錦標賽"
+        } else {
+            return "一般模式"
         }
     }
     

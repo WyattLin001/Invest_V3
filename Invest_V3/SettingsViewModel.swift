@@ -23,8 +23,13 @@ class SettingsViewModel: ObservableObject {
     @Published var investmentNotificationsEnabled = true
     @Published var isSubscribed = false // 新增訂閱狀態
     
-    // 用戶 ID
-    let userId = "USER_\(UUID().uuidString.prefix(8))"
+    // 用戶 ID - 從當前用戶獲取或使用預設值
+    var userId: String {
+        if let currentUser = supabaseService.getCurrentUser() {
+            return currentUser.username
+        }
+        return "USER_\(UUID().uuidString.prefix(8))"
+    }
     
     private let supabaseService = SupabaseService.shared
     

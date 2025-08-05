@@ -16,7 +16,6 @@ import PhotosUI
 struct SettingsView: View {
     @EnvironmentObject private var authService: AuthenticationService
     @StateObject private var viewModel = SettingsViewModel()
-    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     
     @State private var showImagePicker = false
     @State private var showQRCodeFullScreen = false
@@ -24,7 +23,7 @@ struct SettingsView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showLogoutAlert = false
     @State private var nicknameInput = ""
-    @State private var showTournamentSelector = false
+    @State private var showEditUserID = false
 
     var body: some View {
         NavigationView {
@@ -50,6 +49,8 @@ struct SettingsView: View {
                 // 可滑動的內容區域
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: DesignTokens.spacingLG) {
+                        // 錦標賽模式切換已移至投資總覽頁面
+                        
                         if authService.isAuthenticated {
                             // 個人資料區
                             profileSection
@@ -118,6 +119,16 @@ struct SettingsView: View {
             if let qrImage = viewModel.qrCodeImage {
                  FullScreenQRCodeView(qrCodeImage: qrImage, userId: viewModel.userId)
             }
+        }
+        .sheet(isPresented: $showEditUserID) {
+            EditUserIDView(
+                currentUserID: getCurrentUserName(),
+                onSave: { newUserID in
+                    Task {
+                        await updateUserID(newUserID)
+                    }
+                }
+            )
         }
         .onAppear {
             Task {
@@ -229,10 +240,20 @@ struct SettingsView: View {
                     Text("用戶 ID")
                         .font(.caption)
                         .foregroundColor(.gray600)
-                    Text(viewModel.userId)
-                        .font(.bodyText) // 使用自定義字體
-                        .fontWeight(.medium)
-                        .foregroundColor(.gray900)
+                    
+                    Button(action: { showEditUserID = true }) {
+                        HStack(spacing: 4) {
+                            Text(getCurrentUserName())
+                                .font(.bodyText) // 使用自定義字體
+                                .fontWeight(.medium)
+                                .foregroundColor(.gray900)
+                            
+                            Image(systemName: "pencil")
+                                .font(.caption)
+                                .foregroundColor(.brandGreen)
+                        }
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
                 
                 Spacer()
@@ -459,12 +480,6 @@ struct SettingsView: View {
                 Divider()
                     .dividerStyle()
                 
-                // 錦標賽模式切換
-                tournamentModeRow
-                
-                Divider()
-                    .dividerStyle()
-                
                 // 其他設定項目預留位置
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -650,62 +665,6 @@ struct SettingsView: View {
         .accessibilityHint("點擊後會要求確認是否登出帳戶")
     }
     
-    // MARK: - 錦標賽模式切換
-    private var tournamentModeRow: some View {
-        VStack(spacing: DesignTokens.spacingSM) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("錦標賽模式")
-                        .font(.bodyText)
-                        .adaptiveTextColor()
-                    Text(tournamentModeDescription)
-                        .font(.caption)
-                        .adaptiveTextColor(primary: false)
-                }
-                Spacer()
-                
-                Button(action: {
-                    showTournamentSelector = true
-                }) {
-                    HStack(spacing: 4) {
-                        Text(currentModeText)
-                            .font(.caption)
-                            .foregroundColor(.brandGreen)
-                        
-                        Image(systemName: "chevron.down")
-                            .font(.caption2)
-                            .foregroundColor(.brandGreen)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.brandGreen.opacity(0.1))
-                    .cornerRadius(6)
-                }
-            }
-            .padding(.vertical, DesignTokens.spacingMD)
-        }
-        .sheet(isPresented: $showTournamentSelector) {
-            TournamentModeSelector()
-                .environmentObject(tournamentStateManager)
-        }
-    }
-    
-    private var currentModeText: String {
-        if tournamentStateManager.isParticipatingInTournament {
-            return tournamentStateManager.getCurrentTournamentDisplayName() ?? "錦標賽模式"
-        } else {
-            return "一般模式"
-        }
-    }
-    
-    private var tournamentModeDescription: String {
-        if tournamentStateManager.isParticipatingInTournament {
-            return "目前使用錦標賽投資組合"
-        } else {
-            return "選擇投資模式：一般交易或錦標賽"
-        }
-    }
-    
     // MARK: - 輔助方法
     private func settingRow(title: String, isOn: Binding<Bool>) -> some View {
         Toggle(title, isOn: isOn)
@@ -745,6 +704,30 @@ struct SettingsView: View {
         }
         .accessibilityLabel(hasChevron ? "\(title)，點擊查看詳情" : "\(title): \(value)")
         .accessibilityHint(hasChevron ? "點擊查看\(title)的詳細資訊" : "")
+    }
+    
+    // MARK: - User ID Management
+    private func getCurrentUserName() -> String {
+        if let currentUser = SupabaseService.shared.getCurrentUser() {
+            return currentUser.username
+        }
+        return viewModel.userId
+    }
+    
+    private func updateUserID(_ newUserID: String) async {
+        do {
+            try await SupabaseService.shared.updateUserID(newUserID)
+            
+            // 更新成功後重新載入用戶資料
+            await MainActor.run {
+                Task {
+                    await viewModel.loadData()
+                }
+            }
+        } catch {
+            // 處理錯誤
+            print("❌ 更新用戶ID失敗: \(error.localizedDescription)")
+        }
     }
 }
 
