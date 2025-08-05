@@ -13,8 +13,13 @@ class SettingsViewModel: ObservableObject {
     @Published var qrCodeImage: UIImage?
     @Published var profileImage: UIImage?
     @Published var nickname = "投資新手"
-    // 暫時移除 friends 屬性以避免模型衝突 - Friend.swift 和 FriendModels.swift 之間的名稱衝突
-    // @Published var friends: [Friend] = []
+    
+    // 頭像相關狀態
+    @Published var isUploadingAvatar = false
+    @Published var uploadProgress: Double = 0.0
+    @Published var isLoadingAvatar = false
+    // 好友系統
+    @Published var friends: [UserProfile] = []
     
     // 設定選項
     @Published var notificationsEnabled = true
@@ -32,6 +37,7 @@ class SettingsViewModel: ObservableObject {
     }
     
     private let supabaseService = SupabaseService.shared
+    private let avatarCacheService = AvatarCacheService.shared
     
     // MARK: - 初始化資料
     func loadData() async {
@@ -46,6 +52,9 @@ class SettingsViewModel: ObservableObject {
             // 載入通知設定
             await loadNotificationSettings()
             
+            // 載入好友列表
+            await loadFriends()
+            
         } catch {
             errorMessage = "載入資料失敗: \(error.localizedDescription)"
             print("SettingsViewModel loadData error: \(error)")
@@ -56,18 +65,62 @@ class SettingsViewModel: ObservableObject {
     
     // MARK: - 載入用戶資料
     private func loadUserProfile() async throws {
-        // 模擬資料，實際應該從 Supabase 獲取
-        self.userProfile = UserProfile(
-            id: UUID(),
-            email: "user@example.com",
-            username: "investor123",
-            displayName: "投資達人",
-            avatarUrl: nil,
-            bio: "熱愛投資的新手",
-            userId: UUID().uuidString,
-            createdAt: Date(),
-            updatedAt: Date()
-        )
+        do {
+            // 獲取當前用戶
+            guard let currentUser = supabaseService.getCurrentUser() else {
+                print("⚠️ [SettingsViewModel] 用戶未登入，使用預設資料")
+                // 使用預設資料作為備選
+                self.userProfile = UserProfile(
+                    id: UUID(),
+                    email: "user@example.com",
+                    username: "investor123",
+                    displayName: "投資達人",
+                    avatarUrl: nil,
+                    bio: "熱愛投資的新手",
+                    userId: UUID().uuidString,
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+                return
+            }
+            
+            // 從 Supabase 獲取完整的用戶資料
+            let userProfileService = UserProfileService.shared
+            guard let userId = UUID(uuidString: currentUser.userId) else {
+                throw NSError(domain: "SettingsViewModel", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid userId format"])
+            }
+            let fetchedProfile = try await userProfileService.getUserProfile(id: userId)
+            
+            await MainActor.run {
+                self.userProfile = fetchedProfile
+                
+                // 如果有頭像URL，嘗試載入頭像
+                if let avatarUrlString = fetchedProfile.avatarUrl,
+                   let avatarUrl = URL(string: avatarUrlString) {
+                    Task {
+                        await self.loadAvatarFromURL(avatarUrl)
+                    }
+                }
+            }
+            
+            print("✅ [SettingsViewModel] 成功載入用戶資料: \(fetchedProfile.displayName)")
+            
+        } catch {
+            print("⚠️ [SettingsViewModel] 載入用戶資料失敗: \(error)")
+            // 使用預設資料作為備選
+            self.userProfile = UserProfile(
+                id: UUID(),
+                email: "user@example.com",
+                username: "investor123",
+                displayName: "投資達人",
+                avatarUrl: nil,
+                bio: "熱愛投資的新手",
+                userId: UUID().uuidString,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            throw error
+        }
     }
     
     // MARK: - 生成 QR Code
@@ -91,24 +144,56 @@ class SettingsViewModel: ObservableObject {
         self.qrCodeImage = UIImage(cgImage: cgImage)
     }
     
+    // MARK: - 從URL載入頭像
+    private func loadAvatarFromURL(_ url: URL) async {
+        await MainActor.run {
+            self.isLoadingAvatar = true
+        }
+        
+        // 使用快取服務載入頭像
+        avatarCacheService.loadAvatar(from: url) { [weak self] image in
+            DispatchQueue.main.async {
+                self?.profileImage = image
+                self?.isLoadingAvatar = false
+                
+                if image != nil {
+                    print("✅ [SettingsViewModel] 成功載入頭像（透過快取服務）")
+                } else {
+                    print("❌ [SettingsViewModel] 載入頭像失敗")
+                }
+            }
+        }
+    }
+    
     // MARK: - 處理選中的圖片
     func processSelectedImage(_ image: UIImage) async {
+        await MainActor.run {
+            self.isUploadingAvatar = true
+            self.uploadProgress = 0.0
+            self.errorMessage = nil
+        }
+        
         do {
             // 驗證圖片
+            await MainActor.run { self.uploadProgress = 0.1 }
             let validationResult = ImageValidator.validateImage(image)
             guard validationResult.isValid else {
                 await MainActor.run {
                     self.errorMessage = validationResult.errorMessage
+                    self.isUploadingAvatar = false
+                    self.uploadProgress = 0.0
                 }
                 return
             }
             
             // 裁切並調整圖片大小到 512x512
+            await MainActor.run { self.uploadProgress = 0.3 }
             let processedImage = await resizeAndCropImage(image, to: CGSize(width: 512, height: 512))
             
             // 更新 UI
             await MainActor.run {
                 self.profileImage = processedImage
+                self.uploadProgress = 0.5
             }
             
             // 上傳到後端
@@ -117,6 +202,8 @@ class SettingsViewModel: ObservableObject {
         } catch {
             await MainActor.run {
                 self.errorMessage = "處理圖片時發生錯誤: \(error.localizedDescription)"
+                self.isUploadingAvatar = false
+                self.uploadProgress = 0.0
                 print("❌ [SettingsViewModel] 圖片處理失敗: \(error)")
             }
         }
@@ -197,8 +284,13 @@ class SettingsViewModel: ObservableObject {
     func updateAvatar(image: UIImage) async {
         do {
             // 轉換圖片為 JPEG 格式 (品質 0.8)
+            await MainActor.run { self.uploadProgress = 0.6 }
             guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-                errorMessage = "無法轉換圖片格式"
+                await MainActor.run {
+                    self.errorMessage = "無法轉換圖片格式"
+                    self.isUploadingAvatar = false
+                    self.uploadProgress = 0.0
+                }
                 return
             }
             
@@ -206,18 +298,35 @@ class SettingsViewModel: ObservableObject {
             print("✅ [SettingsViewModel] 圖片尺寸: \(image.size)")
             
             // 實際上傳到 Supabase Storage
+            await MainActor.run { self.uploadProgress = 0.8 }
             do {
                 let fileName = "avatar_\(userId)_\(Date().timeIntervalSince1970).jpg"
                 let avatarUrl = try await supabaseService.uploadAvatar(imageData, fileName: fileName)
+                
+                await MainActor.run { self.uploadProgress = 0.9 }
                 await updateUserProfileAvatar(avatarUrl: avatarUrl)
+                
+                await MainActor.run {
+                    self.uploadProgress = 1.0
+                    self.isUploadingAvatar = false
+                }
+                
                 print("✅ [SettingsViewModel] 頭像上傳成功: \(avatarUrl)")
             } catch {
                 print("⚠️ [SettingsViewModel] 頭像上傳失敗，僅保存本地: \(error)")
-                // 上傳失敗時仍保留本地圖片
+                await MainActor.run {
+                    self.errorMessage = "頭像上傳失敗: \(error.localizedDescription)"
+                    self.isUploadingAvatar = false
+                    self.uploadProgress = 0.0
+                }
             }
             
         } catch {
-            errorMessage = "更新頭像失敗: \(error.localizedDescription)"
+            await MainActor.run {
+                self.errorMessage = "更新頭像失敗: \(error.localizedDescription)"
+                self.isUploadingAvatar = false
+                self.uploadProgress = 0.0
+            }
             print("❌ [SettingsViewModel] 頭像上傳失敗: \(error)")
         }
     }
@@ -225,16 +334,35 @@ class SettingsViewModel: ObservableObject {
     // MARK: - 更新用戶頭像URL
     private func updateUserProfileAvatar(avatarUrl: String) async {
         do {
-            // 更新本地用戶資料
-            self.userProfile?.avatarUrl = avatarUrl
+            // 確保有用戶資料
+            guard let currentProfile = userProfile else {
+                await MainActor.run {
+                    self.errorMessage = "用戶資料不存在，無法更新頭像"
+                }
+                return
+            }
             
-            // TODO: 實際更新到 Supabase user_profiles 表
-            // try await supabaseService.updateUserProfile(avatarUrl: avatarUrl)
+            // 實際更新到 Supabase user_profiles 表
+            let userProfileService = UserProfileService.shared
+            let updatedProfile = try await userProfileService.updateUserProfile(
+                id: currentProfile.id,
+                username: nil,
+                displayName: nil,
+                avatarUrl: avatarUrl
+            )
+            
+            // 更新本地用戶資料
+            await MainActor.run {
+                self.userProfile = updatedProfile
+            }
             
             print("✅ [SettingsViewModel] 用戶頭像URL已更新: \(avatarUrl)")
+            print("✅ [SettingsViewModel] 後端同步成功")
             
         } catch {
-            errorMessage = "更新用戶頭像失敗: \(error.localizedDescription)"
+            await MainActor.run {
+                self.errorMessage = "更新用戶頭像失敗: \(error.localizedDescription)"
+            }
             print("❌ [SettingsViewModel] 頭像URL更新失敗: \(error)")
         }
     }
@@ -421,6 +549,29 @@ class SettingsViewModel: ObservableObject {
             // 使用預設值
             print("ℹ️ [SettingsViewModel] 使用預設通知設定")
         }
+    }
+    
+    // MARK: - 好友系統方法
+    
+    /// 載入好友列表
+    private func loadFriends() async {
+        do {
+            let friendsList = try await supabaseService.fetchFriendList()
+            await MainActor.run {
+                self.friends = friendsList
+            }
+            print("✅ [SettingsViewModel] 已載入 \(friendsList.count) 位好友")
+        } catch {
+            print("❌ [SettingsViewModel] 載入好友列表失敗: \(error)")
+            await MainActor.run {
+                self.friends = []
+            }
+        }
+    }
+    
+    /// 刷新好友列表
+    func refreshFriends() async {
+        await loadFriends()
     }
     
 } 

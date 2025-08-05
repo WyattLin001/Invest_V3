@@ -33,6 +33,12 @@ class WalletViewModel: ObservableObject {
     }
     @Published var gifts: [Gift] = [] // 禮物功能已刪除，改為抖內功能
     
+    // 分頁相關屬性
+    @Published var currentPage = 0
+    @Published var hasMoreTransactions = false
+    @Published var isLoadingMore = false
+    private let itemsPerPage = 10
+    
     private let supabaseService = SupabaseService.shared
     
     init() {
@@ -96,10 +102,21 @@ class WalletViewModel: ObservableObject {
             // 充值 10000 台幣 = 100 代幣 (10000 ÷ 100)
             let tokens = 100
             try await supabaseService.updateWalletBalance(delta: tokens)
+            
+            // 創建充值交易記錄
+            try await supabaseService.createWalletTransaction(
+                type: WalletTransactionType.deposit.rawValue,
+                amount: Double(tokens), // 存儲代幣數量作為正數
+                description: "充值 NT$10,000",
+                paymentMethod: "test_topup"
+            )
+            
+            // 重新載入餘額和交易記錄
             await loadBalance()
+            await loadTransactions()
             
             await MainActor.run {
-                print("✅ [WalletViewModel] 充值成功: 支付 10000 台幣，獲得 \(tokens) 代幣")
+                print("✅ [WalletViewModel] 充值成功: 支付 NT$10,000，獲得 \(tokens) 代幣")
                 
                 // 發送通知給其他頁面更新餘額
                 NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
@@ -120,11 +137,20 @@ class WalletViewModel: ObservableObject {
             // 以代幣數量更新 Supabase 餘額
             try await supabaseService.updateWalletBalance(delta: tokens)
             
-            // 重新載入餘額以確保同步
+            // 創建充值交易記錄
+            try await supabaseService.createWalletTransaction(
+                type: WalletTransactionType.deposit.rawValue,
+                amount: Double(tokens), // 存儲代幣數量作為正數
+                description: "充值 NT$\(Int(amountNTD))",
+                paymentMethod: "test_topup"
+            )
+            
+            // 重新載入餘額和交易記錄
             await loadBalance()
+            await loadTransactions()
             
             await MainActor.run {
-                print("✅ [WalletViewModel] 充值成功: 支付 \(amountNTD) 台幣，獲得 \(tokens) 代幣")
+                print("✅ [WalletViewModel] 充值成功: 支付 NT$\(Int(amountNTD))，獲得 \(tokens) 代幣")
             }
             
             // 發送通知給其他頁面更新餘額
@@ -140,13 +166,60 @@ class WalletViewModel: ObservableObject {
     // MARK: - 載入交易記錄
     private func loadTransactions() async {
         do {
-            // 從 Supabase 載入真實的交易記錄（最近5筆）
-            let fetchedTransactions = try await supabaseService.fetchUserTransactions(limit: 5)
-            self.transactions = fetchedTransactions
-            // 交易記錄載入成功
+            // 重置分頁狀態
+            currentPage = 0
+            
+            // 從 Supabase 載入真實的交易記錄（第一頁，10筆）
+            let fetchedTransactions = try await supabaseService.fetchUserTransactions(
+                limit: itemsPerPage, 
+                offset: 0
+            )
+            
+            await MainActor.run {
+                self.transactions = fetchedTransactions
+                self.hasMoreTransactions = fetchedTransactions.count == itemsPerPage
+            }
+            
+            print("✅ [WalletViewModel] 成功載入 \(fetchedTransactions.count) 筆交易記錄")
         } catch {
-            // 載入失敗時顯示空列表
-            self.transactions = []
+            await MainActor.run {
+                self.transactions = []
+                self.hasMoreTransactions = false
+            }
+            print("❌ [WalletViewModel] 載入交易記錄失敗: \(error)")
+        }
+    }
+    
+    // MARK: - 載入更多交易記錄
+    func loadMoreTransactions() async {
+        guard !isLoadingMore && hasMoreTransactions else { return }
+        
+        await MainActor.run {
+            self.isLoadingMore = true
+        }
+        
+        do {
+            let nextPage = currentPage + 1
+            let offset = nextPage * itemsPerPage
+            
+            let moreTransactions = try await supabaseService.fetchUserTransactions(
+                limit: itemsPerPage,
+                offset: offset
+            )
+            
+            await MainActor.run {
+                self.transactions.append(contentsOf: moreTransactions)
+                self.currentPage = nextPage
+                self.hasMoreTransactions = moreTransactions.count == itemsPerPage
+                self.isLoadingMore = false
+            }
+            
+            print("✅ [WalletViewModel] 載入更多交易記錄：第 \(nextPage + 1) 頁，\(moreTransactions.count) 筆")
+        } catch {
+            await MainActor.run {
+                self.isLoadingMore = false
+            }
+            print("❌ [WalletViewModel] 載入更多交易記錄失敗: \(error)")
         }
     }
     

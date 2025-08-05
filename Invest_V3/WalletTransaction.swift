@@ -59,7 +59,8 @@ struct WalletTransaction: Identifiable, Codable {
     var formattedAmount: String {
         let absoluteAmount = abs(amount)
         let sign = amount >= 0 ? "+" : "-"
-        return "\(sign)\(TokenSystem.formatTokens(Double(absoluteAmount).ntdToTokens()))"
+        // amount 已經是代幣數量，不需要再次轉換
+        return "\(sign)\(TokenSystem.formatTokens(Double(absoluteAmount)))"
     }
     
     var formattedDate: String {

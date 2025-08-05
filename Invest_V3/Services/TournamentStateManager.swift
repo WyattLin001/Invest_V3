@@ -197,7 +197,7 @@ class TournamentStateManager: ObservableObject {
     }
     
     /// 更新投資組合
-    func updatePortfolio(_ portfolio: PortfolioData?) {
+    func updatePortfolio(_ portfolio: TournamentPortfolio?) {
         guard var context = currentTournamentContext else { return }
         
         // 更新上下文中的投資組合
@@ -206,7 +206,7 @@ class TournamentStateManager: ObservableObject {
             participant: context.participant,
             state: context.state,
             portfolio: portfolio,
-            performance: context.performance,
+            performance: portfolio?.performanceMetrics,
             currentRank: context.currentRank,
             joinedAt: context.joinedAt
         )
@@ -215,12 +215,12 @@ class TournamentStateManager: ObservableObject {
         persistTournamentState()
         
         if let portfolio = portfolio {
-            print("📊 [TournamentStateManager] 投資組合已更新，總價值: \(portfolio.totalValue)")
+            print("📊 [TournamentStateManager] 投資組合已更新，總價值: \(portfolio.totalPortfolioValue)")
         }
     }
     
     /// 更新績效指標
-    func updatePerformance(_ performance: PerformanceMetrics?) {
+    func updatePerformance(_ performance: TournamentPerformanceMetrics?) {
         guard var context = currentTournamentContext else { return }
         
         // 更新上下文中的績效指標
@@ -238,7 +238,7 @@ class TournamentStateManager: ObservableObject {
         persistTournamentState()
         
         if let performance = performance {
-            print("📈 [TournamentStateManager] 績效指標已更新，總回報: \(performance.totalReturn)%")
+            print("📈 [TournamentStateManager] 績效指標已更新，總回報: \(performance.totalReturnPercentage)%")
         }
     }
     
@@ -407,7 +407,7 @@ class TournamentStateManager: ObservableObject {
             
             // 獲取最新參與者資訊
             let participants = try await tournamentService.fetchTournamentParticipants(tournamentId: context.tournament.id)
-            let currentUser = tournamentService.supabaseService.getCurrentUser()
+            let currentUser = SupabaseService.shared.getCurrentUser()
             let updatedParticipant = participants.first { participant in
                 guard let user = currentUser else { return false }
                 return participant.userId == user.id

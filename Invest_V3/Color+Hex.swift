@@ -248,6 +248,22 @@ extension Color {
             }
         })
     }
+    
+    /// 將 Color 轉換為 hex 字符串
+    func toHex() -> String {
+        guard let uiColor = UIColor(self).cgColor.components else {
+            return "#000000"
+        }
+        
+        let r = uiColor[0]
+        let g = uiColor[1] 
+        let b = uiColor[2]
+        
+        return String(format: "#%02X%02X%02X", 
+                     Int(r * 255), 
+                     Int(g * 255), 
+                     Int(b * 255))
+    }
 }
 
 // MARK: - Design System Constants

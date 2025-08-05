@@ -10,9 +10,9 @@ import Foundation
 import SwiftUI
 import Combine
 
-// MARK: - TradeAction 定義
-/// 交易動作類型
-enum TradeAction: String, CaseIterable {
+// MARK: - TournamentTradeAction 定義
+/// 錦標賽交易動作類型
+enum TournamentTradeAction: String, CaseIterable {
     case buy = "buy"
     case sell = "sell"
     
@@ -80,6 +80,8 @@ struct TournamentPortfolio: Identifiable, Codable {
     var tradingRecords: [TournamentTradingRecord]
     var performanceMetrics: TournamentPerformanceMetrics
     var lastUpdated: Date
+    // 添加歷史數據追蹤
+    var dailyValueHistory: [DateValue] = []
     
     // 計算屬性
     var totalPortfolioValue: Double {
@@ -110,6 +112,84 @@ struct TournamentPortfolio: Identifiable, Codable {
         return (holdingsValue / totalPortfolioValue) * 100
     }
     
+    // 添加兼容性屬性
+    var totalValue: Double {
+        return totalPortfolioValue
+    }
+    
+    var allocations: [AssetAllocation] {
+        return holdings.map { holding in
+            AssetAllocation(
+                symbol: holding.symbol,
+                name: holding.name,
+                percentage: holding.allocationPercentage,
+                value: holding.totalValue,
+                investedAmount: holding.totalCost,
+                color: StockColorPalette.colorForStock(symbol: holding.symbol).toHex()
+            )
+        }
+    }
+    
+    // 添加 PortfolioData 兼容性屬性
+    
+    /// 日變化金額（基於歷史數據）
+    var dailyChange: Double {
+        return getPortfolioValueChange(daysAgo: 1)
+    }
+    
+    /// 日變化百分比
+    var dailyChangePercentage: Double {
+        let yesterdayValue = getPortfolioValueDaysAgo(1)
+        guard yesterdayValue > 0 else { return 0 }
+        return ((totalPortfolioValue - yesterdayValue) / yesterdayValue) * 100
+    }
+    
+    /// 週回報率
+    var weeklyReturn: Double {
+        let weekAgoValue = getPortfolioValueDaysAgo(7)
+        guard weekAgoValue > 0 else { return 0 }
+        return ((totalPortfolioValue - weekAgoValue) / weekAgoValue) * 100
+    }
+    
+    /// 月回報率
+    var monthlyReturn: Double {
+        let monthAgoValue = getPortfolioValueDaysAgo(30)
+        guard monthAgoValue > 0 else { return 0 }
+        return ((totalPortfolioValue - monthAgoValue) / monthAgoValue) * 100
+    }
+    
+    /// 季回報率
+    var quarterlyReturn: Double {
+        let quarterAgoValue = getPortfolioValueDaysAgo(90)
+        guard quarterAgoValue > 0 else { return 0 }
+        return ((totalPortfolioValue - quarterAgoValue) / quarterAgoValue) * 100
+    }
+    
+    /// 投資金額（與PortfolioData兼容）
+    var investedAmount: Double {
+        return totalInvested
+    }
+    
+    // MARK: - 歷史數據計算輔助方法
+    
+    /// 獲取指定天數前的投資組合價值
+    private func getPortfolioValueDaysAgo(_ days: Int) -> Double {
+        let targetDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        
+        // 找到最接近的歷史記錄
+        let closestRecord = dailyValueHistory
+            .sorted { abs($0.date.timeIntervalSince(targetDate)) < abs($1.date.timeIntervalSince(targetDate)) }
+            .first
+        
+        return closestRecord?.value ?? initialBalance
+    }
+    
+    /// 獲取指定天數前的價值變化
+    private func getPortfolioValueChange(daysAgo: Int) -> Double {
+        let pastValue = getPortfolioValueDaysAgo(daysAgo)
+        return totalPortfolioValue - pastValue
+    }
+    
     enum CodingKeys: String, CodingKey {
         case id, holdings, tradingRecords, performanceMetrics
         case tournamentId = "tournament_id"
@@ -119,6 +199,7 @@ struct TournamentPortfolio: Identifiable, Codable {
         case currentBalance = "current_balance"
         case totalInvested = "total_invested"
         case lastUpdated = "last_updated"
+        case dailyValueHistory = "daily_value_history"
     }
 }
 
@@ -247,7 +328,7 @@ class TournamentPortfolioManager: ObservableObject {
             return false
         }
         
-        let newPortfolio = TournamentPortfolio(
+        var newPortfolio = TournamentPortfolio(
             id: UUID(),
             tournamentId: tournament.id,
             userId: userId,
@@ -277,6 +358,10 @@ class TournamentPortfolioManager: ObservableObject {
             ),
             lastUpdated: Date()
         )
+        
+        // 初始化歷史數據
+        let today = Calendar.current.startOfDay(for: Date())
+        newPortfolio.dailyValueHistory = [DateValue(date: today, value: tournament.initialBalance)]
         
         tournamentPortfolios[tournament.id] = newPortfolio
         saveTournamentPortfolios()
@@ -347,7 +432,7 @@ class TournamentPortfolioManager: ObservableObject {
         }
         
         // 步驟5：風險控制驗證
-        if !await validateTradeRiskLimits(portfolio: portfolio, tournament: tournament, symbol: symbol, action: action, shares: shares, price: price) {
+        if !(await validateTradeRiskLimits(portfolio: portfolio, tournament: tournament, symbol: symbol, action: action, shares: shares, price: price)) {
             return false
         }
         
@@ -597,6 +682,9 @@ class TournamentPortfolioManager: ObservableObject {
         portfolio.tradingRecords.append(tradingRecord)
         portfolio.lastUpdated = Date()
         
+        // 更新歷史數據
+        await updateDailyValueHistory(for: &portfolio)
+        
         // 更新投資組合
         tournamentPortfolios[portfolio.tournamentId] = portfolio
         saveTournamentPortfolios()
@@ -676,6 +764,9 @@ class TournamentPortfolioManager: ObservableObject {
         portfolio.tradingRecords.append(tradingRecord)
         portfolio.lastUpdated = Date()
         
+        // 更新歷史數據
+        await updateDailyValueHistory(for: &portfolio)
+        
         // 更新投資組合
         tournamentPortfolios[portfolio.tournamentId] = portfolio
         saveTournamentPortfolios()
@@ -685,6 +776,34 @@ class TournamentPortfolioManager: ObservableObject {
         
         print("✅ 賣出交易執行成功: \(symbol), \(shares) 股，實現損益: \(realizedGainLoss)")
         return true
+    }
+    
+    // MARK: - History Management
+    
+    /// 更新每日價值歷史記錄
+    private func updateDailyValueHistory(for portfolio: inout TournamentPortfolio) async {
+        let today = Calendar.current.startOfDay(for: Date())
+        let currentValue = portfolio.totalPortfolioValue
+        
+        // 檢查今天是否已有記錄
+        if let existingIndex = portfolio.dailyValueHistory.firstIndex(where: { 
+            Calendar.current.isDate($0.date, inSameDayAs: today) 
+        }) {
+            // 更新今天的記錄
+            portfolio.dailyValueHistory[existingIndex] = DateValue(date: today, value: currentValue)
+        } else {
+            // 添加新的記錄
+            portfolio.dailyValueHistory.append(DateValue(date: today, value: currentValue))
+        }
+        
+        // 保留最近90天的數據（避免數據過多）
+        let ninetyDaysAgo = Calendar.current.date(byAdding: .day, value: -90, to: Date()) ?? Date()
+        portfolio.dailyValueHistory = portfolio.dailyValueHistory.filter { $0.date >= ninetyDaysAgo }
+        
+        // 按日期排序
+        portfolio.dailyValueHistory.sort { $0.date < $1.date }
+        
+        print("📊 [TournamentPortfolioManager] 更新歷史數據: \(currentValue)")
     }
     
     // MARK: - Analytics Methods
@@ -814,11 +933,70 @@ extension TradingType {
     func toTradeAction() -> TradeAction {
         switch self {
         case .buy:
-            return .buy
+            return TradeAction.buy
         case .sell:
-            return .sell
+            return TradeAction.sell
         }
     }
+}
+
+// MARK: - Supporting Types
+
+/// 日期價值記錄（用於歷史數據追蹤）
+struct DateValue: Identifiable, Codable {
+    let id = UUID()
+    let date: Date
+    let value: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case date, value
+    }
+}
+
+/// 錦標賽交易時間設定
+struct TradingHours: Codable {
+    let start: String
+    let end: String
+    let timezone: String
+    
+    init(start: String, end: String, timezone: String = "Asia/Taipei") {
+        self.start = start
+        self.end = end
+        self.timezone = timezone
+    }
+}
+
+/// 錦標賽規則設定
+struct TournamentRules: Codable {
+    let maxSingleStockRate: Double
+    let minHoldingRate: Double
+    let allowedStockTypes: [StockType]
+    let maxLeverage: Double
+    let tradingHours: TradingHours
+    
+    init(maxSingleStockRate: Double, minHoldingRate: Double, allowedStockTypes: [StockType], maxLeverage: Double, tradingHours: TradingHours) {
+        self.maxSingleStockRate = maxSingleStockRate
+        self.minHoldingRate = minHoldingRate
+        self.allowedStockTypes = allowedStockTypes
+        self.maxLeverage = maxLeverage
+        self.tradingHours = tradingHours
+    }
+}
+
+/// 股票類型枚舉
+enum StockType: String, Codable, CaseIterable {
+    case listed = "listed"
+    case otc = "otc"
+    case emerging = "emerging"
+}
+
+/// 錦標賽資產分配結構
+struct TournamentAllocation: Identifiable, Codable {
+    let id = UUID()
+    let symbol: String
+    let name: String
+    let percentage: Double
+    let value: Double
 }
 
 // Note: SupabaseService methods for tournament portfolio management 

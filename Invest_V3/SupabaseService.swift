@@ -3216,7 +3216,7 @@ class SupabaseService: ObservableObject {
     }
     
     /// 獲取用戶交易記錄
-    func fetchUserTransactions(limit: Int = 5) async throws -> [WalletTransaction] {
+    func fetchUserTransactions(limit: Int = 10, offset: Int = 0) async throws -> [WalletTransaction] {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
         guard let authUser = try? await client.auth.user() else {
@@ -3230,11 +3230,11 @@ class SupabaseService: ObservableObject {
             .select()
             .eq("user_id", value: userId)
             .order("created_at", ascending: false)
-            .limit(limit)
+            .range(from: offset, to: offset + limit - 1)
             .execute()
             .value
         
-        print("✅ [SupabaseService] 成功載入 \(response.count) 筆交易記錄")
+        print("✅ [SupabaseService] 成功載入 \(response.count) 筆交易記錄 (第 \(offset/limit + 1) 頁)")
         return response
     }
     
@@ -5984,7 +5984,7 @@ extension SupabaseService {
     
     // MARK: - 輔助方法
     
-    private func getFriendIds(userId: UUID) async throws -> [String] {
+    func getFriendIds(userId: UUID) async throws -> [String] {
         let friendships: [FriendshipBasic] = try await client
             .from("friendships")
             .select("requester_id, addressee_id")
@@ -6003,7 +6003,7 @@ extension SupabaseService {
         }
     }
     
-    private func getPendingRequestIds(userId: UUID) async throws -> [String] {
+    func getPendingRequestIds(userId: UUID) async throws -> [String] {
         let requests: [FriendRequestResponse] = try await client
             .from("friend_requests")
             .select("to_user_id")
@@ -6361,23 +6361,6 @@ extension SupabaseService {
             .execute()
     }
     
-    /// 獲取錦標賽排名
-    func fetchTournamentRankings(tournamentId: UUID) async throws -> [TournamentParticipant] {
-        try await SupabaseManager.shared.ensureInitializedAsync()
-        
-        print("📊 [SupabaseService] 獲取錦標賽排名: \(tournamentId)")
-        
-        let participants: [TournamentParticipant] = try await client
-            .from("tournament_participants")
-            .select()
-            .eq("tournament_id", value: tournamentId.uuidString)
-            .order("current_rank", ascending: true)
-            .execute()
-            .value
-        
-        print("✅ 獲取排名成功: \(participants.count) 位參賽者")
-        return participants
-    }
     
     /// 同步錦標賽排名
     func syncTournamentRankings(tournamentId: UUID, rankings: [TournamentParticipant]) async throws {

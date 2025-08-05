@@ -24,6 +24,7 @@ struct SettingsView: View {
     @State private var showLogoutAlert = false
     @State private var nicknameInput = ""
     @State private var showEditUserID = false
+    @State private var showAvatarPreview = false
 
     var body: some View {
         NavigationView {
@@ -130,6 +131,14 @@ struct SettingsView: View {
                 }
             )
         }
+        .fullScreenCover(isPresented: $showAvatarPreview) {
+            if let image = viewModel.profileImage {
+                AvatarPreviewView(
+                    image: image,
+                    userName: viewModel.userProfile?.displayName ?? "用戶"
+                )
+            }
+        }
         .onAppear {
             Task {
                 await viewModel.loadData()
@@ -178,12 +187,17 @@ struct SettingsView: View {
             VStack {
                 ZStack {
                     if let image = viewModel.profileImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 80, height: 80)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.gray300, lineWidth: 2))
+                        Button(action: {
+                            showAvatarPreview = true
+                        }) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 80, height: 80)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.gray300, lineWidth: 2))
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     } else {
                         Circle()
                             .fill(Color.brandGreen)
@@ -196,16 +210,56 @@ struct SettingsView: View {
                             )
                     }
                     
+                    // 載入/上傳狀態覆蓋層
+                    if viewModel.isLoadingAvatar || viewModel.isUploadingAvatar {
+                        Circle()
+                            .fill(Color.black.opacity(0.5))
+                            .frame(width: 80, height: 80)
+                            .overlay(
+                                VStack(spacing: 4) {
+                                    if viewModel.isUploadingAvatar {
+                                        // 上傳進度圓環
+                                        ZStack {
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.3), lineWidth: 3)
+                                                .frame(width: 30, height: 30)
+                                            
+                                            Circle()
+                                                .trim(from: 0, to: viewModel.uploadProgress)
+                                                .stroke(Color.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                                                .frame(width: 30, height: 30)
+                                                .rotationEffect(.degrees(-90))
+                                        }
+                                        
+                                        Text("\(Int(viewModel.uploadProgress * 100))%")
+                                            .font(.caption2)
+                                            .foregroundColor(.white)
+                                    } else {
+                                        // 載入中動畫
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                            .scaleEffect(0.8)
+                                        
+                                        Text("載入中")
+                                            .font(.caption2)
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                            )
+                    }
+                    
                     // 編輯指示器
-                    Circle()
-                        .fill(Color.brandGreen)
-                        .frame(width: 24, height: 24)
-                        .overlay(
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(.white)
-                        )
-                        .offset(x: 25, y: 25)
+                    if !viewModel.isUploadingAvatar {
+                        Circle()
+                            .fill(Color.brandGreen)
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white)
+                            )
+                            .offset(x: 25, y: 25)
+                    }
                 }
                 
                 // 圖片來源選擇器
@@ -287,69 +341,51 @@ struct SettingsView: View {
     private var friendManagementSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
             Text("好友管理")
-                .font(.sectionHeader) // 使用自定義字體
+                .font(.sectionHeader)
                 .fontWeight(.semibold)
                 .foregroundColor(.gray900)
             
-            HStack(spacing: DesignTokens.spacingSM) {
-                TextField("搜尋 ID 或掃描 QR Code", text: .constant(""))
-                    .textFieldStyle(.roundedBorder)
-                
-                Button(action: {}) {
-                    Text("添加")
-                        .font(.bodyText) // 使用自定義字體
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, DesignTokens.spacingMD)
-                        .padding(.vertical, DesignTokens.spacingSM)
-                        .background(Color.brandGreen)
-                        .cornerRadius(DesignTokens.cornerRadius)
-                }
-            }
-            
-            // 暫時移除好友列表 UI - 等待 Friend 模型衝突解決
-            Text("好友功能暫時不可用")
-                .font(.bodyText)
-                .foregroundColor(.gray600)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, DesignTokens.spacingLG)
-            
-            /*
-            if viewModel.friends.isEmpty {
-                Text("暫無好友")
-                    .font(.bodyText) // 使用自定義字體
-                    .foregroundColor(.gray600)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, DesignTokens.spacingLG)
-            } else {
-                ForEach(viewModel.friends) { friend in
-                    HStack(spacing: DesignTokens.spacingSM) {
-                        Circle()
-                            .fill(Color.gray300)
-                            .frame(width: 40, height: 40)
-                            .overlay(
-                                Text("投")
-                                    .font(.bodyText) // 使用自定義字體
-                                    .fontWeight(.medium)
-                                    .foregroundColor(Color.gray700)
-                            )
-                        
-                        Text(friend.name)
-                            .font(.bodyText) // 使用自定義字體
+            // 導航到好友管理主頁面
+            NavigationLink(destination: FriendsView()) {
+                HStack {
+                    Image(systemName: "person.2.fill")
+                        .font(.title3)
+                        .foregroundColor(.brandGreen)
+                        .frame(width: 24, height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("好友管理")
+                            .font(.bodyText)
                             .fontWeight(.medium)
                             .foregroundColor(.gray900)
                         
-                        Spacer()
-                        
-                        Button(action: {}) {
-                            Image(systemName: "ellipsis")
-                                .foregroundColor(.gray600)
-                        }
+                        Text("管理好友、添加新好友、查看動態")
+                            .font(.caption)
+                            .foregroundColor(.gray600)
                     }
-                    .padding(.vertical, DesignTokens.spacingXS)
+                    
+                    Spacer()
+                    
+                    // 顯示好友數量（如果有的話）
+                    if !viewModel.friends.isEmpty {
+                        Text("\(viewModel.friends.count)")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.brandGreen)
+                            .clipShape(Capsule())
+                    }
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.gray600)
                 }
+                .padding(.vertical, DesignTokens.spacingSM)
+                .contentShape(Rectangle())
             }
-            */
+            .buttonStyle(.plain)
         }
         .brandCardStyle()
     }

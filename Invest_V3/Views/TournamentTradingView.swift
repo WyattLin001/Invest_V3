@@ -484,54 +484,7 @@ struct TournamentStockRow: View {
     }
 }
 
-// MARK: - 錦標賽持股行
-struct TournamentHoldingRow: View {
-    let holding: TournamentHolding
-    
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(holding.symbol)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                
-                Text("\(Int(holding.shares))股")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(formatCurrency(holding.totalValue))
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                HStack(spacing: 4) {
-                    Text(String(format: "%.2f", holding.unrealizedGainLoss))
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(holding.unrealizedGainLoss >= 0 ? .green : .red)
-                    
-                    Text(String(format: "(%.2f%%)", holding.unrealizedGainLossPercent))
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(holding.unrealizedGainLoss >= 0 ? .green : .red)
-                }
-            }
-        }
-        .padding(.vertical, 4)
-    }
-    
-    private func formatCurrency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencySymbol = "$"
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: amount)) ?? "$0"
-    }
-}
+// NOTE: TournamentHoldingRow is now defined in TournamentHoldingRow.swift to avoid duplicate declaration
 
 // NOTE: TournamentAllocationRow is now defined in PortfolioView.swift to avoid duplicate declaration
 

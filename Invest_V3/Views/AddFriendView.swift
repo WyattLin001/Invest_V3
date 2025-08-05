@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import AVFoundation
 
 struct AddFriendView: View {
     @Environment(\.dismiss) private var dismiss
@@ -609,78 +610,84 @@ struct AddFriendView: View {
 struct QRScannerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isScanning = false
+    @State private var scannedCode: String = ""
+    @State private var showingResult = false
+    @State private var showingError = false
+    @State private var errorMessage = ""
+    @State private var scannedUserProfile: FriendSearchResult?
+    @State private var isLoadingProfile = false
+    
+    private let supabaseService = SupabaseService.shared
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                // QR 掃描區域模擬
-                VStack(spacing: 16) {
-                    Image(systemName: "qrcode.viewfinder")
-                        .font(.system(size: 80))
-                        .foregroundColor(.brandGreen)
-                    
-                    Text("QR 掃描")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
-                    Text("將相機對準好友的 QR 碼以添加好友")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(40)
-                .background(Color.surfaceSecondary)
-                .cornerRadius(16)
+            ZStack {
+                // 相機預覽背景
+                Color.black
+                    .ignoresSafeArea()
                 
-                // 示意說明
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("如何使用：")
-                        .font(.headline)
-                        .foregroundColor(.primary)
+                VStack(spacing: 0) {
+                    // QR 掃描相機區域
+                    QRCodeScannerView(
+                        isScanning: $isScanning,
+                        scannedCode: $scannedCode,
+                        onCodeScanned: handleScannedCode
+                    )
+                    .frame(height: 400)
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.brandGreen, lineWidth: 2)
+                    )
                     
-                    HStack(spacing: 12) {
-                        Text("1.")
-                            .fontWeight(.bold)
-                            .foregroundColor(.brandGreen)
-                        Text("請好友打開設定頁面中的「我的 QR 碼」")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
+                    Spacer()
                     
-                    HStack(spacing: 12) {
-                        Text("2.")
-                            .fontWeight(.bold)
-                            .foregroundColor(.brandGreen)
-                        Text("將相機對準 QR 碼即可快速添加好友")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                    // 使用說明
+                    VStack(spacing: 16) {
+                        VStack(spacing: 8) {
+                            Image(systemName: "qrcode.viewfinder")
+                                .font(.title)
+                                .foregroundColor(.brandGreen)
+                            
+                            Text("將相機對準好友的 QR 碼")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Text("掃描成功後將自動顯示好友資料")
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                        }
+                        
+                        if isScanning {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(.brandGreen)
+                                Text("正在掃描...")
+                                    .font(.subheadline)
+                                    .foregroundColor(.brandGreen)
+                            }
+                        } else if isLoadingProfile {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(.brandGreen)
+                                Text("載入用戶資料...")
+                                    .font(.subheadline)
+                                    .foregroundColor(.brandGreen)
+                            }
+                        }
                     }
+                    .padding()
+                    .background(Color.black.opacity(0.7))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                    
+                    Spacer()
                 }
                 .padding()
-                .background(Color.surfaceSecondary.opacity(0.5))
-                .cornerRadius(12)
-                
-                Spacer()
-                
-                // 模擬掃描按鈕
-                Button(action: {
-                    // 模擬掃描成功
-                    HapticFeedback.impact(.light)
-                    dismiss()
-                }) {
-                    Text(isScanning ? "掃描中..." : "模擬掃描")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(isScanning ? Color.gray : Color.brandGreen)
-                        .cornerRadius(12)
-                }
-                .disabled(isScanning)
             }
-            .padding()
             .navigationTitle("掃描 QR 碼")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -688,7 +695,550 @@ struct QRScannerView: View {
                     Button("取消") {
                         dismiss()
                     }
+                    .foregroundColor(.white)
                 }
+            }
+            .preferredColorScheme(.dark)
+        }
+        .onAppear {
+            isScanning = true
+        }
+        .onDisappear {
+            isScanning = false
+        }
+        .sheet(isPresented: $showingResult) {
+            if let userProfile = scannedUserProfile {
+                ScannedUserProfileView(
+                    userProfile: userProfile,
+                    onDismiss: { dismiss() }
+                )
+            }
+        }
+        .alert("掃描錯誤", isPresented: $showingError) {
+            Button("確定", role: .cancel) { 
+                isScanning = true // 重新開始掃描
+            }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+    
+    private func handleScannedCode(_ code: String) {
+        guard !code.isEmpty else { return }
+        
+        // 處理特殊錯誤代碼
+        switch code {
+        case "CAMERA_PERMISSION_DENIED":
+            showError("需要相機權限\n請到設定 > 隱私權與安全性 > 相機，允許此應用程式使用相機")
+            return
+        case "CAMERA_UNAVAILABLE":
+            showError("無法使用相機\n請確認設備有可用的相機")
+            return
+        case "CAMERA_SETUP_FAILED":
+            showError("相機設置失敗\n請稍後再試或重新啟動應用程式")
+            return
+        default:
+            break
+        }
+        
+        print("✅ [QRScannerView] 掃描到 QR 碼: \(code)")
+        
+        // 暫停掃描避免重複觸發
+        isScanning = false
+        
+        // 解析深度連結
+        if let userId = parseDeepLink(code) {
+            // 檢查是否是自己的 QR 碼
+            Task {
+                await checkAndFetchUserProfile(userId: userId)
+            }
+        } else {
+            showError("無效的 QR 碼格式\n請確認這是從 Invest V3 應用程式生成的 QR 碼")
+        }
+    }
+    
+    private func checkAndFetchUserProfile(userId: String) async {
+        do {
+            let currentUser = try await supabaseService.getCurrentUserAsync()
+            
+            // 檢查是否掃描到自己的 QR 碼
+            if userId == currentUser.id.uuidString {
+                await MainActor.run {
+                    self.showError("這是您自己的 QR 碼\n請掃描好友的 QR 碼來添加好友")
+                }
+                return
+            }
+            
+            // 獲取用戶資料
+            await fetchUserProfile(userId: userId)
+            
+        } catch {
+            await MainActor.run {
+                self.showError("驗證用戶失敗: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func parseDeepLink(_ code: String) -> String? {
+        // 解析 investv3://user/{id} 格式
+        let prefix = "investv3://user/"
+        
+        if code.hasPrefix(prefix) {
+            let userId = String(code.dropFirst(prefix.count))
+            return userId.isEmpty ? nil : userId
+        }
+        
+        return nil
+    }
+    
+    private func fetchUserProfile(userId: String) async {
+        await MainActor.run {
+            self.isLoadingProfile = true
+        }
+        
+        do {
+            // 先嘗試按 UUID 直接查詢
+            let userProfile = try await fetchUserByUUID(userId)
+            
+            await MainActor.run {
+                self.isLoadingProfile = false
+                if let profile = userProfile {
+                    self.scannedUserProfile = profile
+                    self.showingResult = true
+                } else {
+                    self.showError("找不到該用戶")
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.isLoadingProfile = false
+                self.showError("載入用戶資料失敗: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func fetchUserByUUID(_ userId: String) async throws -> FriendSearchResult? {
+        // 驗證 UUID 格式
+        guard UUID(uuidString: userId) != nil else {
+            throw NSError(domain: "QRScanner", code: 1, userInfo: [NSLocalizedDescriptionKey: "無效的用戶 ID 格式"])
+        }
+        
+        let currentUser = try await supabaseService.getCurrentUserAsync()
+        
+        // 直接按 UUID 查詢用戶資料
+        let profiles: [UserProfileResponse] = try await supabaseService.client
+            .from("user_profiles")
+            .select()
+            .eq("id", value: userId)
+            .neq("id", value: currentUser.id.uuidString) // 排除自己
+            .limit(1)
+            .execute()
+            .value
+        
+        guard let profile = profiles.first else {
+            return nil
+        }
+        
+        // 檢查好友狀態
+        let friendIds = try await supabaseService.getFriendIds(userId: currentUser.id)
+        let pendingRequestIds = try await supabaseService.getPendingRequestIds(userId: currentUser.id)
+        
+        let isAlreadyFriend = friendIds.contains(profile.id)
+        let hasPendingRequest = pendingRequestIds.contains(profile.id)
+        
+        // 轉換為 FriendSearchResult
+        return FriendSearchResult(
+            id: UUID(),
+            userId: profile.id,
+            userName: profile.username,
+            displayName: profile.displayName,
+            avatarUrl: profile.avatarUrl,
+            bio: profile.bio,
+            investmentStyle: profile.investmentStyle.flatMap { InvestmentStyle(rawValue: $0) },
+            performanceScore: profile.performanceScore ?? 0.0,
+            totalReturn: profile.totalReturn ?? 0.0,
+            mutualFriendsCount: 0, // 可未來實作共同好友計算
+            isAlreadyFriend: isAlreadyFriend,
+            hasPendingRequest: hasPendingRequest
+        )
+    }
+    
+    private func showError(_ message: String) {
+        errorMessage = message
+        showingError = true
+    }
+}
+
+// MARK: - QR 碼掃描器組件
+struct QRCodeScannerView: UIViewRepresentable {
+    @Binding var isScanning: Bool
+    @Binding var scannedCode: String
+    let onCodeScanned: (String) -> Void
+    
+    func makeUIView(context: Context) -> QRScannerUIView {
+        let scannerView = QRScannerUIView()
+        scannerView.delegate = context.coordinator
+        return scannerView
+    }
+    
+    func updateUIView(_ uiView: QRScannerUIView, context: Context) {
+        if isScanning {
+            uiView.startScanning()
+        } else {
+            uiView.stopScanning()
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, QRScannerDelegate {
+        let parent: QRCodeScannerView
+        
+        init(_ parent: QRCodeScannerView) {
+            self.parent = parent
+        }
+        
+        func didScanCode(_ code: String) {
+            parent.scannedCode = code
+            parent.onCodeScanned(code)
+        }
+    }
+}
+
+// MARK: - QR 掃描器 UIView
+protocol QRScannerDelegate: AnyObject {
+    func didScanCode(_ code: String)
+}
+
+class QRScannerUIView: UIView {
+    weak var delegate: QRScannerDelegate?
+    
+    private var captureSession: AVCaptureSession?
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var lastScannedCode: String?
+    private var lastScanTime: Date?
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        previewLayer?.frame = bounds
+    }
+    
+    func startScanning() {
+        guard captureSession == nil else { return }
+        
+        setupCaptureSession()
+    }
+    
+    func stopScanning() {
+        captureSession?.stopRunning()
+        captureSession = nil
+        previewLayer?.removeFromSuperlayer()
+        previewLayer = nil
+    }
+    
+    private func setupCaptureSession() {
+        // 檢查相機權限
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            setupCamera()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        self.setupCamera()
+                    } else {
+                        self.delegate?.didScanCode("CAMERA_PERMISSION_DENIED")
+                    }
+                }
+            }
+        case .denied, .restricted:
+            delegate?.didScanCode("CAMERA_PERMISSION_DENIED")
+        @unknown default:
+            delegate?.didScanCode("CAMERA_PERMISSION_DENIED")
+        }
+    }
+    
+    private func setupCamera() {
+        guard let device = AVCaptureDevice.default(for: .video) else {
+            print("❌ [QRScanner] 無法獲取相機設備")
+            delegate?.didScanCode("CAMERA_UNAVAILABLE")
+            return
+        }
+        
+        do {
+            let input = try AVCaptureDeviceInput(device: device)
+            let output = AVCaptureMetadataOutput()
+            
+            captureSession = AVCaptureSession()
+            captureSession?.addInput(input)
+            captureSession?.addOutput(output)
+            
+            output.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+            output.metadataObjectTypes = [.qr]
+            
+            previewLayer = AVCaptureVideoPreviewLayer(session: captureSession!)
+            previewLayer?.videoGravity = .resizeAspectFill
+            previewLayer?.frame = bounds
+            
+            if let previewLayer = previewLayer {
+                layer.addSublayer(previewLayer)
+            }
+            
+            DispatchQueue.global(qos: .background).async {
+                self.captureSession?.startRunning()
+            }
+            
+        } catch {
+            print("❌ [QRScanner] 設置相機失敗: \(error)")
+            delegate?.didScanCode("CAMERA_SETUP_FAILED")
+        }
+    }
+}
+
+extension QRScannerUIView: AVCaptureMetadataOutputObjectsDelegate {
+    @objc func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+        
+        guard let metadataObject = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
+              let code = metadataObject.stringValue else { return }
+        
+        // 防止重複掃描同一個 QR 碼
+        let now = Date()
+        if let lastCode = lastScannedCode,
+           let lastTime = lastScanTime,
+           lastCode == code && now.timeIntervalSince(lastTime) < 2.0 {
+            return
+        }
+        
+        lastScannedCode = code
+        lastScanTime = now
+        
+        // 觸覺反饋
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        
+        delegate?.didScanCode(code)
+    }
+}
+
+// MARK: - 掃描結果顯示視圖
+struct ScannedUserProfileView: View {
+    let userProfile: FriendSearchResult
+    let onDismiss: () -> Void
+    
+    @State private var isSendingRequest = false
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    
+    private let supabaseService = SupabaseService.shared
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // 成功掃描提示（帶動畫效果）
+                VStack(spacing: 12) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(.brandGreen)
+                        .scaleEffect(1.0)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.6, blendDuration: 0), value: UUID())
+                    
+                    Text("掃描成功！")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                }
+                .transition(.scale.combined(with: .opacity))
+                
+                // 用戶資料卡片
+                VStack(spacing: 16) {
+                    // 頭像
+                    Circle()
+                        .fill(Color.gray300)
+                        .frame(width: 80, height: 80)
+                        .overlay(
+                            Text(String(userProfile.displayName.prefix(1)))
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                        )
+                    
+                    // 用戶信息
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text(userProfile.displayName)
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            
+                            if let style = userProfile.investmentStyle {
+                                HStack(spacing: 4) {
+                                    Image(systemName: style.icon)
+                                        .font(.caption)
+                                    Text(style.displayName)
+                                        .font(.caption)
+                                }
+                                .foregroundColor(style.color)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(style.color.opacity(0.1))
+                                .cornerRadius(8)
+                            }
+                        }
+                        
+                        Text("@\(userProfile.userName)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        if let bio = userProfile.bio {
+                            Text(bio)
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(3)
+                        }
+                        
+                        HStack(spacing: 16) {
+                            VStack {
+                                Text(String(format: "%+.1f%%", userProfile.totalReturn))
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(userProfile.totalReturn >= 0 ? .success : .danger)
+                                Text("總回報")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Divider()
+                                .frame(height: 30)
+                            
+                            VStack {
+                                Text("\(userProfile.mutualFriendsCount)")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
+                                Text("共同好友")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                .padding(24)
+                .background(Color.surfacePrimary)
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                
+                // 操作按鈕
+                VStack(spacing: 12) {
+                    if userProfile.isAlreadyFriend {
+                        Button(action: {}) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("已是好友")
+                            }
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.surfaceSecondary)
+                            .cornerRadius(12)
+                        }
+                        .disabled(true)
+                    } else if userProfile.hasPendingRequest {
+                        Button(action: {}) {
+                            HStack {
+                                Image(systemName: "clock.fill")
+                                Text("好友請求已發送")
+                            }
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(12)
+                        }
+                        .disabled(true)
+                    } else {
+                        Button(action: sendFriendRequest) {
+                            HStack {
+                                if isSendingRequest {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "person.badge.plus.fill")
+                                }
+                                Text(isSendingRequest ? "發送中..." : "加為好友")
+                            }
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(isSendingRequest ? Color.gray : Color.brandGreen)
+                            .cornerRadius(12)
+                        }
+                        .disabled(isSendingRequest)
+                    }
+                    
+                    Button("完成") {
+                        onDismiss()
+                    }
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.surfaceSecondary)
+                    .cornerRadius(12)
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("掃描結果")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("關閉") {
+                        onDismiss()
+                    }
+                }
+            }
+        }
+        .alert("提示", isPresented: $showingAlert) {
+            Button("確定", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+    
+    private func sendFriendRequest() {
+        isSendingRequest = true
+        
+        Task {
+            do {
+                try await supabaseService.sendFriendRequest(to: userProfile.userId)
+                
+                await MainActor.run {
+                    self.isSendingRequest = false
+                    self.alertMessage = "✅ 好友請求已發送給 \(userProfile.displayName)"
+                    self.showingAlert = true
+                }
+                
+                print("✅ [ScannedUserProfileView] 好友請求已發送")
+                
+            } catch {
+                await MainActor.run {
+                    self.isSendingRequest = false
+                    self.alertMessage = "❌ 發送好友請求失敗：\(error.localizedDescription)"
+                    self.showingAlert = true
+                }
+                
+                print("❌ [ScannedUserProfileView] 發送好友請求失敗: \(error)")
             }
         }
     }

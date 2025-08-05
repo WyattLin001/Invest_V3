@@ -650,7 +650,7 @@ struct TransactionHistoryRow: View {
 
 // MARK: - 錦標賽資產總覽卡片
 struct TournamentAssetOverviewCard: View {
-    let portfolio: PortfolioData
+    let portfolio: TournamentPortfolio
     let tournament: Tournament
     
     var body: some View {
@@ -661,7 +661,7 @@ struct TournamentAssetOverviewCard: View {
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
-                Text(TradingService.shared.formatCurrency(portfolio.totalValue))
+                Text(TradingService.shared.formatCurrency(portfolio.totalPortfolioValue))
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
             }
@@ -673,7 +673,7 @@ struct TournamentAssetOverviewCard: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Text(TradingService.shared.formatCurrency(portfolio.cashBalance))
+                    Text(TradingService.shared.formatCurrency(portfolio.currentBalance))
                         .font(.headline)
                         .fontWeight(.semibold)
                 }
@@ -685,7 +685,7 @@ struct TournamentAssetOverviewCard: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    let stockValue = portfolio.totalValue - portfolio.cashBalance
+                    let stockValue = portfolio.holdingsValue
                     Text(TradingService.shared.formatCurrency(stockValue))
                         .font(.headline)
                         .fontWeight(.semibold)
@@ -698,7 +698,7 @@ struct TournamentAssetOverviewCard: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    let totalProfit = portfolio.totalValue - tournament.initialBalance
+                    let totalProfit = portfolio.totalReturn
                     Text(TradingService.shared.formatCurrency(totalProfit))
                         .font(.headline)
                         .fontWeight(.semibold)
@@ -715,7 +715,7 @@ struct TournamentAssetOverviewCard: View {
 
 // MARK: - 錦標賽投資組合分析卡片
 struct TournamentPortfolioAnalysisCard: View {
-    let portfolio: PortfolioData
+    let portfolio: TournamentPortfolio
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -726,15 +726,15 @@ struct TournamentPortfolioAnalysisCard: View {
             VStack(spacing: 12) {
                 AnalysisRow(
                     title: "持股檔數",
-                    value: "\(portfolio.allocations.count)檔",
+                    value: "\(portfolio.holdings.count)檔",
                     icon: "chart.pie"
                 )
                 
                 AnalysisRow(
                     title: "未實現損益",
-                    value: TradingService.shared.formatCurrency(portfolio.totalValue - portfolio.cashBalance - portfolio.investedAmount),
+                    value: TradingService.shared.formatCurrency(portfolio.holdingsValue - portfolio.totalInvested),
                     icon: "arrow.up.arrow.down",
-                    valueColor: (portfolio.totalValue - portfolio.cashBalance - portfolio.investedAmount) >= 0 ? .green : .red
+                    valueColor: (portfolio.holdingsValue - portfolio.totalInvested) >= 0 ? .green : .red
                 )
                 
                 AnalysisRow(
@@ -746,7 +746,7 @@ struct TournamentPortfolioAnalysisCard: View {
                 
                 AnalysisRow(
                     title: "現金比重",
-                    value: String(format: "%.1f%%", (portfolio.cashBalance / portfolio.totalValue) * 100),
+                    value: String(format: "%.1f%%", portfolio.cashPercentage),
                     icon: "dollarsign.circle"
                 )
             }
@@ -907,22 +907,26 @@ struct TournamentAwarePerformanceChartCard: View {
 
 // MARK: - Tournament Asset Allocation Calculator
 struct TournamentAssetAllocationCalculator {
-    static func calculateAllocation(from portfolio: PortfolioData?) -> [PieChartData] {
-        guard let portfolio = portfolio, !portfolio.allocations.isEmpty else {
+    static func calculateAllocation(from portfolio: TournamentPortfolio?) -> [PieChartData] {
+        guard let portfolio = portfolio, !portfolio.holdings.isEmpty else {
             return []
         }
         
-        return portfolio.allocations.map { allocation in
-            PieChartData(
-                category: allocation.symbol,
-                value: allocation.percentage,
-                color: StockColorPalette.colorForStock(symbol: allocation.symbol),
-                holdingQuantity: nil,
-                purchasePrice: nil,
-                currentValue: allocation.value,
-                currentPrice: nil,
-                unrealizedGainLoss: allocation.value - allocation.investedAmount,
-                symbol: allocation.symbol
+        let totalValue = portfolio.totalPortfolioValue
+        
+        return portfolio.holdings.map { holding in
+            let percentage = totalValue > 0 ? (holding.totalValue / totalValue) * 100 : 0
+            
+            return PieChartData(
+                category: holding.symbol,
+                value: percentage,
+                color: StockColorPalette.colorForStock(symbol: holding.symbol),
+                holdingQuantity: holding.shares,
+                purchasePrice: holding.averagePrice,
+                currentValue: holding.totalValue,
+                currentPrice: holding.currentPrice,
+                unrealizedGainLoss: holding.unrealizedGainLoss,
+                symbol: holding.symbol
             )
         }
     }
@@ -930,12 +934,12 @@ struct TournamentAssetAllocationCalculator {
 
 // MARK: - Tournament Performance Data Generator
 struct TournamentPerformanceDataGenerator {
-    static func generateData(for timeRange: PerformanceTimeRange, portfolio: PortfolioData, tournament: Tournament) -> [PerformanceDataPoint] {
+    static func generateData(for timeRange: PerformanceTimeRange, portfolio: TournamentPortfolio, tournament: Tournament) -> [PerformanceDataPoint] {
         // Generate tournament-specific performance data
         // This would normally come from the tournament service
         let days = timeRange.days
         let startValue = tournament.initialBalance
-        let currentValue = portfolio.totalValue
+        let currentValue = portfolio.totalPortfolioValue
         
         return (0..<days).map { day in
             let progress = Double(day) / Double(days - 1)

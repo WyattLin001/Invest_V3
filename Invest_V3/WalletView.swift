@@ -172,28 +172,71 @@ struct WalletView: View {
     private var transactionHistoryCard: some View {
         VStack(spacing: 16) {
             HStack {
-                Text("最近交易")
+                Text("交易記錄")
                     .font(.headline)
                     .foregroundColor(.primary)
                 Spacer()
                 
+                if !viewModel.transactions.isEmpty {
+                    Text("第 \(viewModel.currentPage + 1) 頁")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
-            if viewModel.transactions.isEmpty {
+            if viewModel.transactions.isEmpty && !viewModel.isLoading {
                 Text("暫無交易記錄")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .padding(.vertical, 24)
             } else {
-                // 顯示最近的交易記錄
+                // 顯示交易記錄（10筆）
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.transactions) { transaction in
                         TransactionRowView(transaction: transaction)
+                    }
+                    
+                    // 載入更多按鈕
+                    if viewModel.hasMoreTransactions {
+                        loadMoreButton
                     }
                 }
             }
         }
         .brandCardStyle()
+    }
+    
+    // MARK: - 載入更多按鈕
+    private var loadMoreButton: some View {
+        Button(action: {
+            Task {
+                await viewModel.loadMoreTransactions()
+            }
+        }) {
+            HStack {
+                if viewModel.isLoadingMore {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                    Text("載入中...")
+                        .font(.body)
+                        .foregroundColor(.blue)
+                } else {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.body)
+                        .foregroundColor(.blue)
+                    Text("載入更多")
+                        .font(.body)
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(8)
+        }
+        .disabled(viewModel.isLoadingMore)
+        .buttonStyle(PlainButtonStyle())
     }
 
     
