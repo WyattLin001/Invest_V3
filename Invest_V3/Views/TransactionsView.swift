@@ -4,6 +4,7 @@ import Foundation
 /// 交易紀錄頁面
 struct TransactionsView: View {
     @StateObject private var viewModel = TransactionsViewModel()
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var selectedFilter: TransactionFilter = .all
     
     var body: some View {
@@ -24,19 +25,19 @@ struct TransactionsView: View {
                     transactionsList
                 }
             }
-            .navigationTitle("交易紀錄")
+            .navigationTitle(transactionsTitle)
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await viewModel.loadTransactions()
+                await loadTransactionsData()
             }
         }
         .task {
-            await viewModel.loadTransactions()
+            await loadTransactionsData()
         }
         .alert("載入失敗", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("重試") {
                 Task {
-                    await viewModel.loadTransactions()
+                    await loadTransactionsData()
                 }
             }
             Button("確定", role: .cancel) {
@@ -133,6 +134,28 @@ struct TransactionsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
+    }
+    
+    // MARK: - 計算屬性和方法
+    
+    private var transactionsTitle: String {
+        if let tournamentName = tournamentStateManager.getCurrentTournamentDisplayName() {
+            return "\(tournamentName) - 交易紀錄"
+        } else {
+            return "交易紀錄"
+        }
+    }
+    
+    private func loadTransactionsData() async {
+        if tournamentStateManager.isParticipatingInTournament {
+            print("🏆 [TransactionsView] Tournament mode active - should load tournament transactions")
+            // TODO: Implement tournament transactions loading
+            // For now, still use regular transactions but this should be tournament-specific
+            await viewModel.loadTransactions()
+        } else {
+            print("📊 [TransactionsView] Regular mode active - loading regular transactions")
+            await viewModel.loadTransactions()
+        }
     }
 }
 

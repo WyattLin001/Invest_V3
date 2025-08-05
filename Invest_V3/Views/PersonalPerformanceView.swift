@@ -10,6 +10,7 @@ import SwiftUI
 // MARK: - 個人績效內容視圖（不包含 NavigationStack）
 struct PersonalPerformanceContentView: View {
     private let tournamentService = ServiceConfiguration.makeTournamentService()
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var selectedTimeframe: PerformanceTimeframe = .month
     @State private var performanceData: PersonalPerformance = PersonalPerformance(
         totalReturn: 0.0,
@@ -741,7 +742,15 @@ struct PersonalPerformanceContentView: View {
     
     private func loadPerformanceData() async {
         do {
-            performanceData = try await tournamentService.fetchPersonalPerformance(userId: currentUserId)
+            if tournamentStateManager.isParticipatingInTournament {
+                print("🏆 [PersonalPerformanceView] Tournament mode active - loading tournament performance")
+                // TODO: Load tournament-specific performance data
+                // For now, still use regular performance but this should be tournament-specific
+                performanceData = try await tournamentService.fetchPersonalPerformance(userId: currentUserId)
+            } else {
+                print("📊 [PersonalPerformanceView] Regular mode active - loading regular performance")
+                performanceData = try await tournamentService.fetchPersonalPerformance(userId: currentUserId)
+            }
         } catch {
             showingError = true
         }
@@ -959,10 +968,20 @@ struct HealthScoreRow: View {
 
 // MARK: - 原始 PersonalPerformanceView（用於 push navigation）
 struct PersonalPerformanceView: View {
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
+    
     var body: some View {
         PersonalPerformanceContentView()
-            .navigationTitle("我的績效")
+            .navigationTitle(performanceTitle)
             .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    private var performanceTitle: String {
+        if let tournamentName = tournamentStateManager.getCurrentTournamentDisplayName() {
+            return "\(tournamentName) - 我的績效"
+        } else {
+            return "我的績效"
+        }
     }
 }
 

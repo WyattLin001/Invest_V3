@@ -59,13 +59,21 @@ struct PortfolioView: View {
     private func loadData() async {
         // Check if we're in tournament mode
         if tournamentStateManager.isParticipatingInTournament {
-            // In tournament mode, don't load regular trading data
-            // Tournament data comes from tournamentStateManager.currentTournamentContext
+            // In tournament mode, ensure tournament context is up to date
             print("🏆 [PortfolioView] Tournament mode active - using tournament portfolio data")
+            
+            // Load tournament specific data if needed
+            if let tournamentId = tournamentStateManager.getCurrentTournamentId() {
+                // Refresh tournament portfolio data
+                // The tournament portfolio is managed by TournamentStateManager
+                // and should be automatically updated through its context
+                print("🏆 [PortfolioView] Current tournament ID: \(tournamentId)")
+            }
         } else {
             // Regular mode - load trading service data
             await tradingService.loadPortfolio()
             await tradingService.loadTransactions()
+            print("📊 [PortfolioView] Regular mode active - loaded trading service data")
         }
     }
     

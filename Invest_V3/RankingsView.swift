@@ -19,12 +19,12 @@ struct RankingsView: View {
             .navigationTitle(rankingsTitle)
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await tradingService.loadRankings()
+                await loadRankingsData()
             }
             .onAppear {
-                if tradingService.rankings.isEmpty {
+                if shouldLoadRankings() {
                     Task {
-                        await tradingService.loadRankings()
+                        await loadRankingsData()
                     }
                 }
             }
@@ -44,7 +44,7 @@ struct RankingsView: View {
         .onChange(of: selectedPeriod) { _ in
             // 這裡可以根據選擇的期間載入不同的排行榜資料
             Task {
-                await tradingService.loadRankings()
+                await loadRankingsData()
             }
         }
     }
@@ -149,6 +149,30 @@ struct RankingsView: View {
             return "\(tournamentName) - 排行榜"
         } else {
             return "排行榜"
+        }
+    }
+    
+    // MARK: - 私有方法
+    
+    private func shouldLoadRankings() -> Bool {
+        if tournamentStateManager.isParticipatingInTournament {
+            // In tournament mode, we should load tournament rankings
+            return true
+        } else {
+            // In regular mode, load if rankings are empty
+            return tradingService.rankings.isEmpty
+        }
+    }
+    
+    private func loadRankingsData() async {
+        if tournamentStateManager.isParticipatingInTournament {
+            print("🏆 [RankingsView] Tournament mode active - should load tournament rankings")
+            // TODO: Implement tournament rankings loading
+            // For now, still use regular rankings but this should be tournament-specific
+            await tradingService.loadRankings()
+        } else {
+            print("📊 [RankingsView] Regular mode active - loading regular rankings")
+            await tradingService.loadRankings()
         }
     }
 }
