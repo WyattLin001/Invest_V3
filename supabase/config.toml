@@ -1,0 +1,75 @@
+# Supabase Project Configuration
+project_id = "invest-v3"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+enable_email_confirmations = false
+enable_sms_confirmations = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[auth.sms]
+enable_signup = false
+enable_confirmations = false
+
+[auth.external.apple]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.google]
+enabled = false
+client_id = ""
+secret = ""
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[edge_runtime]
+enabled = true
+port = 54325
+
+[analytics]
+enabled = false
+
+[functions."send-push-notification"]
+import_map = "./import_map.json"
+
+[functions."register-device-token"]
+import_map = "./import_map.json"
+
+[functions."send-bulk-notifications"]
+import_map = "./import_map.json"
+
+[functions."notification-analytics"]
+import_map = "./import_map.json"
+
+[functions."manage-user-preferences"]
+import_map = "./import_map.json"

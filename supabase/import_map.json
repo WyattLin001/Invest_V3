@@ -1,0 +1,9 @@
+{
+  "imports": {
+    "supabase": "https://esm.sh/@supabase/supabase-js@2",
+    "jose": "https://deno.land/x/jose@v4.15.5/index.ts",
+    "jsonwebtoken": "https://esm.sh/jsonwebtoken@9.0.2",
+    "crypto": "https://deno.land/std@0.208.0/crypto/mod.ts",
+    "http2": "https://deno.land/std@0.208.0/node/http2.ts"
+  }
+}

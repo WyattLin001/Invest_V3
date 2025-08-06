@@ -174,19 +174,63 @@ class NotificationService: NSObject, ObservableObject {
                 return
             }
             
+            // 使用新的 Edge Function 來註冊設備 Token
+            let deviceInfo = [
+                "device_token": token,
+                "user_id": user.id.uuidString,
+                "device_type": "ios",
+                "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0",
+                "os_version": UIDevice.current.systemVersion,
+                "device_model": UIDevice.current.model,
+                "environment": PushNotificationConfig.environment.rawValue
+            ]
+            
+            let response = try await supabaseService.client.functions
+                .invoke("register-device-token", options: FunctionInvokeOptions(
+                    body: deviceInfo
+                ))
+            
+            if let responseData = response.data,
+               let jsonObject = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
+                print("✅ [NotificationService] Device Token 註冊成功: \(jsonObject)")
+            } else {
+                print("✅ [NotificationService] Device Token 已註冊")
+            }
+            
+        } catch {
+            print("❌ [NotificationService] 儲存 Device Token 失敗: \(error)")
+            
+            // 降級到直接資料庫操作
+            await saveDeviceTokenDirectly(token)
+        }
+    }
+    
+    /// 直接儲存到資料庫（降級方案）
+    private func saveDeviceTokenDirectly(_ token: String) async {
+        do {
+            guard let user = try? await supabaseService.client.auth.user() else {
+                return
+            }
+            
             try await supabaseService.client
-                .from("notification_settings")
+                .from("device_tokens")
                 .upsert([
                     "user_id": user.id.uuidString,
                     "device_token": token,
+                    "device_type": "ios",
+                    "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0",
+                    "os_version": UIDevice.current.systemVersion,
+                    "device_model": UIDevice.current.model,
+                    "environment": PushNotificationConfig.environment.rawValue,
+                    "is_active": true,
                     "updated_at": ISO8601DateFormatter().string(from: Date())
                 ])
                 .execute()
             
-            print("✅ [NotificationService] Device Token 已儲存到後端")
+            print("✅ [NotificationService] Device Token 直接儲存成功")
             
         } catch {
-            print("❌ [NotificationService] 儲存 Device Token 失敗: \(error)")
+            print("❌ [NotificationService] 直接儲存 Device Token 也失敗: \(error)")
         }
     }
     
@@ -445,6 +489,187 @@ class NotificationService: NSObject, ObservableObject {
         )
     }
     
+    // MARK: - Push Notification Management
+    
+    /// 發送推播通知給指定用戶
+    func sendPushNotification(
+        to userId: String,
+        title: String,
+        body: String,
+        category: String? = nil,
+        data: [String: Any]? = nil
+    ) async -> Bool {
+        do {
+            guard let currentUser = try? await supabaseService.client.auth.user() else {
+                print("⚠️ [NotificationService] 用戶未登入，無法發送推播")
+                return false
+            }
+            
+            let pushData: [String: Any] = [
+                "title": title,
+                "body": body,
+                "category": category ?? "",
+                "data": data ?? [:],
+                "target_user_id": userId,
+                "sender_user_id": currentUser.id.uuidString
+            ]
+            
+            let response = try await supabaseService.client.functions
+                .invoke("send-push-notification", options: FunctionInvokeOptions(
+                    body: pushData
+                ))
+            
+            if let responseData = response.data,
+               let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+               let success = result["success"] as? Bool {
+                if success {
+                    print("✅ [NotificationService] 推播通知發送成功")
+                    return true
+                } else {
+                    print("❌ [NotificationService] 推播通知發送失敗: \(result)")
+                    return false
+                }
+            }
+            
+            return true
+            
+        } catch {
+            print("❌ [NotificationService] 發送推播通知異常: \(error)")
+            return false
+        }
+    }
+    
+    /// 發送批量推播通知
+    func sendBulkPushNotification(
+        to userIds: [String],
+        title: String,
+        body: String,
+        category: String? = nil,
+        data: [String: Any]? = nil
+    ) async -> Bool {
+        do {
+            guard let currentUser = try? await supabaseService.client.auth.user() else {
+                print("⚠️ [NotificationService] 用戶未登入，無法發送批量推播")
+                return false
+            }
+            
+            let pushData: [String: Any] = [
+                "title": title,
+                "body": body,
+                "category": category ?? "",
+                "data": data ?? [:],
+                "target_user_ids": userIds,
+                "sender_user_id": currentUser.id.uuidString
+            ]
+            
+            let response = try await supabaseService.client.functions
+                .invoke("send-bulk-notifications", options: FunctionInvokeOptions(
+                    body: pushData
+                ))
+            
+            if let responseData = response.data,
+               let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+               let success = result["success"] as? Bool {
+                print(success ? "✅ [NotificationService] 批量推播發送成功" : "❌ [NotificationService] 批量推播發送失敗: \(result)")
+                return success
+            }
+            
+            return true
+            
+        } catch {
+            print("❌ [NotificationService] 發送批量推播異常: \(error)")
+            return false
+        }
+    }
+    
+    /// 獲取用戶推播偏好設定
+    func getUserPushPreferences() async -> [String: Any]? {
+        do {
+            guard let user = try? await supabaseService.client.auth.user() else {
+                return nil
+            }
+            
+            let response = try await supabaseService.client.functions
+                .invoke("manage-user-preferences", options: FunctionInvokeOptions(
+                    body: [
+                        "action": "get",
+                        "user_id": user.id.uuidString
+                    ]
+                ))
+            
+            if let responseData = response.data,
+               let preferences = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
+                return preferences
+            }
+            
+            return nil
+            
+        } catch {
+            print("❌ [NotificationService] 獲取推播偏好失敗: \(error)")
+            return nil
+        }
+    }
+    
+    /// 更新用戶推播偏好設定
+    func updateUserPushPreferences(_ preferences: [String: Any]) async -> Bool {
+        do {
+            guard let user = try? await supabaseService.client.auth.user() else {
+                return false
+            }
+            
+            var updateData = preferences
+            updateData["action"] = "update"
+            updateData["user_id"] = user.id.uuidString
+            
+            let response = try await supabaseService.client.functions
+                .invoke("manage-user-preferences", options: FunctionInvokeOptions(
+                    body: updateData
+                ))
+            
+            if let responseData = response.data,
+               let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+               let success = result["success"] as? Bool {
+                print(success ? "✅ [NotificationService] 推播偏好更新成功" : "❌ [NotificationService] 推播偏好更新失敗")
+                return success
+            }
+            
+            return false
+            
+        } catch {
+            print("❌ [NotificationService] 更新推播偏好異常: \(error)")
+            return false
+        }
+    }
+    
+    /// 獲取推播通知分析數據
+    func getNotificationAnalytics(days: Int = 7) async -> [String: Any]? {
+        do {
+            guard let user = try? await supabaseService.client.auth.user() else {
+                return nil
+            }
+            
+            let response = try await supabaseService.client.functions
+                .invoke("notification-analytics", options: FunctionInvokeOptions(
+                    body: [
+                        "user_id": user.id.uuidString,
+                        "days": days,
+                        "metrics": ["delivery_rate", "open_rate", "notification_types"]
+                    ]
+                ))
+            
+            if let responseData = response.data,
+               let analytics = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
+                return analytics
+            }
+            
+            return nil
+            
+        } catch {
+            print("❌ [NotificationService] 獲取推播分析失敗: \(error)")
+            return nil
+        }
+    }
+    
     // MARK: - Testing and Debug
     
     /// 測試推播通知功能
@@ -460,17 +685,38 @@ class NotificationService: NSObject, ObservableObject {
         await sendLocalNotification(
             title: "測試通知",
             body: "這是一個測試推播通知，用於驗證系統功能",
-            categoryIdentifier: "TEST",
+            categoryIdentifier: "SYSTEM_ALERT",
             userInfo: ["type": "test"],
             delay: 2.0
         )
         
-        // 3. 創建測試通知記錄
+        // 3. 測試推播偏好獲取
+        let preferences = await getUserPushPreferences()
+        print("📱 用戶推播偏好: \(preferences ?? [:])")
+        
+        // 4. 測試設備 Token 註冊
+        if let token = deviceToken {
+            await saveDeviceTokenToBackend(token)
+        }
+        
+        // 5. 測試遠程推播（發送給自己）
+        if let user = try? await supabaseService.client.auth.user() {
+            let success = await sendPushNotification(
+                to: user.id.uuidString,
+                title: "遠程推播測試",
+                body: "這是一個遠程推播通知測試",
+                category: "SYSTEM_ALERT",
+                data: ["test": true, "timestamp": Date().timeIntervalSince1970]
+            )
+            print("📱 遠程推播測試結果: \(success ? "成功" : "失敗")")
+        }
+        
+        // 6. 創建測試通知記錄
         await createNotificationRecord(
-            title: "系統測試",
-            body: "推播通知系統測試完成",
+            title: "系統測試完成",
+            body: "推播通知系統測試完成，包含本地和遠程推播",
             type: .systemAlert,
-            data: ["test": true]
+            data: ["test": true, "completed_at": ISO8601DateFormatter().string(from: Date())]
         )
         
         print("✅ [NotificationService] 推播通知系統測試完成")
@@ -479,8 +725,10 @@ class NotificationService: NSObject, ObservableObject {
     /// 獲取系統診斷信息
     func getDiagnosticInfo() async -> [String: Any] {
         let settings = await getNotificationSettings()
+        let preferences = await getUserPushPreferences()
+        let analytics = await getNotificationAnalytics()
         
-        return [
+        var diagnosticInfo: [String: Any] = [
             "isAuthorized": isAuthorized,
             "authorizationStatus": settings.authorizationStatus.rawValue,
             "alertSetting": settings.alertSetting.rawValue,
@@ -488,8 +736,40 @@ class NotificationService: NSObject, ObservableObject {
             "badgeSetting": settings.badgeSetting.rawValue,
             "deviceToken": deviceToken ?? "未設置",
             "unreadCount": unreadCount,
-            "canSendNotifications": await canSendNotifications()
+            "canSendNotifications": await canSendNotifications(),
+            "environment": PushNotificationConfig.environment.displayName,
+            "apnsServer": PushNotificationConfig.apnsServer,
+            "bundleId": PushNotificationConfig.bundleId
         ]
+        
+        if let preferences = preferences {
+            diagnosticInfo["userPreferences"] = preferences
+        }
+        
+        if let analytics = analytics {
+            diagnosticInfo["analytics"] = analytics
+        }
+        
+        // 檢查後端連接狀態
+        diagnosticInfo["backendConnected"] = await checkBackendConnection()
+        
+        return diagnosticInfo
+    }
+    
+    /// 檢查後端連接狀態
+    private func checkBackendConnection() async -> Bool {
+        do {
+            // 嘗試調用一個簡單的 Edge Function 來測試連接
+            let response = try await supabaseService.client.functions
+                .invoke("notification-analytics", options: FunctionInvokeOptions(
+                    body: ["action": "health_check"]
+                ))
+            
+            return response.data != nil
+        } catch {
+            print("❌ [NotificationService] 後端連接檢查失敗: \(error)")
+            return false
+        }
     }
 }
 

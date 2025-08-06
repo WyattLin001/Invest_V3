@@ -95,6 +95,13 @@ class AppBootstrapper: ObservableObject {
     private func setupNotificationCategories() {
         let notificationCenter = UNUserNotificationCenter.current()
         
+        // 註冊所有推播通知類別
+        notificationCenter.setNotificationCategories(UNNotificationCategory.all)
+        
+        print("✅ 已註冊 \(UNNotificationCategory.all.count) 個推播通知類別")
+        
+        // 舊的實現，保留註釋作為參考
+        /*
         // 主持人訊息通知類別
         let hostMessageCategory = UNNotificationCategory(
             identifier: "HOST_MESSAGE",

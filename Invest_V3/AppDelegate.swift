@@ -9,7 +9,7 @@
 import UIKit
 import UserNotifications
 
-class AppDelegate: NSObject, UIApplicationDelegate {
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     
     // MARK: - Application Lifecycle
     
@@ -17,7 +17,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         print("📱 [AppDelegate] 應用啟動完成")
         
         // 設置推播通知代理
-        UNUserNotificationCenter.current().delegate = NotificationService.shared
+        UNUserNotificationCenter.current().delegate = self
         
         return true
     }
@@ -93,5 +93,27 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         // 清空應用圖標上的 badge 數字
         application.applicationIconBadgeNumber = 0
+    }
+    
+    // MARK: - UNUserNotificationCenterDelegate
+    
+    /// 處理推播通知行動
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationActionResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        print("📱 [AppDelegate] 處理推播行動: \(response.actionIdentifier)")
+        
+        // 使用 NotificationActionHandler 處理行動
+        NotificationActionHandler.handleAction(
+            identifier: response.actionIdentifier,
+            notification: response.notification,
+            completionHandler: completionHandler
+        )
+    }
+    
+    /// 當應用程式在前景時收到推播通知
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        print("📱 [AppDelegate] 前景收到推播通知: \(notification.request.content.title)")
+        
+        // 在前景也顯示通知
+        completionHandler([.banner, .sound, .badge])
     }
 }

@@ -1,0 +1,107 @@
+# Supabase Edge Functions Deployment Configuration
+# This file defines the deployment pipeline for push notification functions
+
+name: Deploy Push Notification Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+  
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Deno
+      uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.37.x
+        
+    - name: Setup Supabase CLI
+      uses: supabase/setup-cli@v1
+      with:
+        version: latest
+        
+    - name: Verify functions syntax
+      run: |
+        cd supabase/functions
+        for func in */; do
+          echo "Checking $func"
+          deno check "${func}index.ts"
+        done
+        
+    - name: Link Supabase project
+      run: |
+        supabase link --project-ref $SUPABASE_PROJECT_ID
+        
+    - name: Deploy database migrations
+      run: |
+        supabase db push
+        
+    - name: Deploy Edge Functions
+      run: |
+        # Deploy all notification-related functions
+        supabase functions deploy send-push-notification --no-verify-jwt
+        supabase functions deploy register-device-token --no-verify-jwt
+        supabase functions deploy send-bulk-notifications --no-verify-jwt
+        supabase functions deploy notification-analytics --no-verify-jwt
+        supabase functions deploy manage-user-preferences --no-verify-jwt
+        
+    - name: Set environment variables
+      run: |
+        # Set production environment variables
+        supabase secrets set APNS_KEY_ID="${{ secrets.APNS_KEY_ID }}"
+        supabase secrets set APNS_TEAM_ID="${{ secrets.APNS_TEAM_ID }}"
+        supabase secrets set APNS_PRIVATE_KEY="${{ secrets.APNS_PRIVATE_KEY }}"
+        supabase secrets set APNS_BUNDLE_ID="${{ secrets.APNS_BUNDLE_ID }}"
+        supabase secrets set APNS_ENVIRONMENT="${{ secrets.APNS_ENVIRONMENT }}"
+        
+    - name: Run post-deployment tests
+      run: |
+        # Basic health check for each function
+        echo "Testing function deployments..."
+        # Add your test commands here
+        
+  test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Deno
+      uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.37.x
+        
+    - name: Run TypeScript checks
+      run: |
+        cd supabase/functions
+        for func in */; do
+          echo "Type checking $func"
+          deno check "${func}index.ts"
+        done
+        
+    - name: Run linting
+      run: |
+        cd supabase/functions
+        deno lint
+        
+    - name: Run formatting check
+      run: |
+        cd supabase/functions
+        deno fmt --check
