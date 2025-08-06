@@ -124,27 +124,9 @@ struct AnalyticsView: View {
     private func deliveryRateChart(_ data: [[String: Any]]) -> some View {
         AnalyticsSection(title: "傳送率趨勢", icon: "chart.line.uptrend.xyaxis") {
             VStack(alignment: .leading, spacing: 12) {
-                if #available(iOS 16.0, *) {
-                    Chart {
-                        ForEach(Array(data.enumerated()), id: \.offset) { index, item in
-                            if let rate = item["rate"] as? Double,
-                               let date = item["date"] as? String {
-                                LineMark(
-                                    x: .value("日期", date),
-                                    y: .value("傳送率", rate * 100)
-                                )
-                                .foregroundStyle(.green)
-                                .symbol(Circle())
-                            }
-                        }
-                    }
+                // 使用簡單的線圖替代 Charts 框架
+                SimpleLineChart(data: data, valueKey: "rate", color: .green)
                     .frame(height: 200)
-                    .chartYScale(domain: 0...100)
-                } else {
-                    // iOS 15 及以下的替代方案
-                    SimpleLineChart(data: data, valueKey: "rate", color: .green)
-                        .frame(height: 200)
-                }
                 
                 Text("過去 7 天的推播傳送成功率變化")
                     .font(.caption)
@@ -156,27 +138,9 @@ struct AnalyticsView: View {
     private func openRateChart(_ data: [[String: Any]]) -> some View {
         AnalyticsSection(title: "開啟率趨勢", icon: "envelope.open") {
             VStack(alignment: .leading, spacing: 12) {
-                if #available(iOS 16.0, *) {
-                    Chart {
-                        ForEach(Array(data.enumerated()), id: \.offset) { index, item in
-                            if let rate = item["rate"] as? Double,
-                               let date = item["date"] as? String {
-                                LineMark(
-                                    x: .value("日期", date),
-                                    y: .value("開啟率", rate * 100)
-                                )
-                                .foregroundStyle(.orange)
-                                .symbol(Circle())
-                            }
-                        }
-                    }
+                // 使用簡單的線圖替代 Charts 框架  
+                SimpleLineChart(data: data, valueKey: "rate", color: .orange)
                     .frame(height: 200)
-                    .chartYScale(domain: 0...100)
-                } else {
-                    // iOS 15 及以下的替代方案
-                    SimpleLineChart(data: data, valueKey: "rate", color: .orange)
-                        .frame(height: 200)
-                }
                 
                 Text("過去 7 天的推播開啟率變化")
                     .font(.caption)

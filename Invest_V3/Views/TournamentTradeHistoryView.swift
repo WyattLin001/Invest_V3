@@ -195,28 +195,28 @@ struct TournamentTradeHistoryView: View {
     // MARK: - 交易統計摘要
     private var tradingSummarySection: some View {
         HStack {
-            StatCard(
+            TournamentStatCard(
                 title: "總交易",
                 value: "\(tradingSummary.totalTrades)",
                 subtitle: "筆",
                 color: .blue
             )
             
-            StatCard(
+            TournamentStatCard(
                 title: "買入",
                 value: "\(tradingSummary.buyTrades)",
                 subtitle: "筆",
                 color: .red
             )
             
-            StatCard(
+            TournamentStatCard(
                 title: "賣出",
                 value: "\(tradingSummary.sellTrades)",
                 subtitle: "筆",
                 color: .green
             )
             
-            StatCard(
+            TournamentStatCard(
                 title: "總成交額",
                 value: formatCurrencyShort(tradingSummary.totalVolume),
                 subtitle: "NT$",
@@ -288,7 +288,7 @@ struct TournamentTradeHistoryView: View {
 }
 
 // MARK: - 統計卡片組件
-struct StatCard: View {
+struct TournamentStatCard: View {
     let title: String
     let value: String
     let subtitle: String
