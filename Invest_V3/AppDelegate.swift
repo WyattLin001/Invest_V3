@@ -98,15 +98,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     // MARK: - UNUserNotificationCenterDelegate
     
     /// 處理推播通知行動
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationActionResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        print("📱 [AppDelegate] 處理推播行動: \(response.actionIdentifier)")
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+        print("📱 [AppDelegate] 處理推播通知點擊: \(userInfo)")
         
-        // 使用 NotificationActionHandler 處理行動
-        NotificationActionHandler.handleAction(
-            identifier: response.actionIdentifier,
-            notification: response.notification,
-            completionHandler: completionHandler
-        )
+        // 處理通知點擊事件 - 一般是打開應用或導航到特定頁面
+        Task {
+            await NotificationService.shared.handleRemoteNotification(userInfo)
+            completionHandler()
+        }
     }
     
     /// 當應用程式在前景時收到推播通知

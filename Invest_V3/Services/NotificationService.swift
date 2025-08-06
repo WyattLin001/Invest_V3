@@ -9,6 +9,7 @@
 import Foundation
 import UserNotifications
 import UIKit
+import Supabase
 
 @MainActor
 class NotificationService: NSObject, ObservableObject {
@@ -186,9 +187,7 @@ class NotificationService: NSObject, ObservableObject {
             ]
             
             let response = try await supabaseService.client.functions
-                .invoke("register-device-token", options: FunctionInvokeOptions(
-                    body: deviceInfo
-                ))
+                .invoke("register-device-token", body: deviceInfo)
             
             if let responseData = response.data,
                let jsonObject = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
@@ -222,7 +221,7 @@ class NotificationService: NSObject, ObservableObject {
                     "os_version": UIDevice.current.systemVersion,
                     "device_model": UIDevice.current.model,
                     "environment": PushNotificationConfig.environment.rawValue,
-                    "is_active": true,
+                    "is_active": "true",
                     "updated_at": ISO8601DateFormatter().string(from: Date())
                 ])
                 .execute()
@@ -515,9 +514,7 @@ class NotificationService: NSObject, ObservableObject {
             ]
             
             let response = try await supabaseService.client.functions
-                .invoke("send-push-notification", options: FunctionInvokeOptions(
-                    body: pushData
-                ))
+                .invoke("send-push-notification", body: pushData)
             
             if let responseData = response.data,
                let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
@@ -563,9 +560,7 @@ class NotificationService: NSObject, ObservableObject {
             ]
             
             let response = try await supabaseService.client.functions
-                .invoke("send-bulk-notifications", options: FunctionInvokeOptions(
-                    body: pushData
-                ))
+                .invoke("send-bulk-notifications", body: pushData)
             
             if let responseData = response.data,
                let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
@@ -590,12 +585,10 @@ class NotificationService: NSObject, ObservableObject {
             }
             
             let response = try await supabaseService.client.functions
-                .invoke("manage-user-preferences", options: FunctionInvokeOptions(
-                    body: [
-                        "action": "get",
-                        "user_id": user.id.uuidString
-                    ]
-                ))
+                .invoke("manage-user-preferences", body: [
+                    "action": "get",
+                    "user_id": user.id.uuidString
+                ])
             
             if let responseData = response.data,
                let preferences = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
@@ -622,9 +615,7 @@ class NotificationService: NSObject, ObservableObject {
             updateData["user_id"] = user.id.uuidString
             
             let response = try await supabaseService.client.functions
-                .invoke("manage-user-preferences", options: FunctionInvokeOptions(
-                    body: updateData
-                ))
+                .invoke("manage-user-preferences", body: updateData)
             
             if let responseData = response.data,
                let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
@@ -649,13 +640,11 @@ class NotificationService: NSObject, ObservableObject {
             }
             
             let response = try await supabaseService.client.functions
-                .invoke("notification-analytics", options: FunctionInvokeOptions(
-                    body: [
-                        "user_id": user.id.uuidString,
-                        "days": days,
-                        "metrics": ["delivery_rate", "open_rate", "notification_types"]
-                    ]
-                ))
+                .invoke("notification-analytics", body: [
+                    "user_id": user.id.uuidString,
+                    "days": days,
+                    "metrics": ["delivery_rate", "open_rate", "notification_types"]
+                ])
             
             if let responseData = response.data,
                let analytics = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
@@ -761,9 +750,7 @@ class NotificationService: NSObject, ObservableObject {
         do {
             // 嘗試調用一個簡單的 Edge Function 來測試連接
             let response = try await supabaseService.client.functions
-                .invoke("notification-analytics", options: FunctionInvokeOptions(
-                    body: ["action": "health_check"]
-                ))
+                .invoke("notification-analytics", body: ["action": "health_check"])
             
             return response.data != nil
         } catch {

@@ -430,11 +430,7 @@ struct SettingsView: View {
                 .fontWeight(.semibold)
                 .foregroundColor(.gray900)
             
-            Button(action: {
-                Task {
-                    await NotificationService.shared.testNotificationSystem()
-                }
-            }) {
+            NavigationLink(destination: PushNotificationTestView()) {
                 HStack {
                     Image(systemName: "bell.badge")
                         .font(.title3)

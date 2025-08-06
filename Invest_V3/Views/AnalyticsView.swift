@@ -7,7 +7,6 @@
 //
 
 import SwiftUI
-import Charts
 
 struct AnalyticsView: View {
     let analytics: [String: Any]
@@ -72,28 +71,28 @@ struct AnalyticsView: View {
                 StatCard(
                     title: "總發送量",
                     value: "\(analytics["total_sent"] as? Int ?? 0)",
-                    icon: "paperplane.fill",
+                    subtitle: "通知總數",
                     color: .blue
                 )
                 
                 StatCard(
                     title: "成功傳送",
                     value: "\(analytics["total_delivered"] as? Int ?? 0)",
-                    icon: "checkmark.circle.fill",
+                    subtitle: "已送達",
                     color: .green
                 )
                 
                 StatCard(
                     title: "已開啟",
                     value: "\(analytics["total_opened"] as? Int ?? 0)",
-                    icon: "envelope.open.fill",
+                    subtitle: "用戶點擊",
                     color: .orange
                 )
                 
                 StatCard(
                     title: "失敗數",
                     value: "\(analytics["total_failed"] as? Int ?? 0)",
-                    icon: "xmark.circle.fill",
+                    subtitle: "發送失敗",
                     color: .red
                 )
             }
@@ -286,21 +285,22 @@ struct AnalyticsSection<Content: View>: View {
 struct StatCard: View {
     let title: String
     let value: String
-    let icon: String
+    let subtitle: String
     let color: Color
     
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: icon)
-                .foregroundColor(color)
-                .font(.title2)
-            
             Text(value)
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
             
             Text(title)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+            
+            Text(subtitle)
                 .font(.caption)
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
