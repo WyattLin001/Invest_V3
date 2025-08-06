@@ -100,6 +100,7 @@ class AppBootstrapper: ObservableObject {
         
         print("✅ 已註冊 \(UNNotificationCategory.all.count) 個推播通知類別")
         
+        
         // 舊的實現，保留註釋作為參考
         /*
         // 主持人訊息通知類別
