@@ -86,10 +86,8 @@ class SettingsViewModel: ObservableObject {
             
             // 從 Supabase 獲取完整的用戶資料
             let userProfileService = UserProfileService.shared
-            guard let userId = UUID(uuidString: currentUser.userId) else {
-                throw NSError(domain: "SettingsViewModel", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid userId format"])
-            }
-            let fetchedProfile = try await userProfileService.getUserProfile(id: userId)
+            // 使用 currentUser.id (UUID) 而不是 currentUser.userId (String)
+            let fetchedProfile = try await userProfileService.getUserProfile(id: currentUser.id)
             
             await MainActor.run {
                 self.userProfile = fetchedProfile
