@@ -186,8 +186,9 @@ class NotificationService: NSObject, ObservableObject {
                 "environment": PushNotificationConfig.environment.rawValue
             ]
             
+            let deviceInfoData = try JSONSerialization.data(withJSONObject: deviceInfo, options: [])
             let response = try await supabaseService.client.functions
-                .invoke("register-device-token", json: deviceInfo)
+                .invoke("register-device-token", options: FunctionInvokeOptions(body: deviceInfoData))
             
             if let responseData = response.data,
                let jsonObject = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
@@ -513,8 +514,9 @@ class NotificationService: NSObject, ObservableObject {
                 "sender_user_id": currentUser.id.uuidString
             ]
             
+            let pushDataEncoded = try JSONSerialization.data(withJSONObject: pushData, options: [])
             let response = try await supabaseService.client.functions
-                .invoke("send-push-notification", json: pushData)
+                .invoke("send-push-notification", options: FunctionInvokeOptions(body: pushDataEncoded))
             
             if let responseData = response.data,
                let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
@@ -559,8 +561,9 @@ class NotificationService: NSObject, ObservableObject {
                 "sender_user_id": currentUser.id.uuidString
             ]
             
+            let pushDataEncoded = try JSONSerialization.data(withJSONObject: pushData, options: [])
             let response = try await supabaseService.client.functions
-                .invoke("send-bulk-notifications", json: pushData)
+                .invoke("send-bulk-notifications", options: FunctionInvokeOptions(body: pushDataEncoded))
             
             if let responseData = response.data,
                let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
@@ -584,11 +587,13 @@ class NotificationService: NSObject, ObservableObject {
                 return nil
             }
             
+            let userData = [
+                "action": "get",
+                "user_id": user.id.uuidString
+            ]
+            let userDataEncoded = try JSONSerialization.data(withJSONObject: userData, options: [])
             let response = try await supabaseService.client.functions
-                .invoke("manage-user-preferences", json: [
-                    "action": "get",
-                    "user_id": user.id.uuidString
-                ])
+                .invoke("manage-user-preferences", options: FunctionInvokeOptions(body: userDataEncoded))
             
             if let responseData = response.data,
                let preferences = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
@@ -614,8 +619,9 @@ class NotificationService: NSObject, ObservableObject {
             updateData["action"] = "update"
             updateData["user_id"] = user.id.uuidString
             
+            let updateDataEncoded = try JSONSerialization.data(withJSONObject: updateData, options: [])
             let response = try await supabaseService.client.functions
-                .invoke("manage-user-preferences", json: updateData)
+                .invoke("manage-user-preferences", options: FunctionInvokeOptions(body: updateDataEncoded))
             
             if let responseData = response.data,
                let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
@@ -639,12 +645,14 @@ class NotificationService: NSObject, ObservableObject {
                 return nil
             }
             
+            let analyticsData = [
+                "user_id": user.id.uuidString,
+                "days": days,
+                "metrics": ["delivery_rate", "open_rate", "notification_types"]
+            ]
+            let analyticsDataEncoded = try JSONSerialization.data(withJSONObject: analyticsData, options: [])
             let response = try await supabaseService.client.functions
-                .invoke("notification-analytics", json: [
-                    "user_id": user.id.uuidString,
-                    "days": days,
-                    "metrics": ["delivery_rate", "open_rate", "notification_types"]
-                ])
+                .invoke("notification-analytics", options: FunctionInvokeOptions(body: analyticsDataEncoded))
             
             if let responseData = response.data,
                let analytics = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
@@ -749,8 +757,10 @@ class NotificationService: NSObject, ObservableObject {
     private func checkBackendConnection() async -> Bool {
         do {
             // 嘗試調用一個簡單的 Edge Function 來測試連接
+            let healthCheckData = ["action": "health_check"]
+            let healthCheckDataEncoded = try JSONSerialization.data(withJSONObject: healthCheckData, options: [])
             let response = try await supabaseService.client.functions
-                .invoke("notification-analytics", json: ["action": "health_check"])
+                .invoke("notification-analytics", options: FunctionInvokeOptions(body: healthCheckDataEncoded))
             
             return response.data != nil
         } catch {
