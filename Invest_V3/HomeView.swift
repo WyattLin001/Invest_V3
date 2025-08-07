@@ -78,10 +78,19 @@ struct HomeView: View {
             .sheet(isPresented: $showCreateGroupView) {
                 CreateGroupView()
             }
-            .sheet(isPresented: $showFriendSearch) {
-                FriendsView()
-                    .environmentObject(ThemeManager.shared)
-                    .presentationBackground(Color.systemBackground)
+            .fullScreenCover(isPresented: $showFriendSearch) {
+                NavigationView {
+                    FriendsView()
+                        .environmentObject(ThemeManager.shared)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("完成") {
+                                    showFriendSearch = false
+                                }
+                                .foregroundColor(.brandGreen)
+                            }
+                        }
+                }
             }
             .sheet(isPresented: $showTournamentSwitcher) {
                 TournamentSwitcherView(currentTournament: $currentTournamentName)

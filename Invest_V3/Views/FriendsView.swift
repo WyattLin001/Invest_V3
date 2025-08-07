@@ -35,36 +35,35 @@ struct FriendsView: View {
     }
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // 頂部導航區域
-                headerSection
+        VStack(spacing: 0) {
+            // 頂部導航區域
+            headerSection
+            
+            // 分段控制器
+            segmentedControl
+            
+            // 主要內容
+            TabView(selection: $selectedTab) {
+                friendsListView
+                    .tag(FriendsTab.friends)
                 
-                // 分段控制器
-                segmentedControl
+                activitiesView
+                    .tag(FriendsTab.activities)
                 
-                // 主要內容
-                TabView(selection: $selectedTab) {
-                    friendsListView
-                        .tag(FriendsTab.friends)
-                    
-                    activitiesView
-                        .tag(FriendsTab.activities)
-                    
-                    requestsView
-                        .tag(FriendsTab.requests)
-                }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                requestsView
+                    .tag(FriendsTab.requests)
             }
-            .navigationBarHidden(true)
-            .adaptiveBackground()
-            .onAppear {
-                loadFriendsData()
-            }
-            .sheet(isPresented: $showingAddFriend) {
-                AddFriendView()
-                    .presentationBackground(Color.systemBackground)
-            }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+        }
+        .navigationTitle("好友")
+        .navigationBarTitleDisplayMode(.inline)
+        .adaptiveBackground()
+        .onAppear {
+            loadFriendsData()
+        }
+        .sheet(isPresented: $showingAddFriend) {
+            AddFriendView()
+                .presentationBackground(Color.systemBackground)
         }
     }
     
