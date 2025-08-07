@@ -425,7 +425,7 @@ struct SettingsView: View {
     #if DEBUG
     private var notificationTestSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
-            Text("推播通知測試 (開發模式)")
+            Text("推播通知測試")
                 .font(.sectionHeader)
                 .fontWeight(.semibold)
                 .foregroundColor(.gray900)
@@ -462,7 +462,7 @@ struct SettingsView: View {
     
     private var friendSystemTestSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spacingMD) {
-            Text("好友系統測試 (開發模式)")
+            Text("好友系統測試")
                 .font(.sectionHeader)
                 .fontWeight(.semibold)
                 .foregroundColor(.gray900)
@@ -508,8 +508,22 @@ struct SettingsView: View {
                 .adaptiveTextColor()
             
             VStack(spacing: 0) {
-                // 主題設置
-                themeSettingRow
+                // 外觀設定 - 跟隨系統
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("外觀設定")
+                            .font(.bodyText)
+                            .adaptiveTextColor()
+                        Text("自動跟隨系統設定")
+                            .font(.caption)
+                            .adaptiveTextColor(primary: false)
+                    }
+                    Spacer()
+                    Image(systemName: "auto.mode")
+                        .font(.caption)
+                        .adaptiveTextColor(primary: false)
+                }
+                .padding(.vertical, DesignTokens.spacingMD)
                 
                 Divider()
                     .dividerStyle()
@@ -534,71 +548,6 @@ struct SettingsView: View {
             }
         }
         .brandCardStyle()
-    }
-    
-    // MARK: - 主題設置行
-    private var themeSettingRow: some View {
-        VStack(spacing: DesignTokens.spacingSM) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("深色模式")
-                        .font(.bodyText)
-                        .adaptiveTextColor()
-                    Text("選擇應用程式的外觀主題")
-                        .font(.caption)
-                        .adaptiveTextColor(primary: false)
-                }
-                Spacer()
-                // 當前主題顯示
-                Text(ThemeManager.shared.currentMode.displayName)
-                    .font(.caption)
-                    .adaptiveTextColor(primary: false)
-                Image(systemName: ThemeManager.shared.currentMode.iconName)
-                    .font(.caption)
-                    .adaptiveTextColor(primary: false)
-            }
-            .padding(.vertical, DesignTokens.spacingMD)
-            
-            // 主題選擇器
-            HStack(spacing: DesignTokens.spacingSM) {
-                ForEach(ThemeManager.ThemeMode.allCases) { mode in
-                    themeOptionButton(for: mode)
-                }
-            }
-        }
-    }
-    
-    // MARK: - 主題選項按鈕
-    private func themeOptionButton(for mode: ThemeManager.ThemeMode) -> some View {
-        Button(action: {
-            withAnimation(DesignTokens.themeTransition) {
-                ThemeManager.shared.setTheme(mode)
-            }
-        }) {
-            VStack(spacing: DesignTokens.spacingXS) {
-                Image(systemName: mode.iconName)
-                    .font(.title3)
-                    .foregroundColor(ThemeManager.shared.currentMode == mode ? .white : .systemLabel)
-                
-                Text(mode.displayName)
-                    .font(.caption)
-                    .foregroundColor(ThemeManager.shared.currentMode == mode ? .white : .systemLabel)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, DesignTokens.spacingSM)
-            .background(
-                RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
-                    .fill(ThemeManager.shared.currentMode == mode ? Color.brandGreen : Color.surfaceSecondary)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
-                    .stroke(
-                        ThemeManager.shared.currentMode == mode ? Color.brandGreen : DesignTokens.borderColor,
-                        lineWidth: DesignTokens.borderWidthThin
-                    )
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
     }
     
     private var subscriptionSection: some View {

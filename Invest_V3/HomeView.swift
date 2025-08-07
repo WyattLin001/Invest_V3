@@ -634,14 +634,6 @@ struct HomeView: View {
                     .foregroundColor(.primary)
                 
                 Spacer()
-                
-                Text("僅限開發模式")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.orange.opacity(0.2))
-                    .cornerRadius(6)
             }
             
         }
