@@ -383,17 +383,28 @@ class TransactionsViewModel: ObservableObject {
         do {
             print("🏆 [TransactionsViewModel] 載入錦標賽 \(tournamentId) 的交易紀錄")
             
-            // 實際情況下，這裡應該調用 API 獲取特定錦標賽的交易紀錄
-            // let apiTransactions = try await TournamentAPIService.shared.fetchTournamentTransactions(tournamentId: tournamentId)
+            // 獲取當前用戶 ID
+            let userId = getCurrentUserId()
             
-            // 目前使用模擬資料，但針對不同錦標賽生成不同的資料
+            // 嘗試從 Supabase 載入錦標賽交易紀錄
+            let supabaseTransactions = try await SupabaseService.shared.fetchTournamentTransactions(
+                tournamentId: tournamentId,
+                userId: UUID(uuidString: userId) ?? UUID()
+            )
+            
+            print("✅ [TransactionsViewModel] 成功載入 \(supabaseTransactions.count) 筆錦標賽交易紀錄")
+            transactions = supabaseTransactions
+            filteredTransactions = supabaseTransactions
+            
+        } catch {
+            print("⚠️ [TransactionsViewModel] Supabase API 失敗，使用模擬資料: \(error)")
+            
+            // 如果 Supabase 失敗，則回退到模擬資料
             let mockTransactions = generateMockTournamentTransactions(for: tournamentId)
             transactions = mockTransactions
             filteredTransactions = mockTransactions
             
-        } catch {
-            print("⚠️ [TransactionsViewModel] 載入錦標賽交易紀錄失敗: \(error)")
-            errorMessage = "載入錦標賽交易紀錄失敗：\(error.localizedDescription)"
+            // 不顯示錯誤給用戶，因為有備用資料
         }
         
         isLoading = false

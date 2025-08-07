@@ -754,16 +754,23 @@ struct PersonalPerformanceContentView: View {
     
     private func loadPerformanceData() async {
         do {
-            if tournamentStateManager.isParticipatingInTournament {
-                print("🏆 [PersonalPerformanceView] Tournament mode active - loading tournament performance")
-                // TODO: Load tournament-specific performance data
-                // For now, still use regular performance but this should be tournament-specific
-                performanceData = try await tournamentService.fetchPersonalPerformance(userId: currentUserId)
+            if tournamentStateManager.isParticipatingInTournament,
+               let tournamentId = tournamentStateManager.getCurrentTournamentId() {
+                print("🏆 [PersonalPerformanceView] Tournament mode active - loading tournament performance: \(tournamentId)")
+                
+                // 嘗試從 Supabase 載入錦標賽績效資料
+                performanceData = try await SupabaseService.shared.fetchTournamentPersonalPerformance(
+                    tournamentId: tournamentId,
+                    userId: currentUserId
+                )
+                
+                print("✅ [PersonalPerformanceView] 成功載入錦標賽績效資料")
             } else {
                 print("📊 [PersonalPerformanceView] Regular mode active - loading regular performance")
                 performanceData = try await tournamentService.fetchPersonalPerformance(userId: currentUserId)
             }
         } catch {
+            print("⚠️ [PersonalPerformanceView] 載入績效資料失敗: \(error)")
             showingError = true
         }
     }

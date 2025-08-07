@@ -161,6 +161,25 @@ struct HomeView: View {
                 await viewModel.loadData()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { notification in
+            print("🔄 [HomeView] 錦標賽切換，更新錦標賽資訊")
+            if let userInfo = notification.userInfo,
+               let tournamentName = userInfo["tournamentName"] as? String {
+                currentTournamentName = tournamentName
+            }
+            Task {
+                await viewModel.loadData()
+                await loadWalletBalance()
+            }
+        }
+        .onChange(of: tournamentStateManager.currentTournamentContext) { _, newContext in
+            print("🔄 [HomeView] 錦標賽上下文變更")
+            if let context = newContext {
+                currentTournamentName = context.displayTitle
+            } else {
+                currentTournamentName = "一般模式"
+            }
+        }
     }
     
     // MARK: - 改進的頂部導航區域

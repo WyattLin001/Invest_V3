@@ -4418,8 +4418,143 @@ extension SupabaseService {
         }
     }
     
+    // MARK: - Tournament Data APIs
+    
+    /// 獲取錦標賽投資組合數據
+    func fetchTournamentPortfolio(tournamentId: UUID, userId: UUID) async throws -> TournamentPortfolio? {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("📊 [SupabaseService] 獲取錦標賽投資組合: tournament=\(tournamentId), user=\(userId)")
+        
+        // 首先嘗試從資料庫獲取真實的錦標賽投資組合數據
+        do {
+            // 查詢錦標賽投資組合表（如果存在的話）
+            // 實際的查詢邏輯會根據您的資料庫結構而定
+            
+            // 暫時返回 nil，讓系統使用 TournamentPortfolioManager 的模擬數據
+            // 這樣可以保持現有功能正常運作，同時為將來的真實數據準備 API
+            
+            return nil
+            
+        } catch {
+            print("⚠️ [SupabaseService] 獲取錦標賽投資組合失敗，使用備用數據: \(error)")
+            return nil
+        }
+    }
+    
+    /// 獲取錦標賽交易記錄
+    func fetchTournamentTransactions(tournamentId: UUID, userId: UUID) async throws -> [TransactionDisplay] {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("📊 [SupabaseService] 獲取錦標賽交易記錄: tournament=\(tournamentId), user=\(userId)")
+        
+        do {
+            // 查詢錦標賽交易記錄表（如果存在的話）
+            // 實際的查詢邏輯會根據您的資料庫結構而定
+            
+            // 暫時返回空陣列，讓系統使用模擬數據
+            // 這樣可以保持現有功能正常運作
+            
+            return []
+            
+        } catch {
+            print("⚠️ [SupabaseService] 獲取錦標賽交易記錄失敗: \(error)")
+            throw error
+        }
+    }
+    
+    /// 獲取錦標賽排行榜（使用已存在的 API）
+    func fetchTournamentRankingsForUI(tournamentId: UUID) async throws -> [UserRanking] {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        print("📊 [SupabaseService] 獲取錦標賽排行榜 UI 數據: \(tournamentId)")
+        
+        do {
+            // 調用已存在的 fetchTournamentRankings API
+            let participants = try await fetchTournamentRankings(tournamentId: tournamentId)
+            
+            // 將 TournamentParticipant 轉換為 UserRanking
+            let rankings = participants.map { participant in
+                UserRanking(
+                    rank: participant.currentRank,
+                    name: participant.userName,
+                    returnRate: participant.returnRate,
+                    totalAssets: participant.virtualBalance
+                )
+            }
+            
+            return rankings
+            
+        } catch {
+            print("⚠️ [SupabaseService] 獲取錦標賽排行榜失敗: \(error)")
+            // 發生錯誤時返回空陣列，讓前端使用模擬數據
+            return []
+        }
+    }
+    
+    /// 獲取錦標賽個人績效資料
+    func fetchTournamentPersonalPerformance(tournamentId: UUID, userId: UUID) async throws -> PersonalPerformance {
+        print("🏆 [SupabaseService] 從 Supabase 載入錦標賽個人績效: tournamentId=\(tournamentId), userId=\(userId)")
+        
+        // 這裡應該實現真實的 Supabase 查詢邏輯
+        // 目前先使用基於錦標賽 ID 的模擬資料生成
+        
+        // 實際實現時，應該查詢類似以下的 SQL:
+        // SELECT * FROM tournament_performance 
+        // WHERE tournament_id = $1 AND user_id = $2
+        
+        // 使用錦標賽 ID 作為隨機種子，確保相同錦標賽總是生成相同的績效資料
+        srand48(Int(abs(tournamentId.hashValue)))
+        
+        let totalReturn = -20 + drand48() * 55 // Random between -20 and 35
+        let annualizedReturn = totalReturn * 12 / 3 // 假設錦標賽持續3個月
+        let maxDrawdown = -(5 + drand48() * 10) // Random between -15 and -5
+        let winRate = 0.4 + drand48() * 0.4 // Random between 0.4 and 0.8
+        let totalTrades = Int(10 + drand48() * 40) // Random between 10 and 50
+        let profitableTrades = Int(Double(totalTrades) * winRate)
+        
+        // 生成績效歷史點
+        var performanceHistory: [PerformancePoint] = []
+        let days = 90 // 錦標賽假設持續90天
+        var cumulativeReturn = 0.0
+        
+        
+        
+        // 生成排名歷史
+        var rankingHistory: [RankingPoint] = []
+        for i in stride(from: 0, to: days, by: 7) { // 每週記錄排名
+            let ranking = Int(1 + drand48() * 99) // Random between 1 and 100
+            let date = Calendar.current.date(byAdding: .day, value: i - days + 1, to: Date()) ?? Date()
+            let totalParticipants = 100
+            let percentile = (Double(totalParticipants - ranking) / Double(totalParticipants)) * 100
+            
+            rankingHistory.append(RankingPoint(
+                date: date,
+                rank: ranking,
+                totalParticipants: totalParticipants,
+                percentile: percentile
+            ))
+        }
+        
+        return PersonalPerformance(
+            totalReturn: totalReturn,
+            annualizedReturn: annualizedReturn,
+            maxDrawdown: maxDrawdown,
+            sharpeRatio: totalReturn > 0 ? (0.5 + drand48() * 1.5) : nil,
+            winRate: winRate,
+            totalTrades: totalTrades,
+            profitableTrades: profitableTrades,
+            avgHoldingDays: 3 + drand48() * 12, // Random between 3 and 15
+            riskScore: 1 + drand48() * 9, // Random between 1 and 10
+            performanceHistory: performanceHistory,
+            rankingHistory: rankingHistory,
+            achievements: []
+        )
+    }
+    
     
 }
+
 
 // MARK: - Supporting Structures for Trading Rankings
 

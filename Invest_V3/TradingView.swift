@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TradingView: View {
     @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var selectedSegment = 0
     @State private var searchText = ""
     
@@ -30,6 +31,18 @@ struct TradingView: View {
                     Task {
                         await loadData()
                     }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
+                print("🔄 [TradingView] 錦標賽切換，重新載入交易數據")
+                Task {
+                    await loadData()
+                }
+            }
+            .onChange(of: tournamentStateManager.currentTournamentContext) { _, _ in
+                print("🔄 [TradingView] 錦標賽上下文變更，重新載入交易數據")
+                Task {
+                    await loadData()
                 }
             }
         }
@@ -75,7 +88,18 @@ struct TradingView: View {
     
     private func loadData() async {
         await tradingService.loadStocks()
-        await tradingService.loadPortfolio()
+        
+        // 根據錦標賽上下文載入對應的投資組合數據
+        if tournamentStateManager.isParticipatingInTournament,
+           let tournamentId = tournamentStateManager.getCurrentTournamentId() {
+            print("🏆 [TradingView] 載入錦標賽投資組合: \(tournamentId)")
+            // TODO: 如果需要特定的錦標賽投資組合數據，在這裡實現
+            // 目前使用通用的投資組合載入方法
+            await tradingService.loadPortfolio()
+        } else {
+            print("📊 [TradingView] 載入一般模式投資組合")
+            await tradingService.loadPortfolio()
+        }
     }
 }
 

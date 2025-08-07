@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StockMarketView: View {
     @ObservedObject private var tradingService = TradingService.shared
+    @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var searchText = ""
     @State private var selectedStock: TradingStock?
     @State private var showStockDetail = false
@@ -59,6 +60,18 @@ struct StockMarketView: View {
                     Task {
                         await tradingService.loadStocks()
                     }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
+                print("🔄 [StockMarketView] 錦標賽切換，刷新股票數據")
+                Task {
+                    await tradingService.loadStocks()
+                }
+            }
+            .onChange(of: tournamentStateManager.currentTournamentContext) { _, _ in
+                print("🔄 [StockMarketView] 錦標賽上下文變更，刷新股票數據")
+                Task {
+                    await tradingService.loadStocks()
                 }
             }
         }

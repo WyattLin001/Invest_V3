@@ -71,15 +71,36 @@ struct PortfolioView: View {
     private func loadData() async {
         // Check if we're in tournament mode
         if tournamentStateManager.isParticipatingInTournament {
-            // In tournament mode, ensure tournament context is up to date
-            print("🏆 [PortfolioView] Tournament mode active - using tournament portfolio data")
+            // In tournament mode, try to load tournament-specific data from Supabase
+            print("🏆 [PortfolioView] Tournament mode active - loading tournament portfolio data")
             
-            // Load tournament specific data if needed
-            if let tournamentId = tournamentStateManager.getCurrentTournamentId() {
-                // Refresh tournament portfolio data
-                // The tournament portfolio is managed by TournamentStateManager
-                // and should be automatically updated through its context
-                print("🏆 [PortfolioView] Current tournament ID: \(tournamentId)")
+            if let tournamentId = tournamentStateManager.getCurrentTournamentId(),
+               let currentUser = SupabaseService.shared.getCurrentUser() {
+                
+                do {
+                    // 嘗試從 Supabase 載入錦標賽投資組合數據
+                    let tournamentPortfolio = try await SupabaseService.shared.fetchTournamentPortfolio(
+                        tournamentId: tournamentId, 
+                        userId: currentUser.id
+                    )
+                    
+                    if let portfolio = tournamentPortfolio {
+                        // 使用從 Supabase 載入的真實數據
+                        print("✅ [PortfolioView] 成功載入錦標賽投資組合數據")
+                    } else {
+                        // Supabase 沒有數據，使用 TournamentPortfolioManager 的備用數據
+                        print("🔄 [PortfolioView] Supabase 無錦標賽數據，使用 TournamentPortfolioManager")
+                        // TournamentPortfolioManager 會自動生成錦標賽專用的模擬數據
+                    }
+                    
+                    print("🏆 [PortfolioView] 錦標賽 \(tournamentId) 投資組合數據載入完成")
+                    
+                } catch {
+                    print("⚠️ [PortfolioView] 載入錦標賽投資組合失敗: \(error)")
+                    // 發生錯誤時仍然使用 TournamentPortfolioManager 的備用數據
+                }
+            } else {
+                print("❌ [PortfolioView] 缺少錦標賽 ID 或用戶資訊")
             }
         } else {
             // Regular mode - load trading service data

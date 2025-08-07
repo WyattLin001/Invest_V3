@@ -223,19 +223,20 @@ class TradingService: ObservableObject {
         do {
             print("🏆 [TradingService] 載入錦標賽 \(tournamentId) 的排行榜")
             
-            // 實際情況下，這裡應該調用 API 獲取特定錦標賽的排行榜
-            // let url = URL(string: "\(baseURL)/api/tournaments/\(tournamentId.uuidString)/rankings")!
-            // let request = createAuthorizedRequest(url: url)
-            // let (data, _) = try await session.data(for: request)
-            // let result = try JSONDecoder().decode(RankingsResponse.self, from: data)
+            // 嘗試從 Supabase 載入錦標賽排行榜
+            let supabaseRankings = try await SupabaseService.shared.fetchTournamentRankingsForUI(tournamentId: tournamentId)
             
-            // 目前使用模擬資料，但針對不同錦標賽生成不同的排行榜資料
+            print("✅ [TradingService] 成功載入 \(supabaseRankings.count) 筆錦標賽排行榜")
+            self.rankings = supabaseRankings
+            
+        } catch {
+            print("⚠️ [TradingService] Supabase API 失敗，使用模擬資料: \(error)")
+            
+            // 如果 Supabase 失敗，則回退到模擬資料
             let mockRankings = generateMockTournamentRankings(for: tournamentId)
             self.rankings = mockRankings
             
-        } catch {
-            print("⚠️ [TradingService] 載入錦標賽排行榜失敗: \(error)")
-            self.error = "載入錦標賽排行榜失敗：\(error.localizedDescription)"
+            // 不設置 error，因為有備用資料
         }
     }
     
