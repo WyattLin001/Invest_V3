@@ -82,6 +82,18 @@ struct PersonalPerformanceContentView: View {
                 await loadPerformanceData()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
+            print("🔄 [PersonalPerformanceView] 錦標賽切換，重新載入績效資料")
+            Task {
+                await loadPerformanceData()
+            }
+        }
+        .onChange(of: tournamentStateManager.currentTournamentContext) { _, _ in
+            print("🔄 [PersonalPerformanceView] 錦標賽上下文變更，重新載入績效資料")
+            Task {
+                await loadPerformanceData()
+            }
+        }
         .sheet(isPresented: $showingShareSheet) {
             PerformanceShareSheet(performanceData: performanceData)
         }
@@ -667,7 +679,7 @@ struct PersonalPerformanceContentView: View {
                 .adaptiveTextColor()
                 .frame(width: 80, alignment: .leading)
             
-            ProgressView(value: level)
+            ProgressView(value: level.clampedProgress())
                 .tint(color)
                 .background(Color.gray300)
             
@@ -721,7 +733,7 @@ struct PersonalPerformanceContentView: View {
                     .adaptiveTextColor(primary: false)
                 
                 if !achievement.isUnlocked {
-                    ProgressView(value: achievement.progress)
+                    ProgressView(value: achievement.progress.clampedProgress())
                         .tint(.brandGreen)
                         .background(Color.gray300)
                 }

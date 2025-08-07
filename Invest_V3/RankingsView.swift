@@ -28,6 +28,18 @@ struct RankingsView: View {
                     }
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
+                print("🔄 [RankingsView] 錦標賽切換，重新載入排行榜")
+                Task {
+                    await loadRankingsData()
+                }
+            }
+            .onChange(of: tournamentStateManager.currentTournamentContext) { _, _ in
+                print("🔄 [RankingsView] 錦標賽上下文變更，重新載入排行榜")
+                Task {
+                    await loadRankingsData()
+                }
+            }
         }
     }
     
@@ -165,13 +177,12 @@ struct RankingsView: View {
     }
     
     private func loadRankingsData() async {
-        if tournamentStateManager.isParticipatingInTournament {
-            print("🏆 [RankingsView] Tournament mode active - should load tournament rankings")
-            // TODO: Implement tournament rankings loading
-            // For now, still use regular rankings but this should be tournament-specific
-            await tradingService.loadRankings()
+        if tournamentStateManager.isParticipatingInTournament,
+           let tournamentId = tournamentStateManager.getCurrentTournamentId() {
+            print("🏆 [RankingsView] 載入錦標賽排行榜: \(tournamentId)")
+            await tradingService.loadTournamentRankings(tournamentId: tournamentId)
         } else {
-            print("📊 [RankingsView] Regular mode active - loading regular rankings")
+            print("📊 [RankingsView] 載入一般模式排行榜")
             await tradingService.loadRankings()
         }
     }

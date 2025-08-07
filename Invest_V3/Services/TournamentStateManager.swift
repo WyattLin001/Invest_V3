@@ -153,9 +153,21 @@ class TournamentStateManager: ObservableObject {
         print("🏆 [TournamentStateManager] 切換到一般模式")
         
         // 僅清除當前錦標賽上下文，但保留報名狀態
-        currentTournamentContext = nil
-        isParticipatingInTournament = false
-        participationState = .none
+        await MainActor.run {
+            currentTournamentContext = nil
+            isParticipatingInTournament = false
+            participationState = .none
+            
+            // 發送切換到一般模式通知
+            NotificationCenter.default.post(
+                name: NSNotification.Name("TournamentContextChanged"),
+                object: self,
+                userInfo: [
+                    "tournamentId": "",
+                    "tournamentName": "一般模式"
+                ]
+            )
+        }
         
         // 持久化狀態（保留已報名的錦標賽）
         persistTournamentState()
@@ -316,6 +328,16 @@ class TournamentStateManager: ObservableObject {
             participationState = .active
             isJoining = false
             enrolledTournaments.insert(tournament.id)
+            
+            // 發送錦標賽切換通知
+            NotificationCenter.default.post(
+                name: NSNotification.Name("TournamentContextChanged"),
+                object: self,
+                userInfo: [
+                    "tournamentId": tournament.id.uuidString,
+                    "tournamentName": tournament.name
+                ]
+            )
         }
         
         // 持久化狀態

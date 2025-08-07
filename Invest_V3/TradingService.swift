@@ -218,6 +218,27 @@ class TradingService: ObservableObject {
         }
     }
     
+    /// 載入錦標賽排行榜
+    func loadTournamentRankings(tournamentId: UUID) async {
+        do {
+            print("🏆 [TradingService] 載入錦標賽 \(tournamentId) 的排行榜")
+            
+            // 實際情況下，這裡應該調用 API 獲取特定錦標賽的排行榜
+            // let url = URL(string: "\(baseURL)/api/tournaments/\(tournamentId.uuidString)/rankings")!
+            // let request = createAuthorizedRequest(url: url)
+            // let (data, _) = try await session.data(for: request)
+            // let result = try JSONDecoder().decode(RankingsResponse.self, from: data)
+            
+            // 目前使用模擬資料，但針對不同錦標賽生成不同的排行榜資料
+            let mockRankings = generateMockTournamentRankings(for: tournamentId)
+            self.rankings = mockRankings
+            
+        } catch {
+            print("⚠️ [TradingService] 載入錦標賽排行榜失敗: \(error)")
+            self.error = "載入錦標賽排行榜失敗：\(error.localizedDescription)"
+        }
+    }
+    
     // MARK: - 交易操作
     
     /// 獲取股票即時價格
@@ -405,6 +426,72 @@ class TradingService: ObservableObject {
         formatter.numberStyle = .percent
         formatter.maximumFractionDigits = 2
         return formatter.string(from: NSNumber(value: percentage / 100)) ?? "0%"
+    }
+    
+    /// 生成錦標賽專用模擬排行榜資料
+    private func generateMockTournamentRankings(for tournamentId: UUID) -> [UserRanking] {
+        // 根據不同的錦標賽 ID 生成不同的排行榜資料
+        let tournamentString = tournamentId.uuidString
+        let participantNames: [String]
+        let participantCount: Int
+        
+        // 根據錦標賽 ID 的前幾個字符來決定模擬數據的特徵
+        if tournamentString.hasPrefix("A") || tournamentString.hasPrefix("B") {
+            // Test03 類型的錦標賽
+            participantNames = ["台股達人", "價值投資者", "技術分析師", "長期投資家", "短線交易員", "ETF專家", "股海航手", "投資老鳥", "理財達人", "資產配置師"]
+            participantCount = 8
+        } else if tournamentString.hasPrefix("C") || tournamentString.hasPrefix("D") {
+            // 2025 Q4 投資錦標賽類型
+            participantNames = ["全球投資王", "美股專家", "ETF大師", "量化交易員", "資產管理師", "投資組合家", "風險控制師", "財富管理者", "投資顧問", "基金經理"]
+            participantCount = 12
+        } else {
+            // 其他錦標賽
+            participantNames = ["投資新秀", "理財專家", "股市老手", "交易達人", "投資導師", "財務分析師", "市場觀察家", "投資策略家", "績效冠軍", "風險大師"]
+            participantCount = 10
+        }
+        
+        var rankings: [UserRanking] = []
+        
+        // 使用錦標賽 ID 作為隨機種子，確保相同錦標賽總是生成相同的排行榜
+        var generator = SeededRandomNumberGenerator(seed: UInt64(abs(tournamentId.hashValue)))
+        
+        for i in 0..<min(participantCount, participantNames.count) {
+            let name = participantNames[i]
+            let returnRate = Double.random(in: -15.0...45.0, using: &generator)
+            let totalAssets = Double.random(in: 800000...1500000, using: &generator)
+            
+            let ranking = UserRanking(
+                id: UUID(),
+                rank: i + 1,
+                name: name,
+                avatar: nil,
+                returnRate: returnRate,
+                totalAssets: totalAssets,
+                followersCount: Int.random(in: 100...5000, using: &generator),
+                articlesCount: Int.random(in: 5...50, using: &generator),
+                specialization: ["價值投資", "技術分析", "成長股", "ETF", "期權交易"].randomElement(using: &generator) ?? "綜合投資",
+                verified: i < 5 // 前5名為認證用戶
+            )
+            
+            rankings.append(ranking)
+        }
+        
+        // 按排名排序
+        return rankings.sorted { $0.rank < $1.rank }
+    }
+}
+
+// MARK: - 隨機數生成器（確保相同種子產生相同結果）
+struct SeededRandomNumberGenerator: RandomNumberGenerator {
+    private var state: UInt64
+    
+    init(seed: UInt64) {
+        state = seed
+    }
+    
+    mutating func next() -> UInt64 {
+        state = state &* 1103515245 &+ 12345
+        return state
     }
 }
 

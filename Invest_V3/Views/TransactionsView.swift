@@ -30,6 +30,18 @@ struct TransactionsView: View {
             .refreshable {
                 await loadTransactionsData()
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
+                print("🔄 [TransactionsView] 錦標賽切換，重新載入交易紀錄")
+                Task {
+                    await loadTransactionsData()
+                }
+            }
+            .onChange(of: tournamentStateManager.currentTournamentContext) { _, _ in
+                print("🔄 [TransactionsView] 錦標賽上下文變更，重新載入交易紀錄")
+                Task {
+                    await loadTransactionsData()
+                }
+            }
         }
         .task {
             await loadTransactionsData()
@@ -147,13 +159,12 @@ struct TransactionsView: View {
     }
     
     private func loadTransactionsData() async {
-        if tournamentStateManager.isParticipatingInTournament {
-            print("🏆 [TransactionsView] Tournament mode active - should load tournament transactions")
-            // TODO: Implement tournament transactions loading
-            // For now, still use regular transactions but this should be tournament-specific
-            await viewModel.loadTransactions()
+        if tournamentStateManager.isParticipatingInTournament,
+           let tournamentId = tournamentStateManager.getCurrentTournamentId() {
+            print("🏆 [TransactionsView] 載入錦標賽交易紀錄: \(tournamentId)")
+            await viewModel.loadTournamentTransactions(tournamentId: tournamentId)
         } else {
-            print("📊 [TransactionsView] Regular mode active - loading regular transactions")
+            print("📊 [TransactionsView] 載入一般模式交易紀錄")
             await viewModel.loadTransactions()
         }
     }
@@ -364,6 +375,30 @@ class TransactionsViewModel: ObservableObject {
         isLoading = false
     }
     
+    /// 載入錦標賽交易紀錄
+    func loadTournamentTransactions(tournamentId: UUID) async {
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            print("🏆 [TransactionsViewModel] 載入錦標賽 \(tournamentId) 的交易紀錄")
+            
+            // 實際情況下，這裡應該調用 API 獲取特定錦標賽的交易紀錄
+            // let apiTransactions = try await TournamentAPIService.shared.fetchTournamentTransactions(tournamentId: tournamentId)
+            
+            // 目前使用模擬資料，但針對不同錦標賽生成不同的資料
+            let mockTransactions = generateMockTournamentTransactions(for: tournamentId)
+            transactions = mockTransactions
+            filteredTransactions = mockTransactions
+            
+        } catch {
+            print("⚠️ [TransactionsViewModel] 載入錦標賽交易紀錄失敗: \(error)")
+            errorMessage = "載入錦標賽交易紀錄失敗：\(error.localizedDescription)"
+        }
+        
+        isLoading = false
+    }
+    
     /// 獲取當前用戶 ID（暫時使用模擬值）
     private func getCurrentUserId() -> String {
         // 實際應該從 AuthenticationService 或 UserDefaults 獲取
@@ -418,6 +453,71 @@ class TransactionsViewModel: ObservableObject {
         
         // 按日期排序（最新的在上面）
         return transactions.sorted { $0.date > $1.date }
+    }
+    
+    /// 生成錦標賽專用模擬交易資料
+    private func generateMockTournamentTransactions(for tournamentId: UUID) -> [TransactionDisplay] {
+        // 根據不同的錦標賽 ID 生成不同的資料
+        let tournamentString = tournamentId.uuidString
+        let symbols: [String]
+        let transactionCount: Int
+        
+        // 根據錦標賽 ID 的前幾個字符來決定模擬數據的特徵
+        if tournamentString.hasPrefix("A") || tournamentString.hasPrefix("B") {
+            // Test03 類型的錦標賽
+            symbols = ["2330", "2454", "2317", "3008", "2891"] // 台股代號
+            transactionCount = 15
+        } else if tournamentString.hasPrefix("C") || tournamentString.hasPrefix("D") {
+            // 2025 Q4 投資錦標賽類型
+            symbols = ["SPY", "QQQ", "IWM", "VTI", "BRK.B"] // 美股ETF
+            transactionCount = 12
+        } else {
+            // 其他錦標賽
+            symbols = ["AAPL", "TSLA", "NVDA", "GOOGL", "MSFT", "META"]
+            transactionCount = 18
+        }
+        
+        let calendar = Calendar.current
+        var transactions: [TransactionDisplay] = []
+        
+        // 使用錦標賽 ID 作為隨機種子，確保相同錦標賽總是生成相同的資料
+        var generator = SeededRandomNumberGenerator(seed: UInt64(abs(tournamentId.hashValue)))
+        
+        for i in 0..<transactionCount {
+            let symbol = symbols.randomElement(using: &generator) ?? symbols[0]
+            let type: TradingTransactionType = Bool.random(using: &generator) ? .buy : .sell
+            let shares = Double.random(in: 1...10, using: &generator)
+            let price = Double.random(in: 50...300, using: &generator)
+            let daysAgo = Int.random(in: 0...20, using: &generator)
+            let date = calendar.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date()
+            
+            let transaction = TransactionDisplay(
+                symbol: symbol,
+                type: type,
+                shares: shares,
+                price: price,
+                date: date
+            )
+            
+            transactions.append(transaction)
+        }
+        
+        // 按日期排序（最新的在上面）
+        return transactions.sorted { $0.date > $1.date }
+    }
+}
+
+// MARK: - 隨機數生成器（確保相同種子產生相同結果）
+struct SeededRandomNumberGenerator: RandomNumberGenerator {
+    private var state: UInt64
+    
+    init(seed: UInt64) {
+        state = seed
+    }
+    
+    mutating func next() -> UInt64 {
+        state = state &* 1103515245 &+ 12345
+        return state
     }
 }
 

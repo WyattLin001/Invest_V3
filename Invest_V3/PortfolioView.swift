@@ -26,6 +26,18 @@ struct PortfolioView: View {
                     await loadData()
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
+                print("🔄 [PortfolioView] 錦標賽切換，重新載入投資組合")
+                Task {
+                    await loadData()
+                }
+            }
+            .onChange(of: tournamentStateManager.currentTournamentContext) { _, _ in
+                print("🔄 [PortfolioView] 錦標賽上下文變更，重新載入投資組合")
+                Task {
+                    await loadData()
+                }
+            }
         }
     }
     
