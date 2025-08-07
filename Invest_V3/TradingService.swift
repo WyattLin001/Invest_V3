@@ -461,16 +461,10 @@ class TradingService: ObservableObject {
             let totalAssets = Double.random(in: 800000...1500000, using: &generator)
             
             let ranking = UserRanking(
-                id: UUID(),
                 rank: i + 1,
                 name: name,
-                avatar: nil,
                 returnRate: returnRate,
-                totalAssets: totalAssets,
-                followersCount: Int.random(in: 100...5000, using: &generator),
-                articlesCount: Int.random(in: 5...50, using: &generator),
-                specialization: ["價值投資", "技術分析", "成長股", "ETF", "期權交易"].randomElement(using: &generator) ?? "綜合投資",
-                verified: i < 5 // 前5名為認證用戶
+                totalAssets: totalAssets
             )
             
             rankings.append(ranking)
@@ -478,20 +472,6 @@ class TradingService: ObservableObject {
         
         // 按排名排序
         return rankings.sorted { $0.rank < $1.rank }
-    }
-}
-
-// MARK: - 隨機數生成器（確保相同種子產生相同結果）
-struct SeededRandomNumberGenerator: RandomNumberGenerator {
-    private var state: UInt64
-    
-    init(seed: UInt64) {
-        state = seed
-    }
-    
-    mutating func next() -> UInt64 {
-        state = state &* 1103515245 &+ 12345
-        return state
     }
 }
 

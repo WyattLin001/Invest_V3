@@ -267,7 +267,7 @@ struct TournamentCardView: View {
                     .foregroundColor(.primary)
             }
             
-            ProgressView(value: participationPercentage / 100.0)
+            ProgressView(value: participationPercentage.safeProgressValue(total: 100))
                 .tint(progressColor)
                 .scaleEffect(y: 0.8)
         }

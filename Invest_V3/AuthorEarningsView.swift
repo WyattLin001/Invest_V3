@@ -227,7 +227,7 @@ struct AuthorEarningsView: View {
                 }
             }
             
-            ProgressView(value: progress.progressPercentage / 100.0)
+            ProgressView(value: progress.progressPercentage.safeProgressValue(total: 100))
                 .progressViewStyle(LinearProgressViewStyle(tint: progress.isCompleted ? .green : .orange))
                 .scaleEffect(x: 1, y: 1.5)
         }
@@ -252,7 +252,7 @@ struct AuthorEarningsView: View {
                     .font(EarningsDesignTokens.caption)
                     .foregroundColor(.secondary)
             }
-            ProgressView(value: viewModel.withdrawableAmount / 1000)
+            ProgressView(value: viewModel.withdrawableAmount.safeProgressValue(total: 1000))
                 .progressViewStyle(LinearProgressViewStyle(tint: .accentColor))
                 .scaleEffect(x: 1, y: 2)
         }

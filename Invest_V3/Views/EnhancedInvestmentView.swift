@@ -1806,7 +1806,7 @@ struct InvestmentRecordsView: View {
                         .foregroundColor(.textPrimary)
                 }
                 
-                ProgressView(value: tournament.participationPercentage, total: 100)
+                ProgressView(value: tournament.participationPercentage.safeProgressValue(total: 100))
                     .progressViewStyle(LinearProgressViewStyle(tint: .brandGreen))
                     .scaleEffect(x: 1, y: 0.5, anchor: .center)
             }

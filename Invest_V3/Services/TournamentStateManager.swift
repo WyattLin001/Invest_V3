@@ -39,7 +39,7 @@ enum TournamentParticipationState {
 }
 
 // MARK: - 錦標賽上下文
-struct TournamentContext {
+struct TournamentContext: Equatable {
     let tournament: Tournament
     let participant: TournamentParticipant?
     let state: TournamentParticipationState
@@ -58,6 +58,13 @@ struct TournamentContext {
     
     var displayTitle: String {
         return tournament.name
+    }
+    
+    static func == (lhs: TournamentContext, rhs: TournamentContext) -> Bool {
+        return lhs.tournament.id == rhs.tournament.id &&
+               lhs.participant?.id == rhs.participant?.id &&
+               lhs.state == rhs.state &&
+               lhs.currentRank == rhs.currentRank
     }
 }
 
