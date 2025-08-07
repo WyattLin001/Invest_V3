@@ -243,6 +243,20 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 throw TournamentAPIError.unknown
             }
             
+            // 步驟3.5：創建後端投資組合記錄（統一架構）
+            do {
+                let initialBalance = tournament.initialBalance
+                let _ = try await PortfolioService.shared.createTournamentPortfolio(
+                    userId: currentUser.id,
+                    tournamentId: tournamentId,
+                    initialBalance: initialBalance
+                )
+                print("✅ [TournamentService] 後端統一投資組合創建成功")
+            } catch {
+                print("⚠️ [TournamentService] 後端投資組合創建失敗，但本地投資組合已創建: \(error)")
+                // 不拋出錯誤，因為本地投資組合已創建，可以繼續使用
+            }
+            
             // 步驟4：加入錦標賽（後端）
             let success = try await supabaseService.joinTournament(tournamentId: tournamentId)
             
@@ -288,6 +302,20 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             if success {
                 // 步驟3：清理本地投資組合
                 portfolioManager.removePortfolio(for: tournamentId)
+                
+                // 步驟3.5：清理後端統一投資組合
+                if let currentUser = supabaseService.getCurrentUser() {
+                    do {
+                        try await PortfolioService.shared.deleteTournamentPortfolio(
+                            userId: currentUser.id,
+                            tournamentId: tournamentId
+                        )
+                        print("✅ [TournamentService] 後端統一投資組合清理成功")
+                    } catch {
+                        print("⚠️ [TournamentService] 後端投資組合清理失敗: \(error)")
+                        // 不影響主要流程，因為錦標賽已離開
+                    }
+                }
                 
                 print("✅ [TournamentService] 成功離開錦標賽並清理投資組合")
                 

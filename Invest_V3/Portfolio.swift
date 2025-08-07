@@ -4,7 +4,8 @@ import Foundation
 struct UserPortfolio: Identifiable, Codable {
     let id: UUID
     let userId: UUID
-    let groupId: UUID? // 新增 groupId 以關聯投資群組
+    let groupId: UUID?           // 關聯投資群組
+    let tournamentId: UUID?      // 關聯錦標賽 (新增)
     let initialCash: Double      // 初始資金 (100萬)
     var availableCash: Double    // 可用現金
     var totalValue: Double       // 總資產價值
@@ -19,7 +20,8 @@ struct UserPortfolio: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
-        case groupId = "group_id" // 新增 coding key
+        case groupId = "group_id"
+        case tournamentId = "tournament_id" // 新增錦標賽關聯
         case initialCash = "initial_cash"
         case availableCash = "available_cash"
         case totalValue = "total_value"
@@ -51,6 +53,52 @@ struct UserPortfolio: Identifiable, Codable {
             return "#DC3545" // 紅色
         } else {
             return "#6C757D" // 灰色
+        }
+    }
+    
+    // MARK: - 投資組合類型判斷
+    
+    /// 投資組合類型
+    var portfolioType: PortfolioType {
+        if tournamentId != nil {
+            return .tournament
+        } else if groupId != nil {
+            return .group
+        } else {
+            return .general
+        }
+    }
+    
+    /// 是否為錦標賽投資組合
+    var isTournamentPortfolio: Bool {
+        return tournamentId != nil
+    }
+    
+    /// 是否為群組投資組合  
+    var isGroupPortfolio: Bool {
+        return groupId != nil && tournamentId == nil
+    }
+    
+    /// 是否為一般投資組合
+    var isGeneralPortfolio: Bool {
+        return groupId == nil && tournamentId == nil
+    }
+}
+
+// MARK: - 投資組合類型枚舉
+enum PortfolioType: String, CaseIterable {
+    case general = "general"
+    case group = "group"
+    case tournament = "tournament"
+    
+    var displayName: String {
+        switch self {
+        case .general:
+            return "一般模式"
+        case .group:
+            return "群組投資"
+        case .tournament:
+            return "錦標賽"
         }
     }
 }

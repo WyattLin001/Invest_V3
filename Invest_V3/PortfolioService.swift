@@ -18,23 +18,37 @@ class PortfolioService: ObservableObject {
     
     // MARK: - 投資組合管理
     
-    /// 獲取用戶投資組合
-    func fetchUserPortfolio(userId: UUID) async throws -> UserPortfolio {
+    /// 獲取用戶投資組合 (支持錦標賽和群組篩選)
+    func fetchUserPortfolio(userId: UUID, tournamentId: UUID? = nil, groupId: UUID? = nil) async throws -> UserPortfolio {
         guard let client = supabaseClient else {
             throw PortfolioServiceError.clientNotInitialized
         }
         
-        // 獲取用戶投資組合基本資訊
-        let portfolioResponse: [UserPortfolio] = try await client
-            .from("user_portfolios")
+        // 建構查詢，支持錦標賽和群組篩選
+        var query = client
+            .from("portfolios")
             .select()
             .eq("user_id", value: userId)
-            .execute()
-            .value
+            
+        // 添加錦標賽篩選
+        if let tournamentId = tournamentId {
+            query = query.eq("tournament_id", value: tournamentId)
+        } else if tournamentId == nil && groupId == nil {
+            // 如果沒有指定錦標賽和群組，則查詢一般模式（兩者都為 null）
+            query = query.is("tournament_id", value: nil).is("group_id", value: nil)
+        }
+        
+        // 添加群組篩選
+        if let groupId = groupId {
+            query = query.eq("group_id", value: groupId)
+        }
+        
+        // 獲取用戶投資組合基本資訊
+        let portfolioResponse: [UserPortfolio] = try await query.execute().value
         
         guard let portfolio = portfolioResponse.first else {
             // 如果沒有投資組合，創建一個新的
-            return try await createInitialPortfolio(userId: userId)
+            return try await createInitialPortfolio(userId: userId, tournamentId: tournamentId, groupId: groupId)
         }
         
         return portfolio
@@ -314,10 +328,131 @@ class PortfolioService: ObservableObject {
         
         print("🎉 [PortfolioService] 用戶投資組合清空完成: \(userId)")
     }
+    
+    // MARK: - 錦標賽投資組合專用方法
+    
+    /// 創建錦標賽投資組合
+    func createTournamentPortfolio(userId: UUID, tournamentId: UUID, initialBalance: Double = 1_000_000) async throws -> UserPortfolio {
+        guard let client = supabaseClient else {
+            throw PortfolioServiceError.clientNotInitialized
+        }
+        
+        // 檢查是否已存在該用戶在該錦標賽的投資組合
+        let existingPortfolio = try? await fetchUserPortfolio(userId: userId, tournamentId: tournamentId)
+        if existingPortfolio != nil {
+            print("⚠️ [PortfolioService] 錦標賽投資組合已存在")
+            return existingPortfolio!
+        }
+        
+        // 創建新的錦標賽投資組合
+        let portfolio = UserPortfolio(
+            id: UUID(),
+            userId: userId,
+            groupId: nil,
+            tournamentId: tournamentId,
+            initialCash: initialBalance,
+            availableCash: initialBalance,
+            totalValue: initialBalance,
+            returnRate: 0.0,
+            lastUpdated: Date()
+        )
+        
+        try await client
+            .from("portfolios")
+            .insert(portfolio)
+            .execute()
+        
+        print("✅ [PortfolioService] 創建錦標賽投資組合成功: userId=\(userId), tournamentId=\(tournamentId)")
+        
+        return portfolio
+    }
+    
+    /// 獲取用戶在特定錦標賽的持股明細
+    func fetchTournamentHoldings(userId: UUID, tournamentId: UUID) async throws -> [StockHolding] {
+        guard let client = supabaseClient else {
+            throw PortfolioServiceError.clientNotInitialized
+        }
+        
+        let holdings: [StockHolding] = try await client
+            .from("user_portfolios")
+            .select()
+            .eq("user_id", value: userId)
+            .eq("tournament_id", value: tournamentId)
+            .execute()
+            .value
+        
+        return holdings.map { holding in
+            StockHolding(
+                symbol: holding.symbol,
+                quantity: Int(holding.quantity),
+                averageCost: holding.averageCost
+            )
+        }
+    }
+    
+    /// 獲取錦標賽投資組合分佈
+    func getTournamentPortfolioDistribution(userId: UUID, tournamentId: UUID) async throws -> [PortfolioItem] {
+        let holdings = try await fetchTournamentHoldings(userId: userId, tournamentId: tournamentId)
+        var portfolioItems: [PortfolioItem] = []
+        var totalValue: Double = 0
+        
+        // 計算每個股票的當前價值
+        for holding in holdings {
+            let currentStock = try await stockService.fetchStockQuote(symbol: holding.symbol)
+            let currentValue = Double(holding.quantity) * currentStock.price
+            totalValue += currentValue
+            
+            portfolioItems.append(PortfolioItem(
+                symbol: holding.symbol,
+                percent: 0, // 稍後計算
+                amount: currentValue,
+                color: getColorForStock(holding.symbol)
+            ))
+        }
+        
+        // 計算百分比
+        portfolioItems = portfolioItems.map { item in
+            PortfolioItem(
+                symbol: item.symbol,
+                percent: totalValue > 0 ? (item.amount / totalValue) * 100 : 0,
+                amount: item.amount,
+                color: item.color
+            )
+        }
+        
+        return portfolioItems
+    }
+    
+    /// 刪除錦標賽投資組合
+    func deleteTournamentPortfolio(userId: UUID, tournamentId: UUID) async throws {
+        guard let client = supabaseClient else {
+            throw PortfolioServiceError.clientNotInitialized
+        }
+        
+        print("🗑️ [PortfolioService] 開始刪除錦標賽投資組合: userId=\(userId), tournamentId=\(tournamentId)")
+        
+        // 步驟 1: 刪除持股記錄
+        try await client
+            .from("user_portfolios")
+            .delete()
+            .eq("user_id", value: userId)
+            .eq("tournament_id", value: tournamentId)
+            .execute()
+        
+        // 步驟 2: 刪除投資組合主記錄
+        try await client
+            .from("portfolios")
+            .delete()
+            .eq("user_id", value: userId)
+            .eq("tournament_id", value: tournamentId)
+            .execute()
+        
+        print("✅ [PortfolioService] 錦標賽投資組合刪除完成: userId=\(userId), tournamentId=\(tournamentId)")
+    }
 
     // MARK: - 私有方法
     
-    private func createInitialPortfolio(userId: UUID) async throws -> UserPortfolio {
+    private func createInitialPortfolio(userId: UUID, tournamentId: UUID? = nil, groupId: UUID? = nil) async throws -> UserPortfolio {
         guard let client = supabaseClient else {
             throw PortfolioServiceError.clientNotInitialized
         }
@@ -327,7 +462,8 @@ class PortfolioService: ObservableObject {
         let portfolio = UserPortfolio(
             id: UUID(),
             userId: userId,
-            groupId: nil, // 新增 groupId，初始為 nil
+            groupId: groupId,
+            tournamentId: tournamentId, // 新增錦標賽關聯
             initialCash: initialCash,
             availableCash: initialCash,
             totalValue: initialCash,
@@ -336,9 +472,12 @@ class PortfolioService: ObservableObject {
         )
         
         try await client
-            .from("user_portfolios")
+            .from("portfolios")
             .insert(portfolio)
             .execute()
+        
+        // 記錄投資組合創建日誌
+        print("✅ [PortfolioService] 創建投資組合成功: userId=\(userId), tournamentId=\(tournamentId?.uuidString ?? "nil"), groupId=\(groupId?.uuidString ?? "nil")")
         
         return portfolio
     }

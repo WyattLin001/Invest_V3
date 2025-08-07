@@ -78,35 +78,79 @@ struct PortfolioView: View {
                let currentUser = SupabaseService.shared.getCurrentUser() {
                 
                 do {
-                    // 嘗試從 Supabase 載入錦標賽投資組合數據
-                    let tournamentPortfolio = try await SupabaseService.shared.fetchTournamentPortfolio(
-                        tournamentId: tournamentId, 
-                        userId: currentUser.id
+                    // 使用統一的 PortfolioService 載入錦標賽投資組合
+                    let tournamentPortfolio = try await PortfolioService.shared.fetchUserPortfolio(
+                        userId: currentUser.id,
+                        tournamentId: tournamentId
                     )
                     
-                    if let portfolio = tournamentPortfolio {
-                        // 使用從 Supabase 載入的真實數據
-                        print("✅ [PortfolioView] 成功載入錦標賽投資組合數據")
-                    } else {
-                        // Supabase 沒有數據，使用 TournamentPortfolioManager 的備用數據
-                        print("🔄 [PortfolioView] Supabase 無錦標賽數據，使用 TournamentPortfolioManager")
-                        // TournamentPortfolioManager 會自動生成錦標賽專用的模擬數據
+                    print("✅ [PortfolioView] 統一錦標賽投資組合載入成功")
+                    print("   - 投資組合類型: \(tournamentPortfolio.portfolioType.displayName)")
+                    print("   - 總價值: $\(Int(tournamentPortfolio.totalValue))")
+                    print("   - 回報率: \(tournamentPortfolio.returnRateFormatted)")
+                    
+                    // 備用方案：同時嘗試載入詳細持股數據
+                    do {
+                        let holdings = try await PortfolioService.shared.fetchTournamentHoldings(
+                            userId: currentUser.id,
+                            tournamentId: tournamentId
+                        )
+                        print("✅ [PortfolioView] 錦標賽持股明細載入成功: \(holdings.count) 項")
+                    } catch {
+                        print("⚠️ [PortfolioView] 錦標賽持股明細載入失敗: \(error)")
                     }
                     
-                    print("🏆 [PortfolioView] 錦標賽 \(tournamentId) 投資組合數據載入完成")
+                    print("🏆 [PortfolioView] 錦標賽 \(tournamentId) 統一投資組合數據載入完成")
                     
                 } catch {
-                    print("⚠️ [PortfolioView] 載入錦標賽投資組合失敗: \(error)")
-                    // 發生錯誤時仍然使用 TournamentPortfolioManager 的備用數據
+                    print("⚠️ [PortfolioView] 統一投資組合載入失敗，嘗試舊方案: \(error)")
+                    
+                    // 備用方案：使用舊的 Supabase 方法
+                    do {
+                        let tournamentPortfolio = try await SupabaseService.shared.fetchTournamentPortfolio(
+                            tournamentId: tournamentId, 
+                            userId: currentUser.id
+                        )
+                        
+                        if let portfolio = tournamentPortfolio {
+                            print("✅ [PortfolioView] 備用方案：載入錦標賽投資組合成功")
+                        } else {
+                            print("🔄 [PortfolioView] 備用方案：使用 TournamentPortfolioManager")
+                        }
+                    } catch {
+                        print("❌ [PortfolioView] 所有錦標賽數據載入方案都失敗: \(error)")
+                    }
                 }
             } else {
                 print("❌ [PortfolioView] 缺少錦標賽 ID 或用戶資訊")
             }
         } else {
-            // Regular mode - load trading service data
+            // 一般模式：載入非錦標賽投資組合
+            print("📊 [PortfolioView] 一般模式 - 載入一般投資組合")
+            
+            // 嘗試使用統一的 PortfolioService
+            if let currentUser = SupabaseService.shared.getCurrentUser() {
+                do {
+                    let generalPortfolio = try await PortfolioService.shared.fetchUserPortfolio(
+                        userId: currentUser.id,
+                        tournamentId: nil,
+                        groupId: nil
+                    )
+                    
+                    print("✅ [PortfolioView] 統一一般投資組合載入成功")
+                    print("   - 投資組合類型: \(generalPortfolio.portfolioType.displayName)")
+                    print("   - 總價值: $\(Int(generalPortfolio.totalValue))")
+                    print("   - 回報率: \(generalPortfolio.returnRateFormatted)")
+                    
+                } catch {
+                    print("⚠️ [PortfolioView] 統一投資組合載入失敗，使用 TradingService: \(error)")
+                }
+            }
+            
+            // 備用方案：使用原有的 TradingService
             await tradingService.loadPortfolio()
             await tradingService.loadTransactions()
-            print("📊 [PortfolioView] Regular mode active - loaded trading service data")
+            print("📊 [PortfolioView] 一般模式數據載入完成")
         }
     }
     
