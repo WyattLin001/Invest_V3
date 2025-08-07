@@ -248,11 +248,11 @@ struct AuthorEarningsView: View {
                 Text("提領進度")
                     .font(EarningsDesignTokens.body)
                 Spacer()
-                Text("\(Int(viewModel.withdrawableAmount))/1000")
+                Text("\(Int(viewModel.withdrawableAmount))/10")
                     .font(EarningsDesignTokens.caption)
                     .foregroundColor(.secondary)
             }
-            ProgressView(value: viewModel.withdrawableAmount.safeProgressValue(total: 1000))
+            ProgressView(value: viewModel.withdrawableAmount.safeProgressValue(total: 10))
                 .progressViewStyle(LinearProgressViewStyle(tint: .accentColor))
                 .scaleEffect(x: 1, y: 2)
         }
@@ -288,7 +288,7 @@ struct AuthorEarningsView: View {
             .cornerRadius(EarningsDesignTokens.cornerRadius12)
         }
         .buttonStyle(ScaleButtonStyle())
-        .disabled(viewModel.withdrawableAmount < 1000 || viewModel.isLoading)
+        .disabled(viewModel.withdrawableAmount < 10 || viewModel.isLoading)
     }
 
     private var loadingState: some View {
