@@ -5536,12 +5536,12 @@ extension SupabaseService {
             // 從 tournament_participants 表獲取用戶參與的錦標賽 ID
             let participantResponses: [TournamentParticipantResponse] = try await client
                 .from("tournament_participants")
-                .select("tournament_id")
+                .select("id, tournament_id")
                 .eq("user_id", value: userId)
                 .execute()
                 .value
             
-            let tournamentIds = participantResponses.map { $0.tournament_id }
+            let tournamentIds = participantResponses.map { $0.tournamentId }
             
             if tournamentIds.isEmpty {
                 print("✅ [SupabaseService] 用戶未參與任何錦標賽")
