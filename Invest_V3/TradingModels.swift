@@ -121,24 +121,29 @@ struct TradingPortfolio: Codable {
 struct PortfolioPosition: Codable, Identifiable {
     let id = UUID()
     let symbol: String
-    let name: String
-    let quantity: Int
-    let averageCost: Double
+    let shares: Double          // Flask API 使用 shares 字段
+    let averagePrice: Double    // Flask API 使用 average_price
     let currentPrice: Double
     let marketValue: Double
-    let unrealizedPnl: Double
-    let unrealizedPnlPercent: Double
-    let market: String
+    let unrealizedGain: Double  // Flask API 使用 unrealized_gain
+    let unrealizedGainPercent: Double  // Flask API 使用 unrealized_gain_percent
     
     private enum CodingKeys: String, CodingKey {
-        case symbol, name, quantity
-        case averageCost = "average_cost"
+        case symbol, shares
+        case averagePrice = "average_price"
         case currentPrice = "current_price"
         case marketValue = "market_value"
-        case unrealizedPnl = "unrealized_pnl"
-        case unrealizedPnlPercent = "unrealized_pnl_percent"
-        case market
+        case unrealizedGain = "unrealized_gain"
+        case unrealizedGainPercent = "unrealized_gain_percent"
     }
+    
+    // 向後兼容的計算屬性
+    var name: String { symbol }  // 暫時使用 symbol 作為 name
+    var quantity: Int { Int(shares) }
+    var averageCost: Double { averagePrice }
+    var unrealizedPnl: Double { unrealizedGain }
+    var unrealizedPnlPercent: Double { unrealizedGainPercent }
+    var market: String { "TWD" }
 }
 
 // MARK: - 交易記錄模型
@@ -146,35 +151,34 @@ struct TradingTransaction: Codable, Identifiable {
     let id = UUID()
     let symbol: String
     let action: String
-    let quantity: Int
+    let quantity: Double  // 改為 Double 以配合 API 計算出的股數
     let price: Double
-    let totalAmount: Double
-    let fee: Double
-    let tax: Double?
-    let timestamp: String
+    let amount: Double    // 使用 amount 字段（對應 portfolio_transactions 表）
+    let executedAt: String
     let tournamentId: UUID? // 新增：關聯的錦標賽ID
-    let tournamentName: String? // 新增：錦標賽名稱
     
     private enum CodingKeys: String, CodingKey {
-        case symbol, action, quantity, price
-        case totalAmount = "total_amount"
-        case fee, tax, timestamp
+        case symbol, action, quantity, price, amount
+        case executedAt = "executed_at"
         case tournamentId = "tournament_id"
-        case tournamentName = "tournament_name"
     }
     
+    // 向後兼容的計算屬性
+    var totalAmount: Double { amount }
+    var fee: Double { 0.0 }  // Flask API 已在 amount 中處理費用
+    var tax: Double? { nil }
+    var timestamp: String { executedAt }
+    var tournamentName: String? { nil }
+    
     // 自定義初始化器（支援向後兼容）
-    init(symbol: String, action: String, quantity: Int, price: Double, totalAmount: Double, fee: Double, tax: Double? = nil, timestamp: String, tournamentId: UUID? = nil, tournamentName: String? = nil) {
+    init(symbol: String, action: String, quantity: Double, price: Double, amount: Double, executedAt: String, tournamentId: UUID? = nil) {
         self.symbol = symbol
         self.action = action
         self.quantity = quantity
         self.price = price
-        self.totalAmount = totalAmount
-        self.fee = fee
-        self.tax = tax
-        self.timestamp = timestamp
+        self.amount = amount
+        self.executedAt = executedAt
         self.tournamentId = tournamentId
-        self.tournamentName = tournamentName
     }
     
     var actionText: String {
@@ -393,10 +397,45 @@ struct AuthResponse: Codable {
     }
 }
 
+// Flask API 直接返回投資組合物件，無包裝的 success 等字段
 struct PortfolioResponse: Codable {
-    let success: Bool
-    let portfolio: TradingPortfolio
-    let error: String?
+    let userId: String
+    let tournamentId: UUID?
+    let totalValue: Double
+    let cashBalance: Double
+    let marketValue: Double
+    let totalInvested: Double
+    let totalReturn: Double
+    let totalReturnPercent: Double
+    let positions: [PortfolioPosition]
+    let lastUpdated: String
+    
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case tournamentId = "tournament_id"
+        case totalValue = "total_value"
+        case cashBalance = "cash_balance"
+        case marketValue = "market_value"
+        case totalInvested = "total_invested"
+        case totalReturn = "total_return"
+        case totalReturnPercent = "total_return_percent"
+        case positions
+        case lastUpdated = "last_updated"
+    }
+    
+    // 向後兼容的計算屬性
+    var success: Bool { true }
+    var error: String? { nil }
+    
+    var portfolio: TradingPortfolio {
+        return TradingPortfolio(
+            cashBalance: cashBalance,
+            totalAssets: totalValue,
+            totalProfit: totalReturn,
+            cumulativeReturn: totalReturnPercent,
+            positions: positions
+        )
+    }
 }
 
 struct StocksResponse: Codable {
@@ -427,9 +466,11 @@ struct StockPriceResponse: Codable {
 }
 
 struct TransactionsResponse: Codable {
-    let success: Bool
-    let transactions: [TradingTransaction]
-    let error: String?
+    let transactions: [TradingTransaction]  // Flask API 直接返回交易陣列，無 success 字段
+    
+    // 向後兼容的計算屬性
+    var success: Bool { !transactions.isEmpty }
+    var error: String? { nil }
 }
 
 struct TradeResponse: Codable {

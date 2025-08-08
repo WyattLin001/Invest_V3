@@ -886,25 +886,19 @@ def execute_trade():
             new_balance = user_balance + total_cost
             update_user_balance(user_id, new_balance)
         
-        # 記錄交易
-        transaction_id = str(uuid.uuid4())
+        # 記錄交易 (適配 portfolio_transactions 表結構)
         transaction_record = {
-            "id": transaction_id,
             "user_id": user_id,
             "symbol": symbol,
             "action": action,
-            "shares": shares,
+            "amount": abs(total_cost),  # 使用總金額
             "price": current_price,
-            "total_amount": abs(total_cost),
-            "fee": transaction_fee,
             "executed_at": datetime.now().isoformat(),
-            "is_taiwan_stock": is_tw_stock,
-            "is_day_trading": is_day_trading,
             "tournament_id": tournament_id  # 保存錦標賽 ID
         }
         
-        # 保存交易記錄到數據庫
-        supabase.table("transactions").insert(transaction_record).execute()
+        # 保存交易記錄到數據庫 (使用正確的 portfolio_transactions 表)
+        supabase.table("portfolio_transactions").insert(transaction_record).execute()
         
         # 構建回應訊息
         stock_name = price_data.get('name', symbol)
@@ -915,20 +909,14 @@ def execute_trade():
         
         return jsonify({
             "success": True,
-            "transaction_id": transaction_id,
             "symbol": symbol,
             "stock_name": stock_name,
             "action": action,
-            "shares": shares,
+            "amount": abs(total_cost),
             "price": current_price,
-            "total_amount": abs(total_cost),
-            "fee": transaction_fee,
-            "fee_details": fee_details,
-            "currency": currency,
-            "is_taiwan_stock": is_tw_stock,
-            "is_day_trading": is_day_trading,
+            "tournament_id": tournament_id,
             "executed_at": transaction_record["executed_at"],
-            "message": f"{action_text} {stock_name} 成功，共 {shares:.3f} 股"
+            "message": f"{action_text} {stock_name} 成功，金額 ${abs(total_cost):,.2f}"
         })
         
     except Exception as e:
@@ -951,27 +939,31 @@ def get_portfolio():
         # 根據是否有錦標賽 ID 來獲取相應的交易記錄
         if tournament_id:
             logger.info(f"🏆 獲取錦標賽 {tournament_id} 的投資組合")
-            response = supabase.table("transactions").select("*").eq("user_id", user_id).eq("tournament_id", tournament_id).execute()
+            response = supabase.table("portfolio_transactions").select("*").eq("user_id", user_id).eq("tournament_id", tournament_id).execute()
         else:
             logger.info(f"📊 獲取用戶 {user_id} 的一般投資組合")
             # 獲取沒有錦標賽 ID 的交易記錄（一般模式）
-            response = supabase.table("transactions").select("*").eq("user_id", user_id).is_("tournament_id", "null").execute()
+            response = supabase.table("portfolio_transactions").select("*").eq("user_id", user_id).is_("tournament_id", "null").execute()
         
         transactions = response.data
         
-        # 計算每支股票的持倉
+        # 計算每支股票的持倉（適配 portfolio_transactions 表結構）
         holdings = {}
         for tx in transactions:
             symbol = tx['symbol']
             if symbol not in holdings:
                 holdings[symbol] = {"shares": 0, "total_cost": 0}
             
+            # portfolio_transactions 使用 amount 字段，需要計算股數
+            current_price = tx.get('price', 1.0)  # 確保不為零
+            shares = tx['amount'] / current_price if current_price > 0 else 0
+            
             if tx['action'] == 'buy':
-                holdings[symbol]['shares'] += tx['shares']
-                holdings[symbol]['total_cost'] += tx['total_amount']
+                holdings[symbol]['shares'] += shares
+                holdings[symbol]['total_cost'] += tx['amount']
             else:
-                holdings[symbol]['shares'] -= tx['shares']
-                holdings[symbol]['total_cost'] -= tx['total_amount']
+                holdings[symbol]['shares'] -= shares
+                holdings[symbol]['total_cost'] -= tx['amount']
         
         # 清理零持倉
         holdings = {k: v for k, v in holdings.items() if v['shares'] > 0.001}
@@ -1050,7 +1042,7 @@ def get_transactions():
         # 根據是否有錦標賽 ID 來獲取相應的交易記錄
         if tournament_id:
             logger.info(f"🏆 獲取錦標賽 {tournament_id} 的交易歷史")
-            response = supabase.table("transactions")\
+            response = supabase.table("portfolio_transactions")\
                 .select("*")\
                 .eq("user_id", user_id)\
                 .eq("tournament_id", tournament_id)\
@@ -1059,7 +1051,7 @@ def get_transactions():
                 .execute()
         else:
             logger.info(f"📊 獲取用戶 {user_id} 的一般交易歷史")
-            response = supabase.table("transactions")\
+            response = supabase.table("portfolio_transactions")\
                 .select("*")\
                 .eq("user_id", user_id)\
                 .is_("tournament_id", "null")\
@@ -1069,15 +1061,19 @@ def get_transactions():
         
         transactions = []
         for tx in response.data:
+            # 適配 portfolio_transactions 表結構
+            current_price = tx.get('price', 1.0)
+            shares = tx['amount'] / current_price if current_price > 0 else 0
+            
             transactions.append({
                 "id": tx['id'],
                 "symbol": tx['symbol'],
                 "action": tx['action'],
-                "quantity": tx['shares'],
+                "quantity": shares,  # 根據 amount 和 price 計算股數
                 "price": tx['price'],
-                "total_amount": tx['total_amount'],
-                "fee": tx.get('fee', 0),
-                "executed_at": tx['executed_at']
+                "amount": tx['amount'],  # 使用 amount 字段
+                "executed_at": tx['executed_at'],
+                "tournament_id": tx.get('tournament_id')  # 包含錦標賽 ID
             })
         
         transaction_type = f"錦標賽 {tournament_id}" if tournament_id else "一般模式"

@@ -165,10 +165,10 @@ class TradingService: ObservableObject {
             let (data, _) = try await session.data(for: request)
             let result = try JSONDecoder().decode(PortfolioResponse.self, from: data)
             
-            if result.success {
-                self.portfolio = result.portfolio
-            }
+            self.portfolio = result.portfolio
+            print("✅ [TradingService] 投資組合載入成功")
         } catch {
+            print("❌ [TradingService] 載入投資組合失敗: \(error)")
             self.error = "載入投資組合失敗: \(error.localizedDescription)"
         }
     }
@@ -203,12 +203,12 @@ class TradingService: ObservableObject {
             let request = createAuthorizedRequest(url: url)
             
             let (data, _) = try await session.data(for: request)
-            let result = try JSONDecoder().decode(TransactionsResponse.self, from: data)
             
-            if result.success {
-                self.transactions = result.transactions
-            }
+            // Flask API 直接返回交易陣列，不是包裝的物件
+            self.transactions = try JSONDecoder().decode([TradingTransaction].self, from: data)
+            print("✅ [TradingService] 交易記錄載入成功: \(transactions.count) 筆")
         } catch {
+            print("❌ [TradingService] 載入交易記錄失敗: \(error)")
             self.error = "載入交易記錄失敗: \(error.localizedDescription)"
         }
     }
@@ -245,10 +245,8 @@ class TradingService: ObservableObject {
             let (data, _) = try await session.data(for: request)
             let result = try JSONDecoder().decode(PortfolioResponse.self, from: data)
             
-            if result.success {
-                self.portfolio = result.portfolio
-                print("✅ [TradingService] 錦標賽投資組合載入成功")
-            }
+            self.portfolio = result.portfolio
+            print("✅ [TradingService] 錦標賽投資組合載入成功")
         } catch {
             self.error = "載入錦標賽投資組合失敗: \(error.localizedDescription)"
             print("❌ [TradingService] 錦標賽投資組合載入失敗: \(error)")
@@ -269,12 +267,10 @@ class TradingService: ObservableObject {
             let request = createAuthorizedRequest(url: url)
             
             let (data, _) = try await session.data(for: request)
-            let result = try JSONDecoder().decode(TransactionsResponse.self, from: data)
             
-            if result.success {
-                self.transactions = result.transactions
-                print("✅ [TradingService] 錦標賽交易記錄載入成功: \(result.transactions.count) 筆")
-            }
+            // Flask API 直接返回交易陣列
+            self.transactions = try JSONDecoder().decode([TradingTransaction].self, from: data)
+            print("✅ [TradingService] 錦標賽交易記錄載入成功: \(transactions.count) 筆")
         } catch {
             self.error = "載入錦標賽交易記錄失敗: \(error.localizedDescription)"
             print("❌ [TradingService] 錦標賽交易記錄載入失敗: \(error)")
