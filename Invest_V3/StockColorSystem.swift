@@ -171,7 +171,7 @@ class ColorPersistenceManager {
         }
         
         userDefaults.set(colorMapping, forKey: colorKey)
-        print("🎨 [Persistence] 保存顏色: \(symbol) -> \(colorToHex(color))")
+        // print("🎨 [Persistence] 保存顏色: \(symbol) -> \(colorToHex(color))")
     }
     
     func loadColor(for symbol: String) -> Color? {
@@ -180,7 +180,7 @@ class ColorPersistenceManager {
               let color = colorFromHex(hexString) else {
             return nil
         }
-        print("🎨 [Persistence] 讀取顏色: \(symbol) -> \(hexString)")
+        // print("🎨 [Persistence] 讀取顏色: \(symbol) -> \(hexString)")
         return color
     }
     
@@ -199,7 +199,7 @@ class ColorPersistenceManager {
     
     func clearCache() {
         userDefaults.removeObject(forKey: colorKey)
-        print("🎨 [Persistence] 清除顏色緩存")
+        // print("🎨 [Persistence] 清除顏色緩存")
     }
     
     private func loadColorMapping() -> [String: String] {
@@ -320,26 +320,26 @@ class HybridColorProvider: ColorProvider, ObservableObject {
         let allExistingColors = Array(predefinedColors.values) + Array(persistenceManager.getAllSavedColors().values)
         self.dynamicGenerator = DynamicColorGenerator(existingColors: allExistingColors)
         
-        print("🎨 [HybridColorProvider] 初始化完成，預定義顏色: \(predefinedColors.count)，緩存顏色: \(persistenceManager.getAllSavedColors().count)")
+        // print("🎨 [HybridColorProvider] 初始化完成，預定義顏色: \(predefinedColors.count)，緩存顏色: \(persistenceManager.getAllSavedColors().count)")
     }
     
     func colorForStock(symbol: String) -> Color {
         // 優先級1: 檢查預定義顏色
         if let predefinedColor = predefinedColors[symbol] {
-            print("🎨 [Hybrid] 使用預定義顏色: \(symbol)")
+            // print("🎨 [Hybrid] 使用預定義顏色: \(symbol)")
             return predefinedColor
         }
         
         // 優先級2: 檢查已保存的動態顏色
         if let savedColor = persistenceManager.loadColor(for: symbol) {
-            print("🎨 [Hybrid] 使用已保存顏色: \(symbol)")
+            // print("🎨 [Hybrid] 使用已保存顏色: \(symbol)")
             return savedColor
         }
         
         // 優先級3: 生成新的動態顏色並保存
         let newColor = dynamicGenerator.generateColor(for: symbol)
         persistenceManager.saveColor(newColor, for: symbol)
-        print("🎨 [Hybrid] 生成新顏色: \(symbol)")
+        // print("🎨 [Hybrid] 生成新顏色: \(symbol)")
         return newColor
     }
     
@@ -367,6 +367,6 @@ class HybridColorProvider: ColorProvider, ObservableObject {
     
     func clearDynamicColors() {
         persistenceManager.clearCache()
-        print("🎨 [Hybrid] 清除所有動態顏色")
+        // print("🎨 [Hybrid] 清除所有動態顏色")
     }
 }

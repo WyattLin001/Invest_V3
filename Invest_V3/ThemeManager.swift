@@ -87,14 +87,14 @@ class ThemeManager: ObservableObject {
         applyTheme()
         updateDarkModeStatus()
         
-        print("🎨 [ThemeManager] 初始化完成，當前主題: \(currentMode.displayName)")
+        // print("🎨 [ThemeManager] 初始化完成，當前主題: \(currentMode.displayName)")
     }
     
     // MARK: - 公開方法
     
     /// 設定主題模式
     func setTheme(_ mode: ThemeMode) {
-        print("🎨 [ThemeManager] 切換主題: \(currentMode.displayName) -> \(mode.displayName)")
+        // print("🎨 [ThemeManager] 切換主題: \(currentMode.displayName) -> \(mode.displayName)")
         
         withAnimation(.easeInOut(duration: 0.3)) {
             currentMode = mode
