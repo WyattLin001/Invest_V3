@@ -428,23 +428,27 @@ struct EnhancedInvestmentView: View {
                     }
                 }
             } label: {
-                HStack {
-                    if let currentTournament = currentActiveTournament {
-                        // 顯示當前錦標賽名稱
-                        Text(currentTournament.name)
-                            .font(.caption)
-                            .foregroundColor(.brandGreen)
-                            .lineLimit(1)
-                    } else {
-                        // 一般模式
-                        Text("一般模式")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                HStack(spacing: 4) {
+                    // 統一的錦標賽圖標，所有狀態都一樣
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.brandGreen)
+                    
+                    // 統一的下拉箭頭，所有狀態都一樣
                     Image(systemName: "chevron.down")
-                        .font(.caption)
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.brandGreen)
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.brandGreen.opacity(0.1))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.brandGreen.opacity(0.3), lineWidth: 1)
+                )
             }
             
             // 管理員專用的錦標賽建立按鈕 (只有 test03 帳號可見)
