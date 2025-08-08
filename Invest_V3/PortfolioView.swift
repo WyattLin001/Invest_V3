@@ -32,7 +32,18 @@ struct PortfolioView: View {
                 print("📨 [PortfolioView] 收到錦標賽切換通知: \(tournamentName) (ID: \(tournamentId))")
                 print("📨 [PortfolioView] 通知詳情: \(notification.userInfo ?? [:])")
                 Task {
+                    // 延遲一點時間確保 TournamentStateManager 已更新
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 秒
                     await loadData()
+                    
+                    // 發送額外通知強制更新 UI
+                    await MainActor.run {
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("ForcePortfolioRefresh"),
+                            object: self
+                        )
+                        print("🔄 [PortfolioView] 已發送強制更新通知")
+                    }
                 }
             }
             .onAppear {
@@ -48,10 +59,28 @@ struct PortfolioView: View {
                     await loadData()
                 }
             }
-            .onChange(of: tournamentStateManager.currentTournamentContext) { _, _ in
+            .onChange(of: tournamentStateManager.currentTournamentContext) { oldValue, newValue in
                 print("🔄 [PortfolioView] 錦標賽上下文變更，重新載入投資組合")
+                if let old = oldValue?.tournament.id, let new = newValue?.tournament.id, old != new {
+                    print("🔄 [PortfolioView] 錦標賽切換: \(old.uuidString) -> \(new.uuidString)")
+                } else if oldValue == nil && newValue != nil {
+                    print("🔄 [PortfolioView] 從一般模式切換到錦標賽模式")
+                } else if oldValue != nil && newValue == nil {
+                    print("🔄 [PortfolioView] 從錦標賽模式切換到一般模式")
+                }
+                
                 Task {
+                    // 延遲一點時間確保狀態已更新
+                    try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 秒
                     await loadData()
+                    
+                    // 發送更新通知
+                    await MainActor.run {
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("ForcePortfolioRefresh"),
+                            object: self
+                        )
+                    }
                 }
             }
         }
@@ -855,22 +884,55 @@ struct TournamentPortfolioAnalysisCard: View {
 struct TournamentAwareAssetAllocationCard: View {
     @ObservedObject private var tradingService = TradingService.shared
     @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
+    @State private var refreshTrigger = false
     
     private var allocationData: [PieChartData] {
-        if tournamentStateManager.isParticipatingInTournament,
+        let isInTournament = tournamentStateManager.isParticipatingInTournament
+        let hasContext = tournamentStateManager.currentTournamentContext != nil
+        let hasPortfolio = tournamentStateManager.currentTournamentContext?.portfolio != nil
+        
+        print("📊 [AssetAllocationCard] 資產分配計算 (trigger: \(refreshTrigger)):")
+        print("   - 是否參與錦標賽: \(isInTournament)")
+        print("   - 是否有上下文: \(hasContext)")
+        print("   - 是否有投資組合: \(hasPortfolio)")
+        
+        if isInTournament,
            let context = tournamentStateManager.currentTournamentContext,
            let portfolio = context.portfolio {
-            return TournamentAssetAllocationCalculator.calculateAllocation(from: portfolio)
+            print("   - 錦標賽 ID: \(context.tournament.id.uuidString)")
+            print("   - 持股數量: \(portfolio.holdings.count)")
+            print("   - 總價值: $\(Int(portfolio.totalPortfolioValue))")
+            
+            let data = TournamentAssetAllocationCalculator.calculateAllocation(from: portfolio)
+            print("   - 分配數據項目: \(data.count)")
+            return data
         } else {
+            print("   - 使用一般投資組合")
             return AssetAllocationCalculator.calculateAllocation(from: tradingService.portfolio)
         }
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("資產分配")
-                .font(.headline)
-                .fontWeight(.bold)
+            HStack {
+                Text("資產分配")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                // 顯示錦標賽名稱（調試用）
+                if tournamentStateManager.isParticipatingInTournament,
+                   let tournamentName = tournamentStateManager.currentTournamentContext?.tournament.name {
+                    Text(tournamentName)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(4)
+                }
+            }
             
             chartContent
         }
@@ -878,6 +940,14 @@ struct TournamentAwareAssetAllocationCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ForcePortfolioRefresh"))) { _ in
+            print("🔄 [AssetAllocationCard] 收到強制更新通知，切換 refreshTrigger")
+            refreshTrigger.toggle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
+            print("🔄 [AssetAllocationCard] 收到錦標賽切換通知，切換 refreshTrigger")
+            refreshTrigger.toggle()
+        }
     }
     
     @ViewBuilder
