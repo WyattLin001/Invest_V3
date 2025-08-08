@@ -788,15 +788,41 @@ struct TournamentPickerSheet: View {
     let tournaments: [Tournament]
     @Binding var selectedTournament: Tournament?
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var tournamentStateManager: TournamentStateManager
+    
+    // 只顯示已報名的錦標賽
+    private var enrolledTournaments: [Tournament] {
+        return tournaments.filter { tournament in
+            tournamentStateManager.enrolledTournaments.contains(tournament.id)
+        }
+    }
     
     var body: some View {
         NavigationStack {
             List {
-                ForEach(tournaments, id: \.id) { tournament in
-                    Button(action: {
-                        selectedTournament = tournament
-                        dismiss()
-                    }) {
+                if enrolledTournaments.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "trophy")
+                            .font(.system(size: 40))
+                            .foregroundColor(.secondary)
+                        
+                        Text("尚未參加任何錦標賽")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        Text("前往錦標賽頁面參加錦標賽")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .listRowBackground(Color.clear)
+                } else {
+                    ForEach(enrolledTournaments, id: \.id) { tournament in
+                        Button(action: {
+                            selectedTournament = tournament
+                            dismiss()
+                        }) {
                         HStack {
                             Image(systemName: tournament.type.iconName)
                                 .foregroundColor(.brandGreen)
@@ -818,8 +844,9 @@ struct TournamentPickerSheet: View {
                                     .foregroundColor(.brandGreen)
                             }
                         }
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .buttonStyle(PlainButtonStyle())
                 }
             }
             .navigationTitle("選擇錦標賽")

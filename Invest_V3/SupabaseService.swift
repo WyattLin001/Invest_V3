@@ -5528,6 +5528,47 @@ extension SupabaseService {
         }
     }
     
+    /// 獲取用戶已報名的錦標賽列表
+    public func fetchUserEnrolledTournaments(userId: UUID) async throws -> [Tournament] {
+        print("📊 [SupabaseService] 獲取用戶已報名錦標賽: \(userId)")
+        
+        do {
+            // 從 tournament_participants 表獲取用戶參與的錦標賽 ID
+            let participantResponses: [TournamentParticipantResponse] = try await client
+                .from("tournament_participants")
+                .select("tournament_id")
+                .eq("user_id", value: userId)
+                .execute()
+                .value
+            
+            let tournamentIds = participantResponses.map { $0.tournament_id }
+            
+            if tournamentIds.isEmpty {
+                print("✅ [SupabaseService] 用戶未參與任何錦標賽")
+                return []
+            }
+            
+            // 獲取對應的錦標賽資料
+            let tournamentResponses: [TournamentResponse] = try await client
+                .from("tournaments")
+                .select("*")
+                .in("id", values: tournamentIds)
+                .execute()
+                .value
+            
+            let tournaments = tournamentResponses.compactMap { response in
+                convertTournamentResponseToTournament(response)
+            }
+            
+            print("✅ [SupabaseService] 成功獲取 \(tournaments.count) 個已報名錦標賽")
+            return tournaments
+            
+        } catch {
+            print("❌ [SupabaseService] 獲取用戶已報名錦標賽失敗: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
     /// 獲取錦標賽統計數據
     public func fetchTournamentStatistics(tournamentId: UUID? = nil) async throws -> TournamentStatsResponse {
         print("📊 [SupabaseService] 獲取錦標賽統計數據")

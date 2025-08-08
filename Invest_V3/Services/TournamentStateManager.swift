@@ -557,11 +557,40 @@ class TournamentStateManager: ObservableObject {
             
             print("💾 [TournamentStateManager] 已載入持久化的錦標賽狀態: \(persistentData.tournamentName)")
             
-            // TODO: 在實際應用中，這裡應該重新獲取完整的錦標賽資料
+            // 從數據庫同步實際的報名狀態
+            Task {
+                await syncEnrolledTournamentsFromDatabase()
+            }
             
         } catch {
             print("❌ [TournamentStateManager] 載入持久化錦標賽狀態失敗: \(error.localizedDescription)")
             clearPersistedTournamentState()
+        }
+    }
+    
+    /// 從數據庫同步實際的報名狀態
+    private func syncEnrolledTournamentsFromDatabase() async {
+        do {
+            guard let currentUser = SupabaseService.shared.getCurrentUser() else {
+                print("❌ [TournamentStateManager] 無法獲取當前用戶，跳過狀態同步")
+                return
+            }
+            
+            // 獲取用戶實際參與的錦標賽
+            let actualEnrolledTournaments = try await SupabaseService.shared.fetchUserEnrolledTournaments(userId: currentUser.id)
+            
+            await MainActor.run {
+                let previousCount = enrolledTournaments.count
+                enrolledTournaments = Set(actualEnrolledTournaments.map { $0.id })
+                
+                print("🔄 [TournamentStateManager] 同步報名狀態：從 \(previousCount) 個更新為 \(enrolledTournaments.count) 個錦標賽")
+                
+                // 持久化更新後的狀態
+                persistTournamentState()
+            }
+            
+        } catch {
+            print("❌ [TournamentStateManager] 同步報名狀態失敗: \(error.localizedDescription)")
         }
     }
     
