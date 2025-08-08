@@ -397,12 +397,54 @@ struct EnhancedInvestmentView: View {
     // MARK: - 工具欄按鈕
     private var tournamentSelectionButton: some View {
         HStack(spacing: 8) {
-            // 一般用戶的錦標賽選擇按鈕
-            Button(action: {
-                showingTournamentSelection = true
-            }) {
-                Image(systemName: "gearshape.fill")
-                    .foregroundColor(.brandGreen)
+            // 錦標賽切換按鈕 (直接切換，不彈出選擇頁面)
+            Menu {
+                // 一般模式選項
+                Button(action: {
+                    switchToGeneralMode()
+                }) {
+                    HStack {
+                        Image(systemName: "chart.bar.fill")
+                        Text("一般模式")
+                    }
+                }
+                
+                Divider()
+                
+                // 錦標賽選項
+                ForEach(participatedTournaments, id: \.id) { tournament in
+                    Button(action: {
+                        handleTournamentSwitch(tournament)
+                    }) {
+                        HStack {
+                            Image(systemName: "trophy.fill")
+                            Text(tournament.name)
+                            if currentActiveTournament?.id == tournament.id {
+                                Spacer()
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.brandGreen)
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack {
+                    if let currentTournament = currentActiveTournament {
+                        // 顯示當前錦標賽名稱
+                        Text(currentTournament.name)
+                            .font(.caption)
+                            .foregroundColor(.brandGreen)
+                            .lineLimit(1)
+                    } else {
+                        // 一般模式
+                        Text("一般模式")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Image(systemName: "chevron.down")
+                        .font(.caption)
+                        .foregroundColor(.brandGreen)
+                }
             }
             
             // 管理員專用的錦標賽建立按鈕 (只有 test03 帳號可見)
@@ -598,6 +640,45 @@ struct EnhancedInvestmentView: View {
                     
                     print("🎯 已完成錦標賽切換: \(tournament.name)")
                     print("📊 投資組合、交易記錄等資料已關聯到當前錦標賽")
+                }
+            }
+        }
+    }
+    
+    /// 切換到一般模式
+    private func switchToGeneralMode() {
+        // 1. 立即顯示切換狀態
+        withAnimation(.easeOut(duration: 0.3)) {
+            isSwitchingTournament = true
+        }
+        
+        // 2. 平滑滑動到投資總覽頁面
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.8, blendDuration: 0)) {
+                selectedTab = .home
+            }
+        }
+        
+        // 3. 開始載入數據
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            tournamentDataLoading = true
+            currentActiveTournament = nil // 設為 nil 表示一般模式
+            
+            // 更新錦標賽狀態管理器離開錦標賽
+            Task {
+                await TournamentStateManager.shared.leaveTournament()
+                
+                // 模擬數據載入時間
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        tournamentDataLoading = false
+                        isSwitchingTournament = false
+                    }
+                    
+                    print("🎯 已切換到一般模式")
+                    print("📊 投資組合、交易記錄等資料已切換到一般模式")
                 }
             }
         }
