@@ -100,7 +100,8 @@ class PortfolioService: ObservableObject {
             quantity: quantity,
             price: stock.price,
             amount: amount,
-            createdAt: Date()
+            createdAt: Date(),
+            tournamentId: nil
         )
         
         // 保存到 Supabase
@@ -423,6 +424,77 @@ class PortfolioService: ObservableObject {
         return portfolioItems
     }
     
+    /// 執行錦標賽交易（統一架構）
+    func executeTransactionWithTournament(
+        userId: UUID,
+        tournamentId: UUID,
+        symbol: String,
+        action: TransactionAction,
+        amount: Double
+    ) async throws -> PortfolioTransaction {
+        guard let client = supabaseClient else {
+            throw PortfolioServiceError.clientNotInitialized
+        }
+        
+        print("💰 [PortfolioService] 執行錦標賽交易: userId=\(userId), tournamentId=\(tournamentId), symbol=\(symbol), action=\(action.rawValue), amount=\(amount)")
+        
+        // 獲取當前股價
+        let stock = try await stockService.fetchStockQuote(symbol: symbol)
+        let quantity = Int(amount / stock.price)
+        
+        // 檢查資金是否足夠
+        let portfolio = try await fetchUserPortfolio(userId: userId, tournamentId: tournamentId)
+        if action == .buy && amount > portfolio.availableCash {
+            throw PortfolioServiceError.insufficientFunds
+        }
+        
+        // 創建帶有 tournament_id 的交易記錄
+        let transaction = PortfolioTransaction(
+            id: UUID(),
+            userId: userId,
+            symbol: symbol,
+            action: action.rawValue,
+            quantity: quantity,
+            price: stock.price,
+            amount: amount,
+            createdAt: Date(),
+            tournamentId: tournamentId
+        )
+        
+        // 保存到 Supabase portfolio_transactions 表
+        try await client
+            .from("portfolio_transactions")
+            .insert(transaction)
+            .execute()
+        
+        // 更新投資組合
+        try await updateTournamentPortfolioAfterTransaction(
+            userId: userId,
+            tournamentId: tournamentId,
+            transaction: transaction
+        )
+        
+        print("✅ [PortfolioService] 錦標賽交易執行成功")
+        return transaction
+    }
+    
+    /// 獲取錦標賽交易記錄
+    func fetchTournamentTransactions(userId: UUID, tournamentId: UUID) async throws -> [PortfolioTransaction] {
+        guard let client = supabaseClient else {
+            throw PortfolioServiceError.clientNotInitialized
+        }
+        
+        let transactions: [PortfolioTransaction] = try await client
+            .from("portfolio_transactions")
+            .select()
+            .eq("user_id", value: userId)
+            .eq("tournament_id", value: tournamentId)
+            .execute()
+            .value
+        
+        return transactions
+    }
+    
     /// 刪除錦標賽投資組合
     func deleteTournamentPortfolio(userId: UUID, tournamentId: UUID) async throws {
         guard let client = supabaseClient else {
@@ -431,7 +503,15 @@ class PortfolioService: ObservableObject {
         
         print("🗑️ [PortfolioService] 開始刪除錦標賽投資組合: userId=\(userId), tournamentId=\(tournamentId)")
         
-        // 步驟 1: 刪除持股記錄
+        // 步驟 1: 刪除錦標賽交易記錄
+        try await client
+            .from("portfolio_transactions")
+            .delete()
+            .eq("user_id", value: userId)
+            .eq("tournament_id", value: tournamentId)
+            .execute()
+        
+        // 步驟 2: 刪除持股記錄
         try await client
             .from("user_portfolios")
             .delete()
@@ -439,7 +519,7 @@ class PortfolioService: ObservableObject {
             .eq("tournament_id", value: tournamentId)
             .execute()
         
-        // 步驟 2: 刪除投資組合主記錄
+        // 步驟 3: 刪除投資組合主記錄
         try await client
             .from("portfolios")
             .delete()
@@ -515,6 +595,84 @@ class PortfolioService: ObservableObject {
             .execute()
     }
     
+    /// 更新錦標賽投資組合（交易後）
+    private func updateTournamentPortfolioAfterTransaction(
+        userId: UUID,
+        tournamentId: UUID,
+        transaction: PortfolioTransaction
+    ) async throws {
+        guard let client = supabaseClient else {
+            throw PortfolioServiceError.clientNotInitialized
+        }
+        
+        let portfolio = try await fetchUserPortfolio(userId: userId, tournamentId: tournamentId)
+        
+        let newAvailableCash: Double
+        if transaction.action == "buy" {
+            newAvailableCash = portfolio.availableCash - transaction.amount
+        } else {
+            newAvailableCash = portfolio.availableCash + transaction.amount
+        }
+        
+        // 計算錦標賽投資組合的新回報率
+        let newReturnRate = try await calculateTournamentPortfolioReturn(userId: userId, tournamentId: tournamentId)
+        
+        let updatePayload = PortfolioUpdatePayload(
+            available_cash: newAvailableCash,
+            return_rate: newReturnRate,
+            last_updated: Date().iso8601String
+        )
+        
+        try await client
+            .from("portfolios")
+            .update(updatePayload)
+            .eq("user_id", value: userId)
+            .eq("tournament_id", value: tournamentId)
+            .execute()
+        
+        print("✅ [PortfolioService] 錦標賽投資組合更新成功: 現金=\(newAvailableCash), 回報率=\(newReturnRate)%")
+    }
+    
+    /// 計算錦標賽投資組合回報率
+    private func calculateTournamentPortfolioReturn(userId: UUID, tournamentId: UUID) async throws -> Double {
+        let transactions = try await fetchTournamentTransactions(userId: userId, tournamentId: tournamentId)
+        let portfolio = try await fetchUserPortfolio(userId: userId, tournamentId: tournamentId)
+        
+        var totalCurrentValue: Double = 0
+        var totalCost: Double = 0
+        
+        // 按股票分組計算
+        let groupedHoldings = Dictionary(grouping: transactions) { $0.symbol }
+        
+        for (symbol, transactionsList) in groupedHoldings {
+            let netQuantity = transactionsList.reduce(0) { (result: Int, transaction: PortfolioTransaction) -> Int in
+                return transaction.action == "buy" ? result + transaction.quantity : result - transaction.quantity
+            }
+            
+            if netQuantity > 0 {
+                // 獲取當前股價
+                let currentStock = try await stockService.fetchStockQuote(symbol: symbol)
+                totalCurrentValue += Double(netQuantity) * currentStock.price
+                
+                // 計算平均成本
+                let buyTransactions = transactionsList.filter { $0.action == "buy" }
+                let totalBuyAmount = buyTransactions.reduce(0.0) { (result: Double, transaction: PortfolioTransaction) -> Double in
+                    return result + transaction.amount
+                }
+                totalCost += totalBuyAmount
+            }
+        }
+        
+        // 加上現金
+        totalCurrentValue += portfolio.availableCash
+        
+        // 計算回報率
+        let initialCash = portfolio.initialCash
+        let returnRate = ((totalCurrentValue - initialCash) / initialCash) * 100
+        
+        return returnRate
+    }
+    
     private func getColorForStock(_ symbol: String) -> Color {
         let colors: [Color] = [.brandGreen, .brandOrange, .brandBlue, .info, .warning]
         let index = abs(symbol.hashValue) % colors.count
@@ -576,12 +734,27 @@ struct PortfolioTransaction: Identifiable, Codable {
     let price: Double
     let amount: Double
     let createdAt: Date
+    let tournamentId: UUID? // 新增：錦標賽 ID 支持
+    
+    // 添加便利初始化器以向後兼容
+    init(id: UUID, userId: UUID, symbol: String, action: String, quantity: Int, price: Double, amount: Double, createdAt: Date, tournamentId: UUID? = nil) {
+        self.id = id
+        self.userId = userId
+        self.symbol = symbol
+        self.action = action
+        self.quantity = quantity
+        self.price = price
+        self.amount = amount
+        self.createdAt = createdAt
+        self.tournamentId = tournamentId
+    }
     
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
         case symbol, action, quantity, price, amount
         case createdAt = "created_at"
+        case tournamentId = "tournament_id"
     }
 }
 

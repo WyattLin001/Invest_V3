@@ -153,7 +153,13 @@ class TradingService: ObservableObject {
     /// 載入投資組合
     func loadPortfolio() async {
         do {
-            let url = URL(string: "\(baseURL)/api/user/portfolio")!
+            // 獲取當前用戶ID
+            guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
+                print("❌ [TradingService] 無法獲取用戶ID，無法載入投資組合")
+                return
+            }
+            
+            let url = URL(string: "\(baseURL)/api/portfolio?user_id=\(userId)")!
             let request = createAuthorizedRequest(url: url)
             
             let (data, _) = try await session.data(for: request)
@@ -187,7 +193,13 @@ class TradingService: ObservableObject {
     /// 載入交易記錄
     func loadTransactions() async {
         do {
-            let url = URL(string: "\(baseURL)/api/user/transactions")!
+            // 獲取當前用戶ID
+            guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
+                print("❌ [TradingService] 無法獲取用戶ID，無法載入交易記錄")
+                return
+            }
+            
+            let url = URL(string: "\(baseURL)/api/transactions?user_id=\(userId)")!
             let request = createAuthorizedRequest(url: url)
             
             let (data, _) = try await session.data(for: request)
@@ -201,6 +213,74 @@ class TradingService: ObservableObject {
         }
     }
     
+    /// 載入錦標賽專用數據（投資組合和交易記錄）
+    func loadTournamentData(tournamentId: UUID) async {
+        print("🔄 [TradingService] 載入錦標賽數據: \(tournamentId)")
+        
+        await loadTournamentPortfolio(tournamentId: tournamentId)
+        await loadTournamentTransactions(tournamentId: tournamentId)
+        
+        // 同時觸發 UI 更新通知
+        NotificationCenter.default.post(
+            name: NSNotification.Name("TournamentDataReloaded"),
+            object: self,
+            userInfo: ["tournamentId": tournamentId.uuidString]
+        )
+        print("📤 [TradingService] 已發送錦標賽數據重載通知: \(tournamentId)")
+    }
+    
+    /// 載入錦標賽投資組合
+    func loadTournamentPortfolio(tournamentId: UUID) async {
+        do {
+            // 獲取當前用戶ID
+            guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
+                print("❌ [TradingService] 無法獲取用戶ID，無法載入錦標賽投資組合")
+                return
+            }
+            
+            // 使用現有API端點，但加入用戶ID和錦標賽ID參數
+            let url = URL(string: "\(baseURL)/api/portfolio?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
+            let request = createAuthorizedRequest(url: url)
+            
+            let (data, _) = try await session.data(for: request)
+            let result = try JSONDecoder().decode(PortfolioResponse.self, from: data)
+            
+            if result.success {
+                self.portfolio = result.portfolio
+                print("✅ [TradingService] 錦標賽投資組合載入成功")
+            }
+        } catch {
+            self.error = "載入錦標賽投資組合失敗: \(error.localizedDescription)"
+            print("❌ [TradingService] 錦標賽投資組合載入失敗: \(error)")
+        }
+    }
+    
+    /// 載入錦標賽交易記錄
+    func loadTournamentTransactions(tournamentId: UUID) async {
+        do {
+            // 獲取當前用戶ID
+            guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
+                print("❌ [TradingService] 無法獲取用戶ID，無法載入錦標賽交易記錄")
+                return
+            }
+            
+            // 使用現有API端點，但加入用戶ID和錦標賽ID參數
+            let url = URL(string: "\(baseURL)/api/transactions?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
+            let request = createAuthorizedRequest(url: url)
+            
+            let (data, _) = try await session.data(for: request)
+            let result = try JSONDecoder().decode(TransactionsResponse.self, from: data)
+            
+            if result.success {
+                self.transactions = result.transactions
+                print("✅ [TradingService] 錦標賽交易記錄載入成功: \(result.transactions.count) 筆")
+            }
+        } catch {
+            self.error = "載入錦標賽交易記錄失敗: \(error.localizedDescription)"
+            print("❌ [TradingService] 錦標賽交易記錄載入失敗: \(error)")
+        }
+    }
+
     /// 載入排行榜
     func loadRankings() async {
         do {
@@ -274,15 +354,24 @@ class TradingService: ObservableObject {
         
         defer { isLoading = false }
         
-        let url = URL(string: "\(baseURL)/api/trade/buy")!
+        let url = URL(string: "\(baseURL)/api/trade")!
         var request = createAuthorizedRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
+        // 獲取當前用戶ID
+        guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
+            throw TradingError.apiError("無法獲取用戶ID")
+        }
+        
+        // 計算交易金額（Flask API 需要金額，不是數量）
+        let amount = Double(quantity) * price
+        
         var body: [String: Any] = [
+            "user_id": userId,
             "symbol": symbol,
-            "quantity": quantity,
-            "price": price
+            "action": "buy",
+            "amount": amount
         ]
         
         // 添加錦標賽上下文
@@ -309,9 +398,16 @@ class TradingService: ObservableObject {
         
         if result.success {
             print("✅ 買入成功: \(result.message)")
-            // 重新載入投資組合和交易記錄
-            await loadPortfolio()
-            await loadTransactions()
+            
+            // 根據錦標賽上下文載入對應數據
+            if let tournamentId = tournamentId {
+                print("🏆 [TradingService] 錦標賽交易成功，重新載入錦標賽數據: \(tournamentId)")
+                await loadTournamentData(tournamentId: tournamentId)
+            } else {
+                print("📊 [TradingService] 一般交易成功，重新載入一般數據")
+                await loadPortfolio()
+                await loadTransactions()
+            }
         } else {
             throw TradingError.apiError(result.error ?? "買入失敗")
         }
@@ -340,15 +436,21 @@ class TradingService: ObservableObject {
             break
         }
         
-        let url = URL(string: "\(baseURL)/api/trade/sell")!
+        let url = URL(string: "\(baseURL)/api/trade")!
         var request = createAuthorizedRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
+        // 獲取當前用戶ID
+        guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
+            throw TradingError.apiError("無法獲取用戶ID")
+        }
+        
         var body: [String: Any] = [
+            "user_id": userId,
             "symbol": symbol,
-            "quantity": quantity,
-            "price": price
+            "action": "sell",
+            "amount": quantity  // 對於賣出，amount 是股數
         ]
         
         // 添加錦標賽上下文
@@ -390,9 +492,16 @@ class TradingService: ObservableObject {
         
         if result.success {
             print("✅ 賣出成功: \(result.message)")
-            // 重新載入投資組合和交易記錄
-            await loadPortfolio()
-            await loadTransactions()
+            
+            // 根據錦標賽上下文載入對應數據
+            if let tournamentId = tournamentId {
+                print("🏆 [TradingService] 錦標賽賣出成功，重新載入錦標賽數據: \(tournamentId)")
+                await loadTournamentData(tournamentId: tournamentId)
+            } else {
+                print("📊 [TradingService] 一般賣出成功，重新載入一般數據")
+                await loadPortfolio()
+                await loadTransactions()
+            }
         } else {
             // 解析具體的交易失敗原因
             throw TradingError.tradeExecutionFailed(result.error ?? "賣出失敗")

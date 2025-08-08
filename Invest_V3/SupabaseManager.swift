@@ -27,8 +27,8 @@ class SupabaseManager {
     
     private init() {}
     
-    // Preview 檢測工具 - 使用最可靠的檢測方法
-    static var isPreview: Bool {
+    // Preview 檢測工具 - 使用最可靠的檢測方法，緩存結果避免重複日志
+    private static let _isPreview: Bool = {
         // 檢查是否在 SwiftUI Preview 進程中
         let environment = ProcessInfo.processInfo.environment
         let processName = ProcessInfo.processInfo.processName
@@ -39,13 +39,17 @@ class SupabaseManager {
                                     processName.contains("PreviewsOSSupport") ||
                                     bundleID.contains("SwiftUIPreviewsApp")
         
-        // Debug 輸出 (可選)
+        // Debug 輸出 (只在初始化時顯示一次)
         #if DEBUG
-        print("🔍 Preview Detection: \(isSwiftUIPreviewProcess ? "Preview Mode" : "Production Mode")")
+        print("🔍 [SupabaseManager] Preview Detection 初始化: \(isSwiftUIPreviewProcess ? "Preview Mode" : "Production Mode")")
         #endif
         
         // 只有在真正的 SwiftUI Preview 進程中才返回 true
         return isSwiftUIPreviewProcess
+    }()
+    
+    static var isPreview: Bool {
+        return _isPreview
     }
 
     /// 執行初始化 - 只會執行一次，多次呼叫會等待同一個初始化任務完成

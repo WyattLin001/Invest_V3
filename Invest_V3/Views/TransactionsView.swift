@@ -30,8 +30,24 @@ struct TransactionsView: View {
             .refreshable {
                 await loadTransactionsData()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
-                print("🔄 [TransactionsView] 錦標賽切換，重新載入交易紀錄")
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { notification in
+                let tournamentId = notification.userInfo?["tournamentId"] as? String ?? "unknown"
+                let tournamentName = notification.userInfo?["tournamentName"] as? String ?? "unknown"
+                print("📨 [TransactionsView] 收到錦標賽切換通知: \(tournamentName) (ID: \(tournamentId))")
+                print("📨 [TransactionsView] 通知詳情: \(notification.userInfo ?? [:])")
+                Task {
+                    await loadTransactionsData()
+                }
+            }
+            .onAppear {
+                print("👁️ [TransactionsView] 視圖出現")
+            }
+            .onDisappear {
+                print("👻 [TransactionsView] 視圖消失")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentDataReloaded"))) { notification in
+                let tournamentId = notification.userInfo?["tournamentId"] as? String ?? "unknown"
+                print("📨 [TransactionsView] 收到錦標賽數據重載通知: \(tournamentId)")
                 Task {
                     await loadTransactionsData()
                 }
@@ -160,7 +176,7 @@ struct TransactionsView: View {
     
     private func loadTransactionsData() async {
         if tournamentStateManager.isParticipatingInTournament,
-           let tournamentId = tournamentStateManager.getCurrentTournamentId() {
+           let tournamentId = tournamentStateManager.getCurrentTournamentIdDebug() {
             print("🏆 [TransactionsView] 載入錦標賽交易紀錄: \(tournamentId)")
             await viewModel.loadTournamentTransactions(tournamentId: tournamentId)
         } else {
@@ -349,22 +365,34 @@ class TransactionsViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            // 獲取當前用戶 ID - 實際應該從認證服務獲取
-            let userId = getCurrentUserId()
+            // 獲取當前用戶
+            guard let currentUser = SupabaseService.shared.getCurrentUser() else {
+                print("❌ [TransactionsViewModel] 無法獲取當前用戶")
+                throw NSError(domain: "TransactionsView", code: 404, userInfo: [NSLocalizedDescriptionKey: "用戶未登錄"])
+            }
             
-            // 嘗試從 API 獲取交易紀錄 (暫時使用模擬資料，因為 API 尚未完成)
-            // let apiTransactions = try await TradingAPIService.shared.fetchTransactions(userId: userId)
-            // transactions = apiTransactions.map { TransactionDisplay(from: $0) }
-            // filteredTransactions = transactions
+            // 使用統一的 PortfolioService 載入一般模式交易紀錄
+            let portfolioTransactions = try await PortfolioService.shared.fetchPortfolioTransactions(userId: currentUser.id)
             
-            // 目前使用模擬資料
-            let mockTransactions = generateMockTransactions()
-            transactions = mockTransactions
-            filteredTransactions = mockTransactions
+            // 將 PortfolioTransaction 轉換為 TransactionDisplay
+            let displayTransactions = portfolioTransactions.map { portfolioTransaction in
+                TransactionDisplay(
+                    id: portfolioTransaction.id,
+                    symbol: portfolioTransaction.symbol,
+                    type: TradingTransactionType(rawValue: portfolioTransaction.action) ?? .buy,
+                    shares: Double(portfolioTransaction.quantity),
+                    price: portfolioTransaction.price,
+                    date: portfolioTransaction.createdAt
+                )
+            }
+            
+            print("✅ [TransactionsViewModel] 成功載入 \(displayTransactions.count) 筆一般交易紀錄")
+            transactions = displayTransactions.sorted { $0.date > $1.date }
+            filteredTransactions = transactions
             
         } catch {
-            // 如果 API 失敗，使用模擬資料
-            print("⚠️ [TransactionsView] API 失敗，使用模擬資料: \(error)")
+            // 如果真實數據載入失敗，使用模擬資料作為備用
+            print("⚠️ [TransactionsView] 真實數據載入失敗，使用模擬資料: \(error)")
             let mockTransactions = generateMockTransactions()
             transactions = mockTransactions
             filteredTransactions = mockTransactions
@@ -384,27 +412,43 @@ class TransactionsViewModel: ObservableObject {
             print("🏆 [TransactionsViewModel] 載入錦標賽 \(tournamentId) 的交易紀錄")
             
             // 獲取當前用戶 ID
-            let userId = getCurrentUserId()
+            guard let currentUser = SupabaseService.shared.getCurrentUser() else {
+                print("❌ [TransactionsViewModel] 無法獲取當前用戶")
+                throw NSError(domain: "TransactionsView", code: 404, userInfo: [NSLocalizedDescriptionKey: "用戶未登錄"])
+            }
             
-            // 嘗試從 Supabase 載入錦標賽交易紀錄
-            let supabaseTransactions = try await SupabaseService.shared.fetchTournamentTransactions(
-                tournamentId: tournamentId,
-                userId: UUID(uuidString: userId) ?? UUID()
+            // 使用統一的 PortfolioService 載入錦標賽交易紀錄
+            let portfolioTransactions = try await PortfolioService.shared.fetchTournamentTransactions(
+                userId: currentUser.id,
+                tournamentId: tournamentId
             )
             
-            print("✅ [TransactionsViewModel] 成功載入 \(supabaseTransactions.count) 筆錦標賽交易紀錄")
-            transactions = supabaseTransactions
-            filteredTransactions = supabaseTransactions
+            // 將 PortfolioTransaction 轉換為 TransactionDisplay
+            let displayTransactions = portfolioTransactions.map { portfolioTransaction in
+                TransactionDisplay(
+                    id: portfolioTransaction.id,
+                    symbol: portfolioTransaction.symbol,
+                    type: TradingTransactionType(rawValue: portfolioTransaction.action) ?? .buy,
+                    shares: Double(portfolioTransaction.quantity),
+                    price: portfolioTransaction.price,
+                    date: portfolioTransaction.createdAt
+                )
+            }
+            
+            print("✅ [TransactionsViewModel] 成功載入 \(displayTransactions.count) 筆錦標賽交易紀錄")
+            transactions = displayTransactions.sorted { $0.date > $1.date }
+            filteredTransactions = transactions
             
         } catch {
-            print("⚠️ [TransactionsViewModel] Supabase API 失敗，使用模擬資料: \(error)")
+            print("⚠️ [TransactionsViewModel] 錦標賽交易載入失敗: \(error)")
             
-            // 如果 Supabase 失敗，則回退到模擬資料
-            let mockTransactions = generateMockTournamentTransactions(for: tournamentId)
-            transactions = mockTransactions
-            filteredTransactions = mockTransactions
+            // 如果真實數據載入失敗，暫時使用空數組（表示數據隔離正常）
+            print("🔒 [TransactionsViewModel] 使用空數組確保數據隔離")
+            transactions = []
+            filteredTransactions = []
             
-            // 不顯示錯誤給用戶，因為有備用資料
+            // 可選：顯示錯誤訊息
+            errorMessage = "載入錦標賽交易紀錄失敗，請稍後重試"
         }
         
         isLoading = false

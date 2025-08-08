@@ -123,6 +123,12 @@ struct TournamentRankingsView: View {
                 await loadTournamentStatistics()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
+            print("🔄 [TournamentRankingsView] 錦標賽切換，重新載入排行榜")
+            Task { @MainActor in
+                await refreshData()
+            }
+        }
         .sheet(isPresented: $showingTournamentPicker) {
             TournamentPickerSheet(
                 tournaments: tournaments,

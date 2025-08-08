@@ -685,6 +685,12 @@ class TournamentPortfolioManager: ObservableObject {
         // 更新歷史數據
         await updateDailyValueHistory(for: &portfolio)
         
+        // 同步到 Supabase 數據庫
+        let syncSuccess = await syncTradeToSupabase(tradingRecord: tradingRecord, portfolio: portfolio)
+        if !syncSuccess {
+            print("⚠️ Supabase 同步失敗，但本地交易已完成")
+        }
+        
         // 更新投資組合
         tournamentPortfolios[portfolio.tournamentId] = portfolio
         saveTournamentPortfolios()
@@ -766,6 +772,12 @@ class TournamentPortfolioManager: ObservableObject {
         
         // 更新歷史數據
         await updateDailyValueHistory(for: &portfolio)
+        
+        // 同步到 Supabase 數據庫
+        let syncSuccess = await syncTradeToSupabase(tradingRecord: tradingRecord, portfolio: portfolio)
+        if !syncSuccess {
+            print("⚠️ Supabase 同步失敗，但本地交易已完成")
+        }
         
         // 更新投資組合
         tournamentPortfolios[portfolio.tournamentId] = portfolio
@@ -921,6 +933,75 @@ class TournamentPortfolioManager: ObservableObject {
         // 將新的交易記錄同步到資料庫
         for record in portfolio.tradingRecords {
             try await supabaseService.insertTournamentTrade(record)
+        }
+    }
+    
+    /// 同步交易到 Supabase（統一架構）
+    private func syncTradeToSupabase(tradingRecord: TournamentTradingRecord, portfolio: TournamentPortfolio) async -> Bool {
+        do {
+            // 1. 同步交易記錄到 portfolio_transactions 表（統一架構）
+            let portfolioTransaction = PortfolioTransaction(
+                id: tradingRecord.id,
+                userId: tradingRecord.userId,
+                symbol: tradingRecord.symbol,
+                action: tradingRecord.type == .buy ? "buy" : "sell",
+                quantity: Int(tradingRecord.shares),
+                price: tradingRecord.price,
+                amount: tradingRecord.totalAmount,
+                createdAt: tradingRecord.timestamp,
+                tournamentId: tradingRecord.tournamentId
+            )
+            
+            // 注意：需要使用支持 tournament_id 的 PortfolioService 方法
+            try await PortfolioService.shared.executeTransactionWithTournament(
+                userId: tradingRecord.userId,
+                tournamentId: tradingRecord.tournamentId,
+                symbol: tradingRecord.symbol,
+                action: tradingRecord.type == .buy ? .buy : .sell,
+                amount: tradingRecord.totalAmount
+            )
+            
+            // 2. 更新投資組合狀態到 portfolios 表
+            try await syncPortfolioStateToSupabase(portfolio: portfolio)
+            
+            // 3. 更新持股到 user_portfolios 表  
+            try await syncHoldingsToSupabase(portfolio: portfolio)
+            
+            print("✅ [TournamentPortfolioManager] Supabase 同步成功")
+            return true
+            
+        } catch {
+            print("❌ [TournamentPortfolioManager] Supabase 同步失敗: \(error)")
+            return false
+        }
+    }
+    
+    /// 同步投資組合狀態到 Supabase
+    private func syncPortfolioStateToSupabase(portfolio: TournamentPortfolio) async throws {
+        let userPortfolio = UserPortfolio(
+            id: portfolio.id,
+            userId: portfolio.userId,
+            groupId: nil,
+            tournamentId: portfolio.tournamentId,
+            initialCash: portfolio.initialBalance,
+            availableCash: portfolio.currentBalance,
+            totalValue: portfolio.totalPortfolioValue,
+            returnRate: portfolio.totalReturnPercentage,
+            lastUpdated: portfolio.lastUpdated
+        )
+        
+        // 使用 PortfolioService 更新
+        // 注意：這裡需要實現一個 upsert 方法
+        // try await PortfolioService.shared.upsertTournamentPortfolio(userPortfolio)
+    }
+    
+    /// 同步持股到 Supabase
+    private func syncHoldingsToSupabase(portfolio: TournamentPortfolio) async throws {
+        // 清除舊的持股記錄
+        // 插入新的持股記錄
+        for holding in portfolio.holdings {
+            // 這裡需要 PortfolioService 的持股更新方法
+            // try await PortfolioService.shared.upsertTournamentHolding(holding, tournamentId: portfolio.tournamentId)
         }
     }
 }

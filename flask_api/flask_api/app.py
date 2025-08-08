@@ -810,6 +810,7 @@ def execute_trade():
     original_symbol = data['symbol']
     action = data['action'].lower()
     amount = float(data['amount'])
+    tournament_id = data.get('tournament_id')  # 錦標賽 ID（可選）
     is_day_trading = data.get('is_day_trading', False)  # 是否為當沖
     
     if action not in ['buy', 'sell']:
@@ -818,7 +819,8 @@ def execute_trade():
     try:
         # 標準化股票代號
         symbol = normalize_taiwan_stock_symbol(original_symbol)
-        logger.info(f"💰 執行交易: {original_symbol} -> {symbol}, {action}, 金額: {amount}")
+        trade_context = f"錦標賽 {tournament_id}" if tournament_id else "一般模式"
+        logger.info(f"💰 執行交易 ({trade_context}): {original_symbol} -> {symbol}, {action}, 金額: {amount}")
         
         # 驗證用戶
         if not validate_user(user_id):
@@ -897,7 +899,8 @@ def execute_trade():
             "fee": transaction_fee,
             "executed_at": datetime.now().isoformat(),
             "is_taiwan_stock": is_tw_stock,
-            "is_day_trading": is_day_trading
+            "is_day_trading": is_day_trading,
+            "tournament_id": tournament_id  # 保存錦標賽 ID
         }
         
         # 保存交易記錄到數據庫
@@ -908,7 +911,7 @@ def execute_trade():
         action_text = '買入' if action == 'buy' else '賣出'
         currency = price_data.get('currency', 'USD')
         
-        logger.info(f"✅ 交易執行成功: {action_text} {stock_name} - {shares:.2f} 股")
+        logger.info(f"✅ 交易執行成功 ({trade_context}): {action_text} {stock_name} - {shares:.2f} 股")
         
         return jsonify({
             "success": True,
@@ -936,6 +939,8 @@ def execute_trade():
 def get_portfolio():
     """獲取投資組合"""
     user_id = request.args.get('user_id')
+    tournament_id = request.args.get('tournament_id')
+    
     if not user_id:
         return jsonify({"error": "缺少用戶 ID 參數"}), 400
     
@@ -943,8 +948,15 @@ def get_portfolio():
         # 獲取用戶現金餘額
         cash_balance = get_user_balance(user_id)
         
-        # 獲取用戶所有交易記錄來計算持倉
-        response = supabase.table("transactions").select("*").eq("user_id", user_id).execute()
+        # 根據是否有錦標賽 ID 來獲取相應的交易記錄
+        if tournament_id:
+            logger.info(f"🏆 獲取錦標賽 {tournament_id} 的投資組合")
+            response = supabase.table("transactions").select("*").eq("user_id", user_id).eq("tournament_id", tournament_id).execute()
+        else:
+            logger.info(f"📊 獲取用戶 {user_id} 的一般投資組合")
+            # 獲取沒有錦標賽 ID 的交易記錄（一般模式）
+            response = supabase.table("transactions").select("*").eq("user_id", user_id).is_("tournament_id", "null").execute()
+        
         transactions = response.data
         
         # 計算每支股票的持倉
@@ -1005,6 +1017,7 @@ def get_portfolio():
         
         portfolio = {
             "user_id": user_id,
+            "tournament_id": tournament_id,
             "total_value": total_value,
             "cash_balance": cash_balance,
             "market_value": total_market_value,
@@ -1015,7 +1028,8 @@ def get_portfolio():
             "last_updated": datetime.now().isoformat()
         }
         
-        logger.info(f"✅ 獲取投資組合成功: 用戶 {user_id}, 總值 ${total_value:.2f}")
+        portfolio_type = f"錦標賽 {tournament_id}" if tournament_id else "一般模式"
+        logger.info(f"✅ 獲取投資組合成功: 用戶 {user_id} ({portfolio_type}), 總值 ${total_value:.2f}")
         return jsonify(portfolio)
         
     except Exception as e:
@@ -1026,18 +1040,32 @@ def get_portfolio():
 def get_transactions():
     """獲取交易歷史"""
     user_id = request.args.get('user_id')
+    tournament_id = request.args.get('tournament_id')
     limit = int(request.args.get('limit', 50))
     
     if not user_id:
         return jsonify({"error": "缺少用戶 ID 參數"}), 400
     
     try:
-        response = supabase.table("transactions")\
-            .select("*")\
-            .eq("user_id", user_id)\
-            .order("executed_at", desc=True)\
-            .limit(limit)\
-            .execute()
+        # 根據是否有錦標賽 ID 來獲取相應的交易記錄
+        if tournament_id:
+            logger.info(f"🏆 獲取錦標賽 {tournament_id} 的交易歷史")
+            response = supabase.table("transactions")\
+                .select("*")\
+                .eq("user_id", user_id)\
+                .eq("tournament_id", tournament_id)\
+                .order("executed_at", desc=True)\
+                .limit(limit)\
+                .execute()
+        else:
+            logger.info(f"📊 獲取用戶 {user_id} 的一般交易歷史")
+            response = supabase.table("transactions")\
+                .select("*")\
+                .eq("user_id", user_id)\
+                .is_("tournament_id", "null")\
+                .order("executed_at", desc=True)\
+                .limit(limit)\
+                .execute()
         
         transactions = []
         for tx in response.data:
@@ -1052,7 +1080,8 @@ def get_transactions():
                 "executed_at": tx['executed_at']
             })
         
-        logger.info(f"✅ 獲取交易歷史成功: 用戶 {user_id}, {len(transactions)} 筆記錄")
+        transaction_type = f"錦標賽 {tournament_id}" if tournament_id else "一般模式"
+        logger.info(f"✅ 獲取交易歷史成功: 用戶 {user_id} ({transaction_type}), {len(transactions)} 筆記錄")
         return jsonify(transactions)
         
     except Exception as e:

@@ -157,7 +157,8 @@ class TournamentStateManager: ObservableObject {
     
     /// 離開錦標賽（僅切換到一般模式，不退出錦標賽）
     func leaveTournament() async {
-        print("🏆 [TournamentStateManager] 切換到一般模式")
+        let previousTournamentId = currentTournamentContext?.tournament.id
+        print("🏆 [TournamentStateManager] 切換到一般模式 (從錦標賽 \(previousTournamentId?.uuidString ?? "無"))")
         
         // 僅清除當前錦標賽上下文，但保留報名狀態
         await MainActor.run {
@@ -174,6 +175,7 @@ class TournamentStateManager: ObservableObject {
                     "tournamentName": "一般模式"
                 ]
             )
+            print("📤 [TournamentStateManager] 已發送 TournamentContextChanged 通知: 一般模式")
         }
         
         // 持久化狀態（保留已報名的錦標賽）
@@ -292,9 +294,16 @@ class TournamentStateManager: ObservableObject {
         return currentTournamentContext?.canMakeTrades ?? false
     }
     
-    /// 獲取當前錦標賽 ID
+    /// 獲取當前錦標賽 ID（靜默版本）
     func getCurrentTournamentId() -> UUID? {
         return currentTournamentContext?.tournament.id
+    }
+    
+    /// 獲取當前錦標賽 ID（調試版本）
+    func getCurrentTournamentIdDebug() -> UUID? {
+        let tournamentId = currentTournamentContext?.tournament.id
+        print("🔍 [TournamentStateManager] getCurrentTournamentId(): \(tournamentId?.uuidString ?? "nil")")
+        return tournamentId
     }
     
     /// 檢查是否已報名特定錦標賽
@@ -309,13 +318,37 @@ class TournamentStateManager: ObservableObject {
     
     /// 更新錦標賽上下文（切換錦標賽時使用）
     func updateTournamentContext(_ tournament: Tournament) async {
-        print("🔄 [TournamentStateManager] 切換到錦標賽: \(tournament.name)")
+        print("🔄 [TournamentStateManager] 切換到錦標賽: \(tournament.name) (ID: \(tournament.id))")
         
         // 創建參與者資料
         let participant = createParticipantForTournament(tournament)
         
-        // 獲取錦標賽專用投資組合
-        let portfolio = portfolioManager.getPortfolio(for: tournament.id)
+        // 獲取錦標賽專用投資組合，如果不存在則創建
+        var portfolio = portfolioManager.getPortfolio(for: tournament.id)
+        print("🔍 [TournamentStateManager] 錦標賽投資組合狀態: \(portfolio != nil ? "存在" : "不存在")")
+        
+        // 如果投資組合不存在，為錦標賽創建投資組合
+        if portfolio == nil {
+            print("🔄 [TournamentStateManager] 為錦標賽 \(tournament.name) 創建投資組合")
+            
+            guard let currentUser = SupabaseService.shared.getCurrentUser() else {
+                print("❌ [TournamentStateManager] 無法獲取當前用戶，無法創建投資組合")
+                return
+            }
+            
+            let portfolioInitialized = await portfolioManager.initializePortfolio(
+                for: tournament,
+                userId: currentUser.id,
+                userName: currentUser.username
+            )
+            
+            if portfolioInitialized {
+                portfolio = portfolioManager.getPortfolio(for: tournament.id)
+                print("✅ [TournamentStateManager] 錦標賽投資組合創建成功")
+            } else {
+                print("❌ [TournamentStateManager] 錦標賽投資組合創建失敗")
+            }
+        }
         
         // 設定錦標賽上下文
         let context = TournamentContext(
@@ -330,6 +363,9 @@ class TournamentStateManager: ObservableObject {
         
         // 更新狀態
         await MainActor.run {
+            let previousTournamentId = currentTournamentContext?.tournament.id
+            print("🔄 [TournamentStateManager] 從錦標賽 \(previousTournamentId?.uuidString ?? "無") 切換到 \(tournament.id.uuidString)")
+            
             currentTournamentContext = context
             isParticipatingInTournament = true
             participationState = .active
@@ -337,20 +373,35 @@ class TournamentStateManager: ObservableObject {
             enrolledTournaments.insert(tournament.id)
             
             // 發送錦標賽切換通知
+            let notificationName = NSNotification.Name("TournamentContextChanged")
+            let userInfo = [
+                "tournamentId": tournament.id.uuidString,
+                "tournamentName": tournament.name
+            ]
+            
+            print("📤 [TournamentStateManager] 準備發送通知:")
+            print("   - 通知名稱: \(notificationName.rawValue)")
+            print("   - 錦標賽ID: \(tournament.id.uuidString)")
+            print("   - 錦標賽名稱: \(tournament.name)")
+            
             NotificationCenter.default.post(
-                name: NSNotification.Name("TournamentContextChanged"),
+                name: notificationName,
                 object: self,
-                userInfo: [
-                    "tournamentId": tournament.id.uuidString,
-                    "tournamentName": tournament.name
-                ]
+                userInfo: userInfo
             )
+            
+            print("📤 [TournamentStateManager] 已發送 TournamentContextChanged 通知: \(tournament.id.uuidString)")
+            
+            // 延遲檢查是否有監聽器
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                print("🔍 [TournamentStateManager] 通知發送後檢查 - 當前錦標賽ID: \(self.getCurrentTournamentId()?.uuidString ?? "nil")")
+            }
         }
         
         // 持久化狀態
         persistTournamentState()
         
-        print("✅ [TournamentStateManager] 已切換到錦標賽: \(tournament.name)")
+        print("✅ [TournamentStateManager] 已切換到錦標賽: \(tournament.name) (ID: \(tournament.id.uuidString))")
     }
     
     // MARK: - 私有方法

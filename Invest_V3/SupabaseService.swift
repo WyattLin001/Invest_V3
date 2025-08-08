@@ -56,6 +56,12 @@ class SupabaseService: ObservableObject {
     
     // 獲取當前用戶
     public func getCurrentUser() -> UserProfile? {
+        // 檢查是否在 Preview 模式
+        if SupabaseManager.isPreview {
+            print("🔍 [SupabaseService] Preview 模式 - 返回模擬用戶")
+            return createMockUser()
+        }
+        
         // 首先嘗試從 UserDefaults 獲取用戶資料
         if let data = UserDefaults.standard.data(forKey: "current_user"),
            let user = try? JSONDecoder().decode(UserProfile.self, from: data) {
@@ -76,6 +82,101 @@ class SupabaseService: ObservableObject {
         }
         
         return nil
+    }
+    
+    // 創建模擬用戶（用於 Preview 模式）
+    private func createMockUser() -> UserProfile {
+        return UserProfile(
+            id: UUID(uuidString: "12345678-1234-1234-1234-123456789012") ?? UUID(),
+            email: "preview@example.com",
+            username: "preview_user", 
+            displayName: "預覽用戶",
+            avatarUrl: nil,
+            bio: "這是預覽模式的模擬用戶",
+            specializations: ["技術分析", "價值投資"],
+            yearsExperience: 5,
+            followerCount: 0,
+            followingCount: 0,
+            articleCount: 0,
+            totalReturnRate: 0.0,
+            isVerified: false,
+            status: "active",
+            userId: "preview-user-123",
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+    }
+    
+    // 創建模擬錦標賽數據（用於 Preview 模式）
+    private func createMockTournaments() -> [Tournament] {
+        return [
+            Tournament(
+                id: UUID(uuidString: "11111111-1111-1111-1111-111111111111") ?? UUID(),
+                name: "Test05",
+                type: .monthly,
+                status: .ongoing,
+                startDate: Calendar.current.date(byAdding: .day, value: -10, to: Date()) ?? Date(),
+                endDate: Calendar.current.date(byAdding: .day, value: 20, to: Date()) ?? Date(),
+                description: "Preview 模式專用錦標賽 Test05",
+                shortDescription: "Preview 測試錦標賽",
+                initialBalance: 1000000,
+                maxParticipants: 100,
+                currentParticipants: 50,
+                entryFee: 0,
+                prizePool: 50000,
+                riskLimitPercentage: 20.0,
+                minHoldingRate: 60.0,
+                maxSingleStockRate: 30.0,
+                rules: ["模擬交易", "無實際風險"],
+                createdAt: Date(),
+                updatedAt: Date(),
+                isFeatured: true
+            ),
+            Tournament(
+                id: UUID(uuidString: "22222222-2222-2222-2222-222222222222") ?? UUID(),
+                name: "Test06",
+                type: .weekly,
+                status: .ongoing,
+                startDate: Calendar.current.date(byAdding: .day, value: -5, to: Date()) ?? Date(),
+                endDate: Calendar.current.date(byAdding: .day, value: 25, to: Date()) ?? Date(),
+                description: "Preview 模式專用錦標賽 Test06",
+                shortDescription: "Preview 測試錦標賽",
+                initialBalance: 1000000,
+                maxParticipants: 50,
+                currentParticipants: 25,
+                entryFee: 0,
+                prizePool: 30000,
+                riskLimitPercentage: 25.0,
+                minHoldingRate: 50.0,
+                maxSingleStockRate: 40.0,
+                rules: ["練習模式", "學習專用"],
+                createdAt: Date(),
+                updatedAt: Date(),
+                isFeatured: false
+            ),
+            Tournament(
+                id: UUID(uuidString: "33333333-3333-3333-3333-333333333333") ?? UUID(),
+                name: "2025 新手投資競賽",
+                type: .quarterly,
+                status: .enrolling,
+                startDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
+                endDate: Calendar.current.date(byAdding: .day, value: 95, to: Date()) ?? Date(),
+                description: "專為新手設計的模擬投資競賽",
+                shortDescription: "新手專用競賽",
+                initialBalance: 500000,
+                maxParticipants: 200,
+                currentParticipants: 15,
+                entryFee: 100,
+                prizePool: 20000,
+                riskLimitPercentage: 30.0,
+                minHoldingRate: 40.0,
+                maxSingleStockRate: 50.0,
+                rules: ["適合新手", "季度賽制"],
+                createdAt: Date(),
+                updatedAt: Date(),
+                isFeatured: true
+            )
+        ]
     }
     
     // 獲取當前用戶的異步版本
@@ -5103,6 +5204,12 @@ extension SupabaseService {
     /// 獲取所有錦標賽
     public func fetchTournaments() async throws -> [Tournament] {
         print("📊 [SupabaseService] 獲取所有錦標賽")
+        
+        // 如果在 Preview 模式，返回模擬數據
+        if SupabaseManager.isPreview {
+            print("🔍 [SupabaseService] Preview 模式 - 返回模擬錦標賽數據")
+            return createMockTournaments()
+        }
         
         do {
             let tournamentResponses: [TournamentResponse] = try await client

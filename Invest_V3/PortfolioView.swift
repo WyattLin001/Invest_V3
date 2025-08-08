@@ -26,8 +26,24 @@ struct PortfolioView: View {
                     await loadData()
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { _ in
-                print("🔄 [PortfolioView] 錦標賽切換，重新載入投資組合")
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { notification in
+                let tournamentId = notification.userInfo?["tournamentId"] as? String ?? "unknown"
+                let tournamentName = notification.userInfo?["tournamentName"] as? String ?? "unknown"
+                print("📨 [PortfolioView] 收到錦標賽切換通知: \(tournamentName) (ID: \(tournamentId))")
+                print("📨 [PortfolioView] 通知詳情: \(notification.userInfo ?? [:])")
+                Task {
+                    await loadData()
+                }
+            }
+            .onAppear {
+                print("👁️ [PortfolioView] 視圖出現")
+            }
+            .onDisappear {
+                print("👻 [PortfolioView] 視圖消失")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentDataReloaded"))) { notification in
+                let tournamentId = notification.userInfo?["tournamentId"] as? String ?? "unknown"
+                print("📨 [PortfolioView] 收到錦標賽數據重載通知: \(tournamentId)")
                 Task {
                     await loadData()
                 }
@@ -74,7 +90,7 @@ struct PortfolioView: View {
             // In tournament mode, try to load tournament-specific data from Supabase
             print("🏆 [PortfolioView] Tournament mode active - loading tournament portfolio data")
             
-            if let tournamentId = tournamentStateManager.getCurrentTournamentId(),
+            if let tournamentId = tournamentStateManager.getCurrentTournamentIdDebug(),
                let currentUser = SupabaseService.shared.getCurrentUser() {
                 
                 do {

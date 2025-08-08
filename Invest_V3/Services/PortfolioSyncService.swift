@@ -79,15 +79,34 @@ class PortfolioSyncService: ObservableObject {
     /// 獲取錦標賽特定的投資組合數據
     func getPortfolioForTournament(_ tournamentId: UUID?) -> [PortfolioHolding] {
         if let tournamentId = tournamentId {
-            // 過濾出特定錦標賽的持股
-            return chatPortfolioManager.holdings.filter { holding in
-                // 這裡可以根據需要添加錦標賽過濾邏輯
-                // 目前先返回所有持股，後續可以根據交易記錄關聯錦標賽
-                return true
+            // 根據交易記錄過濾出特定錦標賽的持股
+            let tournamentRecords = chatPortfolioManager.tradingRecords.filter { 
+                $0.tournamentId == tournamentId 
             }
+            
+            // 計算錦標賽相關的股票符號
+            let tournamentSymbols = Set(tournamentRecords.map { $0.symbol })
+            
+            // 只返回該錦標賽相關的持股
+            let filteredHoldings = chatPortfolioManager.holdings.filter { 
+                tournamentSymbols.contains($0.symbol) 
+            }
+            
+            print("🏆 [PortfolioSyncService] 錦標賽 \(tournamentId): 過濾出 \(filteredHoldings.count) 個持股")
+            return filteredHoldings
         } else {
-            // 返回所有持股
-            return chatPortfolioManager.holdings
+            // 一般模式：返回沒有錦標賽關聯的持股
+            let generalRecords = chatPortfolioManager.tradingRecords.filter { 
+                $0.tournamentId == nil 
+            }
+            let generalSymbols = Set(generalRecords.map { $0.symbol })
+            
+            let filteredHoldings = chatPortfolioManager.holdings.filter { 
+                generalSymbols.contains($0.symbol) 
+            }
+            
+            print("📊 [PortfolioSyncService] 一般模式: 過濾出 \(filteredHoldings.count) 個持股")
+            return filteredHoldings
         }
     }
     
@@ -149,21 +168,63 @@ class PortfolioSyncService: ObservableObject {
     // MARK: - Private Sync Methods
     
     private func syncPortfolioToDatabase() async throws {
-        let holdings = chatPortfolioManager.holdings
+        // 獲取當前錦標賽上下文
+        let tournamentStateManager = TournamentStateManager.shared
+        let currentTournamentId = tournamentStateManager.getCurrentTournamentId()
         
-        for holding in holdings {
-            // 這裡可以將持股數據同步到 Supabase
-            // 根據實際的數據庫結構來實現
-            print("📊 同步持股: \(holding.symbol) - \(holding.shares) shares")
+        // 根據是否在錦標賽模式來決定同步範圍
+        if let tournamentId = currentTournamentId {
+            // 錦標賽模式：只同步有錦標賽 ID 的交易記錄相關的持股
+            let tournamentRecords = chatPortfolioManager.tradingRecords.filter { 
+                $0.tournamentId == tournamentId 
+            }
+            
+            // 計算錦標賽相關的持股
+            let tournamentSymbols = Set(tournamentRecords.map { $0.symbol })
+            let tournamentHoldings = chatPortfolioManager.holdings.filter { 
+                tournamentSymbols.contains($0.symbol) 
+            }
+            
+            for holding in tournamentHoldings {
+                print("📊 同步持股: \(holding.symbol) - \(holding.shares) shares")
+            }
+            
+            print("🏆 [PortfolioSyncService] 錦標賽模式: 只同步 \(tournamentHoldings.count) 個錦標賽相關持股")
+        } else {
+            // 一般模式：同步所有持股
+            let holdings = chatPortfolioManager.holdings
+            
+            for holding in holdings {
+                print("📊 同步持股: \(holding.symbol) - \(holding.shares) shares")
+            }
+            
+            print("📊 [PortfolioSyncService] 一般模式: 同步 \(holdings.count) 個持股")
         }
     }
     
     private func syncTradingRecordsToDatabase() async throws {
-        let records = chatPortfolioManager.tradingRecords
+        // 獲取當前錦標賽上下文
+        let tournamentStateManager = TournamentStateManager.shared
+        let currentTournamentId = tournamentStateManager.getCurrentTournamentId()
         
-        for record in records {
-            // 這裡可以將交易記錄同步到 Supabase
-            // 根據實際的數據庫結構來實現
+        // 根據是否在錦標賽模式來過濾交易記錄
+        let recordsToSync: [TradingRecord]
+        
+        if let tournamentId = currentTournamentId {
+            // 錦標賽模式：只同步該錦標賽的交易記錄
+            recordsToSync = chatPortfolioManager.tradingRecords.filter { 
+                $0.tournamentId == tournamentId 
+            }
+            print("🏆 [PortfolioSyncService] 錦標賽模式: 過濾出 \(recordsToSync.count) 筆錦標賽交易記錄")
+        } else {
+            // 一般模式：只同步沒有錦標賽 ID 的交易記錄
+            recordsToSync = chatPortfolioManager.tradingRecords.filter { 
+                $0.tournamentId == nil 
+            }
+            print("📊 [PortfolioSyncService] 一般模式: 過濾出 \(recordsToSync.count) 筆一般交易記錄")
+        }
+        
+        for record in recordsToSync {
             print("📝 同步交易記錄: \(record.symbol) - \(record.type) - \(record.shares)")
         }
     }
