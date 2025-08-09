@@ -25,6 +25,8 @@ struct SettingsView: View {
     @State private var nicknameInput = ""
     @State private var showEditUserID = false
     @State private var showAvatarPreview = false
+    @State private var showHelpCenter = false
+    @State private var showFAQ = false
 
     var body: some View {
         NavigationView {
@@ -130,6 +132,12 @@ struct SettingsView: View {
                     }
                 }
             )
+        }
+        .sheet(isPresented: $showHelpCenter) {
+            HelpCenterView()
+        }
+        .sheet(isPresented: $showFAQ) {
+            FAQView()
         }
         .fullScreenCover(isPresented: $showAvatarPreview) {
             if let image = viewModel.profileImage {
@@ -528,23 +536,54 @@ struct SettingsView: View {
                 Divider()
                     .dividerStyle()
                 
-                // 其他設定項目預留位置
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("其他設定")
-                            .font(.bodyText)
-                            .adaptiveTextColor()
-                        Text("更多功能開發中")
-                            .font(.caption)
-                            .adaptiveTextColor(primary: false)
+                // 幫助中心
+                Button(action: {
+                    showHelpCenter = true
+                }) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("幫助中心")
+                                .font(.bodyText)
+                                .adaptiveTextColor()
+                            Text("FAQ、使用指南、聯繫支援")
+                                .font(.caption)
+                                .adaptiveTextColor(primary: false)
+                        }
+                        Spacer()
+                        Image(systemName: "questionmark.circle")
+                            .font(.title3)
+                            .foregroundColor(.brandGreen)
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .adaptiveTextColor(primary: false)
+                    .padding(.vertical, DesignTokens.spacingMD)
+                    .contentShape(Rectangle())
                 }
-                .padding(.vertical, DesignTokens.spacingMD)
-                .contentShape(Rectangle())
+                .buttonStyle(PlainButtonStyle())
+                
+                Divider()
+                    .dividerStyle()
+                
+                // 常見問題
+                Button(action: {
+                    showFAQ = true
+                }) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("常見問題")
+                                .font(.bodyText)
+                                .adaptiveTextColor()
+                            Text("快速找到問題解答")
+                                .font(.caption)
+                                .adaptiveTextColor(primary: false)
+                        }
+                        Spacer()
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.title3)
+                            .foregroundColor(.brandGreen)
+                    }
+                    .padding(.vertical, DesignTokens.spacingMD)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
             }
         }
         .brandCardStyle()

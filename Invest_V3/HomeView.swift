@@ -25,6 +25,7 @@ struct HomeView: View {
     @State private var currentTournamentName = "2025年度投資錦標賽" // 當前錦標賽名稱
     @State private var showTournamentSwitcher = false // 錦標賽切換器
     @StateObject private var tournamentStateManager = TournamentStateManager.shared
+    @State private var showHelpCenter = false // 幫助中心
     
 
     var body: some View {
@@ -123,6 +124,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showWalletView) {
             WalletView()
+        }
+        .sheet(isPresented: $showHelpCenter) {
+            HelpCenterView()
         }
         .fullScreenCover(isPresented: $viewModel.showInvestmentPanel) {
             EnhancedInvestmentView(currentTournamentName: currentTournamentName)
@@ -232,6 +236,15 @@ struct HomeView: View {
                     }
                     .accessibilityLabel("搜尋")
                     .accessibilityHint("搜尋投資群組和內容")
+                    
+                    // 幫助按鈕
+                    Button(action: { showHelpCenter = true }) {
+                        Image(systemName: "questionmark.circle")
+                            .font(.title3)
+                            .foregroundColor(.brandGreen)
+                    }
+                    .accessibilityLabel("幫助")
+                    .accessibilityHint("查看使用說明和常見問題")
                 }
             }
             .padding(.horizontal, 20)
