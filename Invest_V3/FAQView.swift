@@ -79,6 +79,8 @@ enum FAQCategory: String, CaseIterable {
 }
 
 struct FAQView: View {
+    let initialCategory: FAQCategory?
+    
     @State private var selectedCategory: FAQCategory = .popular
     @State private var searchText = ""
     @State private var expandedItems: Set<UUID> = []
@@ -87,6 +89,11 @@ struct FAQView: View {
     @State private var recommendedQuestions: [FAQItem] = []
     @State private var searchSuggestions: [String] = []
     @State private var showSearchSuggestions = false
+    
+    // 初始化器，支援預設分類
+    init(initialCategory: FAQCategory? = nil) {
+        self.initialCategory = initialCategory
+    }
     
     var body: some View {
         NavigationView {
@@ -126,6 +133,11 @@ struct FAQView: View {
         }
         .onAppear {
             initializeRecommendations()
+            
+            // 如果有指定初始分類，設定為選中狀態
+            if let initialCategory = initialCategory {
+                selectedCategory = initialCategory
+            }
         }
     }
     
@@ -1421,5 +1433,5 @@ private let faqData: [FAQItem] = [
 ]
 
 #Preview {
-    FAQView()
+    FAQView(initialCategory: .popular)
 }

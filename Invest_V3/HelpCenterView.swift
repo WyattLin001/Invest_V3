@@ -10,6 +10,10 @@ import SwiftUI
 struct HelpCenterView: View {
     @State private var searchText = ""
     @State private var showFAQ = false
+    @State private var selectedFAQCategory: FAQCategory? = nil
+    @State private var showTutorial = false
+    @State private var showContactSupport = false
+    @State private var showReportIssue = false
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -38,7 +42,16 @@ struct HelpCenterView: View {
             }
         }
         .sheet(isPresented: $showFAQ) {
-            FAQView()
+            FAQView(initialCategory: selectedFAQCategory)
+        }
+        .sheet(isPresented: $showTutorial) {
+            TutorialView()
+        }
+        .sheet(isPresented: $showContactSupport) {
+            ContactSupportView()
+        }
+        .sheet(isPresented: $showReportIssue) {
+            ReportIssueView()
         }
     }
     
@@ -96,7 +109,7 @@ struct HelpCenterView: View {
                     subtitle: "專人協助",
                     color: .blue
                 ) {
-                    openContactSupport()
+                    showContactSupport = true
                 }
                 
                 QuickActionCard(
@@ -105,7 +118,7 @@ struct HelpCenterView: View {
                     subtitle: "功能介紹",
                     color: .purple
                 ) {
-                    // TODO: 開啟教學頁面
+                    showTutorial = true
                 }
                 
                 QuickActionCard(
@@ -114,7 +127,7 @@ struct HelpCenterView: View {
                     subtitle: "技術支援",
                     color: .orange
                 ) {
-                    reportIssue()
+                    showReportIssue = true
                 }
             }
         }
@@ -227,16 +240,9 @@ struct HelpCenterView: View {
     // MARK: - Helper Functions
     
     private func showFAQWithCategory(_ category: FAQCategory) {
-        // TODO: 實作帶分類的FAQ顯示
+        // 設定要顯示的分類並開啟 FAQ
+        selectedFAQCategory = category
         showFAQ = true
-    }
-    
-    private func openContactSupport() {
-        // TODO: 開啟聯繫支援頁面
-    }
-    
-    private func reportIssue() {
-        // TODO: 開啟問題回報頁面
     }
     
     private func openEmail() {
@@ -246,7 +252,8 @@ struct HelpCenterView: View {
     }
     
     private func openChat() {
-        // TODO: 開啟線上客服
+        // 開啟線上客服
+        showContactSupport = true
     }
     
     private func callSupport() {
