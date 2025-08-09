@@ -106,19 +106,15 @@ struct TradingView: View {
     private func loadTournamentPortfolio(tournamentId: UUID) async {
         do {
             // 透過 TournamentService 載入錦標賽專用的投資組合
-            if let tournamentService = TournamentService.shared {
-                let tournamentPortfolio = try await tournamentService.loadTournamentPortfolio(
-                    tournamentId: tournamentId,
-                    userId: AuthenticationService.shared.currentUser?.id ?? UUID()
-                )
-                
-                // 將錦標賽投資組合數據轉換為 TradingService 格式
-                await MainActor.run {
-                    convertTournamentPortfolioToTradingData(tournamentPortfolio)
-                }
-            } else {
-                // 如果 TournamentService 不可用，回退到一般投資組合
-                await tradingService.loadPortfolio()
+            let tournamentService = TournamentService.shared
+            let tournamentPortfolio = try await tournamentService.loadTournamentPortfolio(
+                tournamentId: tournamentId,
+                userId: AuthenticationService.shared.currentUser?.id ?? UUID()
+            )
+            
+            // 將錦標賽投資組合數據轉換為 TradingService 格式
+            await MainActor.run {
+                convertTournamentPortfolioToTradingData(tournamentPortfolio)
             }
         } catch {
             print("❌ [TradingView] 載入錦標賽投資組合失敗: \(error)")

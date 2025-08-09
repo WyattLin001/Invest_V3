@@ -195,19 +195,19 @@ struct DraftsView: View {
     
     private var draftsStatsSection: some View {
         HStack(spacing: 16) {
-            StatCard(
+            DraftStatCard(
                 title: "總草稿",
                 value: "\(drafts.count)",
                 icon: "doc.text"
             )
             
-            StatCard(
+            DraftStatCard(
                 title: "待完成",
                 value: "\(drafts.filter { $0.status != .readyToPublish }.count)",
                 icon: "pencil"
             )
             
-            StatCard(
+            DraftStatCard(
                 title: "可發布",
                 value: "\(drafts.filter { $0.status == .readyToPublish }.count)",
                 icon: "checkmark.circle"
@@ -492,7 +492,7 @@ struct FilterChip: View {
     }
 }
 
-struct StatCard: View {
+struct DraftStatCard: View {
     let title: String
     let value: String
     let icon: String

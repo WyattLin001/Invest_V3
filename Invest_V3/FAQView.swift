@@ -364,7 +364,7 @@ struct FAQView: View {
                         Spacer()
                         
                         Image(systemName: "arrow.up.left")
-                            .foregroundColor(.tertiary)
+                            .foregroundColor(Color(.tertiaryLabel))
                             .font(.caption2)
                     }
                     .padding(.horizontal, DesignTokens.spacingMD)
@@ -904,8 +904,8 @@ struct EmptySearchResultView: View {
     }
 }
 
-// MARK: - 聯繫支援視圖
-struct ContactSupportView: View {
+// MARK: - FAQ 聯繫支援視圖
+struct FAQContactSupportView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedContactMethod: ContactMethod = .inApp
     @State private var message = ""
@@ -962,7 +962,7 @@ struct ContactSupportView: View {
                         .foregroundColor(.primary)
                     
                     ForEach(ContactMethod.allCases, id: \.self) { method in
-                        ContactMethodCard(
+                        FAQContactMethodCard(
                             method: method,
                             isSelected: selectedContactMethod == method
                         ) {
@@ -1002,8 +1002,8 @@ struct ContactSupportView: View {
 }
 
 // MARK: - 聯繫方式卡片
-struct ContactMethodCard: View {
-    let method: ContactSupportView.ContactMethod
+struct FAQContactMethodCard: View {
+    let method: FAQContactSupportView.ContactMethod
     let isSelected: Bool
     let action: () -> Void
     
