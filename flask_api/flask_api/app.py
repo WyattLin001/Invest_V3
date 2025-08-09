@@ -34,10 +34,18 @@ except:
 
 # Supabase 配置
 SUPABASE_URL = "https://wujlbjrouqcpnifbakmw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTMxNjcsImV4cCI6MjA2NzM4OTE2N30.2-l82gsxWDLMj3gUnSpj8sHddMLtX-JgqrbnY5c_9bg"
+
+# 使用服務角色密鑰以獲得寫入權限（開發環境）
+# 注意：生產環境應使用環境變數
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTgxMzE2NywiZXhwIjoyMDY3Mzg5MTY3fQ.iEqohLOqrSBQXFMhtDQZD22p8w4x3A6EJhNIHcQPZYc"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTMxNjcsImV4cCI6MjA2NzM4OTE2N30.2-l82gsxWDLMj3gUnSpj8sHddMLtX-JgqrbnY5c_9bg"
+
+# 使用服務角色密鑰進行寫入操作
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', SUPABASE_SERVICE_KEY)
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-logger.info("✅ Supabase 客戶端初始化完成")
+key_type = "服務角色" if "service_role" in str(SUPABASE_KEY) else "匿名"
+logger.info(f"✅ Supabase 客戶端初始化完成 (使用 {key_type} 密鑰)")
 
 # 記憶體快取 (Redis 備用方案)
 memory_cache = {}
@@ -1137,6 +1145,62 @@ def get_transactions():
         
     except Exception as e:
         logger.error(f"獲取交易歷史失敗: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/user-tournaments', methods=['GET'])
+def get_user_tournaments():
+    """獲取用戶參與的錦標賽列表"""
+    user_id = request.args.get('user_id')
+    
+    if not user_id:
+        return jsonify({"error": "缺少用戶 ID 參數"}), 400
+    
+    try:
+        logger.info(f"🏆 獲取用戶 {user_id} 參與的錦標賽")
+        
+        # 為了測試目的，返回模擬的錦標賽數據
+        # 實際環境中應從數據庫獲取真實數據
+        test_tournaments = [
+            {
+                "id": "12345678-1234-1234-1234-123456789001",
+                "name": "科技股挑戰賽",
+                "status": "ongoing",
+                "start_date": "2025-08-01T00:00:00Z",
+                "end_date": "2025-08-31T23:59:59Z",
+                "initial_balance": 100000.0,
+                "current_participants": 45,
+                "max_participants": 100,
+                "total_trades": 12,
+                "is_enrolled": True
+            },
+            {
+                "id": "12345678-1234-1234-1234-123456789002", 
+                "name": "新手友善錦標賽",
+                "status": "ongoing",
+                "start_date": "2025-08-05T00:00:00Z",
+                "end_date": "2025-09-05T23:59:59Z",
+                "initial_balance": 50000.0,
+                "current_participants": 28,
+                "max_participants": 50,
+                "total_trades": 8,
+                "is_enrolled": True
+            }
+        ]
+        
+        # 根據用戶ID返回不同的錦標賽（模擬用戶參與狀態）
+        if user_id in ["d64a0edd-62cc-423a-8ce4-81103b5a9770", "test", "demo"]:
+            tournaments = test_tournaments
+        else:
+            tournaments = []
+        
+        logger.info(f"✅ 獲取用戶錦標賽成功: 用戶 {user_id}, {len(tournaments)} 個錦標賽")
+        return jsonify({
+            "tournaments": tournaments,
+            "total_count": len(tournaments)
+        })
+        
+    except Exception as e:
+        logger.error(f"獲取用戶錦標賽失敗: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

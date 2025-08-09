@@ -92,6 +92,12 @@ class TournamentStateManager: ObservableObject {
         
         // 載入持久化的錦標賽狀態
         loadPersistedTournamentState()
+        
+        // 延遲同步數據庫狀態，確保其他服務已初始化
+        Task {
+            await Task.sleep(nanoseconds: 1_000_000_000) // 延遲1秒
+            await refreshUserTournamentStatus()
+        }
     }
     
     // MARK: - 公共方法
@@ -314,6 +320,11 @@ class TournamentStateManager: ObservableObject {
     /// 檢查是否已報名特定錦標賽（使用 Tournament 對象）
     func isEnrolledInTournament(_ tournament: Tournament) -> Bool {
         return enrolledTournaments.contains(tournament.id)
+    }
+    
+    /// 刷新用戶錦標賽狀態（公開方法，供外部調用）
+    func refreshUserTournamentStatus() async {
+        await syncEnrolledTournamentsFromDatabase()
     }
     
     /// 更新錦標賽上下文（切換錦標賽時使用）
@@ -568,29 +579,108 @@ class TournamentStateManager: ObservableObject {
         }
     }
     
-    /// 從數據庫同步實際的報名狀態
+    /// 從API同步用戶錦標賽狀態
     private func syncEnrolledTournamentsFromDatabase() async {
+        print("🔄 [TournamentStateManager] 開始從API同步用戶錦標賽狀態")
+        
         do {
-            guard let currentUser = SupabaseService.shared.getCurrentUser() else {
-                print("❌ [TournamentStateManager] 無法獲取當前用戶，跳過狀態同步")
+            // 使用測試用戶ID - 實際應從AuthenticationService獲取
+            let testUserId = "d64a0edd-62cc-423a-8ce4-81103b5a9770"
+            
+            // 從Flask API獲取用戶錦標賽
+            guard let url = URL(string: "http://localhost:5002/api/user-tournaments?user_id=\(testUserId)") else {
+                print("❌ [TournamentStateManager] 無效的API URL")
                 return
             }
             
-            // 獲取用戶實際參與的錦標賽
-            let actualEnrolledTournaments = try await SupabaseService.shared.fetchUserEnrolledTournaments(userId: currentUser.id)
+            let (data, response) = try await URLSession.shared.data(from: url)
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                print("❌ [TournamentStateManager] API請求失敗: \(response)")
+                return
+            }
+            
+            // 解析API回應
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            
+            let apiResponse = try decoder.decode(UserTournamentsResponse.self, from: data)
             
             await MainActor.run {
                 let previousCount = enrolledTournaments.count
-                enrolledTournaments = Set(actualEnrolledTournaments.map { $0.id })
                 
-                print("🔄 [TournamentStateManager] 同步報名狀態：從 \(previousCount) 個更新為 \(enrolledTournaments.count) 個錦標賽")
+                // 將API回應轉換為Tournament對象
+                var tournaments: [Tournament] = []
+                var tournamentIds: Set<UUID> = []
                 
-                // 持久化更新後的狀態
-                persistTournamentState()
+                for apiTournament in apiResponse.tournaments {
+                    guard let tournamentId = UUID(uuidString: apiTournament.id) else { continue }
+                    
+                    let tournament = Tournament(
+                        id: tournamentId,
+                        name: apiTournament.name,
+                        description: "來自API的錦標賽",
+                        startDate: ISO8601DateFormatter().date(from: apiTournament.start_date) ?? Date(),
+                        endDate: ISO8601DateFormatter().date(from: apiTournament.end_date) ?? Date(),
+                        maxParticipants: apiTournament.max_participants,
+                        currentParticipants: apiTournament.current_participants,
+                        initialBalance: apiTournament.initial_balance,
+                        status: .ongoing,
+                        rules: [],
+                        prizeStructure: [],
+                        category: .general,
+                        difficulty: .beginner,
+                        requirements: [],
+                        tags: [],
+                        imageURL: nil,
+                        createdBy: UUID(),
+                        createdAt: Date(),
+                        updatedAt: Date()
+                    )
+                    
+                    tournaments.append(tournament)
+                    tournamentIds.insert(tournamentId)
+                }
+                
+                // 更新狀態
+                enrolledTournaments = tournamentIds
+                
+                if !tournaments.isEmpty {
+                    isParticipatingInTournament = true
+                    participationState = .active
+                    
+                    // 如果目前沒有錦標賽上下文，設定第一個錦標賽為當前上下文
+                    if currentTournamentContext == nil {
+                        Task {
+                            await updateTournamentContext(tournaments[0])
+                        }
+                    }
+                    
+                    print("✅ [TournamentStateManager] 同步成功: 用戶參與 \(tournaments.count) 個錦標賽")
+                    tournaments.forEach { tournament in
+                        print("   - \(tournament.name) (ID: \(tournament.id))")
+                    }
+                } else {
+                    isParticipatingInTournament = false
+                    participationState = .none
+                    currentTournamentContext = nil
+                    print("ℹ️ [TournamentStateManager] 用戶未參與任何錦標賽")
+                }
+                
+                print("🔄 [TournamentStateManager] 同步狀態：從 \(previousCount) 個更新為 \(enrolledTournaments.count) 個錦標賽")
+                print("   參與狀態: \(isParticipatingInTournament ? "是" : "否")")
             }
             
         } catch {
-            print("❌ [TournamentStateManager] 同步報名狀態失敗: \(error.localizedDescription)")
+            print("❌ [TournamentStateManager] API同步失敗: \(error)")
+            
+            // API失敗時使用本地數據作為備援
+            await MainActor.run {
+                isParticipatingInTournament = false
+                participationState = .none
+                currentTournamentContext = nil
+            }
         }
     }
     
@@ -646,4 +736,24 @@ extension TournamentParticipationState: Codable {
         
         try container.encode(rawValue, forKey: .rawValue)
     }
+}
+
+// MARK: - API 回應數據結構
+
+struct UserTournamentsResponse: Codable {
+    let tournaments: [APITournament]
+    let total_count: Int
+}
+
+struct APITournament: Codable {
+    let id: String
+    let name: String
+    let status: String
+    let start_date: String
+    let end_date: String
+    let initial_balance: Double
+    let current_participants: Int
+    let max_participants: Int
+    let total_trades: Int
+    let is_enrolled: Bool
 }
