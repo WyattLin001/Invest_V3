@@ -26,6 +26,14 @@ struct PublishSettingsSheet: View {
     @State private var showTagLimitAlert = false
     @State private var coverImageURL: String?
     @State private var showingImagePicker = false
+    @State private var selectedPublication: Publication?
+    @State private var customSlug: String = ""
+    @State private var publishTime: PublishTime = .now
+    @State private var scheduledDate = Date()
+    @State private var socialSharing = true
+    @State private var emailNewsletter = false
+    @State private var showAdvancedSettings = false
+    @State private var qualityScore: Double = 0.0
     
     private let maxTags = 5
     private let maxTitleLength = 100
@@ -49,6 +57,9 @@ struct PublishSettingsSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DesignTokens.spacingLG) {
+                    // 文章質量評分
+                    qualityScoreSection
+                    
                     // 封面圖片
                     coverImageSection
                     
@@ -57,6 +68,12 @@ struct PublishSettingsSheet: View {
                     
                     // 關鍵字管理
                     keywordsSection
+                    
+                    // 發布設定
+                    publishSettingsSection
+                    
+                    // 高級設定（可展開）
+                    advancedSettingsSection
                     
                     // 操作按鈕
                     actionButtonsSection
@@ -89,6 +106,68 @@ struct PublishSettingsSheet: View {
             .alert("關鍵字數量已達上限 (5)", isPresented: $showTagLimitAlert) {
                 Button("確定", role: .cancel) {}
             }
+            .onAppear {
+                calculateQualityScore()
+                customSlug = draft.slug.isEmpty ? draft.title.slugified() : draft.slug
+            }
+            .onChange(of: draft.title) { _, _ in
+                calculateQualityScore()
+                if customSlug.isEmpty {
+                    customSlug = draft.title.slugified()
+                }
+            }
+            .onChange(of: draft.bodyMD) { _, _ in
+                calculateQualityScore()
+            }
+            .onChange(of: draft.keywords) { _, _ in
+                calculateQualityScore()
+            }
+        }
+    }
+
+    // MARK: - 文章質量評分區域
+    private var qualityScoreSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            HStack {
+                Text("文章質量")
+                    .font(.headline)
+                    .foregroundColor(textColor)
+                
+                Spacer()
+                
+                Text("\(Int(qualityScore * 100))%")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(qualityScoreColor)
+            }
+            
+            ProgressView(value: qualityScore)
+                .progressViewStyle(LinearProgressViewStyle(tint: qualityScoreColor))
+                .frame(height: 8)
+            
+            Text(qualityScoreText)
+                .font(.caption)
+                .foregroundColor(secondaryTextColor)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(DesignTokens.spacingMD)
+        .background(qualityScoreColor.opacity(0.1))
+        .cornerRadius(DesignTokens.cornerRadius)
+    }
+    
+    private var qualityScoreColor: Color {
+        if qualityScore >= 0.8 { return .green }
+        if qualityScore >= 0.6 { return .orange }
+        return .red
+    }
+    
+    private var qualityScoreText: String {
+        if qualityScore >= 0.8 {
+            return "文章質量優秀，可以發布"
+        } else if qualityScore >= 0.6 {
+            return "文章質量良好，建議完善後發布"
+        } else {
+            return "文章需要進一步完善"
         }
     }
 
@@ -278,6 +357,136 @@ struct PublishSettingsSheet: View {
         }
     }
     
+    // MARK: - 發布設定區域
+    private var publishSettingsSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Text("發布設定")
+                .font(.headline)
+                .foregroundColor(textColor)
+            
+            // 發布時間選擇
+            VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+                Text("發布時間")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(textColor)
+                
+                Picker("發布時間", selection: $publishTime) {
+                    Text("立即發布").tag(PublishTime.now)
+                    Text("稍後發布").tag(PublishTime.later)
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                
+                if publishTime == .later {
+                    DatePicker("發布時間", selection: $scheduledDate, in: Date()...)
+                        .datePickerStyle(CompactDatePickerStyle())
+                }
+            }
+            
+            // 可見性設定
+            VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+                Text("可見性")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(textColor)
+                
+                HStack {
+                    Toggle("免費文章", isOn: $draft.isFree)
+                    Spacer()
+                }
+                
+                if !draft.isFree {
+                    HStack {
+                        Toggle("付費內容", isOn: $draft.isPaid)
+                        Spacer()
+                    }
+                }
+                
+                HStack {
+                    Toggle("未列出（僅限鏈接）", isOn: $draft.isUnlisted)
+                    Spacer()
+                }
+            }
+        }
+    }
+    
+    // MARK: - 高級設定區域  
+    private var advancedSettingsSection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showAdvancedSettings.toggle()
+                }
+            }) {
+                HStack {
+                    Text("高級設定")
+                        .font(.headline)
+                        .foregroundColor(textColor)
+                    
+                    Spacer()
+                    
+                    Image(systemName: showAdvancedSettings ? "chevron.down" : "chevron.right")
+                        .foregroundColor(.secondary)
+                        .animation(.easeInOut(duration: 0.2), value: showAdvancedSettings)
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            if showAdvancedSettings {
+                VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+                    // 自定義URL
+                    VStack(alignment: .leading, spacing: DesignTokens.spacingXS) {
+                        Text("自定義 URL")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(textColor)
+                        
+                        HStack {
+                            Text("investv3.com/")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            TextField("url-slug", text: $customSlug)
+                                .font(.caption)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .onChange(of: customSlug) { _, newValue in
+                                    draft.slug = newValue.slugified()
+                                }
+                        }
+                        
+                        if !customSlug.isEmpty {
+                            Text("完整URL: \(draft.canonicalURL)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // 發布選項
+                    VStack(alignment: .leading, spacing: DesignTokens.spacingSM) {
+                        Text("發布選項")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(textColor)
+                        
+                        HStack {
+                            Toggle("社群媒體分享", isOn: $socialSharing)
+                            Spacer()
+                        }
+                        
+                        HStack {
+                            Toggle("電子報通知", isOn: $emailNewsletter)
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(.top, DesignTokens.spacingSM)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+    
     // MARK: - 操作按鈕區域
     private var actionButtonsSection: some View {
         VStack(spacing: DesignTokens.spacingSM) {
@@ -348,6 +557,63 @@ struct PublishSettingsSheet: View {
         onAction(.publish)
         dismiss()
     }
+    
+    // MARK: - Quality Score Calculation
+    private func calculateQualityScore() {
+        var score: Double = 0.0
+        let totalCriteria = 8.0
+        
+        // Title check (20%)
+        if !draft.title.isEmpty {
+            score += 1.0
+            if draft.title.count >= 10 && draft.title.count <= 60 {
+                score += 0.6 // Bonus for optimal length
+            }
+        }
+        
+        // Content length check (20%)
+        let contentLength = draft.bodyMD.count
+        if contentLength > 100 { score += 1.0 }
+        if contentLength > 500 { score += 0.6 }
+        
+        // Keywords check (15%)
+        if !draft.keywords.isEmpty {
+            score += 1.0
+            if draft.keywords.count >= 3 { score += 0.2 }
+        }
+        
+        // Subtitle check (10%)
+        if let subtitle = draft.subtitle, !subtitle.isEmpty {
+            score += 0.8
+        }
+        
+        // Category check (10%)
+        if !draft.category.isEmpty { score += 0.8 }
+        
+        // Custom slug check (5%)
+        if !draft.slug.isEmpty { score += 0.4 }
+        
+        // Structure check - paragraphs (10%)
+        let paragraphs = draft.bodyMD.components(separatedBy: "\n\n").filter { !$0.isEmpty }
+        if paragraphs.count >= 2 {
+            score += 0.8
+            if paragraphs.count >= 4 { score += 0.2 }
+        }
+        
+        // Length balance (10%)
+        if contentLength >= 200 && contentLength <= 2000 {
+            score += 0.8
+        }
+        
+        qualityScore = min(1.0, score / totalCriteria)
+    }
+}
+
+// MARK: - Enums
+
+enum PublishTime: String, CaseIterable {
+    case now = "now"
+    case later = "later"
 }
 
 // MARK: - 學術風格關鍵字氣泡視圖
