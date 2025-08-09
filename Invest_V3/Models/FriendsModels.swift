@@ -375,6 +375,152 @@ extension Friend {
                 performanceScore: 9.1,
                 totalReturn: 18.5,
                 riskLevel: .moderate
+            ),
+            Friend(
+                id: UUID(),
+                userId: "user4",
+                userName: "DavidMomentum",
+                displayName: "David Wu",
+                avatarUrl: nil,
+                bio: "動能投資策略，追求市場趨勢和動能",
+                isOnline: true,
+                lastActiveDate: Date().addingTimeInterval(-900),
+                friendshipDate: Date().addingTimeInterval(-86400 * 15),
+                investmentStyle: .momentum,
+                performanceScore: 8.9,
+                totalReturn: 22.1,
+                riskLevel: .aggressive
+            ),
+            Friend(
+                id: UUID(),
+                userId: "user5",
+                userName: "EvaBalance",
+                displayName: "Eva Lin",
+                avatarUrl: nil,
+                bio: "平衡型投資者，注重風險控制和穩定收益",
+                isOnline: false,
+                lastActiveDate: Date().addingTimeInterval(-7200),
+                friendshipDate: Date().addingTimeInterval(-86400 * 45),
+                investmentStyle: .balanced,
+                performanceScore: 7.2,
+                totalReturn: 9.8,
+                riskLevel: .conservative
+            ),
+            Friend(
+                id: UUID(),
+                userId: "user6",
+                userName: "FrankFinance",
+                displayName: "Frank Chen",
+                avatarUrl: nil,
+                bio: "金融股專家，專注於銀行和保險股投資",
+                isOnline: true,
+                lastActiveDate: Date().addingTimeInterval(-180),
+                friendshipDate: Date().addingTimeInterval(-86400 * 75),
+                investmentStyle: .finance,
+                performanceScore: 8.1,
+                totalReturn: 14.3,
+                riskLevel: .moderate
+            )
+        ]
+    }
+}
+
+// MARK: - 增強模擬數據
+extension FriendRequest {
+    static func mockRequests() -> [FriendRequest] {
+        [
+            FriendRequest(
+                id: UUID(),
+                fromUserId: "user7",
+                fromUserName: "NewInvestor",
+                fromUserDisplayName: "新手投資者",
+                fromUserAvatarUrl: nil,
+                toUserId: "currentUser",
+                message: "希望能成為朋友，一起學習投資",
+                requestDate: Date().addingTimeInterval(-3600),
+                status: .pending
+            ),
+            FriendRequest(
+                id: UUID(),
+                fromUserId: "user8",
+                fromUserName: "ProTrader",
+                fromUserDisplayName: "專業交易員",
+                fromUserAvatarUrl: nil,
+                toUserId: "currentUser",
+                message: "看到您的投資績效很不錯，希望交流",
+                requestDate: Date().addingTimeInterval(-7200),
+                status: .pending
+            )
+        ]
+    }
+}
+
+extension FriendActivity {
+    static func mockActivities() -> [FriendActivity] {
+        [
+            FriendActivity(
+                id: UUID(),
+                friendId: "user1",
+                friendName: "Alice Chen",
+                activityType: .trade,
+                description: "買入了 TSLA 股票",
+                timestamp: Date().addingTimeInterval(-1800),
+                data: FriendActivity.ActivityData(
+                    symbol: "TSLA",
+                    amount: 5000,
+                    returnRate: nil,
+                    achievementName: nil,
+                    milestoneValue: nil,
+                    groupName: nil
+                )
+            ),
+            FriendActivity(
+                id: UUID(),
+                friendId: "user2",
+                friendName: "Bob Wang",
+                activityType: .achievement,
+                description: "獲得了 '價值投資大師' 成就",
+                timestamp: Date().addingTimeInterval(-3600),
+                data: FriendActivity.ActivityData(
+                    symbol: nil,
+                    amount: nil,
+                    returnRate: nil,
+                    achievementName: "價值投資大師",
+                    milestoneValue: nil,
+                    groupName: nil
+                )
+            ),
+            FriendActivity(
+                id: UUID(),
+                friendId: "user3",
+                friendName: "Carol Liu",
+                activityType: .milestone,
+                description: "累計投資總額達到 100 萬",
+                timestamp: Date().addingTimeInterval(-5400),
+                data: FriendActivity.ActivityData(
+                    symbol: nil,
+                    amount: nil,
+                    returnRate: nil,
+                    achievementName: nil,
+                    milestoneValue: "100萬",
+                    groupName: nil
+                )
+            ),
+            FriendActivity(
+                id: UUID(),
+                friendId: "user4",
+                friendName: "David Wu",
+                activityType: .groupJoin,
+                description: "加入了 '科技股投資群'",
+                timestamp: Date().addingTimeInterval(-7200),
+                data: FriendActivity.ActivityData(
+                    symbol: nil,
+                    amount: nil,
+                    returnRate: nil,
+                    achievementName: nil,
+                    milestoneValue: nil,
+                    groupName: "科技股投資群"
+                )
             )
         ]
     }
