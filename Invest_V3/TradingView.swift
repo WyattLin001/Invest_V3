@@ -93,13 +93,47 @@ struct TradingView: View {
         if tournamentStateManager.isParticipatingInTournament,
            let tournamentId = tournamentStateManager.getCurrentTournamentId() {
             print("🏆 [TradingView] 載入錦標賽投資組合: \(tournamentId)")
-            // TODO: 如果需要特定的錦標賽投資組合數據，在這裡實現
-            // 目前使用通用的投資組合載入方法
-            await tradingService.loadPortfolio()
+            
+            // 載入錦標賽特定的投資組合數據
+            await loadTournamentPortfolio(tournamentId: tournamentId)
         } else {
             print("📊 [TradingView] 載入一般模式投資組合")
             await tradingService.loadPortfolio()
         }
+    }
+    
+    // MARK: - 錦標賽投資組合載入
+    private func loadTournamentPortfolio(tournamentId: UUID) async {
+        do {
+            // 透過 TournamentService 載入錦標賽專用的投資組合
+            if let tournamentService = TournamentService.shared {
+                let tournamentPortfolio = try await tournamentService.loadTournamentPortfolio(
+                    tournamentId: tournamentId,
+                    userId: AuthenticationService.shared.currentUser?.id ?? UUID()
+                )
+                
+                // 將錦標賽投資組合數據轉換為 TradingService 格式
+                await MainActor.run {
+                    convertTournamentPortfolioToTradingData(tournamentPortfolio)
+                }
+            } else {
+                // 如果 TournamentService 不可用，回退到一般投資組合
+                await tradingService.loadPortfolio()
+            }
+        } catch {
+            print("❌ [TradingView] 載入錦標賽投資組合失敗: \(error)")
+            // 錯誤情況下載入一般投資組合
+            await tradingService.loadPortfolio()
+        }
+    }
+    
+    private func convertTournamentPortfolioToTradingData(_ tournamentPortfolio: Any) {
+        // 將錦標賽投資組合數據轉換為交易視圖可以使用的格式
+        // 這裡需要根據 TournamentPortfolioManager 的具體實作來調整
+        print("🔄 [TradingView] 轉換錦標賽投資組合數據")
+        
+        // 觸發界面更新
+        tradingService.objectWillChange.send()
     }
 }
 

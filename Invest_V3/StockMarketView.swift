@@ -155,13 +155,13 @@ struct StockListRow: View {
                     HStack(spacing: 4) {
                         Image(systemName: change >= 0 ? "triangle.fill" : "triangle.fill")
                             .font(.caption2)
-                            .foregroundColor(change >= 0 ? .green : .red)
+                            .foregroundColor(change >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                             .rotationEffect(change >= 0 ? .degrees(0) : .degrees(180))
                         
                         Text(String(format: "%.2f (%.2f%%)", abs(change), abs(changePercent)))
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(change >= 0 ? .green : .red)
+                            .foregroundColor(change >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                     }
                 }
             }
@@ -263,13 +263,13 @@ struct StockDetailView: View {
                 HStack(spacing: 8) {
                     Image(systemName: price.change >= 0 ? "triangle.fill" : "triangle.fill")
                         .font(.caption)
-                        .foregroundColor(price.change >= 0 ? .green : .red)
+                        .foregroundColor(price.change >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                         .rotationEffect(price.change >= 0 ? .degrees(0) : .degrees(180))
                     
                     Text(String(format: "%.2f (%.2f%%)", price.change, price.changePercent))
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(price.change >= 0 ? .green : .red)
+                        .foregroundColor(price.change >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                 }
             }
             
@@ -307,7 +307,7 @@ struct StockDetailView: View {
                     Text(String(format: "%.2f%%", price.changePercent))
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(price.change >= 0 ? .green : .red)
+                        .foregroundColor(price.change >= 0 ? DesignTokens.priceUpColor : DesignTokens.priceDownColor)
                 }
             }
         }
@@ -330,7 +330,7 @@ struct StockDetailView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(Color.red)
+                    .background(DesignTokens.priceUpColor)
                     .cornerRadius(12)
             }
             
@@ -344,7 +344,7 @@ struct StockDetailView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(Color.green)
+                    .background(DesignTokens.priceDownColor)
                     .cornerRadius(12)
             }
         }

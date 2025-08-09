@@ -27,26 +27,80 @@ class FeeCalculator {
     
     /// 獲取券商手續費率
     var brokerFeeRate: Double {
-        // TODO: 從 system_settings 表格讀取設定
-        return DefaultRates.brokerFee
+        return loadSystemSetting(key: "broker_fee_rate", defaultValue: DefaultRates.brokerFee)
     }
     
     /// 獲取證交稅率
     var transactionTaxRate: Double {
-        // TODO: 從 system_settings 表格讀取設定
-        return DefaultRates.transactionTax
+        return loadSystemSetting(key: "transaction_tax_rate", defaultValue: DefaultRates.transactionTax)
     }
     
     /// 獲取最低券商手續費
     var minimumBrokerFee: Double {
-        // TODO: 從 system_settings 表格讀取設定
-        return DefaultRates.minimumBrokerFee
+        return loadSystemSetting(key: "minimum_broker_fee", defaultValue: DefaultRates.minimumBrokerFee)
     }
     
     /// 獲取最低證交稅
     var minimumTransactionTax: Double {
-        // TODO: 從 system_settings 表格讀取設定
-        return DefaultRates.minimumTransactionTax
+        return loadSystemSetting(key: "minimum_transaction_tax", defaultValue: DefaultRates.minimumTransactionTax)
+    }
+    
+    // MARK: - 私有方法
+    
+    /// 從系統設定載入配置值
+    /// - Parameters:
+    ///   - key: 設定鍵值
+    ///   - defaultValue: 預設值
+    /// - Returns: 設定值或預設值
+    private func loadSystemSetting(key: String, defaultValue: Double) -> Double {
+        // 首先嘗試從 UserDefaults 讀取（用於測試和本地覆蓋）
+        let userDefaultsKey = "FeeCalculator_\(key)"
+        if let customValue = UserDefaults.standard.object(forKey: userDefaultsKey) as? Double {
+            return customValue
+        }
+        
+        // 如果有資料庫連接，可以從 system_settings 表格讀取
+        // 目前先使用預設值
+        return defaultValue
+    }
+    
+    // MARK: - 公開設定方法
+    
+    /// 更新費率設定（用於管理員或測試）
+    /// - Parameters:
+    ///   - brokerFee: 券商手續費率
+    ///   - transactionTax: 證交稅率
+    ///   - minBrokerFee: 最低券商手續費
+    ///   - minTransactionTax: 最低證交稅
+    func updateFeeSettings(
+        brokerFee: Double? = nil,
+        transactionTax: Double? = nil,
+        minBrokerFee: Double? = nil,
+        minTransactionTax: Double? = nil
+    ) {
+        if let brokerFee = brokerFee {
+            UserDefaults.standard.set(brokerFee, forKey: "FeeCalculator_broker_fee_rate")
+        }
+        if let transactionTax = transactionTax {
+            UserDefaults.standard.set(transactionTax, forKey: "FeeCalculator_transaction_tax_rate")
+        }
+        if let minBrokerFee = minBrokerFee {
+            UserDefaults.standard.set(minBrokerFee, forKey: "FeeCalculator_minimum_broker_fee")
+        }
+        if let minTransactionTax = minTransactionTax {
+            UserDefaults.standard.set(minTransactionTax, forKey: "FeeCalculator_minimum_transaction_tax")
+        }
+        
+        print("📊 [FeeCalculator] 費率設定已更新")
+    }
+    
+    /// 重置為預設費率
+    func resetToDefaultSettings() {
+        let keys = ["broker_fee_rate", "transaction_tax_rate", "minimum_broker_fee", "minimum_transaction_tax"]
+        for key in keys {
+            UserDefaults.standard.removeObject(forKey: "FeeCalculator_\(key)")
+        }
+        print("📊 [FeeCalculator] 已重置為預設費率")
     }
     
     // MARK: - 費用計算

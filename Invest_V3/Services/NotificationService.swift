@@ -838,32 +838,50 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     // MARK: - 導航處理
     
     private func navigateToChat(groupId: String) async {
-        // TODO: 實現跳轉到聊天群組
+        // 通過 NotificationCenter 觸發導航到聊天群組
         print("📱 [NotificationService] 導航到聊天群組: \(groupId)")
-        NotificationCenter.default.post(
-            name: NSNotification.Name("NavigateToChat"),
-            object: nil,
-            userInfo: ["groupId": groupId]
-        )
+        
+        // 轉換 groupId 為 UUID（如果需要）
+        if let uuid = UUID(uuidString: groupId) {
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("SwitchToChatTab"),
+                    object: uuid
+                )
+            }
+        } else {
+            // 如果不是 UUID 格式，嘗試其他處理方式
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("NavigateToChat"),
+                    object: nil,
+                    userInfo: ["groupId": groupId]
+                )
+            }
+        }
     }
     
     private func navigateToRanking() async {
-        // TODO: 實現跳轉到排行榜
+        // 通過 NotificationCenter 觸發導航到排行榜
         print("📱 [NotificationService] 導航到排行榜")
-        NotificationCenter.default.post(
-            name: NSNotification.Name("NavigateToRanking"),
-            object: nil
-        )
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("NavigateToRanking"),
+                object: nil
+            )
+        }
     }
     
     private func navigateToStock(symbol: String) async {
-        // TODO: 實現跳轉到股票詳情
+        // 通過 NotificationCenter 觸發導航到股票詳情
         print("📱 [NotificationService] 導航到股票: \(symbol)")
-        NotificationCenter.default.post(
-            name: NSNotification.Name("NavigateToStock"),
-            object: nil,
-            userInfo: ["stockSymbol": symbol]
-        )
+        await MainActor.run {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("NavigateToStock"),
+                    object: nil,
+                    userInfo: ["stockSymbol": symbol]
+                )
+            }
     }
 }
 
