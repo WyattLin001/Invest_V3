@@ -25,6 +25,10 @@ struct MediumStyleEditor: View {
     @State private var showSaveDraftAlert = false
     @State private var isAutoSaving = false
     @State private var lastAutoSaveTime: Date = Date()
+    @State private var hasTypingActivity = false
+    @State private var autoSaveTimer: Timer?
+    @State private var wordCount: Int = 0
+    @State private var readingTime: Int = 0
     
     @StateObject private var articleViewModel = ArticleViewModel()
     @Environment(\.dismiss) private var dismiss
@@ -89,9 +93,12 @@ struct MediumStyleEditor: View {
         .onAppear {
             // 初始化 draft
             currentDraft = createDraftFromCurrentState()
+            updateWordCount()
+            setupAutoSave()
         }
         .onDisappear {
             // 當視圖消失時自動保存草稿
+            autoSaveTimer?.invalidate()
             if hasUnsavedChanges {
                 Task {
                     await autoSaveDraft(silent: true)
@@ -226,10 +233,29 @@ struct MediumStyleEditor: View {
                 .foregroundColor(textColor)
                 .textFieldStyle(PlainTextFieldStyle())
                 .multilineTextAlignment(.leading)
+                .onChange(of: title) { _, newValue in
+                    hasTypingActivity = true
+                    scheduleAutoSave()
+                }
             
-            // 字數統計
+            // 字數統計和文章統計
             HStack {
+                // 文章統計（字數、預估閱讀時間）
+                if wordCount > 0 {
+                    HStack(spacing: 12) {
+                        Label("\(wordCount) 字", systemImage: "doc.text")
+                            .font(.caption)
+                            .foregroundColor(secondaryTextColor)
+                        
+                        Label("\(readingTime) 分鐘閱讀", systemImage: "clock")
+                            .font(.caption)
+                            .foregroundColor(secondaryTextColor)
+                    }
+                }
+                
                 Spacer()
+                
+                // 標題字數統計
                 Text("\(titleCharacterCount)/\(maxTitleLength)")
                     .font(.caption)
                     .foregroundColor(titleCharacterCount > maxTitleLength ? .red : secondaryTextColor)
@@ -256,6 +282,11 @@ struct MediumStyleEditor: View {
         RichTextView(attributedText: $attributedContent)
             .frame(minHeight: 400)
             .background(backgroundColor)
+            .onChange(of: attributedContent) { _, newValue in
+                hasTypingActivity = true
+                updateWordCount()
+                scheduleAutoSave()
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowPhotoPicker"))) { _ in
                 showPhotoPicker = true
             }
@@ -726,6 +757,104 @@ struct MediumStyleEditor: View {
         }
         
         await autoSaveDraft(silent: false)
+    }
+    
+    // MARK: - Enhanced Editor Features
+    
+    /// 設置自動保存機制
+    private func setupAutoSave() {
+        // 每30秒檢查一次是否需要自動保存
+        autoSaveTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
+            if hasTypingActivity && hasUnsavedChanges {
+                Task {
+                    await autoSaveDraft(silent: true)
+                    hasTypingActivity = false
+                }
+            }
+        }
+    }
+    
+    /// 延遲執行自動保存（用戶停止輸入5秒後）
+    private func scheduleAutoSave() {
+        // 取消之前的計時器
+        autoSaveTimer?.invalidate()
+        
+        // 設置新的計時器，5秒後執行自動保存
+        autoSaveTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+            if self.hasTypingActivity && self.hasUnsavedChanges {
+                Task {
+                    await self.autoSaveDraft(silent: true)
+                    self.hasTypingActivity = false
+                }
+            }
+        }
+    }
+    
+    /// 更新字數統計和閱讀時間
+    private func updateWordCount() {
+        let fullText = title + " " + attributedContent.string
+        let words = fullText.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
+        wordCount = words.count
+        
+        // 根據平均閱讀速度計算閱讀時間（假設每分鐘250字）
+        readingTime = max(1, Int(ceil(Double(wordCount) / 250.0)))
+    }
+    
+    /// 智能標題建議
+    private func generateTitleSuggestions() -> [String] {
+        let content = attributedContent.string
+        guard content.count > 50 else { return [] }
+        
+        // 提取內容的前幾句作為標題建議
+        let sentences = content.components(separatedBy: .punctuationCharacters)
+            .filter { !$0.isEmpty && $0.count > 10 && $0.count < 100 }
+            .prefix(3)
+        
+        return Array(sentences).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+    
+    /// 內容質量檢查
+    private func performContentQualityCheck() -> (score: Double, suggestions: [String]) {
+        var score: Double = 0.0
+        var suggestions: [String] = []
+        
+        // 檢查標題
+        if title.isEmpty {
+            suggestions.append("添加標題可以提高文章的吸引力")
+        } else if title.count < 10 {
+            suggestions.append("標題可以更具體一些")
+            score += 0.1
+        } else {
+            score += 0.3
+        }
+        
+        // 檢查內容長度
+        let contentLength = attributedContent.string.count
+        if contentLength < 100 {
+            suggestions.append("內容太短，考慮添加更多詳細信息")
+        } else if contentLength < 500 {
+            suggestions.append("內容不錯，可以考慮添加更多例子或詳細說明")
+            score += 0.2
+        } else {
+            score += 0.4
+        }
+        
+        // 檢查段落結構
+        let paragraphs = attributedContent.string.components(separatedBy: "\n\n").filter { !$0.isEmpty }
+        if paragraphs.count < 3 {
+            suggestions.append("考慮將內容分成更多段落以提高可讀性")
+        } else {
+            score += 0.2
+        }
+        
+        // 檢查關鍵字
+        if keywords.isEmpty {
+            suggestions.append("添加相關關鍵字可以提高文章的發現性")
+        } else {
+            score += 0.1
+        }
+        
+        return (min(1.0, score), suggestions)
     }
 }
 
