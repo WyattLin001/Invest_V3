@@ -64,6 +64,101 @@ struct ArticleDraft: Identifiable, Codable {
         !title.trimmingCharacters(in: .whitespaces).isEmpty &&
         !bodyMD.trimmingCharacters(in: .whitespaces).isEmpty
     }
+    
+    /// Calculate word count for content
+    var wordCount: Int {
+        let text = title + " " + bodyMD
+        return text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
+    }
+    
+    /// Estimate reading time in minutes
+    var estimatedReadingTime: Int {
+        max(1, Int(ceil(Double(wordCount) / 250.0)))
+    }
+    
+    /// Get completion percentage (0.0 to 1.0)
+    var completionPercentage: Double {
+        var score: Double = 0.0
+        let totalCriteria = 6.0
+        
+        // Title check
+        if !title.isEmpty { score += 1.0 }
+        
+        // Content check
+        if bodyMD.count > 50 { score += 1.0 }
+        if bodyMD.count > 500 { score += 1.0 }
+        
+        // Metadata check
+        if !category.isEmpty { score += 1.0 }
+        if !keywords.isEmpty { score += 1.0 }
+        if subtitle != nil && !subtitle!.isEmpty { score += 1.0 }
+        
+        return score / totalCriteria
+    }
+    
+    /// Get status based on content
+    var status: DraftStatus {
+        let completion = completionPercentage
+        if completion >= 0.8 { return .readyToPublish }
+        if completion >= 0.5 { return .inProgress }
+        if completion >= 0.2 { return .draft }
+        return .idea
+    }
+    
+    /// Get formatted last modified time
+    var lastModifiedFormatted: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: updatedAt, relativeTo: Date())
+    }
+}
+
+// MARK: - Draft Status Enum
+
+enum DraftStatus: String, CaseIterable {
+    case idea = "idea"
+    case draft = "draft"
+    case inProgress = "in_progress"
+    case readyToPublish = "ready_to_publish"
+    
+    var displayName: String {
+        switch self {
+        case .idea:
+            return "構思中"
+        case .draft:
+            return "草稿"
+        case .inProgress:
+            return "進行中"
+        case .readyToPublish:
+            return "準備發布"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .idea:
+            return .gray
+        case .draft:
+            return .orange
+        case .inProgress:
+            return .blue
+        case .readyToPublish:
+            return .green
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .idea:
+            return "lightbulb"
+        case .draft:
+            return "doc.text"
+        case .inProgress:
+            return "pencil"
+        case .readyToPublish:
+            return "checkmark.circle"
+        }
+    }
 }
 
 // MARK: - Publication Model
