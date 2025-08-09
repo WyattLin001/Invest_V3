@@ -41,12 +41,22 @@ struct PieChartView: View {
     
     private func startAngle(for index: Int) -> Angle {
         let previousPercents = items.prefix(index).map { $0.percent }.reduce(0, +)
-        return Angle(degrees: previousPercents * 3.6 - 90) // -90 度從頂部開始
+        let degrees = safeDegrees(previousPercents * 3.6 - 90)
+        return Angle(degrees: degrees)
     }
     
     private func endAngle(for index: Int) -> Angle {
         let currentPercents = items.prefix(index + 1).map { $0.percent }.reduce(0, +)
-        return Angle(degrees: currentPercents * 3.6 - 90)
+        let degrees = safeDegrees(currentPercents * 3.6 - 90)
+        return Angle(degrees: degrees)
+    }
+    
+    // MARK: - Helper Functions
+    
+    /// 安全處理角度值，避免 NaN 和無限值
+    private func safeDegrees(_ value: Double) -> Double {
+        guard value.isFinite && !value.isNaN else { return 0.0 }
+        return value
     }
 }
 
@@ -61,6 +71,13 @@ struct PieSlice: View {
             let center = CGPoint(x: 45, y: 45) // 圓心
             let radius: CGFloat = 35
             let innerRadius: CGFloat = 20
+            
+            // 安全檢查角度值
+            guard !startAngle.degrees.isNaN && !endAngle.degrees.isNaN,
+                  startAngle.degrees.isFinite && endAngle.degrees.isFinite else {
+                print("⚠️ [PieSlice] 無效角度值 - start: \(startAngle.degrees), end: \(endAngle.degrees)")
+                return
+            }
             
             // 外圓弧
             path.addArc(

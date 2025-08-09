@@ -79,7 +79,7 @@ struct DynamicPieChart: View {
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                             
-                            Text(String(format: "%.1f%%", selected.percentage))
+                            Text(String(format: "%.1f%%", safePercentage(selected.percentage)))
                                 .font(.headline)
                                 .fontWeight(.bold)
                                 .foregroundColor(selected.color)
@@ -168,7 +168,20 @@ struct DynamicPieChart: View {
             var startAngle: Double = -90 // 從12點鐘位置開始
             
             for item in data {
+                // 安全檢查：確保百分比是有效數字
+                guard item.percentage.isFinite && !item.percentage.isNaN && item.percentage >= 0 else {
+                    print("⚠️ [DynamicPieChart] 跳過無效百分比數據: \(item.percentage)")
+                    continue
+                }
+                
                 let angle = (item.percentage / 100) * 360
+                
+                // 安全檢查：確保角度計算結果是有效數字
+                guard angle.isFinite && !angle.isNaN else {
+                    print("⚠️ [DynamicPieChart] 跳過無效角度計算: \(angle)")
+                    continue
+                }
+                
                 let endAngle = startAngle + angle
                 
                 let path = Path { path in
@@ -250,6 +263,33 @@ struct DynamicPieChart: View {
             }
         }
     }
+    
+    // MARK: - Helper Functions
+    
+    /// 安全處理百分比數值，避免 NaN 和無限值
+    private func safePercentage(_ value: Double) -> Double {
+        guard value.isFinite && !value.isNaN else { return 0.0 }
+        return max(0.0, min(100.0, value))
+    }
+}
+
+// MARK: - Global Helper Functions
+
+/// 全域安全處理百分比數值，避免 NaN 和無限值
+private func safePercentageValue(_ value: Double) -> Double {
+    guard value.isFinite && !value.isNaN else { return 0.0 }
+    return max(0.0, min(100.0, value))
+}
+
+/// 安全計算百分比，避免除零和 NaN 值
+private func safePercentage(_ value: Double, totalValue: Double) -> Double {
+    guard totalValue > 0 && totalValue.isFinite && !totalValue.isNaN else { return 0.0 }
+    guard value.isFinite && !value.isNaN else { return 0.0 }
+    
+    let percentage = (value / totalValue) * 100.0
+    guard percentage.isFinite && !percentage.isNaN else { return 0.0 }
+    
+    return max(0.0, min(100.0, percentage))
 }
 
 // MARK: - 動態圖例項目 (保留向後兼容)
@@ -270,7 +310,7 @@ struct DynamicLegendItem: View {
                     .foregroundColor(.primary)
                     .fontWeight(isSelected ? .semibold : .regular)
                 
-                Text(String(format: "%.1f%%", data.percentage))
+                Text(String(format: "%.1f%%", safePercentageValue(data.percentage)))
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -326,7 +366,7 @@ struct EnhancedLegendItem: View {
                 }
                 
                 HStack(spacing: 8) {
-                    Text(String(format: "%.1f%%", data.percentage))
+                    Text(String(format: "%.1f%%", safePercentageValue(data.percentage)))
                         .font(.caption2)
                         .fontWeight(.medium)
                         .foregroundColor(data.color)
@@ -405,7 +445,7 @@ struct DetailPopupView: View {
                 
                 Spacer()
                 
-                Text(String(format: "%.1f%%", data.percentage))
+                Text(String(format: "%.1f%%", safePercentageValue(data.percentage)))
                     .font(.title3)
                     .fontWeight(.bold)
                     .foregroundColor(data.color)
@@ -540,9 +580,15 @@ struct AssetAllocationCalculator {
         var allocations: [PieChartData] = []
         let totalValue = portfolio.totalAssets
         
+        // 安全檢查總價值
+        guard totalValue > 0 && totalValue.isFinite && !totalValue.isNaN else {
+            print("⚠️ [AssetAllocationCalculator] 無效的總價值: \(totalValue)")
+            return [PieChartData(category: "現金", value: 100, color: StockColorPalette.cashColor)]
+        }
+        
         // 添加個別股票
         for position in portfolio.positions {
-            let percentage = (position.marketValue / totalValue) * 100
+            let percentage = safePercentage(position.marketValue, totalValue: totalValue)
             let stockColor = StockColorPalette.colorForStock(symbol: position.symbol)
             
             allocations.append(PieChartData(
@@ -554,7 +600,7 @@ struct AssetAllocationCalculator {
         }
         
         // 現金比例
-        let cashPercentage = (portfolio.cashBalance / totalValue) * 100
+        let cashPercentage = safePercentage(portfolio.cashBalance, totalValue: totalValue)
         if cashPercentage > 0 {
             allocations.append(PieChartData(
                 category: "現金",
@@ -586,8 +632,24 @@ struct AssetAllocationCalculator {
         
         let totalValue = portfolioManager.totalPortfolioValue
         
+        // 安全檢查總價值
+        guard totalValue > 0 && totalValue.isFinite && !totalValue.isNaN else {
+            print("⚠️ [AssetAllocationCalculator] 無效的投資組合總價值: \(totalValue)")
+            return [PieChartData(
+                category: "無效數據", 
+                value: 100, 
+                color: .red,
+                holdingQuantity: nil,
+                purchasePrice: nil,
+                currentValue: nil,
+                currentPrice: nil,
+                unrealizedGainLoss: nil,
+                symbol: nil
+            )]
+        }
+        
         return holdings.map { holding in
-            let percentage = (holding.totalValue / totalValue) * 100
+            let percentage = safePercentage(holding.totalValue, totalValue: totalValue)
             let stockColor = StockColorPalette.colorForStock(symbol: holding.symbol)
             
             return PieChartData(

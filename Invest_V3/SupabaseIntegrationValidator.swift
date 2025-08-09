@@ -375,7 +375,7 @@ struct SupabaseValidationView: View {
                     
                     Spacer()
                     
-                    Text("\(Int(Double(successCount) / Double(totalCount) * 100))%")
+                    Text("\(safePercentage(successCount: successCount, totalCount: totalCount))%")
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(validator.overallStatus.color)
@@ -478,6 +478,20 @@ struct SupabaseValidationView: View {
         case .warning: return "exclamationmark.triangle.fill"
         case .failure: return "xmark.circle.fill"
         }
+    }
+    
+    // MARK: - Helper Functions
+    
+    /// 安全計算百分比，避免除以零和 NaN 值
+    private func safePercentage(successCount: Int, totalCount: Int) -> Int {
+        guard totalCount > 0 else { return 0 }
+        
+        let percentage = Double(successCount) / Double(totalCount) * 100.0
+        
+        // 檢查是否為有效數字
+        guard percentage.isFinite && !percentage.isNaN else { return 0 }
+        
+        return Int(percentage.rounded())
     }
 }
 
