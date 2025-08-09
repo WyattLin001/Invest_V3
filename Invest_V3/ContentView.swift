@@ -40,8 +40,7 @@ struct ContentView: View {
                 .tag(2)
             
             
-            /Users/linjiaqi/Downloads/Invest_V3/Invest_V3/CustomTextEditor.swift:127:15 Value of type 'UITextView' has no member 'scrollViewDidScroll'
-
+            
             // 收益 - 創作者收益儀表板
             AuthorEarningsView()
                 .tabItem {

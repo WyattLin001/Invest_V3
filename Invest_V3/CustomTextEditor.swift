@@ -122,10 +122,10 @@ class NoAccessoryTextView: UITextView {
         return super.canPerformAction(action, withSender: sender)
     }
     
-    // 優化滾動行為
-    override func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        super.scrollViewDidScroll(scrollView)
+    // 優化滾動行為 - 透過delegate實現
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
         // 可以在這裡添加自定義滾動邏輯
+        // 注意：這是UIScrollViewDelegate方法，不是override
     }
     
     // 優化鍵盤響應
