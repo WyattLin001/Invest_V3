@@ -19,9 +19,10 @@ struct DraftsView: View {
         // 搜索過濾
         if !searchText.isEmpty {
             result = result.filter { draft in
-                draft.title.localizedCaseInsensitiveContains(searchText) ||
-                draft.bodyMD.localizedCaseInsensitiveContains(searchText) ||
-                draft.category.localizedCaseInsensitiveContains(searchText)
+                let titleMatch = draft.title.localizedCaseInsensitiveContains(searchText)
+                let bodyMatch = draft.bodyMD.localizedCaseInsensitiveContains(searchText)
+                let categoryMatch = draft.category.localizedCaseInsensitiveContains(searchText)
+                return titleMatch || bodyMatch || categoryMatch
             }
         }
         

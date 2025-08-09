@@ -68,28 +68,28 @@ struct AnalyticsView: View {
                 GridItem(.flexible()),
                 GridItem(.flexible())
             ], spacing: 16) {
-                StatCard(
+                AnalyticsStatCard(
                     title: "總發送量",
                     value: "\(analytics["total_sent"] as? Int ?? 0)",
                     subtitle: "通知總數",
                     color: .blue
                 )
                 
-                StatCard(
+                AnalyticsStatCard(
                     title: "成功傳送",
                     value: "\(analytics["total_delivered"] as? Int ?? 0)",
                     subtitle: "已送達",
                     color: .green
                 )
                 
-                StatCard(
+                AnalyticsStatCard(
                     title: "已開啟",
                     value: "\(analytics["total_opened"] as? Int ?? 0)",
                     subtitle: "用戶點擊",
                     color: .orange
                 )
                 
-                StatCard(
+                AnalyticsStatCard(
                     title: "失敗數",
                     value: "\(analytics["total_failed"] as? Int ?? 0)",
                     subtitle: "發送失敗",
@@ -246,7 +246,7 @@ struct AnalyticsSection<Content: View>: View {
     }
 }
 
-struct StatCard: View {
+struct AnalyticsStatCard: View {
     let title: String
     let value: String
     let subtitle: String
