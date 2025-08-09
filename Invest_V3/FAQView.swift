@@ -185,7 +185,7 @@ struct FAQView: View {
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
                 
-                Text("我們為您準備了詳細的使用指南，讓您快速掌握 Invest_V3 的所有功能。")
+                Text("我們為您準備了詳細的使用指南，讓您快速掌握股圈的所有功能。")
                     .font(DesignTokens.bodySmall)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1171,12 +1171,12 @@ struct RecommendedQuestionCard: View {
 private let faqData: [FAQItem] = [
     // 熱門問題
     FAQItem(
-        question: "什麼是 Invest_V3？",
-        answer: "Invest_V3 是台灣首創的投資知識分享平台，結合透明的模擬交易、專家分析文章，以及競技化的投資錦標賽。我們致力於解決台灣投資詐騙問題，為投資者提供可信賴的學習環境和專家指導。",
+        question: "什麼是股圈？",
+        answer: "股圈是台灣首創的投資知識分享平台，結合透明的模擬交易、專家分析文章，以及競技化的投資錦標賽。我們致力於解決台灣投資詐騙問題，為投資者提供可信賴的學習環境和專家指導。",
         category: .popular
     ),
     FAQItem(
-        question: "如何開始使用 Invest_V3？",
+        question: "如何開始使用股圈？",
         answer: "1. 下載並安裝 App\n2. 註冊您的帳號\n3. 完成身份驗證\n4. 瀏覽新手教學\n5. 開始模擬投資或加入錦標賽\n6. 關注感興趣的投資專家\n系統會提供 100 萬虛擬資金讓您練習投資。",
         category: .popular
     ),
@@ -1191,7 +1191,7 @@ private let faqData: [FAQItem] = [
         category: .popular
     ),
     FAQItem(
-        question: "Invest_V3 是否收費？",
+        question: "股圈是否收費？",
         answer: "基本功能完全免費使用，包括模擬投資、參加錦標賽、閱讀免費文章等。付費功能包括 Premium 會員（專家諮詢、進階工具）、訂閱專家內容、購買代幣等，讓您享受更豐富的投資學習體驗。",
         category: .popular
     ),
@@ -1417,12 +1417,12 @@ private let faqData: [FAQItem] = [
     ),
     FAQItem(
         question: "如何更新App？",
-        answer: "更新方式：\n1. 開啟App Store\n2. 搜尋「Invest_V3」\n3. 點擊「更新」按鈕\n或開啟自動更新：\n設定→App Store→App更新→開啟\n建議保持最新版本以享受最佳功能。",
+        answer: "更新方式：\n1. 開啟App Store\n2. 搜尋「股圈」\n3. 點擊「更新」按鈕\n或開啟自動更新：\n設定→App Store→App更新→開啟\n建議保持最新版本以享受最佳功能。",
         category: .technical
     ),
     FAQItem(
         question: "如何聯繫技術支援？",
-        answer: "多種聯繫方式：\n• App內「意見回饋」功能\n• 客服信箱：support@invest-v3.com\n• 客服專線：0800-123-456\n• 線上客服（週一至週五 9:00-18:00）\n• FAQ幫助中心\n我們承諾24小時內回覆您的問題。",
+        answer: "多種聯繫方式：\n• App內「意見回饋」功能\n• 客服信箱：support@股圈.com\n• 客服專線：0800-123-456\n• 線上客服（週一至週五 9:00-18:00）\n• FAQ幫助中心\n我們承諾24小時內回覆您的問題。",
         category: .technical
     ),
     FAQItem(

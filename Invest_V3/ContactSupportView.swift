@@ -324,7 +324,7 @@ struct ContactSupportView: View {
         
         ---
         系統資訊：
-        App版本：Invest_V3 v1.0
+        App版本：股圈 v1.0
         設備型號：\(UIDevice.current.model)
         系統版本：\(UIDevice.current.systemVersion)
         問題分類：\(selectedCategory.rawValue)

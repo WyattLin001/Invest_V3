@@ -279,7 +279,7 @@ struct CompletionCelebrationView: View {
                             .fontWeight(.bold)
                             .foregroundColor(.primary)
                         
-                        Text("您已經掌握了 Invest_V3 的基本使用方法")
+                        Text("您已經掌握了股圈的基本使用方法")
                             .font(DesignTokens.bodyText)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -339,8 +339,8 @@ struct TutorialStep {
 struct TutorialData {
     static let allTutorials: [TutorialStep] = [
         TutorialStep(
-            title: "歡迎來到 Invest_V3",
-            description: "Invest_V3 是台灣首創的投資知識分享平台，讓您在安全的模擬環境中學習投資，並與專業投資者交流心得。",
+            title: "歡迎來到股圈",
+            description: "股圈是台灣首創的投資知識分享平台，讓您在安全的模擬環境中學習投資，並與專業投資者交流心得。",
             icon: "hand.wave.fill",
             steps: [
                 "使用您的 Email 或手機號碼註冊帳號",
