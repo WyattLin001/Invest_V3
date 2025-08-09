@@ -273,6 +273,7 @@ extension Color {
 
 extension View {
     /// 應用品牌卡片樣式 (深色模式適配)
+    @MainActor
     func brandCardStyle() -> some View {
         let shadow = DesignTokens.cardShadow
         let isDark = ThemeManager.shared.isDarkMode
@@ -297,6 +298,7 @@ extension View {
     }
     
     /// 增強的卡片樣式 - 更強的視覺分隔
+    @MainActor
     func enhancedCardStyle() -> some View {
         let shadow = DesignTokens.cardShadow
         let isDark = ThemeManager.shared.isDarkMode
@@ -337,6 +339,7 @@ extension View {
     }
     
     /// 應用品牌按鈕樣式 (深色模式適配)
+    @MainActor
     func brandButtonStyle(
         backgroundColor: Color = .brandGreen,
         foregroundColor: Color = .white,
@@ -439,6 +442,7 @@ extension View {
     }
     
     /// 浮動按鈕樣式 (深色模式適配)
+    @MainActor
     func floatingButtonStyle() -> some View {
         let fabShadow = DesignTokens.fabShadow
         let isDark = ThemeManager.shared.isDarkMode
@@ -480,6 +484,7 @@ extension View {
     }
     
     /// 改善的禁用狀態樣式
+    @MainActor
     func disabledStyle() -> some View {
         let isDark = ThemeManager.shared.isDarkMode
         return self
@@ -488,6 +493,7 @@ extension View {
     }
     
     /// 改善的次要內容樣式（如空狀態提示）
+    @MainActor
     func secondaryContentStyle() -> some View {
         let isDark = ThemeManager.shared.isDarkMode
         return self
@@ -496,6 +502,7 @@ extension View {
     }
     
     /// 搜索框樣式
+    @MainActor
     func searchFieldStyle() -> some View {
         let isDark = ThemeManager.shared.isDarkMode
         return self

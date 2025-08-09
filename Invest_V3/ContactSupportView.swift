@@ -489,7 +489,7 @@ struct QuickContactRow: View {
                 
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundColor(.tertiaryLabel)
+                    .foregroundColor(Color(.tertiaryLabel))
             }
             .padding(DesignTokens.spacingSM)
             .background(Color(.systemBackground))

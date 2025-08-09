@@ -213,21 +213,21 @@ struct HelpCenterView: View {
                 .foregroundColor(.primary)
             
             VStack(spacing: DesignTokens.spacingSM) {
-                ContactMethodRow(
+                HelpContactMethodRow(
                     icon: "envelope",
                     title: "客服信箱",
                     detail: "support@invest-v3.com",
                     action: { openEmail() }
                 )
                 
-                ContactMethodRow(
+                HelpContactMethodRow(
                     icon: "message",
                     title: "線上客服",
                     detail: "週一至週五 9:00-18:00",
                     action: { openChat() }
                 )
                 
-                ContactMethodRow(
+                HelpContactMethodRow(
                     icon: "phone",
                     title: "客服專線",
                     detail: "0800-123-456",
@@ -332,7 +332,7 @@ struct HelpCategoryRow: View {
                 
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundColor(.tertiaryLabel)
+                    .foregroundColor(Color(.tertiaryLabel))
             }
             .padding(DesignTokens.spacingSM)
             .background(Color(.systemBackground))
@@ -380,7 +380,7 @@ struct UpdateItemRow: View {
     }
 }
 
-struct ContactMethodRow: View {
+struct HelpContactMethodRow: View {
     let icon: String
     let title: String
     let detail: String
@@ -408,7 +408,7 @@ struct ContactMethodRow: View {
                 
                 Image(systemName: "arrow.up.right")
                     .font(.caption)
-                    .foregroundColor(.tertiaryLabel)
+                    .foregroundColor(Color(.tertiaryLabel))
             }
             .padding(DesignTokens.spacingSM)
             .background(Color(.systemBackground))
