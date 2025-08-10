@@ -56,6 +56,9 @@ CACHE_TIMEOUT = 10  # 股價快取 10 秒
 STOCK_LIST_CACHE_TIMEOUT = 86400  # 股票清單快取 24 小時
 TRANSACTION_FEE_RATE = 0.001425  # 台股手續費 0.1425%
 
+# 錦標賽統一架構常量（與iOS前端保持一致）
+GENERAL_MODE_TOURNAMENT_ID = "00000000-0000-0000-0000-000000000000"
+
 # 台股配置
 TAIWAN_STOCK_TAX_RATE = 0.003  # 台股證券交易稅 0.3%
 TAIWAN_MIN_FEE = 20  # 台股最低手續費 20 元
@@ -562,24 +565,25 @@ def test_tournament_isolation():
     """測試錦標賽數據隔離功能（不需要數據庫）"""
     data = request.get_json()
     
-    # 模擬交易記錄
+    # 模擬交易記錄（更新為統一架構）
     mock_transactions = [
         {"user_id": "test", "symbol": "2337", "action": "buy", "amount": 100, "tournament_id": "test06"},
         {"user_id": "test", "symbol": "2330", "action": "buy", "amount": 200, "tournament_id": "test06"},
         {"user_id": "test", "symbol": "2454", "action": "buy", "amount": 150, "tournament_id": "test05"},
-        {"user_id": "test", "symbol": "2317", "action": "buy", "amount": 300, "tournament_id": None},  # 一般交易
+        {"user_id": "test", "symbol": "2317", "action": "buy", "amount": 300, "tournament_id": GENERAL_MODE_TOURNAMENT_ID},  # 一般模式交易
     ]
     
     tournament_id = data.get('tournament_id')
     user_id = data.get('user_id', 'test')
     
-    # 根據錦標賽 ID 過濾交易
-    if tournament_id:
+    # 統一錦標賽架構：根據錦標賽 ID 過濾交易
+    if tournament_id and tournament_id.strip() and tournament_id != GENERAL_MODE_TOURNAMENT_ID:
         filtered_transactions = [tx for tx in mock_transactions if tx['tournament_id'] == tournament_id and tx['user_id'] == user_id]
         context = f"錦標賽 {tournament_id}"
     else:
-        filtered_transactions = [tx for tx in mock_transactions if tx['tournament_id'] is None and tx['user_id'] == user_id]
-        context = "一般模式"
+        # 一般模式使用固定 UUID
+        filtered_transactions = [tx for tx in mock_transactions if tx['tournament_id'] == GENERAL_MODE_TOURNAMENT_ID and tx['user_id'] == user_id]
+        context = f"一般模式 (UUID: {GENERAL_MODE_TOURNAMENT_ID})"
     
     return jsonify({
         "success": True,
@@ -589,7 +593,7 @@ def test_tournament_isolation():
         "isolation_test": {
             "test06_only": [tx for tx in mock_transactions if tx['tournament_id'] == 'test06'],
             "test05_only": [tx for tx in mock_transactions if tx['tournament_id'] == 'test05'],
-            "general_only": [tx for tx in mock_transactions if tx['tournament_id'] is None]
+            "general_only": [tx for tx in mock_transactions if tx['tournament_id'] == GENERAL_MODE_TOURNAMENT_ID]
         }
     })
 
@@ -877,7 +881,10 @@ def execute_trade():
     try:
         # 標準化股票代號
         symbol = normalize_taiwan_stock_symbol(original_symbol)
-        trade_context = f"錦標賽 {tournament_id}" if tournament_id else "一般模式"
+        # 統一錦標賽架構：判斷是否為一般模式
+        is_general_mode = not tournament_id or tournament_id.strip() == ""
+        actual_tournament_id = GENERAL_MODE_TOURNAMENT_ID if is_general_mode else tournament_id
+        trade_context = f"錦標賽 {actual_tournament_id}" if not is_general_mode else f"一般模式 (UUID: {GENERAL_MODE_TOURNAMENT_ID})"
         logger.info(f"💰 執行交易 ({trade_context}): {original_symbol} -> {symbol}, {action}, 金額: {amount}")
         
         # 驗證用戶
@@ -960,9 +967,13 @@ def execute_trade():
             "executed_at": datetime.now().isoformat()
         }
         
-        # 只有當 tournament_id 是有效的非空字符串時才加入
+        # 統一錦標賽架構：一般模式使用固定UUID，錦標賽模式使用具體UUID
         if tournament_id and tournament_id.strip():
+            # 錦標賽模式：使用具體的錦標賽ID
             transaction_record["tournament_id"] = tournament_id
+        else:
+            # 一般模式：使用固定的一般模式UUID
+            transaction_record["tournament_id"] = GENERAL_MODE_TOURNAMENT_ID
         
         # 保存交易記錄到數據庫 (使用正確的 portfolio_transactions 表)
         supabase.table("portfolio_transactions").insert(transaction_record).execute()
@@ -981,9 +992,9 @@ def execute_trade():
             "action": action,
             "amount": abs(total_cost),
             "price": current_price,
-            "tournament_id": tournament_id,
+            "tournament_id": transaction_record["tournament_id"],  # 使用實際存儲的tournament_id
             "executed_at": transaction_record["executed_at"],
-            "message": f"{action_text} {stock_name} 成功，金額 ${abs(total_cost):,.2f}"
+            "message": f"{action_text} {stock_name} 成功，金額 ${abs(total_cost):,.2f} ({trade_context})"
         })
         
     except Exception as e:
@@ -1003,14 +1014,14 @@ def get_portfolio():
         # 獲取用戶現金餘額
         cash_balance = get_user_balance(user_id)
         
-        # 根據是否有錦標賽 ID 來獲取相應的交易記錄
-        if tournament_id:
+        # 統一錦標賽架構：根據是否有錦標賽 ID 來獲取相應的交易記錄
+        if tournament_id and tournament_id.strip():
             logger.info(f"🏆 獲取錦標賽 {tournament_id} 的投資組合")
             response = supabase.table("portfolio_transactions").select("*").eq("user_id", user_id).eq("tournament_id", tournament_id).execute()
         else:
-            logger.info(f"📊 獲取用戶 {user_id} 的一般投資組合")
-            # 獲取沒有錦標賽 ID 的交易記錄（一般模式）
-            response = supabase.table("portfolio_transactions").select("*").eq("user_id", user_id).is_("tournament_id", "null").execute()
+            logger.info(f"📊 獲取用戶 {user_id} 的一般投資組合 (使用固定 UUID: {GENERAL_MODE_TOURNAMENT_ID})")
+            # 一般模式使用固定的UUID而非NULL
+            response = supabase.table("portfolio_transactions").select("*").eq("user_id", user_id).eq("tournament_id", GENERAL_MODE_TOURNAMENT_ID).execute()
         
         transactions = response.data
         
@@ -1106,8 +1117,8 @@ def get_transactions():
         return jsonify({"error": "缺少用戶 ID 參數"}), 400
     
     try:
-        # 根據是否有錦標賽 ID 來獲取相應的交易記錄
-        if tournament_id:
+        # 統一錦標賽架構：根據是否有錦標賽 ID 來獲取相應的交易記錄
+        if tournament_id and tournament_id.strip():
             logger.info(f"🏆 獲取錦標賽 {tournament_id} 的交易歷史")
             response = supabase.table("portfolio_transactions")\
                 .select("*")\
@@ -1117,11 +1128,12 @@ def get_transactions():
                 .limit(limit)\
                 .execute()
         else:
-            logger.info(f"📊 獲取用戶 {user_id} 的一般交易歷史")
+            logger.info(f"📊 獲取用戶 {user_id} 的一般交易歷史 (使用固定 UUID: {GENERAL_MODE_TOURNAMENT_ID})")
+            # 一般模式使用固定的UUID而非NULL
             response = supabase.table("portfolio_transactions")\
                 .select("*")\
                 .eq("user_id", user_id)\
-                .is_("tournament_id", "null")\
+                .eq("tournament_id", GENERAL_MODE_TOURNAMENT_ID)\
                 .order("executed_at", desc=True)\
                 .limit(limit)\
                 .execute()
