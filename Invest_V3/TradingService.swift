@@ -6,17 +6,23 @@ import Combine
 class TradingService: ObservableObject {
     static let shared = TradingService()
     
+    // 一般模式視為永久錦標賽的常量ID
+    static let GENERAL_MODE_TOURNAMENT_ID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+    
     // 後端 API 基礎 URL
     private let baseURL = "http://localhost:5001"
     
-    // Published 屬性用於 UI 更新
+    // Published 屬性用於 UI 更新（統一使用錦標賽架構）
     @Published var isLoading = false
     @Published var error: String?
     @Published var currentUser: TradingUser?
-    @Published var portfolio: TradingPortfolio?
+    @Published var currentPortfolio: TradingPortfolio? // 當前活躍的投資組合（無論一般或錦標賽）
     @Published var stocks: [TradingStock] = []
     @Published var transactions: [TradingTransaction] = []
     @Published var rankings: [UserRanking] = []
+    
+    // 當前活躍的錦標賽ID（一般模式使用 GENERAL_MODE_TOURNAMENT_ID）
+    @Published var currentTournamentId: UUID = GENERAL_MODE_TOURNAMENT_ID
     
     private var session = URLSession.shared
     private var otpStorage: String = ""
@@ -132,48 +138,62 @@ class TradingService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "trading_user_id")
         
         currentUser = nil
-        portfolio = nil
+        currentPortfolio = nil
         stocks = []
         transactions = []
         rankings = []
+        
+        // 重置為一般模式
+        currentTournamentId = Self.GENERAL_MODE_TOURNAMENT_ID
     }
     
-    // MARK: - 資料載入
+    // MARK: - 統一錦標賽架構方法
     
-    /// 載入用戶資料
+    /// 切換錦標賽（包含一般模式）
+    func switchToTournament(_ tournamentId: UUID) async {
+        print("🔄 [TradingService] 切換錦標賽: \(tournamentId == Self.GENERAL_MODE_TOURNAMENT_ID ? "一般模式" : tournamentId.uuidString)")
+        
+        currentTournamentId = tournamentId
+        
+        // 載入新錦標賽的數據
+        await loadCurrentTournamentData()
+        
+        // 發送切換通知
+        NotificationCenter.default.post(
+            name: NSNotification.Name("TournamentSwitched"),
+            object: self,
+            userInfo: [
+                "tournamentId": tournamentId.uuidString,
+                "isGeneralMode": tournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
+            ]
+        )
+    }
+    
+    /// 載入用戶資料（統一使用錦標賽架構）
     private func loadUserData() async {
+        // 檢查當前是否為錦標賽模式
+        let tournamentStateManager = TournamentStateManager.shared
+        if tournamentStateManager.isParticipatingInTournament,
+           let activeTournamentId = tournamentStateManager.getCurrentTournamentId() {
+            currentTournamentId = activeTournamentId
+        } else {
+            currentTournamentId = Self.GENERAL_MODE_TOURNAMENT_ID
+        }
+        
+        await loadCurrentTournamentData()
+    }
+    
+    /// 載入當前錦標賽數據（統一方法）
+    func loadCurrentTournamentData() async {
         await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.loadPortfolio() }
+            group.addTask { await self.loadTournamentPortfolio(tournamentId: self.currentTournamentId) }
             group.addTask { await self.loadStocks() }
-            group.addTask { await self.loadTransactions() }
-            group.addTask { await self.loadRankings() }
+            group.addTask { await self.loadTournamentTransactions(tournamentId: self.currentTournamentId) }
+            group.addTask { await self.loadTournamentRankings(tournamentId: self.currentTournamentId) }
         }
     }
     
-    /// 載入投資組合
-    func loadPortfolio() async {
-        do {
-            // 獲取當前用戶ID
-            guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
-                print("❌ [TradingService] 無法獲取用戶ID，無法載入投資組合")
-                return
-            }
-            
-            let url = URL(string: "\(baseURL)/api/portfolio?user_id=\(userId)")!
-            let request = createAuthorizedRequest(url: url)
-            
-            let (data, _) = try await session.data(for: request)
-            let result = try JSONDecoder().decode(PortfolioResponse.self, from: data)
-            
-            self.portfolio = result.portfolio
-            print("✅ [TradingService] 投資組合載入成功")
-        } catch {
-            print("❌ [TradingService] 載入投資組合失敗: \(error)")
-            self.error = "載入投資組合失敗: \(error.localizedDescription)"
-        }
-    }
-    
-    /// 載入股票清單
+    /// 載入股票清單（保留，因為股票清單不分錦標賽）
     func loadStocks() async {
         do {
             let url = URL(string: "\(baseURL)/api/stocks")!
@@ -190,8 +210,71 @@ class TradingService: ObservableObject {
         }
     }
     
-    /// 載入交易記錄
-    func loadTransactions() async {
+    /// 載入錦標賽數據（統一方法，支援一般模式）
+    func loadTournamentData(tournamentId: UUID) async {
+        let isGeneralMode = tournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
+        print("🔄 [TradingService] 載入\(isGeneralMode ? "一般模式" : "錦標賽")數據: \(tournamentId)")
+        
+        // 更新當前錦標賽ID
+        currentTournamentId = tournamentId
+        
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.loadTournamentPortfolio(tournamentId: tournamentId) }
+            group.addTask { await self.loadStocks() }
+            group.addTask { await self.loadTournamentTransactions(tournamentId: tournamentId) }
+            group.addTask { await self.loadTournamentRankings(tournamentId: tournamentId) }
+        }
+        
+        // 同時觸發 UI 更新通知
+        NotificationCenter.default.post(
+            name: NSNotification.Name("TournamentDataReloaded"),
+            object: self,
+            userInfo: [
+                "tournamentId": tournamentId.uuidString,
+                "isGeneralMode": isGeneralMode
+            ]
+        )
+        print("📤 [TradingService] 已發送數據重載通知: \(tournamentId)")
+    }
+    
+    /// 載入錦標賽投資組合（統一方法）
+    func loadTournamentPortfolio(tournamentId: UUID) async {
+        do {
+            // 獲取當前用戶ID
+            guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
+                print("❌ [TradingService] 無法獲取用戶ID，無法載入投資組合")
+                return
+            }
+            
+            let isGeneralMode = tournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
+            
+            // 使用現有API端點
+            let url: URL
+            if isGeneralMode {
+                // 一般模式不傳 tournament_id 參數
+                url = URL(string: "\(baseURL)/api/portfolio?user_id=\(userId)")!
+                print("📊 [TradingService] 載入一般模式投資組合")
+            } else {
+                // 錦標賽模式傳入具體的 tournament_id
+                url = URL(string: "\(baseURL)/api/portfolio?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
+                print("🏆 [TradingService] 載入錦標賽投資組合: \(tournamentId)")
+            }
+            
+            let request = createAuthorizedRequest(url: url)
+            let (data, _) = try await session.data(for: request)
+            let result = try JSONDecoder().decode(PortfolioResponse.self, from: data)
+            
+            // 統一存儲到 currentPortfolio
+            self.currentPortfolio = result.portfolio
+            print("✅ [TradingService] 投資組合載入成功，存儲到 currentPortfolio")
+        } catch {
+            self.error = "載入投資組合失敗: \(error.localizedDescription)"
+            print("❌ [TradingService] 投資組合載入失敗: \(error)")
+        }
+    }
+    
+    /// 載入錦標賽交易記錄（統一方法）
+    func loadTournamentTransactions(tournamentId: UUID) async {
         do {
             // 獲取當前用戶ID
             guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
@@ -199,122 +282,95 @@ class TradingService: ObservableObject {
                 return
             }
             
-            let url = URL(string: "\(baseURL)/api/transactions?user_id=\(userId)")!
-            let request = createAuthorizedRequest(url: url)
+            let isGeneralMode = tournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
             
-            let (data, _) = try await session.data(for: request)
-            
-            // Flask API 直接返回交易陣列，不是包裝的物件
-            self.transactions = try JSONDecoder().decode([TradingTransaction].self, from: data)
-            print("✅ [TradingService] 交易記錄載入成功: \(transactions.count) 筆")
-        } catch {
-            print("❌ [TradingService] 載入交易記錄失敗: \(error)")
-            self.error = "載入交易記錄失敗: \(error.localizedDescription)"
-        }
-    }
-    
-    /// 載入錦標賽專用數據（投資組合和交易記錄）
-    func loadTournamentData(tournamentId: UUID) async {
-        print("🔄 [TradingService] 載入錦標賽數據: \(tournamentId)")
-        
-        await loadTournamentPortfolio(tournamentId: tournamentId)
-        await loadTournamentTransactions(tournamentId: tournamentId)
-        
-        // 同時觸發 UI 更新通知
-        NotificationCenter.default.post(
-            name: NSNotification.Name("TournamentDataReloaded"),
-            object: self,
-            userInfo: ["tournamentId": tournamentId.uuidString]
-        )
-        print("📤 [TradingService] 已發送錦標賽數據重載通知: \(tournamentId)")
-    }
-    
-    /// 載入錦標賽投資組合
-    func loadTournamentPortfolio(tournamentId: UUID) async {
-        do {
-            // 獲取當前用戶ID
-            guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
-                print("❌ [TradingService] 無法獲取用戶ID，無法載入錦標賽投資組合")
-                return
+            // 使用現有API端點
+            let url: URL
+            if isGeneralMode {
+                // 一般模式不傳 tournament_id 參數
+                url = URL(string: "\(baseURL)/api/transactions?user_id=\(userId)")!
+                print("📊 [TradingService] 載入一般模式交易記錄")
+            } else {
+                // 錦標賽模式傳入具體的 tournament_id
+                url = URL(string: "\(baseURL)/api/transactions?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
+                print("🏆 [TradingService] 載入錦標賽交易記錄: \(tournamentId)")
             }
-            
-            // 使用現有API端點，但加入用戶ID和錦標賽ID參數
-            let url = URL(string: "\(baseURL)/api/portfolio?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
-            let request = createAuthorizedRequest(url: url)
-            
-            let (data, _) = try await session.data(for: request)
-            let result = try JSONDecoder().decode(PortfolioResponse.self, from: data)
-            
-            self.portfolio = result.portfolio
-            print("✅ [TradingService] 錦標賽投資組合載入成功")
-        } catch {
-            self.error = "載入錦標賽投資組合失敗: \(error.localizedDescription)"
-            print("❌ [TradingService] 錦標賽投資組合載入失敗: \(error)")
-        }
-    }
-    
-    /// 載入錦標賽交易記錄
-    func loadTournamentTransactions(tournamentId: UUID) async {
-        do {
-            // 獲取當前用戶ID
-            guard let userId = UserDefaults.standard.string(forKey: "trading_user_id") else {
-                print("❌ [TradingService] 無法獲取用戶ID，無法載入錦標賽交易記錄")
-                return
-            }
-            
-            // 使用現有API端點，但加入用戶ID和錦標賽ID參數
-            let url = URL(string: "\(baseURL)/api/transactions?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
             let request = createAuthorizedRequest(url: url)
             
             let (data, _) = try await session.data(for: request)
             
             // Flask API 直接返回交易陣列
             self.transactions = try JSONDecoder().decode([TradingTransaction].self, from: data)
-            print("✅ [TradingService] 錦標賽交易記錄載入成功: \(transactions.count) 筆")
+            print("✅ [TradingService] 交易記錄載入成功: \(transactions.count) 筆")
         } catch {
-            self.error = "載入錦標賽交易記錄失敗: \(error.localizedDescription)"
-            print("❌ [TradingService] 錦標賽交易記錄載入失敗: \(error)")
+            self.error = "載入交易記錄失敗: \(error.localizedDescription)"
+            print("❌ [TradingService] 交易記錄載入失敗: \(error)")
         }
     }
 
-    /// 載入排行榜
-    func loadRankings() async {
-        do {
-            let url = URL(string: "\(baseURL)/api/rankings")!
-            let request = createAuthorizedRequest(url: url)
-            
-            let (data, _) = try await session.data(for: request)
-            let result = try JSONDecoder().decode(RankingsResponse.self, from: data)
-            
-            if result.success {
-                self.rankings = result.rankings
-            }
-        } catch {
-            self.error = "載入排行榜失敗: \(error.localizedDescription)"
-        }
-    }
     
-    /// 載入錦標賽排行榜
+    /// 載入錦標賽排行榜（統一數據源，支援一般模式）
     func loadTournamentRankings(tournamentId: UUID) async {
         do {
-            print("🏆 [TradingService] 載入錦標賽 \(tournamentId) 的排行榜")
+            let isGeneralMode = tournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
             
-            // 嘗試從 Supabase 載入錦標賽排行榜
-            let supabaseRankings = try await SupabaseService.shared.fetchTournamentRankingsForUI(tournamentId: tournamentId)
+            if isGeneralMode {
+                print("📊 [TradingService] 載入一般模式排行榜")
+                // 一般模式使用原有的排行榜 API
+                let url = URL(string: "\(baseURL)/api/rankings")!
+                let request = createAuthorizedRequest(url: url)
+                
+                let (data, _) = try await session.data(for: request)
+                let result = try JSONDecoder().decode(RankingsResponse.self, from: data)
+                
+                if result.success {
+                    self.rankings = result.rankings
+                    print("✅ [TradingService] 一般模式排行榜載入成功: \(result.rankings.count) 筆")
+                }
+            } else {
+                print("🏆 [TradingService] 載入錦標賽 \(tournamentId) 的排行榜")
+                
+                // 嘗試從 Supabase 載入錦標賽排行榜
+                let supabaseRankings = try await SupabaseService.shared.fetchTournamentRankingsForUI(tournamentId: tournamentId)
+                
+                print("✅ [TradingService] 成功載入 \(supabaseRankings.count) 筆錦標賽排行榜")
+                self.rankings = supabaseRankings
+            }
             
-            print("✅ [TradingService] 成功載入 \(supabaseRankings.count) 筆錦標賽排行榜")
-            self.rankings = supabaseRankings
+            // 發送排行榜更新通知，確保所有視圖同步
+            NotificationCenter.default.post(
+                name: NSNotification.Name("TournamentRankingsUpdated"),
+                object: self,
+                userInfo: [
+                    "tournamentId": tournamentId.uuidString,
+                    "rankingsCount": rankings.count,
+                    "isGeneralMode": isGeneralMode
+                ]
+            )
+            print("📤 [TradingService] 已發送排行榜更新通知: \(tournamentId)")
             
         } catch {
-            print("⚠️ [TradingService] Supabase API 失敗，使用模擬資料: \(error)")
+            print("⚠️ [TradingService] API 失敗，使用模擬資料: \(error)")
             
-            // 如果 Supabase 失敗，則回退到模擬資料
+            // 如果 API 失敗，則回退到模擬資料
             let mockRankings = generateMockTournamentRankings(for: tournamentId)
             self.rankings = mockRankings
+            
+            // 即使使用模擬資料也發送更新通知
+            NotificationCenter.default.post(
+                name: NSNotification.Name("TournamentRankingsUpdated"),
+                object: self,
+                userInfo: [
+                    "tournamentId": tournamentId.uuidString,
+                    "rankingsCount": mockRankings.count,
+                    "isSimulated": true
+                ]
+            )
             
             // 不設置 error，因為有備用資料
         }
     }
+    
     
     // MARK: - 交易操作
     

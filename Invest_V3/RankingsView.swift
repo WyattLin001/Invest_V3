@@ -34,6 +34,12 @@ struct RankingsView: View {
                     await loadRankingsData()
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentRankingsUpdated"))) { notification in
+                let tournamentId = notification.userInfo?["tournamentId"] as? String ?? "unknown"
+                let count = notification.userInfo?["rankingsCount"] as? Int ?? 0
+                let isSimulated = notification.userInfo?["isSimulated"] as? Bool ?? false
+                print("📨 [RankingsView] 收到排行榜更新通知: \(tournamentId), 數量: \(count), 模擬: \(isSimulated)")
+            }
             .onChange(of: tournamentStateManager.currentTournamentContext) { _, _ in
                 print("🔄 [RankingsView] 錦標賽上下文變更，重新載入排行榜")
                 Task {
