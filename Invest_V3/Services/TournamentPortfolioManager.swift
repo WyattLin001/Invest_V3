@@ -939,7 +939,14 @@ class TournamentPortfolioManager: ObservableObject {
     /// 同步交易到 Supabase（統一架構）
     private func syncTradeToSupabase(tradingRecord: TournamentTradingRecord, portfolio: TournamentPortfolio) async -> Bool {
         do {
-            // 1. 同步交易記錄到 portfolio_transactions 表（統一架構）
+            print("🔄 [TournamentPortfolioManager] 開始同步交易記錄到 Supabase")
+            print("   - 交易ID: \(tradingRecord.id)")
+            print("   - 錦標賽ID: \(tradingRecord.tournamentId)")
+            print("   - 股票: \(tradingRecord.symbol)")
+            print("   - 動作: \(tradingRecord.type.rawValue)")
+            print("   - 金額: \(tradingRecord.totalAmount)")
+            
+            // 直接使用 SupabaseService 插入交易記錄到 portfolio_transactions 表
             let portfolioTransaction = PortfolioTransaction(
                 id: tradingRecord.id,
                 userId: tradingRecord.userId,
@@ -952,22 +959,10 @@ class TournamentPortfolioManager: ObservableObject {
                 tournamentId: tradingRecord.tournamentId
             )
             
-            // 注意：需要使用支持 tournament_id 的 PortfolioService 方法
-            try await PortfolioService.shared.executeTransactionWithTournament(
-                userId: tradingRecord.userId,
-                tournamentId: tradingRecord.tournamentId,
-                symbol: tradingRecord.symbol,
-                action: tradingRecord.type == .buy ? .buy : .sell,
-                amount: tradingRecord.totalAmount
-            )
+            // 直接插入到 portfolio_transactions 表
+            try await supabaseService.insertPortfolioTransaction(portfolioTransaction)
             
-            // 2. 更新投資組合狀態到 portfolios 表
-            try await syncPortfolioStateToSupabase(portfolio: portfolio)
-            
-            // 3. 更新持股到 user_portfolios 表  
-            try await syncHoldingsToSupabase(portfolio: portfolio)
-            
-            print("✅ [TournamentPortfolioManager] Supabase 同步成功")
+            print("✅ [TournamentPortfolioManager] 交易記錄已成功寫入 Supabase portfolio_transactions 表")
             return true
             
         } catch {

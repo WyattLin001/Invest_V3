@@ -148,23 +148,12 @@ struct PortfolioView: View {
                     print("🏆 [PortfolioView] 錦標賽 \(tournamentId) 統一投資組合數據載入完成")
                     
                 } catch {
-                    print("⚠️ [PortfolioView] 統一投資組合載入失敗，嘗試舊方案: \(error)")
+                    print("⚠️ [PortfolioView] 統一投資組合載入失敗: \(error)")
+                    print("💡 [PortfolioView] 這表示錦標賽投資組合為空或尚未初始化")
+                    print("📊 [PortfolioView] 顯示空投資組合狀態，不使用測試數據")
                     
-                    // 備用方案：使用舊的 Supabase 方法
-                    do {
-                        let tournamentPortfolio = try await SupabaseService.shared.fetchTournamentPortfolio(
-                            tournamentId: tournamentId, 
-                            userId: currentUser.id
-                        )
-                        
-                        if let portfolio = tournamentPortfolio {
-                            print("✅ [PortfolioView] 備用方案：載入錦標賽投資組合成功")
-                        } else {
-                            print("🔄 [PortfolioView] 備用方案：使用 TournamentPortfolioManager")
-                        }
-                    } catch {
-                        print("❌ [PortfolioView] 所有錦標賽數據載入方案都失敗: \(error)")
-                    }
+                    // 不再使用 TournamentPortfolioManager 的測試數據
+                    // 讓 UI 正確顯示空投資組合狀態
                 }
             } else {
                 print("❌ [PortfolioView] 缺少錦標賽 ID 或用戶資訊")
@@ -188,7 +177,9 @@ struct PortfolioView: View {
                     print("   - 回報率: \(generalPortfolio.returnRateFormatted)")
                     
                 } catch {
-                    print("⚠️ [PortfolioView] 統一投資組合載入失敗，使用 TradingService: \(error)")
+                    print("⚠️ [PortfolioView] 統一投資組合載入失敗: \(error)")
+                    print("💡 [PortfolioView] 這表示一般投資組合為空或尚未初始化")
+                    print("📊 [PortfolioView] 顯示空投資組合狀態")
                 }
             }
             

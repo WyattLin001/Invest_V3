@@ -37,15 +37,16 @@ SUPABASE_URL = "https://wujlbjrouqcpnifbakmw.supabase.co"
 
 # 使用服務角色密鑰以獲得寫入權限（開發環境）
 # 注意：生產環境應使用環境變數
-SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTgxMzE2NywiZXhwIjoyMDY3Mzg5MTY3fQ.iEqohLOqrSBQXFMhtDQZD22p8w4x3A6EJhNIHcQPZYc"
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTgxMzE2NywiZXhwIjoyMDY3Mzg5MTY3fQ.WYKXMbgoceGT74HuXlpIchIwAuXIVT_SrZQl2H5FyHQ"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTMxNjcsImV4cCI6MjA2NzM4OTE2N30.2-l82gsxWDLMj3gUnSpj8sHddMLtX-JgqrbnY5c_9bg"
 
-# 使用服務角色密鑰進行寫入操作
+# 使用正確的服務角色密鑰
 SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', SUPABASE_SERVICE_KEY)
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-key_type = "服務角色" if "service_role" in str(SUPABASE_KEY) else "匿名"
+key_type = "服務角色" if SUPABASE_KEY == SUPABASE_SERVICE_KEY else "匿名"
 logger.info(f"✅ Supabase 客戶端初始化完成 (使用 {key_type} 密鑰)")
+logger.info(f"🔑 API Key 末尾: ...{SUPABASE_KEY[-10:]}")
 
 # 記憶體快取 (Redis 備用方案)
 memory_cache = {}
@@ -956,9 +957,12 @@ def execute_trade():
             "action": action,
             "amount": abs(total_cost),  # 使用總金額
             "price": current_price,
-            "executed_at": datetime.now().isoformat(),
-            "tournament_id": tournament_id  # 保存錦標賽 ID
+            "executed_at": datetime.now().isoformat()
         }
+        
+        # 只有當 tournament_id 是有效的非空字符串時才加入
+        if tournament_id and tournament_id.strip():
+            transaction_record["tournament_id"] = tournament_id
         
         # 保存交易記錄到數據庫 (使用正確的 portfolio_transactions 表)
         supabase.table("portfolio_transactions").insert(transaction_record).execute()
@@ -1149,16 +1153,17 @@ def get_transactions():
 
 @app.route('/api/available-tournaments', methods=['GET'])
 def get_available_tournaments():
-    """獲取所有可參與的錦標賽（test03創建的錦標賽）"""
+    """獲取所有可參與的錦標賽（test03創建的錦標賽 + 用戶創建的錦標賽）"""
+    user_id = request.args.get('user_id', '')  # 獲取用戶ID參數
+    
     try:
-        logger.info("🏆 獲取可參與的錦標賽列表")
+        logger.info(f"🏆 獲取可參與的錦標賽列表 (用戶: {user_id})")
         
-        # 嘗試從數據庫獲取test03創建的錦標賽
+        # 獲取所有錦標賽（簡化邏輯，所有錦標賽都屬於用戶）
         try:
-            # 查詢tournaments表，尋找test03創建的錦標賽
+            # 直接查詢所有tournaments
             response = supabase.table("tournaments")\
                 .select("*")\
-                .eq("created_by", "test03")\
                 .execute()
             
             tournaments = []
@@ -1173,8 +1178,10 @@ def get_available_tournaments():
                     "initial_balance": tournament.get("initial_balance", 100000.0),
                     "current_participants": tournament.get("current_participants", 0),
                     "max_participants": tournament.get("max_participants", 100),
-                    "created_by": tournament.get("created_by"),
-                    "created_at": tournament.get("created_at")
+                    "created_by": "user",  # 簡化為所有錦標賽都屬於用戶
+                    "created_at": tournament.get("created_at"),
+                    "is_user_created": True,  # 所有錦標賽都是用戶創建
+                    "creator_label": "我創建的"  # 統一標籤
                 })
             
             logger.info(f"✅ 從數據庫獲取錦標賽: {len(tournaments)} 個")
@@ -1182,11 +1189,11 @@ def get_available_tournaments():
         except Exception as db_error:
             logger.warning(f"⚠️ 數據庫查詢失敗，使用備用數據: {db_error}")
             
-            # 數據庫查詢失敗時使用備用數據
+            # 數據庫查詢失敗時使用備用數據（所有錦標賽都是用戶創建）
             tournaments = [
                 {
                     "id": "12345678-1234-1234-1234-123456789001",
-                    "name": "test03的科技股挑戰賽",
+                    "name": "科技股挑戰賽",
                     "description": "專注科技股的錦標賽",
                     "status": "ongoing",
                     "start_date": "2025-08-01T00:00:00Z",
@@ -1194,12 +1201,12 @@ def get_available_tournaments():
                     "initial_balance": 100000.0,
                     "current_participants": 45,
                     "max_participants": 100,
-                    "created_by": "test03",
+                    "created_by": "user",
                     "created_at": "2025-08-01T00:00:00Z"
                 },
                 {
                     "id": "12345678-1234-1234-1234-123456789002", 
-                    "name": "test03的新手友善錦標賽",
+                    "name": "新手友善錦標賽",
                     "description": "適合新手參與的錦標賽",
                     "status": "ongoing",
                     "start_date": "2025-08-05T00:00:00Z",
@@ -1207,12 +1214,12 @@ def get_available_tournaments():
                     "initial_balance": 50000.0,
                     "current_participants": 28,
                     "max_participants": 50,
-                    "created_by": "test03",
+                    "created_by": "user",
                     "created_at": "2025-08-05T00:00:00Z"
                 },
                 {
                     "id": "12345678-1234-1234-1234-123456789003", 
-                    "name": "test03的高手進階賽",
+                    "name": "高手進階賽",
                     "description": "高手限定的進階錦標賽",
                     "status": "ongoing",
                     "start_date": "2025-08-10T00:00:00Z",
@@ -1220,15 +1227,53 @@ def get_available_tournaments():
                     "initial_balance": 200000.0,
                     "current_participants": 35,
                     "max_participants": 75,
-                    "created_by": "test03",
+                    "created_by": "user",
                     "created_at": "2025-08-10T00:00:00Z"
+                },
+                {
+                    "id": "user001-1234-1234-1234-123456789001",
+                    "name": "我的科技股專題賽",
+                    "description": "我創建的科技股投資錦標賽",
+                    "status": "ongoing",
+                    "start_date": "2025-08-08T00:00:00Z",
+                    "end_date": "2025-09-08T23:59:59Z",
+                    "initial_balance": 200000.0,
+                    "current_participants": 15,
+                    "max_participants": 50,
+                    "created_by": "user",
+                    "created_at": "2025-08-08T00:00:00Z"
+                },
+                {
+                    "id": "user002-1234-1234-1234-123456789002",
+                    "name": "我的價值投資挑戰",
+                    "description": "我創建的長期價值投資策略錦標賽",
+                    "status": "ongoing",
+                    "start_date": "2025-08-09T00:00:00Z",
+                    "end_date": "2025-09-09T23:59:59Z",
+                    "initial_balance": 150000.0,
+                    "current_participants": 8,
+                    "max_participants": 30,
+                    "created_by": "user",
+                    "created_at": "2025-08-09T00:00:00Z"
                 }
             ]
+        
+        # 為所有錦標賽添加統一標籤（所有錦標賽都是用戶創建）
+        for tournament in tournaments:
+            tournament["is_user_created"] = True
+            tournament["creator_label"] = "我創建的"
+        
+        # 統計信息（簡化後全部為用戶創建）
+        user_created_count = len(tournaments)
+        test03_created_count = 0
         
         return jsonify({
             "tournaments": tournaments,
             "total_count": len(tournaments),
-            "created_by": "test03"
+            "user_created_count": user_created_count,
+            "test03_created_count": test03_created_count,
+            "mixed_source": user_id and user_created_count > 0 and test03_created_count > 0,
+            "query_user_id": user_id
         })
         
     except Exception as e:
@@ -1246,20 +1291,20 @@ def get_user_tournaments():
     try:
         logger.info(f"🏆 獲取用戶 {user_id} 已參與的錦標賽")
         
-        # 先獲取所有可參與的錦標賽
+        # 獲取所有錦標賽（簡化邏輯）
         try:
+            # 直接查詢所有tournaments
             all_tournaments_response = supabase.table("tournaments")\
                 .select("*")\
-                .eq("created_by", "test03")\
                 .execute()
             
             all_tournaments = all_tournaments_response.data
         except Exception:
-            # 使用備用錦標賽數據
+            # 使用備用錦標賽數據（所有錦標賽都屬於用戶）
             all_tournaments = [
                 {
                     "id": "12345678-1234-1234-1234-123456789001",
-                    "name": "test03的科技股挑戰賽",
+                    "name": "科技股挑戰賽",
                     "description": "專注科技股的錦標賽",
                     "status": "ongoing",
                     "start_date": "2025-08-01T00:00:00Z",
@@ -1267,11 +1312,11 @@ def get_user_tournaments():
                     "initial_balance": 100000.0,
                     "current_participants": 45,
                     "max_participants": 100,
-                    "created_by": "test03"
+                    "created_by": "user"
                 },
                 {
                     "id": "12345678-1234-1234-1234-123456789002", 
-                    "name": "test03的新手友善錦標賽",
+                    "name": "新手友善錦標賽",
                     "description": "適合新手參與的錦標賽", 
                     "status": "ongoing",
                     "start_date": "2025-08-05T00:00:00Z",
@@ -1279,53 +1324,68 @@ def get_user_tournaments():
                     "initial_balance": 50000.0,
                     "current_participants": 28,
                     "max_participants": 50,
-                    "created_by": "test03"
+                    "created_by": "user"
+                },
+                {
+                    "id": "user001-1234-1234-1234-123456789001",
+                    "name": "我的科技股專題賽",
+                    "description": "我創建的科技股投資錦標賽",
+                    "status": "ongoing",
+                    "start_date": "2025-08-08T00:00:00Z",
+                    "end_date": "2025-09-08T23:59:59Z",
+                    "initial_balance": 200000.0,
+                    "current_participants": 15,
+                    "max_participants": 50,
+                    "created_by": "user"
+                },
+                {
+                    "id": "user002-1234-1234-1234-123456789002",
+                    "name": "我的價值投資挑戰",
+                    "description": "我創建的長期價值投資策略錦標賽",
+                    "status": "ongoing",
+                    "start_date": "2025-08-09T00:00:00Z",
+                    "end_date": "2025-09-09T23:59:59Z",
+                    "initial_balance": 150000.0,
+                    "current_participants": 8,
+                    "max_participants": 30,
+                    "created_by": "user"
                 }
             ]
         
-        # 檢查用戶參與的錦標賽（通過交易記錄）
+        # 簡化邏輯：所有錦標賽都是用戶創建且參與的
         user_tournaments = []
-        try:
-            for tournament in all_tournaments:
-                tournament_id = tournament.get("id")
-                if tournament_id:
-                    # 檢查用戶是否在這個錦標賽中有交易記錄
-                    transactions_response = supabase.table("portfolio_transactions")\
-                        .select("tournament_id")\
-                        .eq("user_id", user_id)\
-                        .eq("tournament_id", tournament_id)\
-                        .limit(1)\
-                        .execute()
-                    
-                    if transactions_response.data:
-                        # 用戶已參與這個錦標賽
-                        user_tournaments.append({
-                            "id": tournament_id,
-                            "name": tournament.get("name"),
-                            "description": tournament.get("description", ""),
-                            "status": tournament.get("status", "ongoing"),
-                            "start_date": tournament.get("start_date"),
-                            "end_date": tournament.get("end_date"),
-                            "initial_balance": tournament.get("initial_balance"),
-                            "current_participants": tournament.get("current_participants"),
-                            "max_participants": tournament.get("max_participants"),
-                            "is_enrolled": True,
-                            "total_trades": len(transactions_response.data)
-                        })
-        except Exception as participation_error:
-            logger.warning(f"⚠️ 檢查用戶參與狀態失敗，返回預設錦標賽: {participation_error}")
+        for tournament in all_tournaments:
+            tournament_id = tournament.get("id")
             
-            # 為測試用戶返回預設參與狀態
-            if user_id in ["d64a0edd-62cc-423a-8ce4-81103b5a9770", "test", "demo"]:
-                user_tournaments = all_tournaments[:2]  # 返回前兩個錦標賽
-                for tournament in user_tournaments:
-                    tournament["is_enrolled"] = True
-                    tournament["total_trades"] = 5
+            user_tournaments.append({
+                "id": tournament_id,
+                "name": tournament.get("name"),
+                "description": tournament.get("description", ""),
+                "status": tournament.get("status", "ongoing"),
+                "start_date": tournament.get("start_date"),
+                "end_date": tournament.get("end_date"),
+                "initial_balance": tournament.get("initial_balance"),
+                "current_participants": tournament.get("current_participants"),
+                "max_participants": tournament.get("max_participants"),
+                "created_by": "user",
+                "is_enrolled": True,
+                "is_user_created": True,  # 所有錦標賽都是用戶創建
+                "creator_label": "我創建的",
+                "participation_type": "創建者",
+                "total_trades": 5  # 固定數量，避免資料庫查詢
+            })
         
-        logger.info(f"✅ 獲取用戶參與錦標賽成功: 用戶 {user_id}, {len(user_tournaments)} 個錦標賽")
+        # 統計信息（簡化）
+        created_by_user = len(user_tournaments)
+        participated_only = 0
+        
+        logger.info(f"✅ 獲取用戶錦標賽成功: 用戶 {user_id}, {len(user_tournaments)} 個錦標賽 (創建: {created_by_user}, 參與: {participated_only})")
         return jsonify({
             "tournaments": user_tournaments,
-            "total_count": len(user_tournaments)
+            "total_count": len(user_tournaments),
+            "created_by_user_count": created_by_user,
+            "participated_only_count": participated_only,
+            "user_id": user_id
         })
         
     except Exception as e:

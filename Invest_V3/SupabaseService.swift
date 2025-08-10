@@ -2082,6 +2082,51 @@ class SupabaseService: ObservableObject {
         try await updateGroupRankings(groupId: groupId)
     }
     
+    /// 插入投資組合交易記錄到 portfolio_transactions 表
+    func insertPortfolioTransaction(_ transaction: PortfolioTransaction) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("📝 [SupabaseService] 插入投資組合交易記錄")
+        print("   - 交易ID: \(transaction.id)")
+        print("   - 用戶ID: \(transaction.userId)")
+        print("   - 錦標賽ID: \(transaction.tournamentId?.uuidString ?? "nil")")
+        print("   - 股票: \(transaction.symbol)")
+        print("   - 動作: \(transaction.action)")
+        print("   - 金額: \(transaction.amount)")
+        
+        // 準備插入數據
+        struct TransactionInsert: Codable {
+            let id: String
+            let user_id: String
+            let symbol: String
+            let action: String
+            let quantity: Int
+            let price: Double
+            let amount: Double
+            let executed_at: String
+            let tournament_id: String?
+        }
+        
+        let insertData = TransactionInsert(
+            id: transaction.id.uuidString,
+            user_id: transaction.userId.uuidString,
+            symbol: transaction.symbol,
+            action: transaction.action,
+            quantity: transaction.quantity,
+            price: transaction.price,
+            amount: transaction.amount,
+            executed_at: ISO8601DateFormatter().string(from: transaction.createdAt),
+            tournament_id: transaction.tournamentId?.uuidString
+        )
+        
+        try await client
+            .from("portfolio_transactions")
+            .insert(insertData)
+            .execute()
+        
+        print("✅ [SupabaseService] 投資組合交易記錄已成功插入到 portfolio_transactions 表")
+    }
+    
     // MARK: - Wallet and Transactions (Legacy - for reference only)
     // 舊版方法：基於 wallet_transactions 表計算餘額
     // 現在使用 user_balances 表的新方法

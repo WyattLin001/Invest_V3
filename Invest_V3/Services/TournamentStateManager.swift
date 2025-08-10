@@ -95,8 +95,12 @@ class TournamentStateManager: ObservableObject {
         
         // 延遲同步數據庫狀態，確保其他服務已初始化
         Task {
-            await Task.sleep(nanoseconds: 1_000_000_000) // 延遲1秒
-            await refreshUserTournamentStatus()
+            do {
+                try await Task.sleep(nanoseconds: 1_000_000_000) // 延遲1秒
+                await refreshUserTournamentStatus()
+            } catch {
+                print("❌ [TournamentStateManager] 初始化同步失敗: \(error)")
+            }
         }
     }
     
@@ -620,23 +624,24 @@ class TournamentStateManager: ObservableObject {
                     let tournament = Tournament(
                         id: tournamentId,
                         name: apiTournament.name,
-                        description: "來自API的錦標賽",
+                        type: .monthly,
+                        status: .ongoing,
                         startDate: ISO8601DateFormatter().date(from: apiTournament.start_date) ?? Date(),
                         endDate: ISO8601DateFormatter().date(from: apiTournament.end_date) ?? Date(),
+                        description: "來自API的錦標賽",
+                        shortDescription: apiTournament.name,
+                        initialBalance: apiTournament.initial_balance,
                         maxParticipants: apiTournament.max_participants,
                         currentParticipants: apiTournament.current_participants,
-                        initialBalance: apiTournament.initial_balance,
-                        status: .ongoing,
+                        entryFee: 0.0,
+                        prizePool: 0.0,
+                        riskLimitPercentage: 20.0,
+                        minHoldingRate: 0.1,
+                        maxSingleStockRate: 0.3,
                         rules: [],
-                        prizeStructure: [],
-                        category: .general,
-                        difficulty: .beginner,
-                        requirements: [],
-                        tags: [],
-                        imageURL: nil,
-                        createdBy: UUID(),
                         createdAt: Date(),
-                        updatedAt: Date()
+                        updatedAt: Date(),
+                        isFeatured: false
                     )
                     
                     tournaments.append(tournament)

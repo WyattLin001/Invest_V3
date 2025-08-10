@@ -41,7 +41,7 @@ struct ContentView: View {
             
             
             
-            // 收益 - 創作者收益儀表板
+        // 收益 - 創作者收益儀表板
             AuthorEarningsView()
                 .tabItem {
                     Image(systemName: selectedTab == 4 ? "dollarsign.circle.fill" : "dollarsign.circle")
