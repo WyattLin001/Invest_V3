@@ -183,14 +183,9 @@ struct RankingsView: View {
     }
     
     private func loadRankingsData() async {
-        if tournamentStateManager.isParticipatingInTournament,
-           let tournamentId = tournamentStateManager.getCurrentTournamentId() {
-            print("🏆 [RankingsView] 載入錦標賽排行榜: \(tournamentId)")
-            await tradingService.loadTournamentRankings(tournamentId: tournamentId)
-        } else {
-            print("📊 [RankingsView] 載入一般模式排行榜")
-            await tradingService.loadRankings()
-        }
+        // 統一使用 TradingService 的當前錦標賽ID
+        print("🔄 [RankingsView] 載入排行榜數據")
+        await tradingService.loadTournamentRankings(tournamentId: tradingService.currentTournamentId)
     }
 }
 

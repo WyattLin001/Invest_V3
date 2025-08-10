@@ -399,8 +399,8 @@ class TradingService: ObservableObject {
         }
     }
     
-    /// 買入股票
-    func buyStock(symbol: String, quantity: Int, price: Double, tournamentId: UUID? = nil, tournamentName: String? = nil) async throws {
+    /// 買入股票（統一架構）
+    func buyStock(symbol: String, quantity: Int, price: Double) async throws {
         isLoading = true
         error = nil
         
@@ -419,6 +419,8 @@ class TradingService: ObservableObject {
         // 計算交易金額（Flask API 需要金額，不是數量）
         let amount = Double(quantity) * price
         
+        let isGeneralMode = currentTournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
+        
         var body: [String: Any] = [
             "user_id": userId,
             "symbol": symbol,
@@ -426,12 +428,13 @@ class TradingService: ObservableObject {
             "amount": amount
         ]
         
-        // 添加錦標賽上下文
-        if let tournamentId = tournamentId {
-            body["tournament_id"] = tournamentId.uuidString
-        }
-        if let tournamentName = tournamentName {
-            body["tournament_name"] = tournamentName
+        // 統一添加錦標賽上下文（一般模式不傳錦標賽參數）
+        if !isGeneralMode {
+            body["tournament_id"] = currentTournamentId.uuidString
+            // 可以從 TournamentStateManager 取得錦標賽名稱
+            if let tournamentName = TournamentStateManager.shared.currentTournamentContext?.tournament.name {
+                body["tournament_name"] = tournamentName
+            }
         }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -450,23 +453,17 @@ class TradingService: ObservableObject {
         
         if result.success {
             print("✅ 買入成功: \(result.message)")
+            print("🔄 [TradingService] 重新載入\(isGeneralMode ? "一般模式" : "錦標賽")數據")
             
-            // 根據錦標賽上下文載入對應數據
-            if let tournamentId = tournamentId {
-                print("🏆 [TradingService] 錦標賽交易成功，重新載入錦標賽數據: \(tournamentId)")
-                await loadTournamentData(tournamentId: tournamentId)
-            } else {
-                print("📊 [TradingService] 一般交易成功，重新載入一般數據")
-                await loadPortfolio()
-                await loadTransactions()
-            }
+            // 統一重新載入當前錦標賽數據
+            await loadTournamentData(tournamentId: currentTournamentId)
         } else {
             throw TradingError.apiError(result.error ?? "買入失敗")
         }
     }
     
-    /// 賣出股票
-    func sellStock(symbol: String, quantity: Int, price: Double, tournamentId: UUID? = nil, tournamentName: String? = nil) async throws {
+    /// 賣出股票（統一架構）
+    func sellStock(symbol: String, quantity: Int, price: Double) async throws {
         isLoading = true
         error = nil
         
@@ -498,6 +495,8 @@ class TradingService: ObservableObject {
             throw TradingError.apiError("無法獲取用戶ID")
         }
         
+        let isGeneralMode = currentTournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
+        
         var body: [String: Any] = [
             "user_id": userId,
             "symbol": symbol,
@@ -505,12 +504,13 @@ class TradingService: ObservableObject {
             "amount": quantity  // 對於賣出，amount 是股數
         ]
         
-        // 添加錦標賽上下文
-        if let tournamentId = tournamentId {
-            body["tournament_id"] = tournamentId.uuidString
-        }
-        if let tournamentName = tournamentName {
-            body["tournament_name"] = tournamentName
+        // 統一添加錦標賽上下文（一般模式不傳錦標賽參數）
+        if !isGeneralMode {
+            body["tournament_id"] = currentTournamentId.uuidString
+            // 可以從 TournamentStateManager 取得錦標賽名稱
+            if let tournamentName = TournamentStateManager.shared.currentTournamentContext?.tournament.name {
+                body["tournament_name"] = tournamentName
+            }
         }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -544,16 +544,10 @@ class TradingService: ObservableObject {
         
         if result.success {
             print("✅ 賣出成功: \(result.message)")
+            print("🔄 [TradingService] 重新載入\(isGeneralMode ? "一般模式" : "錦標賽")數據")
             
-            // 根據錦標賽上下文載入對應數據
-            if let tournamentId = tournamentId {
-                print("🏆 [TradingService] 錦標賽賣出成功，重新載入錦標賽數據: \(tournamentId)")
-                await loadTournamentData(tournamentId: tournamentId)
-            } else {
-                print("📊 [TradingService] 一般賣出成功，重新載入一般數據")
-                await loadPortfolio()
-                await loadTransactions()
-            }
+            // 統一重新載入當前錦標賽數據
+            await loadTournamentData(tournamentId: currentTournamentId)
         } else {
             // 解析具體的交易失敗原因
             throw TradingError.tradeExecutionFailed(result.error ?? "賣出失敗")
