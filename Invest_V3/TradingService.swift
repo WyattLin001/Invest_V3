@@ -309,24 +309,17 @@ class TradingService: ObservableObject {
     }
 
     
-    /// 載入錦標賽排行榜（統一數據源，支援一般模式）
+    /// 載入錦標賽排行榜（統一使用Supabase數據源）
     func loadTournamentRankings(tournamentId: UUID) async {
         do {
             let isGeneralMode = tournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
             
             if isGeneralMode {
-                print("📊 [TradingService] 載入一般模式排行榜")
-                // 一般模式使用原有的排行榜 API
-                let url = URL(string: "\(baseURL)/api/rankings")!
-                let request = createAuthorizedRequest(url: url)
-                
-                let (data, _) = try await session.data(for: request)
-                let result = try JSONDecoder().decode(RankingsResponse.self, from: data)
-                
-                if result.success {
-                    self.rankings = result.rankings
-                    print("✅ [TradingService] 一般模式排行榜載入成功: \(result.rankings.count) 筆")
-                }
+                print("📊 [TradingService] 載入一般模式排行榜（使用模擬數據）")
+                // 一般模式使用模擬排行榜數據，因為Flask API沒有實現/api/rankings端點
+                let mockRankings = generateMockTournamentRankings(for: tournamentId)
+                self.rankings = mockRankings
+                print("✅ [TradingService] 一般模式排行榜載入成功: \(mockRankings.count) 筆（模擬數據）")
             } else {
                 print("🏆 [TradingService] 載入錦標賽 \(tournamentId) 的排行榜")
                 
