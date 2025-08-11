@@ -10,7 +10,7 @@ class TradingService: ObservableObject {
     static let GENERAL_MODE_TOURNAMENT_ID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
     
     // 後端 API 基礎 URL
-    private let baseURL = "http://localhost:5001"
+    private let baseURL = "http://localhost:8080"
     
     // Published 屬性用於 UI 更新（統一使用錦標賽架構）
     @Published var isLoading = false
@@ -248,17 +248,9 @@ class TradingService: ObservableObject {
             
             let isGeneralMode = tournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
             
-            // 使用現有API端點
-            let url: URL
-            if isGeneralMode {
-                // 一般模式不傳 tournament_id 參數
-                url = URL(string: "\(baseURL)/api/portfolio?user_id=\(userId)")!
-                print("📊 [TradingService] 載入一般模式投資組合")
-            } else {
-                // 錦標賽模式傳入具體的 tournament_id
-                url = URL(string: "\(baseURL)/api/portfolio?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
-                print("🏆 [TradingService] 載入錦標賽投資組合: \(tournamentId)")
-            }
+            // 統一架構：始終傳遞 tournament_id 參數（一般模式使用固定UUID）
+            let url = URL(string: "\(baseURL)/api/portfolio?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
+            print("📊 [TradingService] 載入投資組合 - 模式: \(isGeneralMode ? "一般" : "錦標賽"), ID: \(tournamentId)")
             
             let request = createAuthorizedRequest(url: url)
             let (data, _) = try await session.data(for: request)
@@ -284,17 +276,9 @@ class TradingService: ObservableObject {
             
             let isGeneralMode = tournamentId == Self.GENERAL_MODE_TOURNAMENT_ID
             
-            // 使用現有API端點
-            let url: URL
-            if isGeneralMode {
-                // 一般模式不傳 tournament_id 參數
-                url = URL(string: "\(baseURL)/api/transactions?user_id=\(userId)")!
-                print("📊 [TradingService] 載入一般模式交易記錄")
-            } else {
-                // 錦標賽模式傳入具體的 tournament_id
-                url = URL(string: "\(baseURL)/api/transactions?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
-                print("🏆 [TradingService] 載入錦標賽交易記錄: \(tournamentId)")
-            }
+            // 統一架構：始終傳遞 tournament_id 參數（一般模式使用固定UUID）
+            let url = URL(string: "\(baseURL)/api/transactions?user_id=\(userId)&tournament_id=\(tournamentId.uuidString)")!
+            print("📊 [TradingService] 載入交易記錄 - 模式: \(isGeneralMode ? "一般" : "錦標賽"), ID: \(tournamentId)")
             let request = createAuthorizedRequest(url: url)
             
             let (data, _) = try await session.data(for: request)
@@ -418,16 +402,13 @@ class TradingService: ObservableObject {
             "user_id": userId,
             "symbol": symbol,
             "action": "buy",
-            "amount": amount
+            "amount": amount,
+            "tournament_id": currentTournamentId.uuidString  // 統一架構：始終傳遞tournament_id
         ]
         
-        // 統一添加錦標賽上下文（一般模式不傳錦標賽參數）
-        if !isGeneralMode {
-            body["tournament_id"] = currentTournamentId.uuidString
-            // 可以從 TournamentStateManager 取得錦標賽名稱
-            if let tournamentName = TournamentStateManager.shared.currentTournamentContext?.tournament.name {
-                body["tournament_name"] = tournamentName
-            }
+        // 添加錦標賽名稱（如果可用）
+        if !isGeneralMode, let tournamentName = TournamentStateManager.shared.currentTournamentContext?.tournament.name {
+            body["tournament_name"] = tournamentName
         }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -494,16 +475,13 @@ class TradingService: ObservableObject {
             "user_id": userId,
             "symbol": symbol,
             "action": "sell",
-            "amount": quantity  // 對於賣出，amount 是股數
+            "amount": quantity,  // 對於賣出，amount 是股數
+            "tournament_id": currentTournamentId.uuidString  // 統一架構：始終傳遞tournament_id
         ]
         
-        // 統一添加錦標賽上下文（一般模式不傳錦標賽參數）
-        if !isGeneralMode {
-            body["tournament_id"] = currentTournamentId.uuidString
-            // 可以從 TournamentStateManager 取得錦標賽名稱
-            if let tournamentName = TournamentStateManager.shared.currentTournamentContext?.tournament.name {
-                body["tournament_name"] = tournamentName
-            }
+        // 添加錦標賽名稱（如果可用）
+        if !isGeneralMode, let tournamentName = TournamentStateManager.shared.currentTournamentContext?.tournament.name {
+            body["tournament_name"] = tournamentName
         }
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

@@ -430,16 +430,29 @@ class TournamentStateManager: ObservableObject {
             .store(in: &cancellables)
     }
     
+    /// 處理錦標賽更新（UTC時間標準化）
     private func handleTournamentUpdates(_ tournaments: [Tournament]) {
         guard let currentContext = currentTournamentContext else { return }
         
         // 檢查當前參與的錦標賽是否有更新
         if let updatedTournament = tournaments.first(where: { $0.id == currentContext.tournament.id }) {
-            // 更新錦標賽資訊
+            // 檢查是否處於狀態轉換點
+            if updatedTournament.isAtTransitionPoint {
+                print("⚡️ [TournamentStateManager] 錦標賽 \(updatedTournament.name) 處於狀態轉換點")
+                
+                if let reminder = updatedTournament.transitionReminder {
+                    print("⏰ [TournamentStateManager] 轉換提醒: \(reminder)")
+                    // 可以在此處發送用戶通知
+                }
+            }
+            
+            // 使用UTC標準化的狀態更新錦標賽資訊
+            let finalTournament = updatedTournament.needsStatusUpdate ? updatedTournament.withUpdatedStatus() : updatedTournament
+            
             let updatedContext = TournamentContext(
-                tournament: updatedTournament,
+                tournament: finalTournament,
                 participant: currentContext.participant,
-                state: determineParticipationState(for: updatedTournament),
+                state: determineParticipationState(for: finalTournament),
                 portfolio: currentContext.portfolio,
                 performance: currentContext.performance,
                 currentRank: currentContext.currentRank,
@@ -448,11 +461,17 @@ class TournamentStateManager: ObservableObject {
             
             currentTournamentContext = updatedContext
             participationState = updatedContext.state
+            
+            print("🔄 [TournamentStateManager] 錦標賽狀態已更新: \(finalTournament.name) -> \(finalTournament.status.displayName)")
         }
     }
     
+    /// 基於UTC時間判斷錦標賽參與狀態
     private func determineParticipationState(for tournament: Tournament) -> TournamentParticipationState {
-        switch tournament.status {
+        // 使用UTC標準化的狀態判斷
+        let computedStatus = tournament.computedStatusUTC
+        
+        switch computedStatus {
         case .upcoming, .enrolling:
             return .joining
         case .ongoing:

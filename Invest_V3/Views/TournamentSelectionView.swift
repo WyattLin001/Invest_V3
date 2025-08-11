@@ -26,11 +26,17 @@ struct TournamentSelectionView: View {
     
     // 服務依賴
     private let tournamentService = TournamentService.shared
+    private let statusMonitor = TournamentStatusMonitor.shared
     
     var body: some View {
         VStack(spacing: 0) {
             // 錦標賽標籤導航
             TournamentTabBarContainer(selectedFilter: $selectedFilter)
+            
+            // 狀態事件通知區域
+            if !statusMonitor.statusEvents.isEmpty {
+                statusEventsSection
+            }
             
             // 主要內容區域
             mainContent
@@ -50,6 +56,21 @@ struct TournamentSelectionView: View {
         } message: {
             Text(errorMessage)
         }
+    }
+    
+    // MARK: - 狀態事件通知區域
+    
+    private var statusEventsSection: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(statusMonitor.statusEvents.suffix(3), id: \.id) { event in
+                    StatusEventCard(event: event)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 8)
+        .background(.blue.opacity(0.05))
     }
     
     // MARK: - 主要內容區域
@@ -270,15 +291,21 @@ struct TournamentSelectionView: View {
         ScrollView {
             LazyVStack(spacing: 16) {
                 ForEach(filteredTournaments) { tournament in
-                    TournamentCardView(
-                        tournament: tournament,
-                        onEnroll: {
-                            handleEnrollTournament(tournament)
-                        },
-                        onViewDetails: {
-                            handleViewTournamentDetails(tournament)
-                        }
-                    )
+                    VStack(spacing: 8) {
+                        // 增強的狀態指示器
+                        TournamentStatusIndicatorView(tournament: tournament)
+                        
+                        // 原有的錦標賽卡片
+                        TournamentCardView(
+                            tournament: tournament,
+                            onEnroll: {
+                                handleEnrollTournament(tournament)
+                            },
+                            onViewDetails: {
+                                handleViewTournamentDetails(tournament)
+                            }
+                        )
+                    }
                 }
             }
             .padding()
@@ -455,6 +482,100 @@ struct TournamentSelectionView: View {
         selectedTournament = tournament
         showingDetail = true
         print("👀 查看錦標賽詳情: \(tournament.name)")
+    }
+}
+
+// MARK: - 狀態事件卡片
+
+private struct StatusEventCard: View {
+    let event: TournamentStatusChangeEvent
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            eventIcon
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(eventTitle)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                
+                Text(eventMessage)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(eventColor.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(eventColor.opacity(0.3), lineWidth: 1)
+                )
+        )
+        .frame(width: 200)
+    }
+    
+    private var eventIcon: some View {
+        Image(systemName: iconName)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(eventColor)
+            .frame(width: 20, height: 20)
+    }
+    
+    private var eventTitle: String {
+        switch event {
+        case .aboutToStart:
+            return "即將開始"
+        case .justStarted:
+            return "已開始"
+        case .aboutToEnd:
+            return "即將結束"
+        case .justEnded:
+            return "已結束"
+        case .statusChanged:
+            return "狀態變更"
+        }
+    }
+    
+    private var eventMessage: String {
+        return event.displayMessage
+    }
+    
+    private var iconName: String {
+        switch event {
+        case .aboutToStart:
+            return "clock"
+        case .justStarted:
+            return "play.circle.fill"
+        case .aboutToEnd:
+            return "timer"
+        case .justEnded:
+            return "flag.checkered"
+        case .statusChanged:
+            return "arrow.triangle.2.circlepath"
+        }
+    }
+    
+    private var eventColor: Color {
+        switch event {
+        case .aboutToStart:
+            return .orange
+        case .justStarted:
+            return .green
+        case .aboutToEnd:
+            return .red
+        case .justEnded:
+            return .gray
+        case .statusChanged:
+            return .blue
+        }
     }
 }
 

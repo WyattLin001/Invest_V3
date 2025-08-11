@@ -60,6 +60,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     // MARK: - Properties
     private let supabaseService = SupabaseService.shared
     private let portfolioManager = TournamentPortfolioManager.shared
+    private let statusMonitor = TournamentStatusMonitor.shared
     
     // Published properties for UI binding
     @Published var tournaments: [Tournament] = []
@@ -76,25 +77,32 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         Task {
             await loadTournaments()
             await startRealtimeUpdates()
+            // 啟動狀態監控
+            await statusMonitor.startMonitoring()
         }
     }
     
     // MARK: - Public API Methods
     
-    /// 獲取所有錦標賽列表
+    /// 獲取所有錦標賽列表（UTC時區標準化）
     func fetchTournaments() async throws -> [Tournament] {
         isLoading = true
         defer { isLoading = false }
         
         do {
-            let tournaments = try await supabaseService.fetchTournaments()
+            let rawTournaments = try await supabaseService.fetchTournaments()
+            
+            // 使用UTC時區標準化的狀態更新機制
+            let tournaments = rawTournaments.map { tournament in
+                tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
+            }
             
             await MainActor.run {
                 self.tournaments = tournaments
                 self.error = nil
             }
             
-            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個錦標賽")
+            print("✅ [TournamentService] 成功獲取並處理 \(tournaments.count) 個錦標賽（UTC標準化）")
             return tournaments
         } catch {
             let apiError = handleError(error)
@@ -106,11 +114,15 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
     }
     
-    /// 獲取特定錦標賽詳情
+    /// 獲取特定錦標賽詳情（UTC時區標準化）
     func fetchTournament(id: UUID) async throws -> Tournament {
         do {
-            let tournament = try await supabaseService.fetchTournament(id: id)
-            print("✅ [TournamentService] 成功獲取錦標賽詳情: \(tournament.name)")
+            let rawTournament = try await supabaseService.fetchTournament(id: id)
+            
+            // 應用UTC時區標準化和狀態更新
+            let tournament = rawTournament.needsStatusUpdate ? rawTournament.withUpdatedStatus() : rawTournament
+            
+            print("✅ [TournamentService] 成功獲取錦標賽詳情: \(tournament.name)（狀態：\(tournament.status.displayName)）")
             return tournament
         } catch {
             let apiError = handleError(error)
@@ -362,17 +374,24 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
     }
     
-    /// 刷新錦標賽數據
+    /// 刷新錦標賽數據（UTC時區標準化）
     func refreshTournamentData(tournamentId: UUID) async throws -> Tournament {
-        return try await fetchTournament(id: tournamentId)
+        let rawTournament = try await fetchTournament(id: tournamentId)
+        return rawTournament.needsStatusUpdate ? rawTournament.withUpdatedStatus() : rawTournament
     }
     
     // MARK: - Private Helper Methods
     
-    /// 載入錦標賽數據
+    /// 載入錦標賽數據（UTC時區標準化）
     func loadTournaments() async {
         do {
-            let tournaments = try await supabaseService.fetchTournaments()
+            let rawTournaments = try await supabaseService.fetchTournaments()
+            
+            // 應用UTC時區標準化和狀態更新
+            let tournaments = rawTournaments.map { tournament in
+                tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
+            }
+            
             await MainActor.run {
                 self.tournaments = tournaments
                 self.error = nil
@@ -384,11 +403,17 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
     }
     
-    /// 獲取精選錦標賽
+    /// 獲取精選錦標賽（UTC時區標準化）
     func fetchFeaturedTournaments() async throws -> [Tournament] {
         do {
-            let tournaments = try await supabaseService.fetchFeaturedTournaments()
-            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個精選錦標賽")
+            let rawTournaments = try await supabaseService.fetchFeaturedTournaments()
+            
+            // 應用UTC時區標準化和狀態更新
+            let tournaments = rawTournaments.map { tournament in
+                tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
+            }
+            
+            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個精選錦標賽（UTC標準化）")
             return tournaments
         } catch {
             let apiError = handleError(error)
@@ -397,11 +422,17 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
     }
     
-    /// 根據類型獲取錦標賽
+    /// 根據類型獲取錦標賽（UTC時區標準化）
     func fetchTournaments(type: TournamentType) async throws -> [Tournament] {
         do {
-            let tournaments = try await supabaseService.fetchTournaments(type: type)
-            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個 \(type.displayName) 錦標賽")
+            let rawTournaments = try await supabaseService.fetchTournaments(type: type)
+            
+            // 應用UTC時區標準化和狀態更新
+            let tournaments = rawTournaments.map { tournament in
+                tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
+            }
+            
+            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個 \(type.displayName) 錦標賽（UTC標準化）")
             return tournaments
         } catch {
             let apiError = handleError(error)
@@ -410,11 +441,17 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
     }
     
-    /// 根據狀態獲取錦標賽
+    /// 根據狀態獲取錦標賽（UTC時區標準化）
     func fetchTournaments(status: TournamentStatus) async throws -> [Tournament] {
         do {
-            let tournaments = try await supabaseService.fetchTournaments(status: status)
-            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個 \(status.displayName) 錦標賽")
+            let rawTournaments = try await supabaseService.fetchTournaments(status: status)
+            
+            // 應用UTC時區標準化和狀態更新
+            let tournaments = rawTournaments.map { tournament in
+                tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
+            }
+            
+            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個 \(status.displayName) 錦標賽（UTC標準化）")
             return tournaments
         } catch {
             let apiError = handleError(error)
@@ -435,11 +472,11 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         return .networkError(error)
     }
     
-    // MARK: - Realtime Updates
+    // MARK: - Realtime Updates with UTC Timezone Handling
     
-    /// 開始即時更新
+    /// 開始即時更新（包含UTC時區處理）
     private func startRealtimeUpdates() async {
-        print("📊 [TournamentService] 開始即時更新")
+        print("📊 [TournamentService] 開始即時更新（UTC時區標準化）")
         
         // 停止現有的計時器
         stopRealtimeUpdates()
@@ -449,6 +486,8 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             self.refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
                 Task {
                     await self?.refreshTournamentData()
+                    // 檢查是否有錦標賽處於狀態轉換點
+                    await self?.checkForStatusTransitions()
                 }
             }
             self.realtimeConnected = true
@@ -465,15 +504,21 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         print("📊 [TournamentService] 即時更新已停止")
     }
     
-    /// 刷新錦標賽數據
+    /// 刷新錦標賽數據（UTC時區標準化）
     private func refreshTournamentData() async {
         do {
-            let tournaments = try await supabaseService.fetchTournaments()
+            let rawTournaments = try await supabaseService.fetchTournaments()
+            
+            // 應用UTC時區標準化和狀態更新
+            let tournaments = rawTournaments.map { tournament in
+                tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
+            }
+            
             await MainActor.run {
                 self.tournaments = tournaments
                 self.error = nil
             }
-            print("📊 [TournamentService] 自動刷新錦標賽數據成功")
+            print("📊 [TournamentService] 自動刷新錦標賽數據成功（UTC標準化）")
         } catch {
             await MainActor.run {
                 self.error = handleError(error)
@@ -485,12 +530,51 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     /// 手動刷新錦標賽數據
     func refreshTournaments() async {
         await refreshTournamentData()
+        await checkForStatusTransitions()
     }
     
     /// 重新連接即時更新
     func reconnectRealtime() async {
         print("📊 [TournamentService] 重新連接即時更新")
         await startRealtimeUpdates()
+    }
+    
+    // MARK: - UTC Timezone Status Management
+    
+    /// 檢查錦標賽狀態轉換點
+    private func checkForStatusTransitions() async {
+        let now = Date().toUTC()
+        let transitionTournaments = tournaments.filter { tournament in
+            tournament.isAtTransitionPoint
+        }
+        
+        if !transitionTournaments.isEmpty {
+            print("⚡️ [TournamentService] 發現 \(transitionTournaments.count) 個錦標賽處於狀態轉換點")
+            
+            for tournament in transitionTournaments {
+                if let reminder = tournament.transitionReminder {
+                    print("⏰ [TournamentService] \(tournament.name): \(reminder)")
+                }
+            }
+        }
+    }
+    
+    /// 獲取需要狀態更新的錦標賽列表
+    func getTournamentsNeedingStatusUpdate() -> [Tournament] {
+        return tournaments.filter { $0.needsStatusUpdate }
+    }
+    
+    /// 強制更新所有錦標賽狀態（基於UTC時間）
+    func forceUpdateAllTournamentStatuses() async {
+        let updatedTournaments = tournaments.map { tournament in
+            tournament.withUpdatedStatus()
+        }
+        
+        await MainActor.run {
+            self.tournaments = updatedTournaments
+        }
+        
+        print("🔄 [TournamentService] 強制更新了 \(updatedTournaments.count) 個錦標賽的狀態")
     }
     
     // MARK: - 錦標賽投資組合整合方法
@@ -550,6 +634,18 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         refreshTimer?.invalidate()
         refreshTimer = nil
         print("📊 [TournamentService] 服務已釋放，即時更新已停止")
+    }
+    
+    // MARK: - Status Monitor Integration
+    
+    /// 獲取狀態監控器
+    func getStatusMonitor() -> TournamentStatusMonitor {
+        return statusMonitor
+    }
+    
+    /// 手動觸發狀態檢查
+    func triggerStatusCheck() async {
+        await statusMonitor.checkStatusChanges()
     }
 }
 

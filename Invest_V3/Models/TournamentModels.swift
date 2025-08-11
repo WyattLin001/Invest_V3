@@ -321,6 +321,172 @@ struct Tournament: Identifiable, Codable, Equatable {
     var participantsPercentage: Double {
         return maxParticipants > 0 ? Double(currentParticipants) / Double(maxParticipants) : 0
     }
+    
+    // MARK: - 狀態自動更新機制
+    
+    /// 根據當前時間自動計算應該的狀態
+    var computedStatus: TournamentStatus {
+        let now = Date()
+        
+        // 如果已經手動設置為取消，保持取消狀態
+        if status == .cancelled {
+            return .cancelled
+        }
+        
+        // 基於時間的狀態判斷
+        if now < startDate {
+            // 當前時間在開始時間之前
+            if status == .enrolling {
+                return .enrolling  // 如果設置為報名中，保持報名中
+            } else {
+                return .upcoming   // 否則為即將開始
+            }
+        } else if now >= startDate && now <= endDate {
+            // 當前時間在錦標賽進行期間
+            return .ongoing
+        } else {
+            // 當前時間在結束時間之後
+            return .finished
+        }
+    }
+    
+    /// 檢查當前狀態是否需要更新
+    var needsStatusUpdate: Bool {
+        return status != computedStatus
+    }
+    
+    /// 獲取狀態更新後的錦標賽實例
+    func withUpdatedStatus() -> Tournament {
+        let newStatus = computedStatus
+        
+        return Tournament(
+            id: id,
+            name: name,
+            type: type,
+            status: newStatus,
+            startDate: startDate,
+            endDate: endDate,
+            description: description,
+            shortDescription: shortDescription,
+            initialBalance: initialBalance,
+            maxParticipants: maxParticipants,
+            currentParticipants: currentParticipants,
+            entryFee: entryFee,
+            prizePool: prizePool,
+            riskLimitPercentage: riskLimitPercentage,
+            minHoldingRate: minHoldingRate,
+            maxSingleStockRate: maxSingleStockRate,
+            rules: rules,
+            createdAt: createdAt,
+            updatedAt: Date(), // 更新時間
+            isFeatured: isFeatured
+        )
+    }
+    
+    // MARK: - 時區標準化處理
+    
+    /// 使用UTC時區的開始日期
+    var startDateUTC: Date {
+        return startDate.toUTC()
+    }
+    
+    /// 使用UTC時區的結束日期
+    var endDateUTC: Date {
+        return endDate.toUTC()
+    }
+    
+    /// 基於UTC時間的狀態計算
+    var computedStatusUTC: TournamentStatus {
+        let nowUTC = Date().toUTC()
+        
+        if status == .cancelled {
+            return .cancelled
+        }
+        
+        if nowUTC < startDateUTC {
+            return status == .enrolling ? .enrolling : .upcoming
+        } else if nowUTC >= startDateUTC && nowUTC <= endDateUTC {
+            return .ongoing
+        } else {
+            return .finished
+        }
+    }
+    
+    // MARK: - 增強的時間計算
+    
+    /// 精確的剩餘時間（秒）
+    var exactTimeRemaining: TimeInterval {
+        let now = Date().toUTC()
+        let targetDate = (computedStatusUTC == .upcoming || computedStatusUTC == .enrolling) ? startDateUTC : endDateUTC
+        return max(0, targetDate.timeIntervalSince(now))
+    }
+    
+    /// 格式化的時間顯示（包含秒）
+    var preciseTimeRemaining: String {
+        let timeInterval = exactTimeRemaining
+        
+        if timeInterval <= 0 {
+            return "已結束"
+        }
+        
+        let days = Int(timeInterval) / 86400
+        let hours = Int(timeInterval.truncatingRemainder(dividingBy: 86400)) / 3600
+        let minutes = Int(timeInterval.truncatingRemainder(dividingBy: 3600)) / 60
+        let seconds = Int(timeInterval.truncatingRemainder(dividingBy: 60))
+        
+        if days > 0 {
+            return "\(days)天\(hours)小時\(minutes)分鐘"
+        } else if hours > 0 {
+            return "\(hours)小時\(minutes)分鐘\(seconds)秒"
+        } else if minutes > 0 {
+            return "\(minutes)分鐘\(seconds)秒"
+        } else {
+            return "\(seconds)秒"
+        }
+    }
+    
+    // MARK: - 邊界條件處理
+    
+    /// 是否在狀態轉換的關鍵時刻（前後30秒）
+    var isAtTransitionPoint: Bool {
+        let now = Date().toUTC()
+        let buffer: TimeInterval = 30 // 30秒緩衝
+        
+        // 檢查是否接近開始時間
+        let timesToStart = startDateUTC.timeIntervalSince(now)
+        if timesToStart > -buffer && timesToStart < buffer {
+            return true
+        }
+        
+        // 檢查是否接近結束時間
+        let timeToEnd = endDateUTC.timeIntervalSince(now)
+        if timeToEnd > -buffer && timeToEnd < buffer {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// 獲取狀態轉換的提醒信息
+    var transitionReminder: String? {
+        let now = Date().toUTC()
+        let timesToStart = startDateUTC.timeIntervalSince(now)
+        let timeToEnd = endDateUTC.timeIntervalSince(now)
+        
+        // 即將開始的提醒
+        if timesToStart > 0 && timesToStart <= 300 { // 5分鐘內
+            let minutes = Int(timesToStart / 60)
+            return "錦標賽將在\(minutes)分鐘後開始"
+        }
+        
+        // 即將結束的提醒
+        if timeToEnd > 0 && timeToEnd <= 300 { // 5分鐘內
+            let minutes = Int(timeToEnd / 60)
+            return "錦標賽將在\(minutes)分鐘後結束"
+        }
+        
+        return nil
+    }
 }
 
 // MARK: - 錦標賽參賽者
