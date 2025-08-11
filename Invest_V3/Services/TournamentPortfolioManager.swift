@@ -290,13 +290,40 @@ class TournamentPortfolioManager: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var error: String?
     
-    // MARK: - Dependencies
+    // MARK: - V2.0 Dependencies - 使用新的專門化服務架構
     private let supabaseService = SupabaseService.shared
+    private let tradeService = TournamentTradeService.shared
+    private let walletService = TournamentWalletService.shared
+    private let positionService = TournamentPositionService.shared
+    private let rankingService = TournamentRankingService.shared
+    private let tournamentService = TournamentService.shared
     private let feeCalculator = FeeCalculator.shared
     private var cancellables = Set<AnyCancellable>()
     
     private init() {
         loadTournamentPortfolios()
+        setupServiceMonitoring()
+    }
+    
+    /// 設置服務監聽 - 監聽新服務的狀態變化
+    private func setupServiceMonitoring() {
+        // 監聽錢包服務更新
+        walletService.$wallets
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    await self?.refreshPortfoliosFromServices()
+                }
+            }
+            .store(in: &cancellables)
+        
+        // 監聽排名服務更新
+        rankingService.$leaderboards
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    await self?.updateRankingsFromService()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Public Methods
@@ -306,9 +333,9 @@ class TournamentPortfolioManager: ObservableObject {
         return tournamentPortfolios[tournamentId]
     }
     
-    /// 初始化錦標賽投資組合
+    /// 初始化錦標賽投資組合（V2.0 架構）
     func initializePortfolio(for tournament: Tournament, userId: UUID, userName: String) async -> Bool {
-        print("🏆 [TournamentPortfolioManager] 初始化錦標賽投資組合: \(tournament.name)")
+        print("🏆 [TournamentPortfolioManager] V2.0 初始化錦標賽投資組合: \(tournament.name)")
         
         // 檢查是否已存在
         if tournamentPortfolios[tournament.id] != nil {
@@ -328,30 +355,46 @@ class TournamentPortfolioManager: ObservableObject {
             return false
         }
         
+        // 使用 TournamentWalletService 創建錢包
+        let walletResult = await walletService.createWallet(
+            tournamentId: tournament.id,
+            userId: userId,
+            initialBalance: tournament.entryCapital // 使用新的 entryCapital 屬性
+        )
+        
+        guard case .success(let wallet) = walletResult else {
+            if case .failure(let error) = walletResult {
+                print("❌ 創建锦標賽錢包失敗: \(error)")
+                self.error = error.localizedDescription
+            }
+            return false
+        }
+        
+        // 創建本地投資組合記錄（為了維持向後相容）
         var newPortfolio = TournamentPortfolio(
-            id: UUID(),
+            id: wallet.id,
             tournamentId: tournament.id,
             userId: userId,
             userName: userName,
             holdings: [],
-            initialBalance: tournament.initialBalance,
-            currentBalance: tournament.initialBalance,
+            initialBalance: wallet.initialBalance,
+            currentBalance: wallet.cashBalance,
             totalInvested: 0,
             tradingRecords: [],
             performanceMetrics: TournamentPerformanceMetrics(
-                totalReturn: 0,
-                totalReturnPercentage: 0,
+                totalReturn: wallet.totalReturn,
+                totalReturnPercentage: wallet.returnPercentage,
                 dailyReturn: 0,
-                maxDrawdown: 0,
-                maxDrawdownPercentage: 0,
+                maxDrawdown: wallet.maxDrawdown,
+                maxDrawdownPercentage: wallet.maxDrawdown,
                 sharpeRatio: nil,
-                winRate: 0,
-                totalTrades: 0,
-                profitableTrades: 0,
+                winRate: wallet.winRate,
+                totalTrades: wallet.totalTrades,
+                profitableTrades: wallet.winningTrades,
                 averageHoldingDays: 0,
                 riskScore: 0,
                 diversificationScore: 0,
-                currentRank: 999999, // 初始排名設為最後
+                currentRank: 999999,
                 previousRank: 999999,
                 percentile: 100.0,
                 lastUpdated: Date()
@@ -361,15 +404,12 @@ class TournamentPortfolioManager: ObservableObject {
         
         // 初始化歷史數據
         let today = Calendar.current.startOfDay(for: Date())
-        newPortfolio.dailyValueHistory = [DateValue(date: today, value: tournament.initialBalance)]
+        newPortfolio.dailyValueHistory = [DateValue(date: today, value: wallet.totalAssets)]
         
         tournamentPortfolios[tournament.id] = newPortfolio
         saveTournamentPortfolios()
         
-        // 同步到後端
-        await syncPortfolioToBackend(portfolio: newPortfolio)
-        
-        print("✅ 錦標賽投資組合初始化成功 - 初始資金: \(tournament.initialBalance)")
+        print("✅ V2.0 錦標賽投資組合初始化成功 - 初始資金: \(wallet.initialBalance)")
         return true
     }
     
@@ -395,9 +435,10 @@ class TournamentPortfolioManager: ObservableObject {
         print("🗑️ [TournamentPortfolioManager] 已刪除錦標賽投資組合: \(tournamentId)")
     }
     
-    /// 執行錦標賽交易（包含完整驗證和風險控制）
+    /// 執行錦標賽交易（使用 V2.0 架構）
     func executeTrade(
         tournamentId: UUID,
+        userId: UUID? = nil, // 添加 userId 參數
         symbol: String,
         stockName: String,
         action: TradingType,
@@ -405,452 +446,291 @@ class TournamentPortfolioManager: ObservableObject {
         price: Double
     ) async -> Bool {
         
-        print("🔄 [TournamentPortfolioManager] 執行錦標賽交易: \(action), \(symbol), 股數: \(shares)")
+        print("🔄 [TournamentPortfolioManager] V2.0 執行錦標賽交易: \(action), \(symbol), 股數: \(shares)")
         
         // 步驟1：基本驗證
-        guard var portfolio = tournamentPortfolios[tournamentId] else {
+        guard let portfolio = tournamentPortfolios[tournamentId] else {
             print("❌ 找不到錦標賽投資組合")
             return false
         }
         
-        // 步驟2：交易參數驗證
-        guard shares > 0 && price > 0 else {
-            print("❌ 無效的交易參數：股數(\(shares)) 或價格(\(price))")
+        let actualUserId = userId ?? portfolio.userId
+        
+        // 步驟2：轉換為新的交易類型
+        let tradeSide: TournamentTrade.TradeSide = action == .buy ? .buy : .sell
+        
+        // 步驟3：使用 TournamentTradeService 執行交易
+        isLoading = true
+        defer { isLoading = false }
+        
+        let result = await tradeService.executeTrade(
+            tournamentId: tournamentId,
+            userId: actualUserId,
+            symbol: symbol,
+            side: tradeSide,
+            qty: shares,
+            price: price
+        )
+        
+        switch result {
+        case .success(let trade):
+            print("✅ [TournamentPortfolioManager] 交易執行成功: \(trade.id)")
+            
+            // 步驟4：更新本地投資組合快取
+            await refreshPortfolioFromServices(tournamentId: tournamentId)
+            
+            // 步驟5：觸發排名更新（異步進行，不阻塞返回）
+            Task {
+                await updateRankingFromService(tournamentId: tournamentId)
+            }
+            
+            return true
+            
+        case .failure(let error):
+            print("❌ [TournamentPortfolioManager] 交易失敗: \(error.localizedDescription)")
+            self.error = error.localizedDescription
             return false
         }
-        
-        // 步驟3：獲取錦標賽規則並驗證
-        guard let tournament = await getTournament(for: tournamentId) else {
-            print("❌ 無法獲取錦標賽資訊")
-            return false
-        }
-        
-        // 步驟4：錦標賽狀態驗證
-        guard tournament.status == .ongoing else {
-            print("❌ 錦標賽不在進行中，無法執行交易")
-            return false
-        }
-        
-        // 步驟5：風險控制驗證
-        if !(await validateTradeRiskLimits(portfolio: portfolio, tournament: tournament, symbol: symbol, action: action, shares: shares, price: price)) {
-            return false
-        }
-        
-        let totalAmount = shares * price
-        let fees = feeCalculator.calculateTradingFees(amount: totalAmount, action: action.toTradeAction())
-        
-        // 步驟6：執行交易
-        let success: Bool
-        if action == .buy {
-            success = await executeBuyTrade(&portfolio, symbol: symbol, stockName: stockName, shares: shares, price: price, fees: fees)
-        } else {
-            success = await executeSellTrade(&portfolio, symbol: symbol, stockName: stockName, shares: shares, price: price, fees: fees)
-        }
-        
-        // 步驟7：如果交易成功，更新排名
-        if success {
-            await updatePortfolioRanking(for: tournamentId)
-        }
-        
-        return success
     }
     
-    /// 驗證交易風險限制
-    private func validateTradeRiskLimits(
-        portfolio: TournamentPortfolio,
-        tournament: Tournament,
-        symbol: String,
-        action: TradingType,
-        shares: Double,
-        price: Double
-    ) async -> Bool {
+    /// 使用新服務刷新特定投資組合
+    private func refreshPortfolioFromServices(tournamentId: UUID) async {
+        guard let portfolio = tournamentPortfolios[tournamentId] else { return }
         
-        let totalAmount = shares * price
-        
-        if action == .buy {
-            // 買入交易的風險控制
-            let fees = feeCalculator.calculateTradingFees(amount: totalAmount, action: .buy)
-            let totalCost = totalAmount + fees.totalFees
-            
-            // 檢查資金是否足夠
-            guard portfolio.currentBalance >= totalCost else {
-                print("❌ 資金不足 - 需要: \(totalCost), 可用: \(portfolio.currentBalance)")
-                return false
-            }
-            
-            // 檢查單一股票配置限制
-            let currentHolding = portfolio.holdings.first { $0.symbol == symbol }
-            let currentValue = currentHolding?.totalValue ?? 0
-            let newTotalValue = currentValue + totalAmount
-            let portfolioValue = portfolio.totalPortfolioValue
-            let allocationPercentage = (newTotalValue / portfolioValue) * 100
-            
-            if allocationPercentage > tournament.maxSingleStockRate {
-                print("❌ 超過單一股票配置限制: \(allocationPercentage)% > \(tournament.maxSingleStockRate)%")
-                return false
-            }
-            
-            // 檢查最低持股率要求（如果投資後現金比例過高）
-            let newCashBalance = portfolio.currentBalance - totalCost
-            let newCashPercentage = (newCashBalance / portfolioValue) * 100
-            let newStockPercentage = 100 - newCashPercentage
-            
-            if newStockPercentage < tournament.minHoldingRate {
-                print("❌ 未達最低持股率要求: \(newStockPercentage)% < \(tournament.minHoldingRate)%")
-                return false
-            }
-            
-        } else {
-            // 賣出交易的驗證
-            guard let holding = portfolio.holdings.first(where: { $0.symbol == symbol }) else {
-                print("❌ 沒有持有該股票: \(symbol)")
-                return false
-            }
-            
-            guard holding.shares >= shares else {
-                print("❌ 持股不足 - 要賣: \(shares), 持有: \(holding.shares)")
-                return false
-            }
-        }
-        
-        return true
-    }
-    
-    /// 獲取錦標賽資訊（從 TournamentService）
-    private func getTournament(for tournamentId: UUID) async -> Tournament? {
         do {
-            return try await TournamentService.shared.fetchTournament(id: tournamentId)
+            // 從 WalletService 獲取最新錢包狀態
+            let wallet = try await walletService.getWallet(
+                tournamentId: tournamentId,
+                userId: portfolio.userId
+            )
+            
+            // 從 PositionService 獲取最新持倉
+            let positionsResult = await positionService.getUserPositions(
+                tournamentId: tournamentId,
+                userId: portfolio.userId
+            )
+            
+            let positions = try positionsResult.get()
+            
+            // 更新本地投資組合數據
+            var updatedPortfolio = portfolio
+            updatedPortfolio.currentBalance = wallet.cashBalance
+            
+            // 將 TournamentPosition 轉換為 TournamentHolding
+            updatedPortfolio.holdings = positions.map { position in
+                TournamentHolding(
+                    id: UUID(),
+                    tournamentId: position.tournamentId,
+                    userId: position.userId,
+                    symbol: position.symbol,
+                    name: position.symbol, // 需要股票名稱，暫時使用代碼
+                    shares: position.qty,
+                    averagePrice: position.avgCost,
+                    currentPrice: position.currentPrice,
+                    firstPurchaseDate: position.firstBuyAt ?? Date(),
+                    lastUpdated: position.lastUpdated
+                )
+            }
+            
+            updatedPortfolio.lastUpdated = Date()
+            
+            // 更新績效指標
+            updatedPortfolio.performanceMetrics.totalReturn = wallet.totalReturn
+            updatedPortfolio.performanceMetrics.totalReturnPercentage = wallet.returnPercentage
+            
+            tournamentPortfolios[tournamentId] = updatedPortfolio
+            saveTournamentPortfolios()
+            
+            print("✅ [TournamentPortfolioManager] 投資組合已從服務更新")
         } catch {
-            print("❌ 獲取錦標賽資訊失敗: \(error)")
-            return nil
+            print("❌ [TournamentPortfolioManager] 刷新投資組合失敗: \(error)")
         }
     }
     
-    /// 更新投資組合排名
-    private func updatePortfolioRanking(for tournamentId: UUID) async {
-        // 更新績效指標
-        await updatePerformanceMetrics(for: tournamentId)
+    /// 使用新服務更新排名
+    private func updateRankingFromService(tournamentId: UUID) async {
+        let result = await rankingService.getUserRank(
+            tournamentId: tournamentId,
+            userId: tournamentPortfolios[tournamentId]?.userId ?? UUID()
+        )
         
-        // 從TournamentService獲取最新排名
-        let rankings = await getTournamentRanking(for: tournamentId)
-        
-        if var portfolio = tournamentPortfolios[tournamentId] {
-            if let userRanking = rankings.first(where: { $0.userId == portfolio.userId }) {
+        switch result {
+        case .success(let rankInfo):
+            if var portfolio = tournamentPortfolios[tournamentId] {
                 portfolio.performanceMetrics.previousRank = portfolio.performanceMetrics.currentRank
-                portfolio.performanceMetrics.currentRank = userRanking.currentRank
-                portfolio.performanceMetrics.percentile = Double(userRanking.currentRank) / Double(max(rankings.count, 1)) * 100
+                portfolio.performanceMetrics.currentRank = rankInfo.currentRank
+                portfolio.performanceMetrics.percentile = rankInfo.percentile
                 
                 tournamentPortfolios[tournamentId] = portfolio
                 saveTournamentPortfolios()
                 
-                print("📊 [TournamentPortfolioManager] 排名更新: \(portfolio.performanceMetrics.currentRank)")
+                print("📊 [TournamentPortfolioManager] 排名已更新: \(rankInfo.currentRank)")
             }
+        case .failure(let error):
+            print("❌ [TournamentPortfolioManager] 獲取排名失敗: \(error)")
         }
     }
     
-    /// 更新投資組合績效
-    func updatePerformanceMetrics(for tournamentId: UUID) async {
-        guard var portfolio = tournamentPortfolios[tournamentId] else { return }
-        
-        print("📊 [TournamentPortfolioManager] 更新績效指標: \(tournamentId)")
-        
-        // 計算績效指標
-        let totalReturn = portfolio.totalReturn
-        let totalReturnPercentage = portfolio.totalReturnPercentage
-        
-        // 計算其他指標
-        let tradingStats = calculateTradingStatistics(portfolio: portfolio)
-        let riskMetrics = calculateRiskMetrics(portfolio: portfolio)
-        
-        portfolio.performanceMetrics = TournamentPerformanceMetrics(
-            totalReturn: totalReturn,
-            totalReturnPercentage: totalReturnPercentage,
-            dailyReturn: calculateDailyReturn(portfolio: portfolio),
-            maxDrawdown: riskMetrics.maxDrawdown,
-            maxDrawdownPercentage: riskMetrics.maxDrawdownPercentage,
-            sharpeRatio: riskMetrics.sharpeRatio,
-            winRate: tradingStats.winRate,
-            totalTrades: tradingStats.totalTrades,
-            profitableTrades: tradingStats.profitableTrades,
-            averageHoldingDays: tradingStats.averageHoldingDays,
-            riskScore: riskMetrics.riskScore,
-            diversificationScore: calculateDiversificationScore(portfolio: portfolio),
-            currentRank: portfolio.performanceMetrics.currentRank,
-            previousRank: portfolio.performanceMetrics.previousRank,
-            percentile: portfolio.performanceMetrics.percentile,
-            lastUpdated: Date()
-        )
-        
-        portfolio.lastUpdated = Date()
-        tournamentPortfolios[tournamentId] = portfolio
-        saveTournamentPortfolios()
-        
-        // 同步到後端
-        await syncPortfolioToBackend(portfolio: portfolio)
+    /// 刷新所有投資組合（從新服務）
+    private func refreshPortfoliosFromServices() async {
+        for tournamentId in tournamentPortfolios.keys {
+            await refreshPortfolioFromServices(tournamentId: tournamentId)
+        }
     }
     
-    /// 獲取錦標賽排名資訊
-    func getTournamentRanking(for tournamentId: UUID) async -> [TournamentParticipant] {
-        // 這裡會從後端獲取排名資訊
+    /// 更新所有排名（從新服務）
+    private func updateRankingsFromService() async {
+        for tournamentId in tournamentPortfolios.keys {
+            await updateRankingFromService(tournamentId: tournamentId)
+        }
+    }
+    
+    /// 更新投資組合績效（使用 V2.0 服務）
+    func updatePerformanceMetrics(for tournamentId: UUID) async {
+        guard let portfolio = tournamentPortfolios[tournamentId] else { return }
+        
+        print("📊 [TournamentPortfolioManager] V2.0 更新績效指標: \(tournamentId)")
+        
+        // 使用 WalletService 獲取最新數據
         do {
-            let rankings = try await supabaseService.fetchTournamentRankings(tournamentId: tournamentId)
-            return rankings
+            let wallet = try await walletService.getWallet(
+                tournamentId: tournamentId,
+                userId: portfolio.userId
+            )
+            
+            // 更新本地投資組合的績效指標
+            var updatedPortfolio = portfolio
+            updatedPortfolio.performanceMetrics.totalReturn = wallet.totalReturn
+            updatedPortfolio.performanceMetrics.totalReturnPercentage = wallet.returnPercentage
+            updatedPortfolio.performanceMetrics.winRate = wallet.winRate
+            updatedPortfolio.performanceMetrics.totalTrades = wallet.totalTrades
+            updatedPortfolio.performanceMetrics.profitableTrades = wallet.winningTrades
+            updatedPortfolio.performanceMetrics.maxDrawdownPercentage = wallet.maxDrawdown
+            updatedPortfolio.performanceMetrics.lastUpdated = Date()
+            
+            updatedPortfolio.lastUpdated = Date()
+            tournamentPortfolios[tournamentId] = updatedPortfolio
+            saveTournamentPortfolios()
+            
+            print("✅ [TournamentPortfolioManager] 績效指標已更新")
         } catch {
-            print("❌ 獲取錦標賽排名失敗: \(error)")
+            print("❌ [TournamentPortfolioManager] 更新績效指標失敗: \(error)")
+        }
+    }
+    
+    /// 獲取錦標賽排名資訊（V2.0）
+    func getTournamentRanking(for tournamentId: UUID) async -> [TournamentLeaderboardEntry] {
+        let result = await rankingService.getLeaderboard(tournamentId: tournamentId)
+        
+        switch result {
+        case .success(let leaderboard):
+            return leaderboard
+        case .failure(let error):
+            print("❌ [TournamentPortfolioManager] 獲取排名失敗: \(error)")
             return []
         }
     }
     
-    /// 獲取用戶在錦標賽中的排名
+    /// 獲取用戶在錦標賽中的排名（V2.0）
     func getUserRanking(for tournamentId: UUID, userId: UUID) async -> Int? {
-        let rankings = await getTournamentRanking(for: tournamentId)
-        return rankings.firstIndex { $0.userId == userId }.map { $0 + 1 }
+        let result = await rankingService.getUserRank(
+            tournamentId: tournamentId,
+            userId: userId
+        )
+        
+        switch result {
+        case .success(let rankInfo):
+            return rankInfo.currentRank
+        case .failure(let error):
+            print("❌ [TournamentPortfolioManager] 獲取用戶排名失敗: \(error)")
+            return nil
+        }
     }
     
     // MARK: - Private Methods
     
-    private func executeBuyTrade(
-        _ portfolio: inout TournamentPortfolio,
-        symbol: String,
-        stockName: String,
-        shares: Double,
-        price: Double,
-        fees: TradingFees
-    ) async -> Bool {
+    /// 使用新服務計算投資組合統計資訊
+    func getPortfolioStatistics(for tournamentId: UUID) async -> PortfolioStatistics? {
+        guard let portfolio = tournamentPortfolios[tournamentId] else { return nil }
         
-        let totalCost = shares * price + fees.totalFees
-        
-        // 檢查資金是否足夠
-        guard portfolio.currentBalance >= totalCost else {
-            print("❌ 資金不足，需要: \(totalCost), 可用: \(portfolio.currentBalance)")
-            return false
-        }
-        
-        // 執行買入
-        if let existingIndex = portfolio.holdings.firstIndex(where: { $0.symbol == symbol }) {
-            // 更新現有持股
-            var holding = portfolio.holdings[existingIndex]
-            let newTotalShares = holding.shares + shares
-            let newAveragePrice = ((holding.shares * holding.averagePrice) + (shares * price)) / newTotalShares
-            
-            holding.shares = newTotalShares
-            holding.averagePrice = newAveragePrice
-            holding.currentPrice = price
-            holding.lastUpdated = Date()
-            
-            portfolio.holdings[existingIndex] = holding
-        } else {
-            // 新增持股
-            let newHolding = TournamentHolding(
-                id: UUID(),
-                tournamentId: portfolio.tournamentId,
-                userId: portfolio.userId,
-                symbol: symbol,
-                name: stockName,
-                shares: shares,
-                averagePrice: price,
-                currentPrice: price,
-                firstPurchaseDate: Date(),
-                lastUpdated: Date()
+        do {
+            let positionsResult = await positionService.getUserPositions(
+                tournamentId: tournamentId,
+                userId: portfolio.userId
             )
-            portfolio.holdings.append(newHolding)
+            
+            let positions = try positionsResult.get()
+            return positionService.calculatePortfolioStatistics(positions: positions)
+        } catch {
+            print("❌ [TournamentPortfolioManager] 獲取統計資訊失敗: \(error)")
+            return nil
         }
+    }
+    
+    /// 使用新服務獲取錢包分析
+    func getWalletAnalysis(for tournamentId: UUID) async -> WalletAnalysis? {
+        guard let portfolio = tournamentPortfolios[tournamentId] else { return nil }
         
-        // 更新資金和記錄
-        portfolio.currentBalance -= totalCost
-        portfolio.totalInvested += shares * price
+        do {
+            let wallet = try await walletService.getWallet(
+                tournamentId: tournamentId,
+                userId: portfolio.userId
+            )
+            return walletService.analyzeWallet(wallet: wallet)
+        } catch {
+            print("❌ [TournamentPortfolioManager] 獲取錢包分析失敗: \(error)")
+            return nil
+        }
+    }
+    
+    // MARK: - V2.0 Wallet History Management
+    
+    /// 使用新服務獲取錢包歷史
+    func getWalletHistory(for tournamentId: UUID, days: Int = 30) async -> [WalletHistoryEntry] {
+        guard let portfolio = tournamentPortfolios[tournamentId] else { return [] }
         
-        // 創建交易記錄
-        let tradingRecord = TournamentTradingRecord(
-            id: UUID(),
-            tournamentId: portfolio.tournamentId,
+        let result = await walletService.getWalletHistory(
+            tournamentId: tournamentId,
             userId: portfolio.userId,
-            symbol: symbol,
-            stockName: stockName,
-            type: .buy,
-            shares: shares,
-            price: price,
-            totalAmount: shares * price,
-            fee: fees.totalFees,
-            netAmount: totalCost,
-            timestamp: Date(),
-            realizedGainLoss: nil,
-            realizedGainLossPercent: nil,
-            notes: nil
+            days: days
         )
         
-        portfolio.tradingRecords.append(tradingRecord)
-        portfolio.lastUpdated = Date()
-        
-        // 更新歷史數據
-        await updateDailyValueHistory(for: &portfolio)
-        
-        // 同步到 Supabase 數據庫
-        let syncSuccess = await syncTradeToSupabase(tradingRecord: tradingRecord, portfolio: portfolio)
-        if !syncSuccess {
-            print("⚠️ Supabase 同步失敗，但本地交易已完成")
+        switch result {
+        case .success(let history):
+            return history
+        case .failure(let error):
+            print("❌ [TournamentPortfolioManager] 獲取錢包歷史失敗: \(error)")
+            return []
         }
-        
-        // 更新投資組合
-        tournamentPortfolios[portfolio.tournamentId] = portfolio
-        saveTournamentPortfolios()
-        
-        // 更新績效
-        await updatePerformanceMetrics(for: portfolio.tournamentId)
-        
-        print("✅ 買入交易執行成功: \(symbol), \(shares) 股")
-        return true
     }
     
-    private func executeSellTrade(
-        _ portfolio: inout TournamentPortfolio,
-        symbol: String,
-        stockName: String,
-        shares: Double,
-        price: Double,
-        fees: TradingFees
-    ) async -> Bool {
+    // MARK: - V2.0 Analytics Methods - 使用新服務的進階分析
+    
+    /// 獲取錦標賽統計資訊
+    func getTournamentStatistics(for tournamentId: UUID) async -> TournamentStats? {
+        let result = await rankingService.calculateAdvancedStats(tournamentId: tournamentId)
         
-        // 找到對應持股
-        guard let holdingIndex = portfolio.holdings.firstIndex(where: { $0.symbol == symbol }) else {
-            print("❌ 找不到持股: \(symbol)")
+        switch result {
+        case .success(let stats):
+            return stats
+        case .failure(let error):
+            print("❌ [TournamentPortfolioManager] 獲取錦標賽統計失敗: \(error)")
+            return nil
+        }
+    }
+    
+    /// 生成每日快照（使用排名服務）
+    func generateDailySnapshot(for tournamentId: UUID) async -> Bool {
+        let result = await rankingService.generateDailySnapshot(tournamentId: tournamentId)
+        
+        switch result {
+        case .success(let count):
+            print("✅ [TournamentPortfolioManager] 每日快照已生成: \(count) 個")
+            return true
+        case .failure(let error):
+            print("❌ [TournamentPortfolioManager] 生成快照失敗: \(error)")
             return false
         }
-        
-        var holding = portfolio.holdings[holdingIndex]
-        
-        // 檢查持股數量
-        guard holding.shares >= shares else {
-            print("❌ 持股不足，要賣出: \(shares), 持有: \(holding.shares)")
-            return false
-        }
-        
-        // 計算收益
-        let saleAmount = shares * price
-        let costBasis = shares * holding.averagePrice
-        let realizedGainLoss = saleAmount - costBasis
-        let realizedGainLossPercent = (realizedGainLoss / costBasis) * 100
-        let netAmount = saleAmount - fees.totalFees
-        
-        // 更新持股
-        if holding.shares == shares {
-            // 全部賣出
-            portfolio.holdings.remove(at: holdingIndex)
-        } else {
-            // 部分賣出
-            holding.shares -= shares
-            holding.currentPrice = price
-            holding.lastUpdated = Date()
-            portfolio.holdings[holdingIndex] = holding
-        }
-        
-        // 更新資金
-        portfolio.currentBalance += netAmount
-        portfolio.totalInvested -= costBasis
-        
-        // 創建交易記錄
-        let tradingRecord = TournamentTradingRecord(
-            id: UUID(),
-            tournamentId: portfolio.tournamentId,
-            userId: portfolio.userId,
-            symbol: symbol,
-            stockName: stockName,
-            type: .sell,
-            shares: shares,
-            price: price,
-            totalAmount: saleAmount,
-            fee: fees.totalFees,
-            netAmount: netAmount,
-            timestamp: Date(),
-            realizedGainLoss: realizedGainLoss,
-            realizedGainLossPercent: realizedGainLossPercent,
-            notes: nil
-        )
-        
-        portfolio.tradingRecords.append(tradingRecord)
-        portfolio.lastUpdated = Date()
-        
-        // 更新歷史數據
-        await updateDailyValueHistory(for: &portfolio)
-        
-        // 同步到 Supabase 數據庫
-        let syncSuccess = await syncTradeToSupabase(tradingRecord: tradingRecord, portfolio: portfolio)
-        if !syncSuccess {
-            print("⚠️ Supabase 同步失敗，但本地交易已完成")
-        }
-        
-        // 更新投資組合
-        tournamentPortfolios[portfolio.tournamentId] = portfolio
-        saveTournamentPortfolios()
-        
-        // 更新績效
-        await updatePerformanceMetrics(for: portfolio.tournamentId)
-        
-        print("✅ 賣出交易執行成功: \(symbol), \(shares) 股，實現損益: \(realizedGainLoss)")
-        return true
-    }
-    
-    // MARK: - History Management
-    
-    /// 更新每日價值歷史記錄
-    private func updateDailyValueHistory(for portfolio: inout TournamentPortfolio) async {
-        let today = Calendar.current.startOfDay(for: Date())
-        let currentValue = portfolio.totalPortfolioValue
-        
-        // 檢查今天是否已有記錄
-        if let existingIndex = portfolio.dailyValueHistory.firstIndex(where: { 
-            Calendar.current.isDate($0.date, inSameDayAs: today) 
-        }) {
-            // 更新今天的記錄
-            portfolio.dailyValueHistory[existingIndex] = DateValue(date: today, value: currentValue)
-        } else {
-            // 添加新的記錄
-            portfolio.dailyValueHistory.append(DateValue(date: today, value: currentValue))
-        }
-        
-        // 保留最近90天的數據（避免數據過多）
-        let ninetyDaysAgo = Calendar.current.date(byAdding: .day, value: -90, to: Date()) ?? Date()
-        portfolio.dailyValueHistory = portfolio.dailyValueHistory.filter { $0.date >= ninetyDaysAgo }
-        
-        // 按日期排序
-        portfolio.dailyValueHistory.sort { $0.date < $1.date }
-        
-        print("📊 [TournamentPortfolioManager] 更新歷史數據: \(currentValue)")
-    }
-    
-    // MARK: - Analytics Methods
-    
-    private func calculateTradingStatistics(portfolio: TournamentPortfolio) -> (winRate: Double, totalTrades: Int, profitableTrades: Int, averageHoldingDays: Double) {
-        let sellTrades = portfolio.tradingRecords.filter { $0.type == .sell }
-        let totalTrades = portfolio.tradingRecords.count
-        let profitableTrades = sellTrades.filter { ($0.realizedGainLoss ?? 0) > 0 }.count
-        let winRate = sellTrades.isEmpty ? 0 : Double(profitableTrades) / Double(sellTrades.count)
-        
-        // 計算平均持股天數（簡化版本）
-        let averageHoldingDays: Double = 7.0 // 暫時使用固定值，後續可以根據實際持股時間計算
-        
-        return (winRate: winRate, totalTrades: totalTrades, profitableTrades: profitableTrades, averageHoldingDays: averageHoldingDays)
-    }
-    
-    private func calculateRiskMetrics(portfolio: TournamentPortfolio) -> (maxDrawdown: Double, maxDrawdownPercentage: Double, sharpeRatio: Double?, riskScore: Double) {
-        // 簡化的風險指標計算
-        let maxDrawdown = portfolio.initialBalance * 0.05 // 假設最大回撤
-        let maxDrawdownPercentage = 5.0
-        let sharpeRatio: Double? = portfolio.totalReturnPercentage > 0 ? 1.2 : nil
-        let riskScore = min(100, max(0, 100 - abs(portfolio.totalReturnPercentage)))
-        
-        return (maxDrawdown: maxDrawdown, maxDrawdownPercentage: maxDrawdownPercentage, sharpeRatio: sharpeRatio, riskScore: riskScore)
-    }
-    
-    private func calculateDailyReturn(portfolio: TournamentPortfolio) -> Double {
-        // 簡化的日收益率計算
-        return portfolio.totalReturnPercentage / 30.0 // 假設30天
-    }
-    
-    private func calculateDiversificationScore(portfolio: TournamentPortfolio) -> Double {
-        let holdingsCount = portfolio.holdings.count
-        let maxDiversification = 10.0
-        return min(100, (Double(holdingsCount) / maxDiversification) * 100)
     }
     
     // MARK: - Data Persistence
@@ -875,137 +755,66 @@ class TournamentPortfolioManager: ObservableObject {
         }
     }
     
-    private func syncPortfolioToBackend(portfolio: TournamentPortfolio) async {
-        // 同步到 Supabase 後端
+    // MARK: - V2.0 Simplified Backend Sync - 使用新服務架構自動同步
+    
+    /// 強制刷新所有服務的排名計算
+    func forceRefreshAllRankings() async {
+        await rankingService.recalculateAllActiveRankings()
+        await updateRankingsFromService()
+        print("✅ [TournamentPortfolioManager] 所有排名已強制更新")
+    }
+    
+    /// 獲取錦標賽成員（V2.0）
+    func getTournamentMembers(for tournamentId: UUID) async -> [TournamentMember] {
         do {
-            // 將錦標賽投資組合同步到 tournament_participants 表
-            try await syncToTournamentParticipants(portfolio: portfolio)
-            
-            // 同步持股到 tournament_holdings 表
-            try await syncToTournamentHoldings(portfolio: portfolio)
-            
-            // 同步交易記錄到 tournament_trades 表
-            try await syncToTournamentTrades(portfolio: portfolio)
-            
-            print("✅ 錦標賽投資組合同步成功")
+            return try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
         } catch {
-            print("❌ 錦標賽投資組合同步失敗: \(error)")
+            print("❌ [TournamentPortfolioManager] 獲取錦標賽成員失敗: \(error)")
+            return []
         }
     }
     
-    /// 同步到錦標賽參賽者表
-    private func syncToTournamentParticipants(portfolio: TournamentPortfolio) async throws {
-        let participant = TournamentParticipant(
-            id: portfolio.id,
-            tournamentId: portfolio.tournamentId,
-            userId: portfolio.userId,
-            userName: portfolio.userName,
-            userAvatar: nil,
-            currentRank: portfolio.performanceMetrics.currentRank,
-            previousRank: portfolio.performanceMetrics.previousRank,
-            virtualBalance: portfolio.totalPortfolioValue,
-            initialBalance: portfolio.initialBalance,
-            returnRate: portfolio.totalReturnPercentage / 100.0, // 轉換為小數
-            totalTrades: portfolio.performanceMetrics.totalTrades,
-            winRate: portfolio.performanceMetrics.winRate,
-            maxDrawdown: portfolio.performanceMetrics.maxDrawdownPercentage,
-            sharpeRatio: portfolio.performanceMetrics.sharpeRatio,
-            isEliminated: false,
-            eliminationReason: nil,
-            joinedAt: portfolio.lastUpdated,
-            lastUpdated: Date()
-        )
+    /// 檢查交易能力（V2.0）
+    func checkTradingCapability(
+        tournamentId: UUID,
+        side: TournamentTrade.TradeSide,
+        amount: Double,
+        fees: Double
+    ) async -> TradingCapabilityCheck? {
+        guard let portfolio = tournamentPortfolios[tournamentId] else { return nil }
         
-        // 呼叫 SupabaseService 的同步方法
-        try await supabaseService.upsertTournamentParticipant(participant)
-    }
-    
-    /// 同步持股資料
-    private func syncToTournamentHoldings(portfolio: TournamentPortfolio) async throws {
-        // 將投資組合的持股同步到資料庫
-        for holding in portfolio.holdings {
-            try await supabaseService.upsertTournamentHolding(holding)
-        }
-    }
-    
-    /// 同步交易記錄
-    private func syncToTournamentTrades(portfolio: TournamentPortfolio) async throws {
-        // 將新的交易記錄同步到資料庫
-        for record in portfolio.tradingRecords {
-            try await supabaseService.insertTournamentTrade(record)
-        }
-    }
-    
-    /// 同步交易到 Supabase（統一架構）
-    private func syncTradeToSupabase(tradingRecord: TournamentTradingRecord, portfolio: TournamentPortfolio) async -> Bool {
         do {
-            print("🔄 [TournamentPortfolioManager] 開始同步交易記錄到 Supabase")
-            print("   - 交易ID: \(tradingRecord.id)")
-            print("   - 錦標賽ID: \(tradingRecord.tournamentId)")
-            print("   - 股票: \(tradingRecord.symbol)")
-            print("   - 動作: \(tradingRecord.type.rawValue)")
-            print("   - 金額: \(tradingRecord.totalAmount)")
-            
-            // 直接使用 SupabaseService 插入交易記錄到 portfolio_transactions 表
-            let portfolioTransaction = PortfolioTransaction(
-                id: tradingRecord.id,
-                userId: tradingRecord.userId,
-                symbol: tradingRecord.symbol,
-                action: tradingRecord.type == .buy ? "buy" : "sell",
-                quantity: Int(tradingRecord.shares),
-                price: tradingRecord.price,
-                amount: tradingRecord.totalAmount,
-                createdAt: tradingRecord.timestamp,
-                tournamentId: tradingRecord.tournamentId
+            let wallet = try await walletService.getWallet(
+                tournamentId: tournamentId,
+                userId: portfolio.userId
             )
-            
-            // 直接插入到 portfolio_transactions 表
-            try await supabaseService.insertPortfolioTransaction(portfolioTransaction)
-            
-            print("✅ [TournamentPortfolioManager] 交易記錄已成功寫入 Supabase portfolio_transactions 表")
-            return true
-            
+            return walletService.checkTradingCapability(
+                wallet: wallet,
+                side: side,
+                amount: amount,
+                fees: fees
+            )
         } catch {
-            print("❌ [TournamentPortfolioManager] Supabase 同步失敗: \(error)")
-            return false
-        }
-    }
-    
-    /// 同步投資組合狀態到 Supabase
-    private func syncPortfolioStateToSupabase(portfolio: TournamentPortfolio) async throws {
-        let userPortfolio = UserPortfolio(
-            id: portfolio.id,
-            userId: portfolio.userId,
-            groupId: nil,
-            tournamentId: portfolio.tournamentId,
-            initialCash: portfolio.initialBalance,
-            availableCash: portfolio.currentBalance,
-            totalValue: portfolio.totalPortfolioValue,
-            returnRate: portfolio.totalReturnPercentage,
-            lastUpdated: portfolio.lastUpdated
-        )
-        
-        // 使用 PortfolioService 更新
-        // 注意：這裡需要實現一個 upsert 方法
-        // try await PortfolioService.shared.upsertTournamentPortfolio(userPortfolio)
-    }
-    
-    /// 同步持股到 Supabase
-    private func syncHoldingsToSupabase(portfolio: TournamentPortfolio) async throws {
-        // 清除舊的持股記錄
-        // 插入新的持股記錄
-        for holding in portfolio.holdings {
-            // 這裡需要 PortfolioService 的持股更新方法
-            // try await PortfolioService.shared.upsertTournamentHolding(holding, tournamentId: portfolio.tournamentId)
+            print("❌ [TournamentPortfolioManager] 檢查交易能力失敗: \(error)")
+            return nil
         }
     }
 }
 
-// MARK: - Extensions for SupabaseService
+// MARK: - V2.0 Extensions - 適配新架構
 
-// MARK: - TradingType Extension
 extension TradingType {
-    /// 轉換為 TradeAction 類型
+    /// 轉換為 TournamentTrade.TradeSide
+    func toTournamentTradeSide() -> TournamentTrade.TradeSide {
+        switch self {
+        case .buy:
+            return .buy
+        case .sell:
+            return .sell
+        }
+    }
+    
+    /// 轉換為 TradeAction 類型（向後相容）
     func toTradeAction() -> TradeAction {
         switch self {
         case .buy:
@@ -1074,6 +883,23 @@ struct TournamentAllocation: Identifiable, Codable {
     let percentage: Double
     let value: Double
 }
+
+// MARK: - V2.0 Architecture Notes
+//
+// 這個 TournamentPortfolioManager 已經重構為使用 V2.0 架構：
+// 
+// 1. **數據分離**: 使用專門的錦標賽數據表，與日常交易完全隔離
+// 2. **服務專業化**: 使用專門的服務類處理不同職責
+//    - TournamentTradeService: 處理交易執行和驗證
+//    - TournamentWalletService: 管理錢包和資金狀況
+//    - TournamentPositionService: 管理持倉和價格更新
+//    - TournamentRankingService: 計算排名和生成快照
+// 3. **實時更新**: 通過服務監聽自動更新本地數據
+// 4. **向後相容**: 保持原有介面，方便現有 UI 使用
+// 5. **數據一致性**: 新架構確保數據在多個服務間保持同步
+//
+// V2.0 典型流程：
+// 建賽事 → 參賽(initializePortfolio) → 下單(executeTrade) → 排行(getRanking) → 結算(generateSnapshot)
 
 // Note: SupabaseService methods for tournament portfolio management 
 // are implemented in the main SupabaseService.swift file
