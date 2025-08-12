@@ -238,6 +238,9 @@ class TournamentPositionService: ObservableObject {
     private func calculateDiversification(positions: [TournamentPosition]) -> Double {
         guard !positions.isEmpty else { return 0 }
         
+        // 只有一個持倉時，多元化分數為0（完全集中）
+        guard positions.count > 1 else { return 0 }
+        
         let totalValue = positions.reduce(0) { $0 + $1.marketValue }
         guard totalValue > 0 else { return 0 }
         
