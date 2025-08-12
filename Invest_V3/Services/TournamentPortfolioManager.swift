@@ -92,7 +92,8 @@ struct TournamentHolding: Identifiable, Codable {
 }
 
 /// 錦標賽投資組合結構（已移至 TournamentModels.swift，使用 typealias）
-// struct TournamentPortfolio: Identifiable, Codable {
+/*
+struct TournamentPortfolio: Identifiable, Codable {
     let id: UUID
     let tournamentId: UUID
     let userId: UUID

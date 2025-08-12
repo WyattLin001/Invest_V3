@@ -280,7 +280,7 @@ extension TournamentDailySnapshotService {
     
     /// 重建歷史快照（基於真實交易紀錄）
     func rebuildHistoricalSnapshots(for tournamentId: UUID, userId: UUID) async {
-        guard let portfolio = portfolioManager.getPortfolio(for: tournamentId, userId: userId) else {
+        guard let portfolio = portfolioManager.getPortfolio(for: tournamentId) else {
             print("⚠️ [TournamentDailySnapshotService] 找不到投資組合: \(tournamentId)")
             return
         }
@@ -293,9 +293,16 @@ extension TournamentDailySnapshotService {
         let calendar = Calendar.current
         
         // 獲取交易日期範圍
-        guard let firstTradeDate = tradingRecords.first?.tradeDate,
-              let tournament = tournamentService.getTournament(by: tournamentId) else {
-            print("⚠️ [TournamentDailySnapshotService] 無法獲取交易歷史或錦標賽資訊")
+        guard let firstTradeDate = tradingRecords.first?.tradeDate else {
+            print("⚠️ [TournamentDailySnapshotService] 無法獲取交易歷史")
+            return
+        }
+        
+        let tournament: Tournament
+        do {
+            tournament = try await tournamentService.fetchTournament(id: tournamentId)
+        } catch {
+            print("⚠️ [TournamentDailySnapshotService] 無法獲取錦標賽資訊: \(error)")
             return
         }
         
@@ -377,7 +384,7 @@ extension TournamentDailySnapshotService {
     private func getRealPortfolioData(for tournamentId: UUID, userId: UUID, on date: Date) -> TournamentPortfolio? {
         // 這裡應該從數據庫或緩存中獲取特定日期的真實投資組合數據
         // 目前返回當前投資組合作為替代
-        return portfolioManager.getPortfolio(for: tournamentId, userId: userId)
+        return portfolioManager.getPortfolio(for: tournamentId)
     }
     
     private func getRankForDate(tournamentId: UUID, userId: UUID, date: Date) -> Int {

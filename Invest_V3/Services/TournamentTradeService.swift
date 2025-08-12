@@ -343,9 +343,7 @@ class TournamentTradeService: ObservableObject {
     
     /// 獲取錦標賽資訊
     private func getTournament(id: UUID) async throws -> Tournament {
-        guard let tournament = try await TournamentService.shared.fetchTournament(id: id) else {
-            throw TournamentTradeError.tournamentNotFound
-        }
+        let tournament = try await TournamentService.shared.fetchTournament(id: id)
         return tournament
     }
     

@@ -74,20 +74,23 @@ class TournamentBusinessService: ObservableObject {
             let tournament = Tournament(
                 id: UUID(),
                 name: name,
-                description: description,
-                organizerId: UUID(), // 需要從當前用戶獲取
-                startsAt: startDate,
-                endsAt: endDate,
-                entryCapital: entryCapital,
-                feeTokens: feeTokens,
-                returnMetric: returnMetric,
-                resetMode: resetMode,
+                type: .monthly, // 默認月賽，可根據參數調整
                 status: .enrolling,
+                startDate: startDate,
+                endDate: endDate,
+                description: description,
+                shortDescription: description, // 使用 description 作為短描述
+                initialBalance: entryCapital,
+                entryFee: Double(feeTokens),
+                prizePool: 0,
                 maxParticipants: maxParticipants,
                 currentParticipants: 0,
-                totalPrizePool: 0,
-                maxSingleStockRate: maxSingleStockRate,
+                isFeatured: false,
+                createdBy: UUID(), // 需要從當前用戶獲取
+                riskLimitPercentage: maxSingleStockRate,
                 minHoldingRate: minHoldingRate,
+                maxSingleStockRate: maxSingleStockRate,
+                rules: [],
                 createdAt: Date(),
                 updatedAt: Date()
             )
@@ -128,9 +131,7 @@ class TournamentBusinessService: ObservableObject {
         
         do {
             // 步驟1：驗證錦標賽狀態
-            guard let tournament = try await tournamentService.fetchTournament(id: tournamentId) else {
-                throw TournamentBusinessError.tournamentNotFound
-            }
+            let tournament = try await tournamentService.fetchTournament(id: tournamentId)
             
             try validateTournamentForJoining(tournament: tournament)
             
@@ -144,8 +145,9 @@ class TournamentBusinessService: ObservableObject {
             let member = TournamentMember(
                 tournamentId: tournamentId,
                 userId: userId,
+                joinedAt: Date(),
                 status: .active,
-                joinedAt: Date()
+                eliminationReason: nil
             )
             
             try await supabaseService.createTournamentMember(member)
@@ -350,9 +352,7 @@ class TournamentBusinessService: ObservableObject {
         
         do {
             // 步驟1：驗證錦標賽可以結算
-            guard let tournament = try await tournamentService.fetchTournament(id: tournamentId) else {
-                throw TournamentBusinessError.tournamentNotFound
-            }
+            let tournament = try await tournamentService.fetchTournament(id: tournamentId)
             
             guard tournament.status == .ongoing || tournament.endsAt <= Date() else {
                 throw TournamentBusinessError.settlementNotAllowed
@@ -371,9 +371,29 @@ class TournamentBusinessService: ObservableObject {
             let finalStats = try statsResult.get()
             
             // 步驟5：更新錦標賽狀態為已結束
-            var updatedTournament = tournament
-            updatedTournament.status = .ended
-            updatedTournament.updatedAt = Date()
+            let updatedTournament = Tournament(
+                id: tournament.id,
+                name: tournament.name,
+                type: tournament.type,
+                status: .ended,
+                startDate: tournament.startDate,
+                endDate: tournament.endDate,
+                description: tournament.description,
+                shortDescription: tournament.shortDescription,
+                initialBalance: tournament.initialBalance,
+                entryFee: tournament.entryFee,
+                prizePool: tournament.prizePool,
+                maxParticipants: tournament.maxParticipants,
+                currentParticipants: tournament.currentParticipants,
+                isFeatured: tournament.isFeatured,
+                createdBy: tournament.createdBy,
+                riskLimitPercentage: tournament.riskLimitPercentage,
+                minHoldingRate: tournament.minHoldingRate,
+                maxSingleStockRate: tournament.maxSingleStockRate,
+                rules: tournament.rules,
+                createdAt: tournament.createdAt,
+                updatedAt: Date()
+            )
             try await supabaseService.updateTournament(updatedTournament)
             
             // 步驟6：創建結算記錄
@@ -412,9 +432,7 @@ class TournamentBusinessService: ObservableObject {
         
         do {
             // 獲取基本信息
-            guard let tournament = try await tournamentService.fetchTournament(id: tournamentId) else {
-                throw TournamentBusinessError.tournamentNotFound
-            }
+            let tournament = try await tournamentService.fetchTournament(id: tournamentId)
             
             // 獲取成員信息
             let members = try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
@@ -495,9 +513,7 @@ class TournamentBusinessService: ObservableObject {
         }
         
         // 驗證錦標賽狀態
-        guard let tournament = try await tournamentService.fetchTournament(id: tournamentId) else {
-            throw TournamentBusinessError.tournamentNotFound
-        }
+        let tournament = try await tournamentService.fetchTournament(id: tournamentId)
         
         guard tournament.status == .ongoing else {
             throw TournamentBusinessError.tradingNotAllowed
