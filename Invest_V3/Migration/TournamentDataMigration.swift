@@ -240,19 +240,25 @@ class TournamentDataMigration {
     
     private func convertLegacyTrade(_ legacy: LegacyTradingRecord) -> TournamentTradeRecord {
         // 將舊交易記錄轉換為新的交易記錄（對應 tournament_trading_records 表）
+        // 分別計算各個值以避免複雜表達式類型檢查問題
+        let userId = legacy.userId ?? UUID()
+        let tournamentId = legacy.tournamentId ?? UUID()
+        let tradeType: TournamentTradeAction = legacy.action == .buy ? .buy : .sell
+        let totalAmount = legacy.shares * legacy.price
+        
         return TournamentTradeRecord(
             id: legacy.id,
-            userId: legacy.userId ?? UUID(), // 處理可能的 nil 值
-            tournamentId: legacy.tournamentId ?? UUID(),
+            userId: userId,
+            tournamentId: tournamentId,
             symbol: legacy.symbol,
             stockName: legacy.symbol, // 使用 symbol 作為股票名稱，實際應該查詢
-            type: legacy.action == .buy ? .buy : .sell, // 對應 type 字段
+            type: tradeType, // 對應 type 字段
             shares: legacy.shares, // 保持 Double 類型
             price: legacy.price,
             timestamp: legacy.timestamp,
-            totalAmount: legacy.shares * legacy.price, // 計算總金額
+            totalAmount: totalAmount, // 計算總金額
             fee: 0.0, // 舊數據沒有手續費，設為 0
-            netAmount: legacy.shares * legacy.price, // 淨金額等於總金額（無手續費）
+            netAmount: totalAmount, // 淨金額等於總金額（無手續費）
             averageCost: nil, // 新字段，設為 nil
             realizedGainLoss: nil, // 新字段，需要重新計算
             realizedGainLossPercent: nil, // 新字段，需要重新計算
@@ -310,12 +316,13 @@ class TournamentDataMigration {
                 userId: UUID(), // 需要從上下文取得，暫時使用空 UUID
                 symbol: legacy.symbol,
                 stockName: legacy.symbol, // 使用 symbol 作為股票名稱
-                shares: legacy.quantity, // 保持 Double 類型
+                quantity: Int(legacy.quantity), // 轉換為 Int 類型以符合 schema
                 averageCost: legacy.averagePrice,
                 currentPrice: legacy.currentPrice,
                 marketValue: legacy.currentValue,
                 unrealizedGainLoss: legacy.unrealizedGainLoss,
                 unrealizedGainLossPercent: legacy.averagePrice * legacy.quantity > 0 ? (legacy.unrealizedGainLoss / (legacy.averagePrice * legacy.quantity) * 100) : 0.0,
+                firstBuyDate: nil, // 新字段，設為 nil
                 lastUpdated: Date()
             )
         }

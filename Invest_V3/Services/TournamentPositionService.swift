@@ -256,10 +256,10 @@ class TournamentPositionService: ObservableObject {
     
     /// 計算風險等級
     private func calculateRiskLevel(positions: [TournamentPosition]) -> RiskLevel {
-        guard !positions.isEmpty else { return .low }
+        guard !positions.isEmpty else { return .conservative }
         
         let totalValue = positions.reduce(0) { $0 + $1.marketValue }
-        guard totalValue > 0 else { return .low }
+        guard totalValue > 0 else { return .conservative }
         
         // 檢查單一股票集中度
         let maxSinglePosition = positions.max { $0.marketValue < $1.marketValue }?.marketValue ?? 0
@@ -270,11 +270,11 @@ class TournamentPositionService: ObservableObject {
         let volatility = calculateStandardDeviation(pnlPercentages)
         
         if concentration > 0.5 || volatility > 20 {
-            return .high
+            return .aggressive
         } else if concentration > 0.3 || volatility > 10 {
-            return .medium
+            return .moderate
         } else {
-            return .low
+            return .conservative
         }
     }
     
@@ -303,28 +303,8 @@ struct PortfolioStatistics {
     let topHoldings: [TournamentPosition]
 }
 
-/// 風險等級
-enum RiskLevel: String, CaseIterable {
-    case low = "low"
-    case medium = "medium"  
-    case high = "high"
-    
-    var displayName: String {
-        switch self {
-        case .low: return "低風險"
-        case .medium: return "中風險"
-        case .high: return "高風險"
-        }
-    }
-    
-    var color: Color {
-        switch self {
-        case .low: return .green
-        case .medium: return .yellow
-        case .high: return .red
-        }
-    }
-}
+// RiskLevel 枚舉已移至 FriendsModels.swift 以避免重複定義
+// 這裡使用 FriendsModels 中的 RiskLevel
 
 // MARK: - String MD5 Extension
 extension String {

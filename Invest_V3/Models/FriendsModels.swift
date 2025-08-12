@@ -341,10 +341,10 @@ extension Friend {
                 isOnline: true,
                 lastActiveDate: Date(),
                 friendshipDate: Date().addingTimeInterval(-86400 * 30),
-                investmentStyle: .tech,
+                investmentStyle: InvestmentStyle.tech,
                 performanceScore: 8.5,
                 totalReturn: 15.2,
-                riskLevel: .moderate
+                riskLevel: RiskLevel.moderate
             ),
             Friend(
                 id: UUID(),
@@ -356,10 +356,10 @@ extension Friend {
                 isOnline: false,
                 lastActiveDate: Date().addingTimeInterval(-3600),
                 friendshipDate: Date().addingTimeInterval(-86400 * 60),
-                investmentStyle: .value,
+                investmentStyle: InvestmentStyle.value,
                 performanceScore: 7.8,
                 totalReturn: 12.8,
-                riskLevel: .conservative
+                riskLevel: RiskLevel.conservative
             ),
             Friend(
                 id: UUID(),
@@ -371,10 +371,10 @@ extension Friend {
                 isOnline: true,
                 lastActiveDate: Date().addingTimeInterval(-300),
                 friendshipDate: Date().addingTimeInterval(-86400 * 90),
-                investmentStyle: .dividend,
+                investmentStyle: InvestmentStyle.dividend,
                 performanceScore: 9.1,
                 totalReturn: 18.5,
-                riskLevel: .moderate
+                riskLevel: RiskLevel.moderate
             ),
             Friend(
                 id: UUID(),
@@ -386,10 +386,10 @@ extension Friend {
                 isOnline: true,
                 lastActiveDate: Date().addingTimeInterval(-900),
                 friendshipDate: Date().addingTimeInterval(-86400 * 15),
-                investmentStyle: .momentum,
+                investmentStyle: InvestmentStyle.momentum,
                 performanceScore: 8.9,
                 totalReturn: 22.1,
-                riskLevel: .aggressive
+                riskLevel: RiskLevel.aggressive
             ),
             Friend(
                 id: UUID(),
@@ -401,10 +401,10 @@ extension Friend {
                 isOnline: false,
                 lastActiveDate: Date().addingTimeInterval(-7200),
                 friendshipDate: Date().addingTimeInterval(-86400 * 45),
-                investmentStyle: .balanced,
+                investmentStyle: InvestmentStyle.balanced,
                 performanceScore: 7.2,
                 totalReturn: 9.8,
-                riskLevel: .conservative
+                riskLevel: RiskLevel.conservative
             ),
             Friend(
                 id: UUID(),
@@ -416,10 +416,10 @@ extension Friend {
                 isOnline: true,
                 lastActiveDate: Date().addingTimeInterval(-180),
                 friendshipDate: Date().addingTimeInterval(-86400 * 75),
-                investmentStyle: .finance,
+                investmentStyle: InvestmentStyle.finance,
                 performanceScore: 8.1,
                 totalReturn: 14.3,
-                riskLevel: .moderate
+                riskLevel: RiskLevel.moderate
             )
         ]
     }
