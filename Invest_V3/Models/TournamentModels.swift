@@ -170,10 +170,10 @@ enum TournamentType: String, CaseIterable, Identifiable, Codable {
 // MARK: - 錦標賽狀態 (適配數據庫 schema)
 enum TournamentStatus: String, CaseIterable, Codable {
     case upcoming = "upcoming"      // 即將開始
-    case enrolling = "enrolling"    // 報名中
+    case enrolling = "enrolling"    // 報名中 (內部狀態，數據庫中映射為 upcoming)
     case ongoing = "ongoing"        // 進行中 (對應數據庫的 ongoing)
     case finished = "finished"      // 已結束
-    case cancelled = "cancelled"    // 已取消
+    case cancelled = "cancelled"    // 已取消 (內部狀態，數據庫中映射為 finished)
     
     var displayName: String {
         switch self {
@@ -202,6 +202,37 @@ enum TournamentStatus: String, CaseIterable, Codable {
             return .gray
         case .cancelled:
             return .red
+        }
+    }
+    
+    /// 映射到數據庫兼容的狀態值 (符合 schema 約束: upcoming, ongoing, finished)
+    var databaseValue: String {
+        switch self {
+        case .upcoming, .enrolling:
+            return "upcoming"     // enrolling 在數據庫中存儲為 upcoming
+        case .ongoing:
+            return "ongoing"
+        case .finished, .cancelled:
+            return "finished"     // cancelled 在數據庫中存儲為 finished
+        }
+    }
+    
+    /// 從數據庫值創建狀態 (配合業務邏輯判斷實際狀態)
+    static func fromDatabaseValue(_ dbValue: String, startDate: Date, endDate: Date) -> TournamentStatus {
+        let now = Date()
+        
+        switch dbValue {
+        case "upcoming":
+            // 根據時間判斷是即將開始還是報名中
+            return now < startDate ? .upcoming : .enrolling
+        case "ongoing":
+            return .ongoing
+        case "finished":
+            // 這裡無法區分是正常結束還是取消，默認為正常結束
+            // 如果需要區分，可以添加額外的字段或者在業務邏輯中處理
+            return .finished
+        default:
+            return .upcoming
         }
     }
     
@@ -315,6 +346,29 @@ struct Tournament: Identifiable, Codable, Equatable {
     
     var endsAt: Date {
         return endDate    // 向後兼容
+    }
+    
+    // 向後兼容的計算屬性 - 這些字段不在 schema 中，但保持 API 兼容性
+    var returnMetric: String {
+        return "twr"  // 預設使用時間加權報酬率 (Time-Weighted Return)
+    }
+    
+    var resetMode: String {
+        // 基於錦標賽類型提供重置模式
+        switch type {
+        case .daily:
+            return "daily"
+        case .weekly:
+            return "weekly"
+        case .monthly:
+            return "monthly"
+        case .quarterly:
+            return "quarterly"
+        case .annual:
+            return "annual"
+        case .custom:
+            return "custom"
+        }
     }
     
     var participationPercentage: Double {
