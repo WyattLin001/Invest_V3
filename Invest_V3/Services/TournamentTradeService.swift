@@ -12,7 +12,7 @@ import Combine
 // MARK: - 錦標賽交易服務
 @MainActor
 class TournamentTradeService: ObservableObject {
-    static let shared = TournamentTradeService()
+    static let shared = TournamentTradeService(shared: ())
     
     // MARK: - Published Properties
     @Published var isExecutingTrade = false
@@ -26,7 +26,12 @@ class TournamentTradeService: ObservableObject {
     private let stockService = StockService.shared
     private var cancellables = Set<AnyCancellable>()
     
-    private init() {
+    // 公開初始化器（用於測試和依賴注入）
+    init() {
+        // 用於測試的公開初始化器
+    }
+    
+    private init(shared: Void) {
         setupRealtimeUpdates()
     }
     

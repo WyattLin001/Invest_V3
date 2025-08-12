@@ -8,18 +8,28 @@
 import SwiftUI
 
 // MARK: - Data Models
-struct TournamentStats {
-    let totalParticipants: Int
-    let averageReturn: Double
-    let daysRemaining: Int
-    let lastUpdated: Date
-}
+// TournamentStats 已移至 TournamentModels.swift 統一定義
+// 使用 typealias 保持兼容性
+typealias TournamentStats = TournamentStatsModel
 
 struct TournamentRankingsView: View {
     private let tournamentService = ServiceConfiguration.makeTournamentService()
     private let supabaseService = SupabaseService.shared
     @State private var selectedSegment: RankingSegment = .rankings
     @State private var selectedTournament: Tournament?
+    
+    // 可選的錦標賽 ID（用於直接顯示特定錦標賽）
+    private let preselectedTournamentId: UUID?
+    
+    // 預設建構子
+    init() {
+        self.preselectedTournamentId = nil
+    }
+    
+    // 帶錦標賽 ID 的建構子
+    init(tournamentId: UUID) {
+        self.preselectedTournamentId = tournamentId
+    }
     @State private var participants: [TournamentParticipant] = []
     @State private var activities: [TournamentActivity] = []
     @State private var tournaments: [Tournament] = []
@@ -657,6 +667,12 @@ struct TournamentRankingsView: View {
         do {
             tournaments = try await tournamentService.fetchTournaments()
             
+            // 如果有預選的錦標賽 ID，優先使用它
+            if let preselectedId = preselectedTournamentId {
+                selectedTournament = tournaments.first { $0.id == preselectedId }
+            }
+            
+            // 如果沒有選中的錦標賽，選擇第一個
             if selectedTournament == nil {
                 selectedTournament = tournaments.first
             }
@@ -696,7 +712,6 @@ struct TournamentRankingsView: View {
             self.tournamentStats = TournamentStats(
                 totalParticipants: statsResponse.totalParticipants,
                 averageReturn: statsResponse.averageReturn,
-                daysRemaining: statsResponse.daysRemaining,
                 lastUpdated: statsResponse.lastUpdated
             )
             

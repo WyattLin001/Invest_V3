@@ -55,7 +55,7 @@ protocol TournamentServiceProtocol {
 // MARK: - Tournament Service Implementation
 @MainActor
 class TournamentService: ObservableObject, TournamentServiceProtocol {
-    static let shared = TournamentService()
+    static let shared = TournamentService(shared: ())
     
     // MARK: - Properties
     private let supabaseService = SupabaseService.shared
@@ -72,7 +72,12 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     private var refreshTimer: Timer?
     private let refreshInterval: TimeInterval = 30.0 // 30秒刷新一次
     
-    private init() {
+    // 公開初始化器（用於測試和依賴注入）
+    init() {
+        // 用於測試的公開初始化器
+    }
+    
+    private init(shared: Void) {
         // 初始化時載入錦標賽數據
         Task {
             await loadTournaments()

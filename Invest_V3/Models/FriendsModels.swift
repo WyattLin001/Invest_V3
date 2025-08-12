@@ -148,12 +148,19 @@ enum RiskLevel: String, Codable, CaseIterable {
     case conservative = "conservative"
     case moderate = "moderate"
     case aggressive = "aggressive"
+    // Tournament system risk levels
+    case low = "low"
+    case medium = "medium"
+    case high = "high"
     
     var displayName: String {
         switch self {
         case .conservative: return "保守型"
         case .moderate: return "穩健型"
         case .aggressive: return "積極型"
+        case .low: return "低風險"
+        case .medium: return "中風險"
+        case .high: return "高風險"
         }
     }
     
@@ -162,6 +169,9 @@ enum RiskLevel: String, Codable, CaseIterable {
         case .conservative: return "shield.fill"
         case .moderate: return "dial.min"
         case .aggressive: return "flame.fill"
+        case .low: return "shield"
+        case .medium: return "dial.min"
+        case .high: return "flame"
         }
     }
 }

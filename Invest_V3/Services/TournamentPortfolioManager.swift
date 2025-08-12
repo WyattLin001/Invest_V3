@@ -22,6 +22,30 @@ enum TournamentTradeAction: String, CaseIterable {
         case .sell: return "賣出"
         }
     }
+    
+    /// 轉換為 TradeSide
+    func toTradeSide() -> TradeSide {
+        switch self {
+        case .buy: return .buy
+        case .sell: return .sell
+        }
+    }
+    
+    /// 轉換為 TradingType
+    func toTradingType() -> TradingType {
+        switch self {
+        case .buy: return .buy
+        case .sell: return .sell
+        }
+    }
+    
+    /// 轉換為 TradeAction
+    func toTradeAction() -> TradeAction {
+        switch self {
+        case .buy: return .buy
+        case .sell: return .sell
+        }
+    }
 }
 
 /// 錦標賽投資組合持股結構
@@ -67,8 +91,8 @@ struct TournamentHolding: Identifiable, Codable {
     }
 }
 
-/// 錦標賽投資組合結構
-struct TournamentPortfolio: Identifiable, Codable {
+/// 錦標賽投資組合結構（已移至 TournamentModels.swift，使用 typealias）
+// struct TournamentPortfolio: Identifiable, Codable {
     let id: UUID
     let tournamentId: UUID
     let userId: UUID
@@ -202,6 +226,10 @@ struct TournamentPortfolio: Identifiable, Codable {
         case dailyValueHistory = "daily_value_history"
     }
 }
+*/
+
+// 使用統一的類型定義
+typealias TournamentPortfolio = TournamentPortfolioV2
 
 /// 錦標賽交易記錄
 struct TournamentTradingRecord: Identifiable, Codable {

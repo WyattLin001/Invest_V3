@@ -12,7 +12,7 @@ import Combine
 // MARK: - 錦標賽排名服務
 @MainActor
 class TournamentRankingService: ObservableObject {
-    static let shared = TournamentRankingService()
+    static let shared = TournamentRankingService(shared: ())
     
     // MARK: - Published Properties
     @Published var leaderboards: [UUID: [TournamentLeaderboardEntry]] = [:]
@@ -26,7 +26,12 @@ class TournamentRankingService: ObservableObject {
     private var calculationTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     
-    private init() {
+    // 公開初始化器（用於測試和依賴注入）
+    init() {
+        // 用於測試的公開初始化器
+    }
+    
+    private init(shared: Void) {
         setupRankingTimer()
     }
     
@@ -342,24 +347,10 @@ struct UserRankInfo {
 }
 
 /// 錦標賽統計
-struct TournamentStats {
-    let totalParticipants: Int
-    let averageReturn: Double
-    let medianReturn: Double
-    let standardDeviation: Double
-    let topPerformers: [TournamentLeaderboardEntry]
-    let worstPerformers: [TournamentLeaderboardEntry]
-    let distributionStats: DistributionStats
-    let lastUpdated: Date
-}
-
-/// 分佈統計
-struct DistributionStats {
-    let positiveReturns: Int
-    let negativeReturns: Int
-    let neutralReturns: Int
-    let winnerPercentage: Double
-}
+// TournamentStats 和 DistributionStats 已移至 TournamentModels.swift 統一管理
+// 此處使用 typealias 保持兼容性
+typealias TournamentStats = TournamentStatsModel
+typealias DistributionStats = DistributionStatsModel
 
 /// 排名錯誤類型
 enum RankingError: LocalizedError {

@@ -336,14 +336,19 @@ struct EnhancedTournamentTradingView: View {
         // 模擬加載投資組合數據
         await MainActor.run {
             portfolio = TournamentPortfolio(
+                id: UUID(),
                 tournamentId: tournament.id,
                 userId: currentUserId,
                 cashBalance: 850000,
                 equityValue: 150000,
-                totalValue: 1000000,
-                dailyPnL: 2500,
-                dailyPnLPercent: 0.25,
-                totalReturnPercent: 0.0
+                totalAssets: 1000000,  // 修正：對應 TournamentPortfolioV2 的 totalAssets
+                initialBalance: 1000000,
+                totalReturn: 0,
+                returnPercentage: 0.0,
+                totalTrades: 0,
+                winningTrades: 0,
+                maxDrawdown: 0,
+                lastUpdated: Date()
             )
         }
     }
@@ -433,16 +438,9 @@ struct StockInfo: Identifiable {
     let changePercent: Double
 }
 
-struct TournamentPortfolio {
-    let tournamentId: UUID
-    let userId: UUID
-    let cashBalance: Double
-    let equityValue: Double
-    let totalValue: Double
-    let dailyPnL: Double
-    let dailyPnLPercent: Double
-    let totalReturnPercent: Double
-}
+// TournamentPortfolio 已移至 TournamentModels.swift 作為 TournamentPortfolioV2
+// 使用 typealias 保持向後兼容
+typealias TournamentPortfolio = TournamentPortfolioV2
 
 // MARK: - 股票行視圖
 

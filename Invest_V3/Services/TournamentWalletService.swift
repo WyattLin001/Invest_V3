@@ -12,7 +12,7 @@ import Combine
 // MARK: - 錦標賽錢包服務
 @MainActor
 class TournamentWalletService: ObservableObject {
-    static let shared = TournamentWalletService()
+    static let shared = TournamentWalletService(shared: ())
     
     // MARK: - Published Properties
     @Published var wallets: [String: TournamentPortfolioV2] = [:]
@@ -24,7 +24,12 @@ class TournamentWalletService: ObservableObject {
     private let positionService = TournamentPositionService.shared
     private var cancellables = Set<AnyCancellable>()
     
-    private init() {
+    // 公開初始化器（用於測試和依賴注入）
+    init() {
+        // 用於測試的公開初始化器
+    }
+    
+    private init(shared: Void) {
         // 監聽持倉服務的更新
         positionService.$lastUpdated
             .sink { [weak self] _ in
@@ -168,12 +173,12 @@ class TournamentWalletService: ObservableObject {
     
     /// 計算錢包分析資料
     func analyzeWallet(wallet: TournamentPortfolioV2) -> WalletAnalysis {
-        let assetAllocation = AssetAllocation(
+        let assetAllocation = WalletAssetAllocation(
             cashPercentage: wallet.cashPercentage,
             equityPercentage: wallet.equityPercentage
         )
         
-        let performance = PerformanceMetrics(
+        let performance = WalletPerformanceMetrics(
             totalReturn: wallet.totalReturn,
             returnPercentage: wallet.returnPercentage,
             winRate: wallet.winRate
@@ -370,14 +375,14 @@ struct WalletHistoryEntry: Identifiable, Codable {
     let dailyChange: Double?
 }
 
-/// 資產配置
-struct AssetAllocation {
+/// 資產配置（簡化版）
+struct WalletAssetAllocation {
     let cashPercentage: Double
     let equityPercentage: Double
 }
 
-/// 績效指標
-struct PerformanceMetrics {
+/// 錢包績效指標（簡化版）
+struct WalletPerformanceMetrics {
     let totalReturn: Double
     let returnPercentage: Double
     let winRate: Double
@@ -392,8 +397,8 @@ struct RiskProfile {
 
 /// 錢包分析
 struct WalletAnalysis {
-    let assetAllocation: AssetAllocation
-    let performance: PerformanceMetrics
+    let assetAllocation: WalletAssetAllocation
+    let performance: WalletPerformanceMetrics
     let riskProfile: RiskProfile
     let recommendations: [String]
 }

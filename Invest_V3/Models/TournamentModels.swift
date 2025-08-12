@@ -916,6 +916,25 @@ struct TournamentPortfolioV2: Identifiable, Codable {
         guard totalAssets > 0 else { return 0 }
         return (equityValue / totalAssets) * 100
     }
+    
+    // MARK: - 向後兼容性計算屬性
+    var totalValue: Double {
+        return totalAssets
+    }
+    
+    var dailyPnL: Double {
+        // 簡化版本：使用總回報作為今日損益的近似值
+        return totalReturn
+    }
+    
+    var dailyPnLPercent: Double {
+        // 簡化版本：使用回報百分比作為今日損益百分比
+        return returnPercentage
+    }
+    
+    var totalReturnPercent: Double {
+        return returnPercentage
+    }
 }
 
 // MARK: - 錦標賽交易模型（對應 tournament_trading_records 表）
@@ -1744,6 +1763,71 @@ struct UserTitle: Identifiable, Codable {
                 return Color(hex: "#B9F2FF")
             }
         }
+    }
+}
+
+// MARK: - 統一的錦標賽統計模型
+/// 錦標賽統計模型（統一定義）
+struct TournamentStatsModel: Identifiable, Codable {
+    let id = UUID()
+    let totalParticipants: Int
+    let averageReturn: Double
+    let medianReturn: Double
+    let standardDeviation: Double
+    let topPerformers: [TournamentLeaderboardEntry]
+    let worstPerformers: [TournamentLeaderboardEntry]
+    let distributionStats: DistributionStatsModel
+    let lastUpdated: Date
+    
+    // 額外屬性（向後兼容）
+    var daysRemaining: Int {
+        // 計算剩餘天數 - 這裡需要從錦標賽資訊獲取
+        // 暫時返回預設值
+        return 7
+    }
+    
+    // MARK: - 便利初始化器
+    /// 簡化的初始化器（用於基本統計）
+    init(totalParticipants: Int, averageReturn: Double, lastUpdated: Date) {
+        self.totalParticipants = totalParticipants
+        self.averageReturn = averageReturn
+        self.medianReturn = averageReturn // 簡化：使用平均值作為中位數
+        self.standardDeviation = 0 // 預設值
+        self.topPerformers = [] // 空數組
+        self.worstPerformers = [] // 空數組
+        self.distributionStats = DistributionStatsModel(
+            positiveReturns: totalParticipants / 2,
+            negativeReturns: totalParticipants / 2,
+            neutralReturns: 0,
+            winnerPercentage: 50.0
+        )
+        self.lastUpdated = lastUpdated
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case totalParticipants = "total_participants"
+        case averageReturn = "average_return"
+        case medianReturn = "median_return"
+        case standardDeviation = "standard_deviation"
+        case topPerformers = "top_performers"
+        case worstPerformers = "worst_performers"
+        case distributionStats = "distribution_stats"
+        case lastUpdated = "last_updated"
+    }
+}
+
+/// 分佈統計模型（統一定義）
+struct DistributionStatsModel: Codable {
+    let positiveReturns: Int
+    let negativeReturns: Int
+    let neutralReturns: Int
+    let winnerPercentage: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case positiveReturns = "positive_returns"
+        case negativeReturns = "negative_returns"
+        case neutralReturns = "neutral_returns"
+        case winnerPercentage = "winner_percentage"
     }
 }
 

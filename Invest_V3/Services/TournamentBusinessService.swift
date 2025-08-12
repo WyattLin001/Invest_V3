@@ -12,7 +12,7 @@ import Combine
 // MARK: - 錦標賽業務流程服務
 @MainActor
 class TournamentBusinessService: ObservableObject {
-    static let shared = TournamentBusinessService()
+    static let shared = TournamentBusinessService(shared: ())
     
     // MARK: - Published Properties
     @Published var isProcessing = false
@@ -29,7 +29,12 @@ class TournamentBusinessService: ObservableObject {
     private let portfolioManager = TournamentPortfolioManager.shared
     private var cancellables = Set<AnyCancellable>()
     
-    private init() {
+    // 公開初始化器（用於測試和依賴注入）
+    init() {
+        // 用於測試的公開初始化器
+    }
+    
+    private init(shared: Void) {
         setupBusinessMetricsTracking()
     }
     
