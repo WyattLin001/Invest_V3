@@ -266,10 +266,24 @@ struct AppContainer: View {
                     .environmentObject(ThemeManager.shared)
                     .environmentObject(StockService.shared)
                     .environmentObject(NotificationService.shared)
+                    .environmentObject(makeTournamentWorkflowService())
             } else {
                 // 顯示啟動畫面
                 BootstrapView()
             }
         }
     }
+}
+
+// MARK: - Service Factory
+
+/// 創建完整配置的錦標賽工作流程服務
+private func makeTournamentWorkflowService() -> TournamentWorkflowService {
+    return TournamentWorkflowService(
+        tournamentService: TournamentService(),
+        tradeService: TournamentTradeService(),
+        walletService: TournamentWalletService(),
+        rankingService: TournamentRankingService(),
+        businessService: TournamentBusinessService()
+    )
 }

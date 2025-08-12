@@ -18,7 +18,7 @@ struct TournamentPerformanceChart: View {
     @State private var showTooltip = false
     
     private var chartData: [TournamentPerformanceDataPoint] {
-        generateChartData()
+        generateRealChartData()
     }
     
     var body: some View {
@@ -79,7 +79,7 @@ struct TournamentPerformanceChart: View {
                     x: .value("日期", dataPoint.date),
                     y: .value(metric.rawValue, dataPoint.value)
                 )
-                .foregroundStyle(metric.color)
+                .foregroundStyle(getDynamicColor(for: metric))
                 .lineStyle(StrokeStyle(lineWidth: 2))
                 
                 AreaMark(
@@ -88,7 +88,10 @@ struct TournamentPerformanceChart: View {
                 )
                 .foregroundStyle(
                     LinearGradient(
-                        gradient: Gradient(colors: [metric.color.opacity(0.3), metric.color.opacity(0.1)]),
+                        gradient: Gradient(colors: [
+                            getDynamicColor(for: metric).opacity(0.3), 
+                            getDynamicColor(for: metric).opacity(0.1)
+                        ]),
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -99,14 +102,14 @@ struct TournamentPerformanceChart: View {
                     x: .value("日期", dataPoint.date),
                     y: .value(metric.rawValue, dataPoint.value)
                 )
-                .foregroundStyle(dataPoint.value >= 0 ? Color.green : Color.red)
+                .foregroundStyle(dataPoint.value >= 0 ? getDynamicGreen() : getDynamicRed())
                 
             case .trades:
                 LineMark(
                     x: .value("日期", dataPoint.date),
                     y: .value(metric.rawValue, dataPoint.value)
                 )
-                .foregroundStyle(metric.color)
+                .foregroundStyle(getDynamicColor(for: metric))
                 .symbol(.circle)
                 .symbolSize(30)
         }
@@ -127,7 +130,7 @@ struct TournamentPerformanceChart: View {
         .chartBackground { proxy in
             GeometryReader { geometry in
                 Rectangle()
-                    .fill(Color.clear)
+                    .fill(getChartBackgroundColor())
                     .contentShape(Rectangle())
                     .gesture(
                         DragGesture(minimumDistance: 0)
@@ -193,9 +196,9 @@ struct TournamentPerformanceChart: View {
             }
         }
         .padding(8)
-        .background(Color(.systemBackground))
+        .background(getTooltipBackgroundColor())
         .cornerRadius(8)
-        .shadow(radius: 4)
+        .shadow(color: getShadowColor(), radius: 4)
         .animation(.easeInOut(duration: 0.2), value: showTooltip)
     }
     
@@ -213,60 +216,160 @@ struct TournamentPerformanceChart: View {
         }
     }
     
-    private func generateChartData() -> [TournamentPerformanceDataPoint] {
+    /// 生成基於真實數據的圖表數據
+    private func generateRealChartData() -> [TournamentPerformanceDataPoint] {
+        let historyManager = TournamentPerformanceHistoryManager.shared
+        
+        // 獲取當前用戶ID（需要從 portfolio 或其他地方獲取）
+        guard let userId = getCurrentUserId() else {
+            return generateFallbackData()
+        }
+        
+        // 從歷史管理器獲取真實數據
+        let realData = historyManager.generateChartData(
+            for: portfolio.tournamentId,
+            userId: userId,
+            timeRange: timeRange,
+            metric: mapToHistoryMetric(metric)
+        )
+        
+        // 如果沒有歷史數據，生成基於當前投資組合狀態的數據點
+        if realData.isEmpty {
+            return generateCurrentPortfolioData()
+        }
+        
+        return realData
+    }
+    
+    /// 獲取當前用戶ID的輔助方法
+    private func getCurrentUserId() -> UUID? {
+        // 從 Supabase 服務獲取當前用戶ID
+        return SupabaseService.shared.getCurrentUser()?.id
+    }
+    
+    /// 映射績效指標類型
+    private func mapToHistoryMetric(_ metric: TournamentPerformanceView.PerformanceMetric) -> TournamentPerformanceMetric {
+        switch metric {
+        case .portfolio:
+            return .portfolio
+        case .returns:
+            return .returns
+        case .dailyChange:
+            return .dailyChange
+        case .trades:
+            return .trades
+        }
+    }
+    
+    /// 生成基於當前投資組合狀態的數據點
+    private func generateCurrentPortfolioData() -> [TournamentPerformanceDataPoint] {
         let calendar = Calendar.current
         let endDate = Date()
-        let startDate: Date
+        let startDate = getStartDate(for: timeRange, from: endDate, using: calendar)
         
-        switch timeRange {
-        case .week:
-            startDate = calendar.date(byAdding: .day, value: -7, to: endDate) ?? endDate
-        case .month:
-            startDate = calendar.date(byAdding: .month, value: -1, to: endDate) ?? endDate
-        case .quarter:
-            startDate = calendar.date(byAdding: .month, value: -3, to: endDate) ?? endDate
-        case .year:
-            startDate = calendar.date(byAdding: .year, value: -1, to: endDate) ?? endDate
-        case .all:
-            startDate = calendar.date(byAdding: .year, value: -2, to: endDate) ?? endDate
-        }
+        // 至少生成一個當前狀態的數據點
+        let currentValue = getCurrentValue(for: metric)
+        let currentChange = getCurrentChange(for: metric)
         
         var data: [TournamentPerformanceDataPoint] = []
-        let dayCount = calendar.dateComponents([.day], from: startDate, to: endDate).day ?? 7
         
-        for i in 0...dayCount {
-            let date = calendar.date(byAdding: .day, value: i, to: startDate) ?? startDate
-            
-            let value: Double
-            let change: Double?
-            
-            switch metric {
-            case .portfolio:
-                value = portfolio.totalPortfolioValue
-                change = portfolio.totalReturnPercentage
-                
-            case .returns:
-                value = portfolio.totalReturnPercentage
-                change = nil
-                
-            case .dailyChange:
-                // 模擬每日變化數據
-                value = Double.random(in: -3.0...3.0)
-                change = nil
-                
-            case .trades:
-                value = Double(portfolio.tradingRecords.count)
-                change = nil
-            }
-            
-            data.append(TournamentPerformanceDataPoint(
-                date: date,
-                value: value,
-                change: change
-            ))
-        }
+        // 如果沒有歷史數據，創建一個基準線和當前點
+        let initialValue = getInitialValue(for: metric)
+        
+        // 添加起始點（基於初始投資金額）
+        data.append(TournamentPerformanceDataPoint(
+            date: startDate,
+            value: initialValue,
+            change: 0.0
+        ))
+        
+        // 添加當前點
+        data.append(TournamentPerformanceDataPoint(
+            date: endDate,
+            value: currentValue,
+            change: currentChange
+        ))
         
         return data
+    }
+    
+    /// 獲取後備數據（最小化的數據集）
+    private func generateFallbackData() -> [TournamentPerformanceDataPoint] {
+        let calendar = Calendar.current
+        let endDate = Date()
+        let startDate = getStartDate(for: timeRange, from: endDate, using: calendar)
+        
+        let currentValue = getCurrentValue(for: metric)
+        let initialValue = getInitialValue(for: metric)
+        
+        return [
+            TournamentPerformanceDataPoint(date: startDate, value: initialValue, change: 0.0),
+            TournamentPerformanceDataPoint(date: endDate, value: currentValue, change: getCurrentChange(for: metric))
+        ]
+    }
+    
+    /// 獲取指定時間範圍的開始日期
+    private func getStartDate(for timeRange: PerformanceTimeRange, from endDate: Date, using calendar: Calendar) -> Date {
+        switch timeRange {
+        case .week:
+            return calendar.date(byAdding: .day, value: -7, to: endDate) ?? endDate
+        case .month:
+            return calendar.date(byAdding: .month, value: -1, to: endDate) ?? endDate
+        case .quarter:
+            return calendar.date(byAdding: .month, value: -3, to: endDate) ?? endDate
+        case .year:
+            return calendar.date(byAdding: .year, value: -1, to: endDate) ?? endDate
+        case .all:
+            return calendar.date(byAdding: .year, value: -2, to: endDate) ?? endDate
+        }
+    }
+    
+    /// 獲取當前指標值
+    private func getCurrentValue(for metric: TournamentPerformanceView.PerformanceMetric) -> Double {
+        switch metric {
+        case .portfolio:
+            return portfolio.totalPortfolioValue
+        case .returns:
+            return portfolio.totalReturnPercentage
+        case .dailyChange:
+            // 從績效指標獲取今日收益，而不是隨機數
+            return portfolio.performanceMetrics.dailyReturn
+        case .trades:
+            return Double(portfolio.tradingRecords.count)
+        }
+    }
+    
+    /// 獲取當前變化值
+    private func getCurrentChange(for metric: TournamentPerformanceView.PerformanceMetric) -> Double? {
+        switch metric {
+        case .portfolio:
+            return portfolio.totalReturnPercentage
+        case .returns:
+            return portfolio.performanceMetrics.dailyReturn
+        case .dailyChange:
+            return nil // 每日變化本身就是變化
+        case .trades:
+            // 可以返回今日交易次數
+            let today = Calendar.current.startOfDay(for: Date())
+            let todayTrades = portfolio.tradingRecords.filter { record in
+                Calendar.current.isDate(record.tradeDate, inSameDayAs: today)
+            }.count
+            return Double(todayTrades)
+        }
+    }
+    
+    /// 獲取初始值（基準線）
+    private func getInitialValue(for metric: TournamentPerformanceView.PerformanceMetric) -> Double {
+        switch metric {
+        case .portfolio:
+            return portfolio.initialBalance
+        case .returns:
+            return 0.0 // 初始收益率為0
+        case .dailyChange:
+            return 0.0 // 初始每日變化為0
+        case .trades:
+            return 0.0 // 初始交易次數為0
+        }
     }
     
     private func formatValue(_ value: Double, for metric: TournamentPerformanceView.PerformanceMetric) -> String {
@@ -304,6 +407,67 @@ struct TournamentPerformanceChart: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM/dd"
         return formatter.string(from: date)
+    }
+    
+    // MARK: - 深色模式支援方法
+    
+    /// 獲取適應深色模式的動態顏色
+    private func getDynamicColor(for metric: TournamentPerformanceView.PerformanceMetric) -> Color {
+        switch metric {
+        case .portfolio:
+            return Color.blue
+        case .returns:
+            return getDynamicGreen()
+        case .dailyChange:
+            return Color.orange
+        case .trades:
+            return Color.purple
+        }
+    }
+    
+    /// 獲取深色模式適應的綠色
+    private func getDynamicGreen() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemGreen
+                : UIColor.systemGreen
+        })
+    }
+    
+    /// 獲取深色模式適應的紅色
+    private func getDynamicRed() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemRed
+                : UIColor.systemRed
+        })
+    }
+    
+    /// 獲取圖表背景顏色
+    private func getChartBackgroundColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.black.withAlphaComponent(0.1)
+                : UIColor.clear
+        })
+    }
+    
+    /// 獲取工具提示背景顏色
+    private func getTooltipBackgroundColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemBackground
+                : UIColor.systemBackground
+        })
+    }
+    
+    /// 獲取陰影顏色
+    private func getShadowColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.white.withAlphaComponent(0.1)
+                : UIColor.black.withAlphaComponent(0.2)
+        })
     }
 }
 

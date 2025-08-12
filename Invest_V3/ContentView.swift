@@ -4,6 +4,11 @@ struct ContentView: View {
     @State private var selectedTab = 0  // 預設選中首頁 (0)
     @State private var selectedGroupId: UUID?
     @EnvironmentObject var authService: AuthenticationService
+    @EnvironmentObject var tournamentWorkflowService: TournamentWorkflowService
+    
+    // 錦標賽相關狀態
+    @State private var selectedTournament: Tournament?
+    @State private var showingTournamentDetail = false
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -15,13 +20,25 @@ struct ContentView: View {
                 }
                 .tag(0)
             
+            // 錦標賽 - 投資競技場
+            ModernTournamentSelectionView(
+                selectedTournament: $selectedTournament,
+                showingDetail: $showingTournamentDetail,
+                workflowService: tournamentWorkflowService
+            )
+            .tabItem {
+                Image(systemName: selectedTab == 1 ? "trophy.fill" : "trophy")
+                Text("錦標賽")
+            }
+            .tag(1)
+            
             // 聊天 - 投資群組討論
             ChatView(preselectedGroupId: selectedGroupId)
                 .tabItem {
-                    Image(systemName: selectedTab == 1 ? "message.fill" : "message")
+                    Image(systemName: selectedTab == 2 ? "message.fill" : "message")
                     Text("聊天")
                 }
-                .tag(1)
+                .tag(2)
             
             // 資訊 - 文章和新聞
             InfoView()
@@ -34,28 +51,26 @@ struct ContentView: View {
             // 錢包 - 資產管理
             WalletView()
                 .tabItem {
-                    Image(systemName: selectedTab == 2 ? "creditcard.fill" : "creditcard")
+                    Image(systemName: selectedTab == 4 ? "creditcard.fill" : "creditcard")
                     Text("錢包")
                 }
-                .tag(2)
+                .tag(4)
             
-            
-            
-        // 收益 - 創作者收益儀表板
+            // 收益 - 創作者收益儀表板
             AuthorEarningsView()
                 .tabItem {
-                    Image(systemName: selectedTab == 4 ? "dollarsign.circle.fill" : "dollarsign.circle")
+                    Image(systemName: selectedTab == 5 ? "dollarsign.circle.fill" : "dollarsign.circle")
                     Text("收益")
                 }
-                .tag(4)
+                .tag(5)
             
             // 設定 - 個人設定和帳戶管理
             SettingsView()
                 .tabItem {
-                    Image(systemName: selectedTab == 5 ? "gearshape.fill" : "gearshape")
+                    Image(systemName: selectedTab == 6 ? "gearshape.fill" : "gearshape")
                     Text("設定")
                 }
-                .tag(5)
+                .tag(6)
         }
         .accentColor(.brandGreen)
         .onAppear {
@@ -89,7 +104,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToChatTab"))) { notification in
             // 切換到聊天 Tab
-            selectedTab = 1
+            selectedTab = 2
             
             // 如果有群組 ID，設定選中的群組
             if let groupId = notification.object as? UUID {
@@ -98,11 +113,37 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowWalletForTopUp"))) { _ in
             // 切換到錢包 Tab 進行充值
-            selectedTab = 2
+            selectedTab = 4
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToTournamentTab"))) { notification in
+            // 切換到錦標賽 Tab
+            selectedTab = 1
+            
+            // 如果有錦標賽對象，設定選中的錦標賽
+            if let tournament = notification.object as? Tournament {
+                selectedTournament = tournament
+                showingTournamentDetail = true
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToHomeTab"))) { _ in
             // 切換到首頁 Tab (通常在登出後使用)
             selectedTab = 0
+        }
+        .sheet(isPresented: $showingTournamentDetail) {
+            if let tournament = selectedTournament {
+                // 顯示錦標賽詳情或其他相關視圖
+                NavigationView {
+                    TournamentDetailView(tournament: tournament)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("關閉") {
+                                    showingTournamentDetail = false
+                                }
+                            }
+                        }
+                }
+            }
         }
     }
 }
@@ -110,5 +151,12 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environmentObject(AuthenticationService.shared)
+        .environmentObject(TournamentWorkflowService(
+            tournamentService: TournamentService(),
+            tradeService: TournamentTradeService(),
+            walletService: TournamentWalletService(),
+            rankingService: TournamentRankingService(),
+            businessService: TournamentBusinessService()
+        ))
 }
 

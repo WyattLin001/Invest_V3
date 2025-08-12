@@ -327,29 +327,23 @@ class TournamentPortfolioIntegrationTests: XCTestCase {
         tournament1 = Tournament(
             id: UUID(),
             name: "春季投資挑戰賽",
-            description: "測試錦標賽1",
-            hostUserId: UUID(),
-            hostUserName: "Host1",
-            initialBalance: 1_000_000,
-            maxParticipants: 100,
-            currentParticipants: 0,
-            entryFee: 0,
-            prizePool: 0,
-            prizeDistribution: [],
+            type: .monthly,
+            status: .ongoing,
             startDate: Date(),
             endDate: Date().addingTimeInterval(86400 * 30),
-            status: .ongoing,
-            rules: TournamentRules(
-                maxSingleStockRate: 30.0,
-                minHoldingRate: 60.0,
-                allowedStockTypes: [.listed, .otc],
-                maxLeverage: 1.0,
-                tradingHours: TradingHours(
-                    start: "09:00",
-                    end: "13:30",
-                    timezone: "Asia/Taipei"
-                )
-            ),
+            description: "測試錦標賽1",
+            shortDescription: "春季挑戰賽",
+            initialBalance: 1_000_000,
+            entryFee: 0.0,
+            prizePool: 0.0,
+            maxParticipants: 100,
+            currentParticipants: 0,
+            isFeatured: false,
+            createdBy: UUID(), // 原 host
+            riskLimitPercentage: 0.2,
+            minHoldingRate: 0.6, // 原 60%
+            maxSingleStockRate: 0.3, // 原 30%
+            rules: [],
             createdAt: Date(),
             updatedAt: Date()
         )
@@ -357,29 +351,23 @@ class TournamentPortfolioIntegrationTests: XCTestCase {
         tournament2 = Tournament(
             id: UUID(),
             name: "夏季投資大賽",
-            description: "測試錦標賽2",
-            hostUserId: UUID(),
-            hostUserName: "Host2",
-            initialBalance: 2_000_000,
-            maxParticipants: 50,
-            currentParticipants: 0,
-            entryFee: 1000,
-            prizePool: 50000,
-            prizeDistribution: [0.5, 0.3, 0.2],
+            type: .monthly,
+            status: .ongoing,
             startDate: Date(),
             endDate: Date().addingTimeInterval(86400 * 60),
-            status: .ongoing,
-            rules: TournamentRules(
-                maxSingleStockRate: 25.0,
-                minHoldingRate: 50.0,
-                allowedStockTypes: [.listed],
-                maxLeverage: 1.5,
-                tradingHours: TradingHours(
-                    start: "09:00",
-                    end: "13:30",
-                    timezone: "Asia/Taipei"
-                )
-            ),
+            description: "測試錦標賽2",
+            shortDescription: "夏季大賽",
+            initialBalance: 2_000_000,
+            entryFee: 1000.0,
+            prizePool: 50000.0,
+            maxParticipants: 50,
+            currentParticipants: 0,
+            isFeatured: false,
+            createdBy: UUID(),
+            riskLimitPercentage: 0.25,
+            minHoldingRate: 0.5,
+            maxSingleStockRate: 0.25,
+            rules: [],
             createdAt: Date(),
             updatedAt: Date()
         )
@@ -387,29 +375,23 @@ class TournamentPortfolioIntegrationTests: XCTestCase {
         tournament3 = Tournament(
             id: UUID(),
             name: "新手友善賽",
-            description: "測試錦標賽3",
-            hostUserId: UUID(),
-            hostUserName: "Host3",
-            initialBalance: 500_000,
-            maxParticipants: 200,
-            currentParticipants: 0,
-            entryFee: 0,
-            prizePool: 0,
-            prizeDistribution: [],
+            type: .weekly,
+            status: .ongoing,
             startDate: Date(),
             endDate: Date().addingTimeInterval(86400 * 14),
-            status: .ongoing,
-            rules: TournamentRules(
-                maxSingleStockRate: 40.0,
-                minHoldingRate: 80.0,
-                allowedStockTypes: [.listed, .otc, .etf],
-                maxLeverage: 1.0,
-                tradingHours: TradingHours(
-                    start: "09:00",
-                    end: "13:30",
-                    timezone: "Asia/Taipei"
-                )
-            ),
+            description: "測試錦標賽3",
+            shortDescription: "新手友善賽",
+            initialBalance: 500_000,
+            entryFee: 0.0,
+            prizePool: 0.0,
+            maxParticipants: 200,
+            currentParticipants: 0,
+            isFeatured: false,
+            createdBy: UUID(),
+            riskLimitPercentage: 0.3,
+            minHoldingRate: 0.8,
+            maxSingleStockRate: 0.4,
+            rules: [],
             createdAt: Date(),
             updatedAt: Date()
         )

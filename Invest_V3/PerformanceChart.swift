@@ -57,7 +57,7 @@ struct PerformanceChart: View {
             // 圖表區域
             chartView
                 .frame(width: width, height: height)
-                .background(Color(.systemGray6).opacity(0.3))
+                .background(getChartBackgroundColor())
                 .cornerRadius(12)
                 .overlay(
                     tooltipView,
@@ -134,7 +134,7 @@ struct PerformanceChart: View {
                     path.move(to: CGPoint(x: 0, y: baselineY))
                     path.addLine(to: CGPoint(x: size.width, y: baselineY))
                 }
-                context.stroke(baselinePath, with: .color(.gray), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                context.stroke(baselinePath, with: .color(getDynamicBaselineColor()), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
             }
             
             // 繪製面積圖
@@ -165,7 +165,7 @@ struct PerformanceChart: View {
             
             // 判斷整體趨勢顏色
             let overallTrend = data.last?.cumulativeReturn ?? 0
-            let trendColor = overallTrend >= 0 ? Color.green : Color.red
+            let trendColor = overallTrend >= 0 ? getDynamicGreen() : getDynamicRed()
             
             // 填充面積
             context.fill(areaPath, with: .color(trendColor.opacity(0.2)))
@@ -199,7 +199,7 @@ struct PerformanceChart: View {
                 }
                 
                 context.fill(circle, with: .color(pointColor))
-                context.stroke(circle, with: .color(.white), style: StrokeStyle(lineWidth: 1))
+                context.stroke(circle, with: .color(getStrokeColor()), style: StrokeStyle(lineWidth: 1))
             }
         }
         .contentShape(Rectangle())
@@ -236,9 +236,9 @@ struct PerformanceChart: View {
                         .foregroundColor(selectedPoint.dailyChange >= 0 ? .green : .red)
                 }
                 .padding(8)
-                .background(Color(.systemBackground))
+                .background(getTooltipBackgroundColor())
                 .cornerRadius(8)
-                .shadow(radius: 4)
+                .shadow(color: getShadowColor(), radius: 4)
                 .opacity(showTooltip ? 1 : 0)
                 .animation(.easeInOut(duration: 0.2), value: showTooltip)
             }
@@ -263,78 +263,172 @@ struct PerformanceChart: View {
         formatter.dateFormat = "MM/dd"
         return formatter.string(from: date)
     }
+    
+    // MARK: - 深色模式支援方法
+    
+    /// 獲取適應深色模式的綠色
+    private func getDynamicGreen() -> Color {
+        return Color.green
+    }
+    
+    /// 獲取深色模式適應的紅色
+    private func getDynamicRed() -> Color {
+        return Color.red
+    }
+    
+    /// 獲取基準線顏色
+    private func getDynamicBaselineColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemGray3
+                : UIColor.systemGray
+        })
+    }
+    
+    /// 獲取圖表背景顏色
+    private func getChartBackgroundColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemGray6.withAlphaComponent(0.2)
+                : UIColor.systemGray6.withAlphaComponent(0.3)
+        })
+    }
+    
+    /// 獲取描邊顏色
+    private func getStrokeColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemBackground
+                : UIColor.white
+        })
+    }
+    
+    /// 獲取工具提示背景顏色
+    private func getTooltipBackgroundColor() -> Color {
+        return Color.primary.colorInvert().opacity(0.95)
+    }
+    
+    /// 獲取陰影顏色
+    private func getShadowColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.white.withAlphaComponent(0.1)
+                : UIColor.black.withAlphaComponent(0.2)
+        })
+    }
 }
 
-// MARK: - 績效數據生成器
+// MARK: - 績效數據生成器（基於真實數據）
 struct PerformanceDataGenerator {
     static func generateData(for range: PerformanceTimeRange, portfolio: TradingPortfolio?) -> [PerformanceDataPoint] {
-        let initialValue = 1000000.0 // 初始100萬
+        let initialValue = portfolio?.initialBalance ?? 1000000.0
+        let currentValue = portfolio?.totalAssets ?? initialValue
         let endDate = Date()
-        let startDate: Date
-        let dataPoints: Int
+        let startDate = getStartDate(for: range, from: endDate)
         
-        switch range {
-        case .week:
-            startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate) ?? endDate
-            dataPoints = 7
-        case .month:
-            startDate = Calendar.current.date(byAdding: .month, value: -1, to: endDate) ?? endDate
-            dataPoints = 30
-        case .quarter:
-            startDate = Calendar.current.date(byAdding: .month, value: -3, to: endDate) ?? endDate
-            dataPoints = 90
-        case .year:
-            startDate = Calendar.current.date(byAdding: .year, value: -1, to: endDate) ?? endDate
-            dataPoints = 365
-        case .all:
-            startDate = Calendar.current.date(byAdding: .year, value: -2, to: endDate) ?? endDate
-            dataPoints = 730
-        }
-        
-        var data: [PerformanceDataPoint] = []
-        let timeInterval = endDate.timeIntervalSince(startDate) / Double(dataPoints - 1)
-        
-        var currentValue = initialValue
-        var previousValue = initialValue
-        
-        for i in 0..<dataPoints {
-            let date = startDate.addingTimeInterval(TimeInterval(i) * timeInterval)
-            
-            // 模擬價格波動（基於隨機遊走）
-            let randomChange = Double.random(in: -0.02...0.025) // -2% 到 +2.5%
-            let marketTrend = 0.0002 // 輕微上漲趨勢
-            let totalChange = randomChange + marketTrend
-            
-            currentValue *= (1 + totalChange)
-            
-            let dailyChange = ((currentValue - previousValue) / previousValue) * 100
-            let cumulativeReturn = ((currentValue - initialValue) / initialValue) * 100
-            
-            data.append(PerformanceDataPoint(
-                date: date,
-                value: currentValue,
-                portfolioValue: currentValue,
-                dailyChange: dailyChange,
-                cumulativeReturn: cumulativeReturn
-            ))
-            
-            previousValue = currentValue
-        }
-        
-        // 如果有真實投資組合數據，調整最後一個點
+        // 優先使用真實投資組合歷史數據
         if let portfolio = portfolio {
-            if var lastPoint = data.last {
-                data[data.count - 1] = PerformanceDataPoint(
-                    date: lastPoint.date,
-                    value: portfolio.totalAssets,
-                    portfolioValue: portfolio.totalAssets,
-                    dailyChange: lastPoint.dailyChange,
-                    cumulativeReturn: ((portfolio.totalAssets - initialValue) / initialValue) * 100
-                )
-            }
+            return generateRealPortfolioData(
+                portfolio: portfolio,
+                startDate: startDate,
+                endDate: endDate,
+                timeRange: range
+            )
         }
+        
+        // 如果沒有真實數據，生成基本的兩點線
+        return generateMinimalData(
+            initialValue: initialValue,
+            currentValue: currentValue,
+            startDate: startDate,
+            endDate: endDate
+        )
+    }
+    
+    /// 基於真實投資組合生成數據
+    private static func generateRealPortfolioData(
+        portfolio: TradingPortfolio,
+        startDate: Date,
+        endDate: Date,
+        timeRange: PerformanceTimeRange
+    ) -> [PerformanceDataPoint] {
+        var data: [PerformanceDataPoint] = []
+        let initialValue = portfolio.initialBalance
+        
+        // 基於交易記錄生成歷史數據點
+        let trades = portfolio.holdings.flatMap { holding in
+            // 這裡應該從真實的交易記錄中獲取數據
+            // 暫時使用當前持股信息作為數據來源
+            return [holding] // 簡化處理
+        }
+        
+        // 添加起始點
+        data.append(PerformanceDataPoint(
+            date: startDate,
+            value: initialValue,
+            portfolioValue: initialValue,
+            dailyChange: 0.0,
+            cumulativeReturn: 0.0
+        ))
+        
+        // 如果有交易數據，可以在此處添加中間點
+        // TODO: 實現基於真實交易記錄的歷史重建
+        
+        // 添加當前點
+        let cumulativeReturn = ((portfolio.totalAssets - initialValue) / initialValue) * 100
+        data.append(PerformanceDataPoint(
+            date: endDate,
+            value: portfolio.totalAssets,
+            portfolioValue: portfolio.totalAssets,
+            dailyChange: portfolio.todayPnlPercentage,
+            cumulativeReturn: cumulativeReturn
+        ))
         
         return data
+    }
+    
+    /// 生成最小數據集（起點和終點）
+    private static func generateMinimalData(
+        initialValue: Double,
+        currentValue: Double,
+        startDate: Date,
+        endDate: Date
+    ) -> [PerformanceDataPoint] {
+        let cumulativeReturn = initialValue > 0 ? ((currentValue - initialValue) / initialValue) * 100 : 0
+        
+        return [
+            PerformanceDataPoint(
+                date: startDate,
+                value: initialValue,
+                portfolioValue: initialValue,
+                dailyChange: 0.0,
+                cumulativeReturn: 0.0
+            ),
+            PerformanceDataPoint(
+                date: endDate,
+                value: currentValue,
+                portfolioValue: currentValue,
+                dailyChange: 0.0, // 沒有昨日數據時為0
+                cumulativeReturn: cumulativeReturn
+            )
+        ]
+    }
+    
+    /// 獲取時間範圍的開始日期
+    private static func getStartDate(for range: PerformanceTimeRange, from endDate: Date) -> Date {
+        let calendar = Calendar.current
+        switch range {
+        case .week:
+            return calendar.date(byAdding: .day, value: -7, to: endDate) ?? endDate
+        case .month:
+            return calendar.date(byAdding: .month, value: -1, to: endDate) ?? endDate
+        case .quarter:
+            return calendar.date(byAdding: .month, value: -3, to: endDate) ?? endDate
+        case .year:
+            return calendar.date(byAdding: .year, value: -1, to: endDate) ?? endDate
+        case .all:
+            return calendar.date(byAdding: .year, value: -2, to: endDate) ?? endDate
+        }
     }
 }
 

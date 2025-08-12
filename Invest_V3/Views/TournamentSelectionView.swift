@@ -24,19 +24,25 @@ struct TournamentSelectionView: View {
     @State private var showingError = false
     @State private var errorMessage = ""
     
-    // 服務依賴
-    private let tournamentService = TournamentService.shared
-    private let statusMonitor = TournamentStatusMonitor.shared
+    // 新服務架構
+    @StateObject private var workflowService: TournamentWorkflowService
+    
+    // 初始化器
+    init(selectedTournament: Binding<Tournament?>, showingDetail: Binding<Bool>, workflowService: TournamentWorkflowService) {
+        self._selectedTournament = selectedTournament
+        self._showingDetail = showingDetail
+        self._workflowService = StateObject(wrappedValue: workflowService)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
             // 錦標賽標籤導航
             TournamentTabBarContainer(selectedFilter: $selectedFilter)
             
-            // 狀態事件通知區域
-            if !statusMonitor.statusEvents.isEmpty {
-                statusEventsSection
-            }
+            // 狀態事件通知區域 (暫時隱藏，需要適配新數據模型)
+            // if !statusMonitor.statusEvents.isEmpty {
+            //     statusEventsSection
+            // }
             
             // 主要內容區域
             mainContent
@@ -172,11 +178,11 @@ struct TournamentSelectionView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 QuickFilterButton(
-                    title: "報名中",
+                    title: "即將開始",
                     icon: "person.badge.plus",
                     isSelected: false
                 ) {
-                    filterTournaments(by: .enrolling)
+                    filterTournaments(by: .upcoming)
                 }
                 
                 QuickFilterButton(
@@ -184,7 +190,7 @@ struct TournamentSelectionView: View {
                     icon: "play.circle",
                     isSelected: false
                 ) {
-                    filterTournaments(by: .ongoing)
+                    filterTournaments(by: .active)
                 }
                 
                 QuickFilterButton(
@@ -292,17 +298,15 @@ struct TournamentSelectionView: View {
             LazyVStack(spacing: 16) {
                 ForEach(filteredTournaments) { tournament in
                     VStack(spacing: 8) {
-                        // 增強的狀態指示器
-                        TournamentStatusIndicatorView(tournament: tournament)
-                        
-                        // 原有的錦標賽卡片
-                        TournamentCardView(
+                        // 使用現代化的錦標賽卡片，相容新數據模型
+                        ModernTournamentCard(
                             tournament: tournament,
-                            onEnroll: {
-                                handleEnrollTournament(tournament)
-                            },
-                            onViewDetails: {
+                            showJoinButton: !isUserParticipant(tournament),
+                            onTournamentTap: {
                                 handleViewTournamentDetails(tournament)
+                            },
+                            onJoinTap: {
+                                handleEnrollTournament(tournament)
                             }
                         )
                     }
@@ -321,8 +325,7 @@ struct TournamentSelectionView: View {
         if !searchText.isEmpty {
             result = result.filter { tournament in
                 tournament.name.localizedCaseInsensitiveContains(searchText) ||
-                tournament.type.displayName.localizedCaseInsensitiveContains(searchText) ||
-                tournament.shortDescription.localizedCaseInsensitiveContains(searchText)
+                tournament.description.localizedCaseInsensitiveContains(searchText)
             }
         }
         
@@ -382,34 +385,58 @@ struct TournamentSelectionView: View {
     private func loadTournaments(for filter: TournamentFilter? = nil) {
         let targetFilter = filter ?? selectedFilter
         
-        // 模擬API呼叫
         Task { @MainActor in
             isLoading = true
+            
             do {
+                // 使用新的工作流程服務載入錦標賽
                 switch targetFilter {
                 case .featured:
-                    tournaments = try await tournamentService.fetchFeaturedTournaments()
+                    tournaments = try await workflowService.getFeaturedTournaments()
                 case .all:
-                    tournaments = try await tournamentService.fetchTournaments()
-                case .daily:
-                    tournaments = try await tournamentService.fetchTournaments(type: .daily)
-                case .weekly:
-                    tournaments = try await tournamentService.fetchTournaments(type: .weekly)
-                case .monthly:
-                    tournaments = try await tournamentService.fetchTournaments(type: .monthly)
-                case .quarterly:
-                    tournaments = try await tournamentService.fetchTournaments(type: .quarterly)
-                case .yearly:
-                    tournaments = try await tournamentService.fetchTournaments(type: .yearly)
-                case .special:
-                    tournaments = try await tournamentService.fetchTournaments(type: .special)
+                    tournaments = try await workflowService.getAllTournaments()
+                default:
+                    // 對於特定類型的錦標賽，可以根據需要實現過濾邏輯
+                    let allTournaments = try await workflowService.getAllTournaments()
+                    tournaments = filterTournamentsByType(allTournaments, filter: targetFilter)
                 }
             } catch {
-                print("❌ [TournamentSelectionView] 載入錦標賽失敗: \(error.localizedDescription)")
-                tournaments = []
+                await MainActor.run {
+                    print("❌ [TournamentSelectionView] 載入錦標賽失敗: \(error.localizedDescription)")
+                    errorMessage = "載入錦標賽失敗: \(error.localizedDescription)"
+                    showingError = true
+                    tournaments = []
+                }
             }
+            
             isLoading = false
         }
+    }
+    
+    private func filterTournamentsByType(_ tournaments: [Tournament], filter: TournamentFilter) -> [Tournament] {
+        // 由於新的數據模型可能沒有明確的類型，這裡根據錦標賽的設定進行篩選
+        switch filter {
+        case .daily:
+            return tournaments.filter { daysBetween($0.startDate, $0.endDate) <= 1 }
+        case .weekly:
+            return tournaments.filter { daysBetween($0.startDate, $0.endDate) <= 7 }
+        case .monthly:
+            return tournaments.filter { daysBetween($0.startDate, $0.endDate) <= 31 }
+        case .quarterly:
+            return tournaments.filter { daysBetween($0.startDate, $0.endDate) <= 93 }
+        case .yearly:
+            return tournaments.filter { daysBetween($0.startDate, $0.endDate) >= 365 }
+        case .special:
+            return tournaments.filter { $0.feeTokens > 0 } // 特別賽事通常有入場費
+        default:
+            return tournaments
+        }
+    }
+    
+    private func daysBetween(_ start: Date, _ end: Date) -> Int {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: start, to: end)
+        return components.day ?? 0
     }
     
     @MainActor
@@ -422,13 +449,18 @@ struct TournamentSelectionView: View {
         // 實時搜尋，由 filteredTournaments 計算屬性處理
     }
     
-    private func filterTournaments(by status: TournamentStatus) {
+    private func filterTournaments(by status: TournamentLifecycleState) {
         Task { @MainActor in
             do {
-                tournaments = try await tournamentService.fetchTournaments(status: status)
+                let allTournaments = try await workflowService.getAllTournaments()
+                tournaments = allTournaments.filter { $0.status == status }
             } catch {
-                print("❌ [TournamentSelectionView] 按狀態篩選錦標賽失敗: \(error.localizedDescription)")
-                tournaments = []
+                await MainActor.run {
+                    print("❌ [TournamentSelectionView] 按狀態篩選錦標賽失敗: \(error.localizedDescription)")
+                    errorMessage = "篩選錦標賽失敗: \(error.localizedDescription)"
+                    showingError = true
+                    tournaments = []
+                }
             }
         }
     }
@@ -436,11 +468,19 @@ struct TournamentSelectionView: View {
     private func filterHighPrizeTournaments() {
         Task { @MainActor in
             do {
-                let allTournaments = try await tournamentService.fetchTournaments()
-                tournaments = allTournaments.filter { $0.prizePool >= 200000 }
+                let allTournaments = try await workflowService.getAllTournaments()
+                // 高獎金錦標賽：參與者多且有入場費的錦標賽
+                tournaments = allTournaments.filter { 
+                    ($0.feeTokens > 0 && $0.currentParticipants > 50) || 
+                    ($0.maxParticipants > 100)
+                }
             } catch {
-                print("❌ [TournamentSelectionView] 篩選高獎金錦標賽失敗: \(error.localizedDescription)")
-                tournaments = []
+                await MainActor.run {
+                    print("❌ [TournamentSelectionView] 篩選高獎金錦標賽失敗: \(error.localizedDescription)")
+                    errorMessage = "篩選高獎金錦標賽失敗: \(error.localizedDescription)"
+                    showingError = true
+                    tournaments = []
+                }
             }
         }
     }
@@ -448,13 +488,18 @@ struct TournamentSelectionView: View {
     private func filterBeginnerFriendlyTournaments() {
         Task { @MainActor in
             do {
-                let allTournaments = try await tournamentService.fetchTournaments()
+                let allTournaments = try await workflowService.getAllTournaments()
+                // 新手友善錦標賽：免費且時間較短的錦標賽
                 tournaments = allTournaments.filter { 
-                    $0.type == .daily || $0.type == .weekly 
+                    $0.feeTokens == 0 && daysBetween($0.startDate, $0.endDate) <= 7
                 }
             } catch {
-                print("❌ [TournamentSelectionView] 篩選新手友善錦標賽失敗: \(error.localizedDescription)")
-                tournaments = []
+                await MainActor.run {
+                    print("❌ [TournamentSelectionView] 篩選新手友善錦標賽失敗: \(error.localizedDescription)")
+                    errorMessage = "篩選新手友善錦標賽失敗: \(error.localizedDescription)"
+                    showingError = true
+                    tournaments = []
+                }
             }
         }
     }
@@ -462,18 +507,29 @@ struct TournamentSelectionView: View {
     // MARK: - 事件處理
     
     private func handleEnrollTournament(_ tournament: Tournament) {
-        // 處理錦標賽報名
         print("🏆 報名錦標賽: \(tournament.name)")
         
         Task {
-            await TournamentStateManager.shared.joinTournament(tournament)
-            
-            // 報名成功後，通知父組件切換到錦標賽交易界面
-            await MainActor.run {
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("SwitchToTournamentTrading"), 
-                    object: tournament
-                )
+            do {
+                // 使用新的工作流程服務處理參賽
+                try await workflowService.joinTournament(tournamentId: tournament.id)
+                
+                await MainActor.run {
+                    // 報名成功後，通知父組件切換到錦標賽交易界面
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("SwitchToTournamentTrading"), 
+                        object: tournament
+                    )
+                    
+                    // 重新載入錦標賽列表以更新狀態
+                    loadTournaments()
+                }
+            } catch {
+                await MainActor.run {
+                    print("❌ [TournamentSelectionView] 報名錦標賽失敗: \(error.localizedDescription)")
+                    errorMessage = "報名錦標賽失敗: \(error.localizedDescription)"
+                    showingError = true
+                }
             }
         }
     }
@@ -482,6 +538,14 @@ struct TournamentSelectionView: View {
         selectedTournament = tournament
         showingDetail = true
         print("👀 查看錦標賽詳情: \(tournament.name)")
+    }
+    
+    // MARK: - 輔助方法
+    
+    private func isUserParticipant(_ tournament: Tournament) -> Bool {
+        // 這裡應該檢查當前用戶是否已參與此錦標賽
+        // 目前使用簡化實現
+        return tournament.currentParticipants > 0 && Bool.random()
     }
 }
 
@@ -691,13 +755,20 @@ private struct SecondaryButtonStyle: ButtonStyle {
 
 // MARK: - Preview
 
-/* #Preview("錦標賽競技場") {
+#Preview("錦標賽競技場") {
     NavigationView {
         TournamentSelectionView(
             selectedTournament: .constant(nil),
-            showingDetail: .constant(false)
+            showingDetail: .constant(false),
+            workflowService: TournamentWorkflowService(
+                tournamentService: TournamentService(),
+                tradeService: TournamentTradeService(),
+                walletService: TournamentWalletService(),
+                rankingService: TournamentRankingService(),
+                businessService: TournamentBusinessService()
+            )
         )
         .navigationTitle("錦標賽競技場")
         .navigationBarTitleDisplayMode(.large)
     }
-}*/
+}

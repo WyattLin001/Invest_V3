@@ -23,6 +23,16 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)  # 允許 iOS 跨域請求
 
+# 導入錦標賽路由
+try:
+    from tournament_routes import tournament_bp
+    app.register_blueprint(tournament_bp)
+    logger.info("✅ 錦標賽高併發路由載入成功")
+except ImportError as e:
+    logger.warning(f"⚠️ 錦標賽路由載入失敗: {e}")
+except Exception as e:
+    logger.error(f"❌ 錦標賽路由載入錯誤: {e}")
+
 # Redis 配置 (用於股價快取)
 try:
     redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -601,37 +611,105 @@ def test_tournament_isolation():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """健康檢查端點"""
-    # 檢查官方 API 連線狀態
-    twse_api_status = "unknown"
-    tpex_api_status = "unknown"
+    """健康檢查端點（增強版，包含錦標賽系統）"""
+    health_data = {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "api_version": "tournament_optimized_v2.0",
+        "components": {}
+    }
     
+    # 檢查 Redis 連接
+    try:
+        if redis_client:
+            redis_client.ping()
+            health_data["components"]["redis"] = {
+                "status": "healthy",
+                "info": redis_client.info() if redis_client else None
+            }
+        else:
+            health_data["components"]["redis"] = {"status": "not_configured"}
+    except Exception as e:
+        health_data["components"]["redis"] = {"status": f"unhealthy: {str(e)[:50]}"}
+        health_data["status"] = "degraded"
+    
+    # 檢查 Supabase 連接
+    try:
+        supabase.table('tournaments').select('id').limit(1).execute()
+        health_data["components"]["supabase"] = {"status": "healthy"}
+    except Exception as e:
+        health_data["components"]["supabase"] = {"status": f"unhealthy: {str(e)[:50]}"}
+        health_data["status"] = "unhealthy"
+    
+    # 檢查錦標賽系統
+    try:
+        from tournament_service import get_tournament_service
+        tournament_service = get_tournament_service(supabase, redis_client)
+        health_data["components"]["tournament_service"] = {"status": "healthy"}
+        
+        # 檢查活躍錦標賽數量
+        active_tournaments = supabase.table('tournaments').select('id').eq('status', 'active').execute()
+        health_data["components"]["active_tournaments"] = {
+            "status": "healthy",
+            "count": len(active_tournaments.data) if active_tournaments.data else 0
+        }
+    except Exception as e:
+        health_data["components"]["tournament_service"] = {"status": f"unhealthy: {str(e)[:50]}"}
+        health_data["status"] = "degraded"
+    
+    # 檢查官方 API 連線狀態
+    api_status = {}
     try:
         session = create_robust_session()
         
         # 測試上市官方 API
-        response = session.get("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", timeout=10)
-        twse_api_status = "connected" if response.status_code == 200 else f"error_{response.status_code}"
+        response = session.get("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", timeout=5)
+        api_status["twse_api"] = "connected" if response.status_code == 200 else f"error_{response.status_code}"
         
-        # 測試上櫃官方 API
-        response = session.get("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", timeout=10)
-        tpex_api_status = "connected" if response.status_code == 200 else f"error_{response.status_code}"
+        # 測試上櫃官方 API  
+        response = session.get("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", timeout=5)
+        api_status["tpex_api"] = "connected" if response.status_code == 200 else f"error_{response.status_code}"
         
         session.close()
     except Exception as e:
-        twse_api_status = f"failed_{str(e)[:50]}"
-        tpex_api_status = f"failed_{str(e)[:50]}"
+        api_status["twse_api"] = f"failed_{str(e)[:30]}"
+        api_status["tpex_api"] = f"failed_{str(e)[:30]}"
     
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "redis_connected": redis_client is not None,
-        "supabase_connected": True,
-        "twse_official_api": twse_api_status,
-        "tpex_official_api": tpex_api_status,
-        "fallback_available": os.path.exists(os.path.join(os.path.dirname(__file__), 'taiwan_stocks_fallback.json')),
-        "api_version": "official_twse_api_v1"
-    })
+    health_data["components"]["external_apis"] = api_status
+    health_data["components"]["fallback_data"] = {
+        "available": os.path.exists(os.path.join(os.path.dirname(__file__), 'taiwan_stocks_fallback.json'))
+    }
+    
+    # 添加系統性能指標
+    try:
+        import psutil
+        health_data["system_metrics"] = {
+            "cpu_percent": psutil.cpu_percent(interval=1),
+            "memory_percent": psutil.virtual_memory().percent,
+            "disk_percent": psutil.disk_usage('/').percent
+        }
+    except ImportError:
+        health_data["system_metrics"] = {"status": "psutil_not_available"}
+    except Exception as e:
+        health_data["system_metrics"] = {"error": str(e)}
+    
+    # 判斷整體健康狀態
+    unhealthy_components = [k for k, v in health_data["components"].items() 
+                          if isinstance(v, dict) and "unhealthy" in str(v.get("status", ""))]
+    
+    if unhealthy_components:
+        if len(unhealthy_components) >= 2:
+            health_data["status"] = "unhealthy"
+        else:
+            health_data["status"] = "degraded"
+    
+    status_code = 200
+    if health_data["status"] == "unhealthy":
+        status_code = 503
+    elif health_data["status"] == "degraded":  
+        status_code = 200  # 降級但仍可服務
+    
+    return jsonify(health_data), status_code
 
 @app.route('/api/taiwan-stocks', methods=['GET'])
 def get_taiwan_stock_list():

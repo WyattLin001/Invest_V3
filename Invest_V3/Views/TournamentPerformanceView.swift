@@ -135,9 +135,9 @@ struct TournamentPerformanceView: View {
             }
         }
         .padding(16)
-        .background(Color(.systemBackground))
+        .background(getCardBackgroundColor())
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .shadow(color: getCardShadowColor(), radius: 2, x: 0, y: 1)
     }
     
     // MARK: - 關鍵指標卡片
@@ -200,7 +200,7 @@ struct TournamentPerformanceView: View {
                             .padding(.vertical, 6)
                             .background(
                                 Capsule()
-                                    .fill(selectedTimeRange == range ? Color.brandGreen : Color(.systemGray5))
+                                    .fill(selectedTimeRange == range ? Color.brandGreen : getTimeRangeButtonBackgroundColor())
                             )
                             .foregroundColor(selectedTimeRange == range ? .white : .primary)
                     }
@@ -237,13 +237,13 @@ struct TournamentPerformanceView: View {
                 metric: selectedMetric
             )
             .frame(height: 200)
-            .background(Color(.systemGray6).opacity(0.3))
+            .background(getChartContainerBackgroundColor())
             .cornerRadius(12)
         }
         .padding(16)
-        .background(Color(.systemBackground))
+        .background(getCardBackgroundColor())
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .shadow(color: getCardShadowColor(), radius: 2, x: 0, y: 1)
     }
     
     // MARK: - 詳細統計區域
@@ -263,9 +263,9 @@ struct TournamentPerformanceView: View {
             }
         }
         .padding(16)
-        .background(Color(.systemBackground))
+        .background(getCardBackgroundColor())
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .shadow(color: getCardShadowColor(), radius: 2, x: 0, y: 1)
     }
     
     // MARK: - 持股分析區域
@@ -290,9 +290,9 @@ struct TournamentPerformanceView: View {
             }
         }
         .padding(16)
-        .background(Color(.systemBackground))
+        .background(getCardBackgroundColor())
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .shadow(color: getCardShadowColor(), radius: 2, x: 0, y: 1)
     }
     
     // MARK: - 交易活動區域
@@ -335,9 +335,9 @@ struct TournamentPerformanceView: View {
             }
         }
         .padding(16)
-        .background(Color(.systemBackground))
+        .background(getCardBackgroundColor())
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        .shadow(color: getCardShadowColor(), radius: 2, x: 0, y: 1)
     }
     
     // MARK: - 輔助方法
@@ -348,6 +348,58 @@ struct TournamentPerformanceView: View {
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 0
         return formatter.string(from: NSNumber(value: amount)) ?? "NT$0"
+    }
+    
+    // MARK: - 深色模式支援方法
+    
+    /// 獲取卡片背景顏色
+    private func getCardBackgroundColor() -> Color {
+        return Color(.systemBackground)
+    }
+    
+    /// 獲取卡片陰影顏色
+    private func getCardShadowColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.white.withAlphaComponent(0.05)
+                : UIColor.black.withAlphaComponent(0.1)
+        })
+    }
+    
+    /// 獲取時間範圍按鈕背景顏色
+    private func getTimeRangeButtonBackgroundColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemGray4
+                : UIColor.systemGray5
+        })
+    }
+    
+    /// 獲取圖表容器背景顏色
+    private func getChartContainerBackgroundColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemGray6.withAlphaComponent(0.2)
+                : UIColor.systemGray6.withAlphaComponent(0.3)
+        })
+    }
+    
+    /// 獲取指標卡片陰影顏色
+    private func getMetricCardShadowColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.white.withAlphaComponent(0.02)
+                : UIColor.black.withAlphaComponent(0.05)
+        })
+    }
+    
+    /// 獲取統計行背景顏色
+    private func getStatRowBackgroundColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemGray5.withAlphaComponent(0.3)
+                : UIColor.systemGray6.withAlphaComponent(0.5)
+        })
     }
 }
 
@@ -398,9 +450,9 @@ struct TournamentMetricCard: View {
             }
         }
         .padding(12)
-        .background(Color(.systemBackground))
+        .background(getCardBackgroundColor())
         .cornerRadius(8)
-        .shadow(color: Color.black.opacity(0.05), radius: 1, x: 0, y: 1)
+        .shadow(color: getMetricCardShadowColor(), radius: 1, x: 0, y: 1)
     }
 }
 
@@ -422,7 +474,7 @@ struct StatRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
-        .background(Color(.systemGray6).opacity(0.5))
+        .background(getStatRowBackgroundColor())
         .cornerRadius(6)
     }
 }

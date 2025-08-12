@@ -4271,6 +4271,292 @@ class SupabaseService: ObservableObject {
         }
     }
     #endif
+    
+    // MARK: - 新錦標賽架構方法 (V2.0)
+    
+    /// 獲取錦標賽交易記錄（新架構）
+    func fetchTournamentTrades(
+        tournamentId: UUID,
+        userId: UUID,
+        limit: Int = 50,
+        offset: Int = 0
+    ) async throws -> [TournamentTrade] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("📊 [SupabaseService] 獲取錦標賽交易: \(tournamentId)")
+        
+        let trades: [TournamentTrade] = try await client
+            .from("tournament_trades")
+            .select()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .order("executed_at", ascending: false)
+            .limit(limit)
+            .range(from: offset, to: offset + limit - 1)
+            .execute()
+            .value
+        
+        print("✅ [SupabaseService] 獲取交易成功: \(trades.count) 筆")
+        return trades
+    }
+    
+    /// 獲取錦標賽所有交易（管理員）
+    func fetchAllTournamentTrades(
+        tournamentId: UUID,
+        limit: Int = 100,
+        offset: Int = 0
+    ) async throws -> [TournamentTrade] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let trades: [TournamentTrade] = try await client
+            .from("tournament_trades")
+            .select()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .order("executed_at", ascending: false)
+            .limit(limit)
+            .range(from: offset, to: offset + limit - 1)
+            .execute()
+            .value
+        
+        return trades
+    }
+    
+    /// 插入錦標賽交易（新架構）
+    func insertTournamentTrade(_ trade: TournamentTrade) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        try await client
+            .from("tournament_trades")
+            .insert(trade)
+            .execute()
+    }
+    
+    /// 取消交易
+    func cancelTournamentTrade(tradeId: UUID) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        try await client
+            .from("tournament_trades")
+            .update(["status": "cancelled"])
+            .eq("id", value: tradeId.uuidString)
+            .execute()
+    }
+    
+    /// 獲取錦標賽持倉
+    func fetchTournamentPositions(
+        tournamentId: UUID,
+        userId: UUID
+    ) async throws -> [TournamentPosition] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let positions: [TournamentPosition] = try await client
+            .from("tournament_positions")
+            .select()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .gt("qty", value: 0)
+            .execute()
+            .value
+        
+        return positions
+    }
+    
+    /// 獲取錦標賽所有持倉
+    func fetchAllTournamentPositions(tournamentId: UUID) async throws -> [TournamentPosition] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let positions: [TournamentPosition] = try await client
+            .from("tournament_positions")
+            .select()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .gt("qty", value: 0)
+            .execute()
+            .value
+        
+        return positions
+    }
+    
+    /// 更新錦標賽持倉
+    func updateTournamentPosition(
+        tournamentId: UUID,
+        userId: UUID,
+        symbol: String,
+        side: String,
+        qty: Double,
+        price: Double
+    ) async throws -> TournamentPosition {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        // 調用數據庫存儲過程來原子性更新持倉
+        let result: [TournamentPosition] = try await client
+            .rpc("update_tournament_position", params: [
+                "p_tournament_id": tournamentId.uuidString,
+                "p_user_id": userId.uuidString,
+                "p_symbol": symbol,
+                "p_side": side,
+                "p_qty": qty,
+                "p_price": price
+            ])
+            .execute()
+            .value
+        
+        guard let position = result.first else {
+            throw SupabaseError.dataFetchFailed("Failed to update position")
+        }
+        
+        return position
+    }
+    
+    /// 更新持倉價格
+    func updatePositionPrice(
+        tournamentId: UUID,
+        userId: UUID,
+        symbol: String,
+        currentPrice: Double
+    ) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        try await client
+            .from("tournament_positions")
+            .update([
+                "current_price": currentPrice,
+                "last_updated": Date().toISOString()
+            ])
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .eq("symbol", value: symbol)
+            .execute()
+    }
+    
+    /// 獲取錦標賽投資組合
+    func fetchTournamentPortfolio(
+        tournamentId: UUID,
+        userId: UUID
+    ) async throws -> TournamentPortfolioV2 {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let portfolios: [TournamentPortfolioV2] = try await client
+            .from("tournament_portfolios")
+            .select()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+            .value
+        
+        guard let portfolio = portfolios.first else {
+            throw SupabaseError.dataNotFound("Portfolio not found")
+        }
+        
+        return portfolio
+    }
+    
+    /// 創建錦標賽投資組合
+    func createTournamentPortfolio(_ portfolio: TournamentPortfolioV2) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        try await client
+            .from("tournament_portfolios")
+            .insert(portfolio)
+            .execute()
+    }
+    
+    /// 更新錦標賽錢包
+    func updateTournamentWallet(
+        tournamentId: UUID,
+        userId: UUID,
+        side: String,
+        amount: Double,
+        fees: Double
+    ) async throws -> TournamentPortfolioV2 {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let result: [TournamentPortfolioV2] = try await client
+            .rpc("update_tournament_wallet", params: [
+                "p_tournament_id": tournamentId.uuidString,
+                "p_user_id": userId.uuidString,
+                "p_side": side,
+                "p_amount": amount,
+                "p_fees": fees
+            ])
+            .execute()
+            .value
+        
+        guard let wallet = result.first else {
+            throw SupabaseError.dataFetchFailed("Failed to update wallet")
+        }
+        
+        return wallet
+    }
+    
+    /// 獲取錦標賽成員
+    func fetchTournamentMembers(tournamentId: UUID) async throws -> [TournamentMember] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let members: [TournamentMember] = try await client
+            .from("tournament_members")
+            .select()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .execute()
+            .value
+        
+        return members
+    }
+    
+    /// 獲取錦標賽快照
+    func fetchTournamentSnapshots(
+        tournamentId: UUID,
+        userId: UUID,
+        limit: Int = 30
+    ) async throws -> [TournamentSnapshot] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let snapshots: [TournamentSnapshot] = try await client
+            .from("tournament_snapshots")
+            .select()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .order("as_of_date", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+        
+        return snapshots
+    }
+    
+    /// 創建或更新錦標賽快照
+    func upsertTournamentSnapshot(_ snapshot: TournamentSnapshot) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        try await client
+            .from("tournament_snapshots")
+            .upsert(snapshot)
+            .execute()
+    }
+    
+    /// 執行事務塊
+    func executeTransactionBlock(_ block: @escaping (SupabaseClient) async throws -> Void) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        // Supabase 目前不直接支援事務，但可以通過 RPC 調用存儲過程實現
+        // 這裡先簡化實現，後續可以改為調用專門的存儲過程
+        try await block(client)
+    }
+}
+
+// MARK: - 擴展方法
+
+extension SupabaseService {
+    /// 批次獲取股票價格（模擬實現）
+    func batchGetStockPrices(symbols: [String]) async throws -> [String: Double] {
+        // 這裡需要實際的股價API，暫時返回模擬數據
+        var prices: [String: Double] = [:]
+        
+        for symbol in symbols {
+            prices[symbol] = Double.random(in: 50...1000)
+        }
+        
+        return prices
+    }
 }
 
 // MARK: - 輔助資料結構
