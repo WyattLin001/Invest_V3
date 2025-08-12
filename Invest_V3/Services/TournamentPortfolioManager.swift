@@ -457,7 +457,7 @@ class TournamentPortfolioManager: ObservableObject {
         let actualUserId = userId ?? portfolio.userId
         
         // 步驟2：轉換為新的交易類型
-        let tradeSide: TournamentTrade.TradeSide = action == .buy ? .buy : .sell
+        let tradeSide: TradeSide = action == .buy ? .buy : .sell
         
         // 步驟3：使用 TournamentTradeService 執行交易
         isLoading = true
@@ -777,7 +777,7 @@ class TournamentPortfolioManager: ObservableObject {
     /// 檢查交易能力（V2.0）
     func checkTradingCapability(
         tournamentId: UUID,
-        side: TournamentTrade.TradeSide,
+        side: TradeSide,
         amount: Double,
         fees: Double
     ) async -> TradingCapabilityCheck? {
@@ -804,8 +804,8 @@ class TournamentPortfolioManager: ObservableObject {
 // MARK: - V2.0 Extensions - 適配新架構
 
 extension TradingType {
-    /// 轉換為 TournamentTrade.TradeSide
-    func toTournamentTradeSide() -> TournamentTrade.TradeSide {
+    /// 轉換為 TradeSide
+    func toTournamentTradeSide() -> TradeSide {
         switch self {
         case .buy:
             return .buy

@@ -94,7 +94,9 @@ enum TournamentType: String, CaseIterable, Identifiable, Codable {
     case monthly = "monthly"
     case quarterly = "quarterly"
     case yearly = "yearly"
+    case annual = "annual"      // 添加缺失的 annual 類型
     case special = "special"
+    case custom = "custom"      // 添加缺失的 custom 類型
     
     var id: String { rawValue }
     
@@ -110,8 +112,12 @@ enum TournamentType: String, CaseIterable, Identifiable, Codable {
             return "季賽"
         case .yearly:
             return "年賽"
+        case .annual:
+            return "年度賽"
         case .special:
             return "限時賽"
+        case .custom:
+            return "自訂賽"
         }
     }
     
@@ -127,8 +133,12 @@ enum TournamentType: String, CaseIterable, Identifiable, Codable {
             return "季度競賽，中期波段操作"
         case .yearly:
             return "年度競賽，長期策略考驗"
+        case .annual:
+            return "年度競賽，完整一年期挑戰"
         case .special:
             return "特殊活動，限時快閃競賽"
+        case .custom:
+            return "自定義競賽，彈性規則設定"
         }
     }
     
@@ -144,8 +154,12 @@ enum TournamentType: String, CaseIterable, Identifiable, Codable {
             return "chart.line.uptrend.xyaxis"
         case .yearly:
             return "crown"
+        case .annual:
+            return "crown.fill"
         case .special:
             return "bolt.fill"
+        case .custom:
+            return "gear"
         }
     }
     
@@ -161,8 +175,12 @@ enum TournamentType: String, CaseIterable, Identifiable, Codable {
             return "90天"
         case .yearly:
             return "365天"
+        case .annual:
+            return "365天"
         case .special:
             return "變動"
+        case .custom:
+            return "自訂"
         }
     }
 }
@@ -172,7 +190,10 @@ enum TournamentStatus: String, CaseIterable, Codable {
     case upcoming = "upcoming"      // 即將開始
     case enrolling = "enrolling"    // 報名中 (內部狀態，數據庫中映射為 upcoming)
     case ongoing = "ongoing"        // 進行中 (對應數據庫的 ongoing)
+    case active = "active"          // 活躍中 (別名，映射為 ongoing)
     case finished = "finished"      // 已結束
+    case ended = "ended"            // 已結束 (別名，映射為 finished)
+    case settling = "settling"      // 結算中 (結算階段，映射為 finished)
     case cancelled = "cancelled"    // 已取消 (內部狀態，數據庫中映射為 finished)
     
     var displayName: String {
@@ -183,8 +204,14 @@ enum TournamentStatus: String, CaseIterable, Codable {
             return "報名中"
         case .ongoing:
             return "進行中"
+        case .active:
+            return "活躍中"
         case .finished:
             return "已結束"
+        case .ended:
+            return "已結束"
+        case .settling:
+            return "結算中"
         case .cancelled:
             return "已取消"
         }
@@ -198,8 +225,14 @@ enum TournamentStatus: String, CaseIterable, Codable {
             return .green
         case .ongoing:
             return .orange
+        case .active:
+            return .orange
         case .finished:
             return .gray
+        case .ended:
+            return .gray
+        case .settling:
+            return .purple
         case .cancelled:
             return .red
         }
@@ -210,10 +243,10 @@ enum TournamentStatus: String, CaseIterable, Codable {
         switch self {
         case .upcoming, .enrolling:
             return "upcoming"     // enrolling 在數據庫中存儲為 upcoming
-        case .ongoing:
-            return "ongoing"
-        case .finished, .cancelled:
-            return "finished"     // cancelled 在數據庫中存儲為 finished
+        case .ongoing, .active:
+            return "ongoing"      // active 在數據庫中存儲為 ongoing
+        case .finished, .ended, .settling, .cancelled:
+            return "finished"     // 其他結束狀態在數據庫中存儲為 finished
         }
     }
     
@@ -242,6 +275,129 @@ enum TournamentStatus: String, CaseIterable, Codable {
     
     var canParticipate: Bool {
         return self == .ongoing
+    }
+}
+
+// MARK: - 交易類型 (統一定義，解決類型歧義)
+enum TradeSide: String, CaseIterable, Codable {
+    case buy = "buy"
+    case sell = "sell"
+    
+    var displayName: String {
+        switch self {
+        case .buy: return "買入"
+        case .sell: return "賣出"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .buy: return .red
+        case .sell: return .green
+        }
+    }
+}
+
+// MARK: - 交易狀態 (統一定義)
+enum TradeStatus: String, CaseIterable, Codable {
+    case executed = "executed"
+    case cancelled = "cancelled"
+    case pending = "pending"
+    
+    var displayName: String {
+        switch self {
+        case .executed: return "已執行"
+        case .cancelled: return "已取消"
+        case .pending: return "待執行"
+        }
+    }
+}
+
+// MARK: - 活動類型 (統一定義，解決類型歧義)
+enum ActivityType: String, CaseIterable, Codable {
+    case trade = "trade"
+    case rankChange = "rank_change"
+    case elimination = "elimination"
+    case milestone = "milestone"
+    case violation = "violation"
+    case achievement = "achievement"
+    case groupJoin = "group_join"
+    
+    var icon: String {
+        switch self {
+        case .trade:
+            return "arrow.left.arrow.right"
+        case .rankChange:
+            return "arrow.up.arrow.down"
+        case .elimination:
+            return "xmark.circle"
+        case .milestone:
+            return "flag.checkered"
+        case .violation:
+            return "exclamationmark.triangle"
+        case .achievement:
+            return "trophy.fill"
+        case .groupJoin:
+            return "person.2.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .trade:
+            return .brandBlue
+        case .rankChange:
+            return .brandGreen
+        case .elimination:
+            return .danger
+        case .milestone:
+            return .warning
+        case .violation:
+            return .brandOrange
+        case .achievement:
+            return .yellow
+        case .groupJoin:
+            return .green
+        }
+    }
+}
+
+// MARK: - 成就稀有度 (統一定義，解決類型歧義)
+enum AchievementRarity: String, CaseIterable, Codable {
+    case common = "common"
+    case rare = "rare"
+    case epic = "epic"
+    case legendary = "legendary"
+    case mythic = "mythic"
+    
+    var displayName: String {
+        switch self {
+        case .common:
+            return "普通"
+        case .rare:
+            return "稀有"
+        case .epic:
+            return "史詩"
+        case .legendary:
+            return "傳奇"
+        case .mythic:
+            return "神話"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .common:
+            return Color(hex: "#9E9E9E")
+        case .rare:
+            return Color(hex: "#2196F3")
+        case .epic:
+            return Color(hex: "#9C27B0")
+        case .legendary:
+            return Color(hex: "#FF9800")
+        case .mythic:
+            return Color(hex: "#F44336")
+        }
     }
 }
 
@@ -800,7 +956,7 @@ struct TournamentTrade: Identifiable, Codable {
     let tournamentId: UUID
     let userId: UUID
     let symbol: String
-    let side: TradeSide
+    let side: TradeSide         // 使用統一定義的 TradeSide
     let qty: Double
     let price: Double
     let amount: Double          // 由數據庫計算
@@ -808,42 +964,9 @@ struct TournamentTrade: Identifiable, Codable {
     let netAmount: Double       // 由數據庫計算
     let realizedPnl: Double?
     let realizedPnlPercentage: Double?
-    let status: TradeStatus
+    let status: TradeStatus     // 使用統一定義的 TradeStatus
     let executedAt: Date
     let createdAt: Date
-    
-    enum TradeSide: String, CaseIterable, Codable {
-        case buy = "buy"
-        case sell = "sell"
-        
-        var displayName: String {
-            switch self {
-            case .buy: return "買入"
-            case .sell: return "賣出"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .buy: return .red
-            case .sell: return .green
-            }
-        }
-    }
-    
-    enum TradeStatus: String, CaseIterable, Codable {
-        case executed = "executed"
-        case cancelled = "cancelled"
-        case pending = "pending"
-        
-        var displayName: String {
-            switch self {
-            case .executed: return "已執行"
-            case .cancelled: return "已取消"
-            case .pending: return "待執行"
-            }
-        }
-    }
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -1236,6 +1359,17 @@ struct TournamentRankingSnapshot: Identifiable, Codable {
     }
 }
 
+// MARK: - 成就需求類型
+struct AchievementRequirement: Codable {
+    let type: String
+    let value: Double
+    let description: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case type, value, description
+    }
+}
+
 // MARK: - 錦標賽成就（對應 tournament_achievements 表）
 struct TournamentAchievementRecord: Identifiable, Codable {
     let id: UUID
@@ -1243,7 +1377,7 @@ struct TournamentAchievementRecord: Identifiable, Codable {
     let description: String
     let icon: String
     let rarity: AchievementRarity
-    let requirements: [String: Any] // jsonb
+    let requirements: [AchievementRequirement]  // 修正為可序列化的類型
     let rewardAmount: Int
     let isActive: Bool
     let createdAt: Date
@@ -1282,7 +1416,7 @@ struct TournamentActivity: Identifiable, Codable {
     let tournamentId: UUID
     let userId: UUID
     let userName: String
-    let activityType: ActivityType
+    let activityType: ActivityType  // 使用統一定義的 ActivityType
     let description: String
     let amount: Double?
     let symbol: String?
@@ -1294,44 +1428,6 @@ struct TournamentActivity: Identifiable, Codable {
         case userId = "user_id"
         case userName = "user_name"
         case activityType = "activity_type"
-    }
-    
-    enum ActivityType: String, CaseIterable, Codable {
-        case trade = "trade"
-        case rankChange = "rank_change"
-        case elimination = "elimination"
-        case milestone = "milestone"
-        case violation = "violation"
-        
-        var icon: String {
-            switch self {
-            case .trade:
-                return "arrow.left.arrow.right"
-            case .rankChange:
-                return "arrow.up.arrow.down"
-            case .elimination:
-                return "xmark.circle"
-            case .milestone:
-                return "flag.checkered"
-            case .violation:
-                return "exclamationmark.triangle"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .trade:
-                return .brandBlue
-            case .rankChange:
-                return .brandGreen
-            case .elimination:
-                return .danger
-            case .milestone:
-                return .warning
-            case .violation:
-                return .brandOrange
-            }
-        }
     }
 }
 
@@ -1447,12 +1543,12 @@ struct RankingPoint: Identifiable, Codable {
 }
 
 // MARK: - 成就
-struct Achievement: Codable {
+struct Achievement: Identifiable, Codable {
     let id: UUID
     let name: String
     let description: String
     let icon: String
-    let rarity: AchievementRarity
+    let rarity: AchievementRarity   // 使用統一定義的 AchievementRarity
     let earnedAt: Date?
     let progress: Double
     let isUnlocked: Bool
@@ -1460,44 +1556,6 @@ struct Achievement: Codable {
     enum CodingKeys: String, CodingKey {
         case id, name, description, icon, rarity, progress, isUnlocked
         case earnedAt = "earned_at"
-    }
-    
-    enum AchievementRarity: String, CaseIterable, Codable {
-        case common = "common"
-        case rare = "rare"
-        case epic = "epic"
-        case legendary = "legendary"
-        case mythic = "mythic"
-        
-        var displayName: String {
-            switch self {
-            case .common:
-                return "普通"
-            case .rare:
-                return "稀有"
-            case .epic:
-                return "史詩"
-            case .legendary:
-                return "傳奇"
-            case .mythic:
-                return "神話"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .common:
-                return Color(hex: "#9E9E9E")
-            case .rare:
-                return Color(hex: "#2196F3")
-            case .epic:
-                return Color(hex: "#9C27B0")
-            case .legendary:
-                return Color(hex: "#FF9800")
-            case .mythic:
-                return Color(hex: "#F44336")
-            }
-        }
     }
 }
 

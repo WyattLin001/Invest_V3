@@ -37,7 +37,7 @@ class TournamentTradeService: ObservableObject {
         tournamentId: UUID,
         userId: UUID,
         symbol: String,
-        side: TournamentTrade.TradeSide,
+        side: TradeSide,
         qty: Double,
         price: Double
     ) async -> Result<TournamentTrade, TournamentTradeError> {
@@ -218,7 +218,7 @@ class TournamentTradeService: ObservableObject {
         tournament: Tournament,
         wallet: TournamentPortfolioV2,
         symbol: String,
-        side: TournamentTrade.TradeSide,
+        side: TradeSide,
         qty: Double,
         price: Double
     ) async throws {
@@ -268,7 +268,7 @@ class TournamentTradeService: ObservableObject {
     }
     
     /// 計算交易費用
-    private func calculateTradingFees(amount: Double, side: TournamentTrade.TradeSide) -> Double {
+    private func calculateTradingFees(amount: Double, side: TradeSide) -> Double {
         // 台股手續費：0.1425%，最低20元
         let brokerageFee = max(20, amount * 0.001425)
         
@@ -283,7 +283,7 @@ class TournamentTradeService: ObservableObject {
         tournamentId: UUID,
         userId: UUID,
         symbol: String,
-        side: TournamentTrade.TradeSide,
+        side: TradeSide,
         qty: Double,
         price: Double,
         fees: Double

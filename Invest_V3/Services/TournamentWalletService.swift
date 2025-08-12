@@ -110,7 +110,7 @@ class TournamentWalletService: ObservableObject {
     func updateBalance(
         tournamentId: UUID,
         userId: UUID,
-        side: TournamentTrade.TradeSide,
+        side: TradeSide,
         amount: Double,
         fees: Double
     ) async -> Result<TournamentPortfolioV2, Error> {
@@ -192,7 +192,7 @@ class TournamentWalletService: ObservableObject {
     /// 檢查交易能力
     func checkTradingCapability(
         wallet: TournamentPortfolioV2,
-        side: TournamentTrade.TradeSide,
+        side: TradeSide,
         amount: Double,
         fees: Double
     ) -> TradingCapabilityCheck {

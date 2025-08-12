@@ -460,6 +460,30 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
     }
     
+    /// 獲取活躍/進行中的錦標賽
+    func getActiveTournaments() async throws -> [Tournament] {
+        print("🔍 [TournamentService] 開始獲取活躍錦標賽")
+        
+        do {
+            let rawTournaments = try await supabaseService.fetchTournaments()
+            
+            // 過濾出活躍（ongoing）狀態的錦標賽，並進行狀態自動更新
+            let tournaments = rawTournaments.compactMap { tournament -> Tournament? in
+                let updatedTournament = tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
+                
+                // 只返回進行中的錦標賽
+                return updatedTournament.status == .ongoing ? updatedTournament : nil
+            }
+            
+            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個活躍錦標賽")
+            return tournaments
+        } catch {
+            let apiError = handleError(error)
+            print("❌ [TournamentService] 獲取活躍錦標賽失敗: \(error.localizedDescription)")
+            throw apiError
+        }
+    }
+    
     private func handleError(_ error: Error) -> TournamentAPIError {
         if let apiError = error as? TournamentAPIError {
             return apiError

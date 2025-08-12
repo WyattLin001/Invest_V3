@@ -4541,6 +4541,26 @@ class SupabaseService: ObservableObject {
         // 這裡先簡化實現，後續可以改為調用專門的存儲過程
         try await block(client)
     }
+    
+    // MARK: - Missing Service Methods
+    
+    /// 創建錦標賽成員
+    func createTournamentMember(_ member: TournamentMember) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        let memberData: [String: Any] = [
+            "tournament_id": member.tournamentId.uuidString,
+            "user_id": member.userId.uuidString,
+            "status": member.status.rawValue,
+            "joined_at": member.joinedAt.iso8601,
+            "elimination_reason": member.eliminationReason as Any
+        ]
+        
+        try await client
+            .from("tournament_members")
+            .insert(memberData)
+            .execute()
+    }
 }
 
 // MARK: - 擴展方法

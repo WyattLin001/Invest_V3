@@ -191,7 +191,7 @@ class TournamentBusinessService: ObservableObject {
         tournamentId: UUID,
         userId: UUID,
         symbol: String,
-        side: TournamentTrade.TradeSide,
+        side: TradeSide,
         qty: Double,
         price: Double
     ) async -> Result<TournamentTradeResult, TournamentBusinessError> {
@@ -479,7 +479,7 @@ class TournamentBusinessService: ObservableObject {
         tournamentId: UUID,
         userId: UUID,
         symbol: String,
-        side: TournamentTrade.TradeSide,
+        side: TradeSide,
         qty: Double,
         price: Double
     ) async throws {

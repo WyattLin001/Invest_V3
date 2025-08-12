@@ -97,7 +97,7 @@ class TournamentPositionService: ObservableObject {
         tournamentId: UUID,
         userId: UUID,
         symbol: String,
-        side: TournamentTrade.TradeSide,
+        side: TradeSide,
         qty: Double,
         price: Double
     ) async -> Result<TournamentPosition, Error> {
