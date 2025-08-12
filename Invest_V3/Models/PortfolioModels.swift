@@ -40,7 +40,7 @@ struct PortfolioData: Codable {
 
 // MARK: - 資產配置
 struct AssetAllocation: Identifiable, Codable {
-    let id = UUID()
+    let id: UUID
     let symbol: String
     let name: String
     let percentage: Double
@@ -48,8 +48,19 @@ struct AssetAllocation: Identifiable, Codable {
     let investedAmount: Double
     let color: String
     
+    // 自定義初始化器，自動生成 id
+    init(symbol: String, name: String, percentage: Double, value: Double, investedAmount: Double, color: String) {
+        self.id = UUID()
+        self.symbol = symbol
+        self.name = name
+        self.percentage = percentage
+        self.value = value
+        self.investedAmount = investedAmount
+        self.color = color
+    }
+    
     enum CodingKeys: String, CodingKey {
-        case symbol, name, percentage, value, color
+        case id, symbol, name, percentage, value, color
         case investedAmount = "invested_amount"
     }
 }
