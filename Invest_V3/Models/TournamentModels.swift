@@ -167,11 +167,11 @@ enum TournamentType: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-// MARK: - 錦標賽狀態
+// MARK: - 錦標賽狀態 (適配數據庫 schema)
 enum TournamentStatus: String, CaseIterable, Codable {
     case upcoming = "upcoming"      // 即將開始
     case enrolling = "enrolling"    // 報名中
-    case ongoing = "ongoing"        // 進行中
+    case ongoing = "ongoing"        // 進行中 (對應數據庫的 ongoing)
     case finished = "finished"      // 已結束
     case cancelled = "cancelled"    // 已取消
     
@@ -214,32 +214,107 @@ enum TournamentStatus: String, CaseIterable, Codable {
     }
 }
 
-// MARK: - 錦標賽模型
+// MARK: - 報酬率計算方式
+enum ReturnMetric: String, CaseIterable, Codable {
+    case twr = "twr"           // Time-Weighted Return 時間加權報酬率
+    case simple = "simple"     // Simple Return 簡單報酬率
+    case mwr = "mwr"           // Money-Weighted Return 資金加權報酬率
+    
+    var displayName: String {
+        switch self {
+        case .twr:
+            return "時間加權報酬率"
+        case .simple:
+            return "簡單報酬率"
+        case .mwr:
+            return "資金加權報酬率"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .twr:
+            return "消除資金流入流出對績效的影響，適合比較投資能力"
+        case .simple:
+            return "簡單的期末與期初價值比較，計算簡單"
+        case .mwr:
+            return "考慮資金流入流出時間，反映實際投資效果"
+        }
+    }
+}
+
+// MARK: - 重置模式
+enum ResetMode: String, CaseIterable, Codable {
+    case monthly = "monthly"
+    case quarterly = "quarterly" 
+    case yearly = "yearly"
+    case never = "never"
+    
+    var displayName: String {
+        switch self {
+        case .monthly:
+            return "月度重置"
+        case .quarterly:
+            return "季度重置"
+        case .yearly:
+            return "年度重置"
+        case .never:
+            return "不重置"
+        }
+    }
+}
+
+// MARK: - 錦標賽模型（適配數據庫 schema）
 struct Tournament: Identifiable, Codable, Equatable {
     let id: UUID
     let name: String
     let type: TournamentType
     let status: TournamentStatus
-    let startDate: Date
-    let endDate: Date
+    let startDate: Date             // 對應 start_date  
+    let endDate: Date               // 對應 end_date
     let description: String
-    let shortDescription: String     // 簡短描述，用於卡片顯示
-    let initialBalance: Double       // 改名為 startingCapital 以保持一致性
-    let maxParticipants: Int
-    let currentParticipants: Int
-    let entryFee: Double
-    let prizePool: Double
-    let riskLimitPercentage: Double
-    let minHoldingRate: Double
-    let maxSingleStockRate: Double
-    let rules: [String]
-    let createdAt: Date
-    let updatedAt: Date
-    let isFeatured: Bool             // 是否為精選錦標賽
+    let shortDescription: String    // 對應 short_description
     
-    // 便利計算屬性
+    // 資金設定（對應數據庫欄位）
+    let initialBalance: Double      // 對應 initial_balance
+    let entryFee: Double           // 對應 entry_fee (數字型態)
+    let prizePool: Double          // 對應 prize_pool
+    
+    // 錦標賽設定
+    let maxParticipants: Int       // 對應 max_participants
+    let currentParticipants: Int   // 對應 current_participants
+    let isFeatured: Bool           // 對應 is_featured
+    let createdBy: UUID?           // 對應 created_by
+    
+    // 交易規則（對應數據庫欄位）
+    let riskLimitPercentage: Double  // 對應 risk_limit_percentage
+    let minHoldingRate: Double       // 對應 min_holding_rate
+    let maxSingleStockRate: Double   // 對應 max_single_stock_rate
+    let rules: [String]              // 對應 rules array
+    
+    // 時間戳
+    let createdAt: Date            // 對應 created_at
+    let updatedAt: Date            // 對應 updated_at
+    
+    // 便利計算屬性（保持與舊版本的兼容性）
+    var entryCapital: Double {
+        return initialBalance  // 對應新的 initialBalance
+    }
+    
     var startingCapital: Double {
         return initialBalance
+    }
+    
+    var feeTokens: Int {
+        return Int(entryFee)  // 將 entry_fee 轉換為代幣數量
+    }
+    
+    var startsAt: Date {
+        return startDate  // 向後兼容
+    }
+    
+    var endsAt: Date {
+        return endDate    // 向後兼容
     }
     
     var participationPercentage: Double {
@@ -271,9 +346,9 @@ struct Tournament: Identifiable, Codable, Equatable {
         case startDate = "start_date"
         case endDate = "end_date"
         case initialBalance = "initial_balance"
+        case entryFee = "entry_fee"
         case maxParticipants = "max_participants"
         case currentParticipants = "current_participants"
-        case entryFee = "entry_fee"
         case prizePool = "prize_pool"
         case riskLimitPercentage = "risk_limit_percentage"
         case minHoldingRate = "min_holding_rate"
@@ -281,6 +356,7 @@ struct Tournament: Identifiable, Codable, Equatable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case isFeatured = "is_featured"
+        case createdBy = "created_by"
     }
     
     // MARK: - 計算屬性
@@ -369,17 +445,18 @@ struct Tournament: Identifiable, Codable, Equatable {
             description: description,
             shortDescription: shortDescription,
             initialBalance: initialBalance,
-            maxParticipants: maxParticipants,
-            currentParticipants: currentParticipants,
             entryFee: entryFee,
             prizePool: prizePool,
+            maxParticipants: maxParticipants,
+            currentParticipants: currentParticipants,
+            isFeatured: isFeatured,
+            createdBy: createdBy,
             riskLimitPercentage: riskLimitPercentage,
             minHoldingRate: minHoldingRate,
             maxSingleStockRate: maxSingleStockRate,
             rules: rules,
             createdAt: createdAt,
-            updatedAt: Date(), // 更新時間
-            isFeatured: isFeatured
+            updatedAt: Date() // 更新時間
         )
     }
     
@@ -387,17 +464,17 @@ struct Tournament: Identifiable, Codable, Equatable {
     
     /// 使用UTC時區的開始日期
     var startDateUTC: Date {
-        return startDate.toUTC()
+        return startDate
     }
     
     /// 使用UTC時區的結束日期
     var endDateUTC: Date {
-        return endDate.toUTC()
+        return endDate
     }
     
-    /// 基於UTC時間的狀態計算
+    /// 基旼UTC時間的狀態計算
     var computedStatusUTC: TournamentStatus {
-        let nowUTC = Date().toUTC()
+        let nowUTC = Date()
         
         if status == .cancelled {
             return .cancelled
@@ -416,7 +493,7 @@ struct Tournament: Identifiable, Codable, Equatable {
     
     /// 精確的剩餘時間（秒）
     var exactTimeRemaining: TimeInterval {
-        let now = Date().toUTC()
+        let now = Date()
         let targetDate = (computedStatusUTC == .upcoming || computedStatusUTC == .enrolling) ? startDateUTC : endDateUTC
         return max(0, targetDate.timeIntervalSince(now))
     }
@@ -449,17 +526,17 @@ struct Tournament: Identifiable, Codable, Equatable {
     
     /// 是否在狀態轉換的關鍵時刻（前後30秒）
     var isAtTransitionPoint: Bool {
-        let now = Date().toUTC()
+        let now = Date()
         let buffer: TimeInterval = 30 // 30秒緩衝
         
         // 檢查是否接近開始時間
-        let timesToStart = startDateUTC.timeIntervalSince(now)
+        let timesToStart = startDate.timeIntervalSince(now)
         if timesToStart > -buffer && timesToStart < buffer {
             return true
         }
         
         // 檢查是否接近結束時間
-        let timeToEnd = endDateUTC.timeIntervalSince(now)
+        let timeToEnd = endDate.timeIntervalSince(now)
         if timeToEnd > -buffer && timeToEnd < buffer {
             return true
         }
@@ -469,9 +546,9 @@ struct Tournament: Identifiable, Codable, Equatable {
     
     /// 獲取狀態轉換的提醒信息
     var transitionReminder: String? {
-        let now = Date().toUTC()
-        let timesToStart = startDateUTC.timeIntervalSince(now)
-        let timeToEnd = endDateUTC.timeIntervalSince(now)
+        let now = Date()
+        let timesToStart = startDate.timeIntervalSince(now)
+        let timeToEnd = endDate.timeIntervalSince(now)
         
         // 即將開始的提醒
         if timesToStart > 0 && timesToStart <= 300 { // 5分鐘內
@@ -489,7 +566,442 @@ struct Tournament: Identifiable, Codable, Equatable {
     }
 }
 
-// MARK: - 錦標賽參賽者
+// MARK: - 錦標賽參與者模型（對應 tournament_participants 表）
+struct TournamentParticipantRecord: Identifiable, Codable {
+    let id: UUID
+    let tournamentId: UUID
+    let userId: UUID
+    let userName: String
+    let userAvatar: String?
+    let currentRank: Int
+    let previousRank: Int
+    let virtualBalance: Double
+    let initialBalance: Double
+    let returnRate: Double
+    let totalTrades: Int
+    let winRate: Double
+    let maxDrawdown: Double
+    let sharpeRatio: Double?
+    let isEliminated: Bool
+    let eliminationReason: String?
+    let joinedAt: Date
+    let lastUpdated: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, userName, userAvatar, isEliminated, eliminationReason
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case currentRank = "current_rank"
+        case previousRank = "previous_rank"
+        case virtualBalance = "virtual_balance"
+        case initialBalance = "initial_balance"
+        case returnRate = "return_rate"
+        case totalTrades = "total_trades"
+        case winRate = "win_rate"
+        case maxDrawdown = "max_drawdown"
+        case sharpeRatio = "sharpe_ratio"
+        case joinedAt = "joined_at"
+        case lastUpdated = "last_updated"
+    }
+    
+    // 計算屬性
+    var profit: Double {
+        return virtualBalance - initialBalance
+    }
+    
+    var rankChange: Int {
+        return previousRank - currentRank
+    }
+}
+
+// MARK: - 錦標賽成員模型（舊版兼容）
+struct TournamentMember: Identifiable, Codable {
+    let tournamentId: UUID
+    let userId: UUID
+    let joinedAt: Date
+    let status: MemberStatus
+    let eliminationReason: String?
+    
+    var id: String {
+        return "\(tournamentId)-\(userId)"
+    }
+    
+    enum MemberStatus: String, CaseIterable, Codable {
+        case active = "active"
+        case eliminated = "eliminated"
+        case withdrawn = "withdrawn"
+        
+        var displayName: String {
+            switch self {
+            case .active:
+                return "參賽中"
+            case .eliminated:
+                return "已淘汰"
+            case .withdrawn:
+                return "已退出"
+            }
+        }
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case joinedAt = "joined_at"
+        case status
+        case eliminationReason = "elimination_reason"
+    }
+}
+
+// MARK: - 錦標賽投資組合模型
+struct TournamentPortfolioV2: Identifiable, Codable {
+    let id: UUID
+    let tournamentId: UUID
+    let userId: UUID
+    
+    // 資產狀況
+    let cashBalance: Double
+    let equityValue: Double
+    let totalAssets: Double     // 由數據庫計算
+    
+    // 績效指標
+    let initialBalance: Double
+    let totalReturn: Double     // 由數據庫計算
+    let returnPercentage: Double // 由數據庫計算
+    
+    // 統計資訊
+    let totalTrades: Int
+    let winningTrades: Int
+    let maxDrawdown: Double
+    
+    let lastUpdated: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case cashBalance = "cash_balance"
+        case equityValue = "equity_value"
+        case totalAssets = "total_assets"
+        case initialBalance = "initial_balance"
+        case totalReturn = "total_return"
+        case returnPercentage = "return_percentage"
+        case totalTrades = "total_trades"
+        case winningTrades = "winning_trades"
+        case maxDrawdown = "max_drawdown"
+        case lastUpdated = "last_updated"
+    }
+    
+    // 計算屬性
+    var winRate: Double {
+        guard totalTrades > 0 else { return 0 }
+        return Double(winningTrades) / Double(totalTrades)
+    }
+    
+    var cashPercentage: Double {
+        guard totalAssets > 0 else { return 0 }
+        return (cashBalance / totalAssets) * 100
+    }
+    
+    var equityPercentage: Double {
+        guard totalAssets > 0 else { return 0 }
+        return (equityValue / totalAssets) * 100
+    }
+}
+
+// MARK: - 錦標賽交易模型（對應 tournament_trading_records 表）
+struct TournamentTradeRecord: Identifiable, Codable {
+    let id: UUID
+    let userId: UUID
+    let tournamentId: UUID?
+    let symbol: String
+    let stockName: String
+    let type: TradeSide         // buy/sell
+    let shares: Double
+    let price: Double
+    let timestamp: Date
+    let totalAmount: Double
+    let fee: Double
+    let netAmount: Double
+    let averageCost: Double?
+    let realizedGainLoss: Double?
+    let realizedGainLossPercent: Double?
+    let notes: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, symbol, type, shares, price, timestamp, fee, notes
+        case userId = "user_id"
+        case tournamentId = "tournament_id"
+        case stockName = "stock_name"
+        case totalAmount = "total_amount"
+        case netAmount = "net_amount"
+        case averageCost = "average_cost"
+        case realizedGainLoss = "realized_gain_loss"
+        case realizedGainLossPercent = "realized_gain_loss_percent"
+    }
+}
+
+// MARK: - 錦標賽交易模型（舊版兼容）
+struct TournamentTrade: Identifiable, Codable {
+    let id: UUID
+    let tournamentId: UUID
+    let userId: UUID
+    let symbol: String
+    let side: TradeSide
+    let qty: Double
+    let price: Double
+    let amount: Double          // 由數據庫計算
+    let fees: Double
+    let netAmount: Double       // 由數據庫計算
+    let realizedPnl: Double?
+    let realizedPnlPercentage: Double?
+    let status: TradeStatus
+    let executedAt: Date
+    let createdAt: Date
+    
+    enum TradeSide: String, CaseIterable, Codable {
+        case buy = "buy"
+        case sell = "sell"
+        
+        var displayName: String {
+            switch self {
+            case .buy: return "買入"
+            case .sell: return "賣出"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .buy: return .red
+            case .sell: return .green
+            }
+        }
+    }
+    
+    enum TradeStatus: String, CaseIterable, Codable {
+        case executed = "executed"
+        case cancelled = "cancelled"
+        case pending = "pending"
+        
+        var displayName: String {
+            switch self {
+            case .executed: return "已執行"
+            case .cancelled: return "已取消"
+            case .pending: return "待執行"
+            }
+        }
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case symbol, side, qty, price, amount, fees
+        case netAmount = "net_amount"
+        case realizedPnl = "realized_pnl"
+        case realizedPnlPercentage = "realized_pnl_percentage"
+        case status
+        case executedAt = "executed_at"
+        case createdAt = "created_at"
+    }
+}
+
+// MARK: - 錦標賽持倉模型（對應 tournament_positions 表）  
+struct TournamentPositionRecord: Identifiable, Codable {
+    let id: UUID
+    let tournamentId: UUID
+    let userId: UUID
+    let symbol: String
+    let stockName: String
+    let quantity: Int
+    let averageCost: Double
+    let currentPrice: Double
+    let marketValue: Double
+    let unrealizedGainLoss: Double
+    let unrealizedGainLossPercent: Double
+    let firstBuyDate: Date?
+    let lastUpdated: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, symbol, quantity
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case stockName = "stock_name"
+        case averageCost = "average_cost"
+        case currentPrice = "current_price"
+        case marketValue = "market_value"
+        case unrealizedGainLoss = "unrealized_gain_loss"
+        case unrealizedGainLossPercent = "unrealized_gain_loss_percent"
+        case firstBuyDate = "first_buy_date"
+        case lastUpdated = "last_updated"
+    }
+}
+
+// MARK: - 錦標賽持倉模型（舊版兼容）
+struct TournamentPosition: Identifiable, Codable {
+    let tournamentId: UUID
+    let userId: UUID
+    let symbol: String
+    let qty: Double
+    let avgCost: Double
+    let totalCost: Double           // 由數據庫計算
+    let currentPrice: Double
+    let marketValue: Double         // 由數據庫計算
+    let unrealizedPnl: Double       // 由數據庫計算
+    let unrealizedPnlPercentage: Double // 由數據庫計算
+    let firstBuyAt: Date?
+    let lastUpdated: Date
+    
+    var id: String {
+        return "\(tournamentId)-\(userId)-\(symbol)"
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case symbol, qty
+        case avgCost = "avg_cost"
+        case totalCost = "total_cost"
+        case currentPrice = "current_price"
+        case marketValue = "market_value"
+        case unrealizedPnl = "unrealized_pnl"
+        case unrealizedPnlPercentage = "unrealized_pnl_percentage"
+        case firstBuyAt = "first_buy_at"
+        case lastUpdated = "last_updated"
+    }
+}
+
+// MARK: - 錦標賽快照模型
+struct TournamentSnapshot: Identifiable, Codable {
+    let tournamentId: UUID
+    let userId: UUID
+    let asOfDate: Date
+    
+    // 資產快照
+    let cash: Double
+    let positionValue: Double
+    let totalAssets: Double
+    
+    // 績效快照
+    let returnRate: Double
+    let dailyReturn: Double?
+    let cumulativeReturn: Double?
+    
+    // 風險指標
+    let maxDD: Double?
+    let volatility: Double?
+    let sharpe: Double?
+    
+    // 交易統計
+    let totalTrades: Int
+    let winningTrades: Int
+    let winRate: Double
+    
+    // 排名資訊
+    let rank: Int?
+    let totalParticipants: Int?
+    let percentile: Double?
+    
+    let createdAt: Date
+    
+    var id: String {
+        return "\(tournamentId)-\(userId)-\(asOfDate.timeIntervalSince1970)"
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case asOfDate = "as_of_date"
+        case cash
+        case positionValue = "position_value"
+        case totalAssets = "total_assets"
+        case returnRate = "return_rate"
+        case dailyReturn = "daily_return"
+        case cumulativeReturn = "cumulative_return"
+        case maxDD = "max_dd"
+        case volatility, sharpe
+        case totalTrades = "total_trades"
+        case winningTrades = "winning_trades"
+        case winRate = "win_rate"
+        case rank
+        case totalParticipants = "total_participants"
+        case percentile
+        case createdAt = "created_at"
+    }
+}
+
+// MARK: - 錦標賽排行榜條目
+struct TournamentLeaderboardEntry: Identifiable, Codable {
+    let tournamentId: UUID
+    let userId: UUID
+    let userName: String?
+    let userAvatar: String?
+    let totalAssets: Double
+    let returnPercentage: Double
+    let totalTrades: Int
+    let lastUpdated: Date
+    let currentRank: Int
+    let totalParticipants: Int
+    
+    var id: String {
+        return "\(tournamentId)-\(userId)"
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case userName = "user_name"
+        case userAvatar = "user_avatar"
+        case totalAssets = "total_assets"
+        case returnPercentage = "return_percentage"
+        case totalTrades = "total_trades"
+        case lastUpdated = "last_updated"
+        case currentRank = "current_rank"
+        case totalParticipants = "total_participants"
+    }
+    
+    // 計算屬性
+    var profit: Double {
+        return totalAssets - 1000000 // 假設初始資金為100萬
+    }
+    
+    var rankingTier: RankingTier {
+        let percentile = Double(currentRank) / Double(totalParticipants) * 100
+        
+        if percentile <= 10 {
+            return .gold
+        } else if percentile <= 25 {
+            return .silver
+        } else if percentile <= 50 {
+            return .bronze
+        } else {
+            return .normal
+        }
+    }
+    
+    enum RankingTier {
+        case gold, silver, bronze, normal
+        
+        var color: Color {
+            switch self {
+            case .gold: return Color.yellow
+            case .silver: return Color.gray
+            case .bronze: return Color.brown
+            case .normal: return Color.primary
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .gold: return "crown.fill"
+            case .silver: return "medal.fill"
+            case .bronze: return "medal"
+            case .normal: return "person.fill"
+            }
+        }
+    }
+}
+
+// MARK: - 錦標賽參賽者（舊版本兼容）
 struct TournamentParticipant: Identifiable, Codable {
     let id: UUID
     let tournamentId: UUID
@@ -625,7 +1137,92 @@ enum PerformanceLevel: String, CaseIterable {
     }
 }
 
-// MARK: - 活動記錄
+// MARK: - 錦標賽活動記錄（對應 tournament_activities 表）
+struct TournamentActivityRecord: Identifiable, Codable {
+    let id: UUID
+    let tournamentId: UUID
+    let userId: UUID
+    let userName: String
+    let activityType: ActivityType
+    let description: String
+    let amount: Double?
+    let symbol: String?
+    let timestamp: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, description, amount, symbol, timestamp
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case userName = "user_name"
+        case activityType = "activity_type"
+    }
+}
+
+// MARK: - 錦標賽排名快照（對應 tournament_ranking_snapshots 表）
+struct TournamentRankingSnapshot: Identifiable, Codable {
+    let id: UUID
+    let tournamentId: UUID
+    let userId: UUID
+    let snapshotDate: Date
+    let rank: Int
+    let virtualBalance: Double
+    let returnRate: Double
+    let dailyChange: Double
+    let createdAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, rank
+        case tournamentId = "tournament_id"
+        case userId = "user_id"
+        case snapshotDate = "snapshot_date"
+        case virtualBalance = "virtual_balance"
+        case returnRate = "return_rate"
+        case dailyChange = "daily_change"
+        case createdAt = "created_at"
+    }
+}
+
+// MARK: - 錦標賽成就（對應 tournament_achievements 表）
+struct TournamentAchievementRecord: Identifiable, Codable {
+    let id: UUID
+    let name: String
+    let description: String
+    let icon: String
+    let rarity: AchievementRarity
+    let requirements: [String: Any] // jsonb
+    let rewardAmount: Int
+    let isActive: Bool
+    let createdAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, icon, rarity, requirements, isActive
+        case rewardAmount = "reward_amount"
+        case createdAt = "created_at"
+    }
+}
+
+// MARK: - 用戶錦標賽成就（對應 user_tournament_achievements 表）
+struct UserTournamentAchievement: Identifiable, Codable {
+    let id: UUID
+    let userId: UUID
+    let tournamentId: UUID?
+    let achievementId: UUID
+    let progress: Double
+    let isUnlocked: Bool
+    let earnedAt: Date?
+    let createdAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, progress, isUnlocked
+        case userId = "user_id"
+        case tournamentId = "tournament_id"
+        case achievementId = "achievement_id"
+        case earnedAt = "earned_at"
+        case createdAt = "created_at"
+    }
+}
+
+// MARK: - 活動記錄（舊版兼容）
 struct TournamentActivity: Identifiable, Codable {
     let id: UUID
     let tournamentId: UUID
@@ -850,7 +1447,139 @@ struct Achievement: Codable {
     }
 }
 
-// MARK: - 用戶稱號
+// MARK: - 數據庫結構適配幫助類型
+
+/// 錦標賽參與者狀態（對應數據庫約束）
+enum TournamentParticipantStatus: String, CaseIterable, Codable {
+    case active = "active"
+    case eliminated = "eliminated"
+    case withdrawn = "withdrawn"
+}
+
+/// 交易類型（對應數據庫 type 欄位）
+enum TournamentTradeType: String, CaseIterable, Codable {
+    case buy = "buy"
+    case sell = "sell"
+    
+    var displayName: String {
+        switch self {
+        case .buy: return "買入"
+        case .sell: return "賣出"
+        }
+    }
+}
+
+/// 錦標賽生命週期狀態
+enum TournamentLifecycleState: String, CaseIterable, Codable {
+    case upcoming = "upcoming"      // 即將開始
+    case active = "ongoing"         // 進行中（映射為 ongoing）
+    case ended = "finished"         // 已結束（映射為 finished）
+    case settling = "settling"      // 結算中（新增狀態）
+    case cancelled = "cancelled"    // 已取消
+    
+    var displayName: String {
+        switch self {
+        case .upcoming: return "即將開始"
+        case .active: return "進行中"
+        case .ended: return "已結束"
+        case .settling: return "結算中"
+        case .cancelled: return "已取消"
+        }
+    }
+}
+
+/// 錦標賽交易請求模型
+struct TournamentTradeRequest: Codable {
+    let tournamentId: UUID
+    let symbol: String
+    let side: TournamentTradeType
+    let quantity: Int
+    let price: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case symbol, side, quantity, price
+        case tournamentId = "tournament_id"
+    }
+}
+
+/// 錦標賽排名模型
+struct TournamentRanking: Identifiable, Codable {
+    let userId: UUID
+    let rank: Int
+    let totalAssets: Double
+    let totalReturnPercent: Double
+    let totalTrades: Int
+    let winRate: Double
+    
+    var id: UUID { userId }
+    
+    enum CodingKeys: String, CodingKey {
+        case rank
+        case userId = "user_id"
+        case totalAssets = "total_assets"
+        case totalReturnPercent = "total_return_percent"
+        case totalTrades = "total_trades"
+        case winRate = "win_rate"
+    }
+}
+
+/// 錦標賽結果模型
+struct TournamentResult: Identifiable, Codable {
+    let id: UUID
+    let userId: UUID
+    let tournamentId: UUID
+    let rank: Int
+    let totalAssets: Double
+    let returnPercentage: Double
+    let reward: TournamentReward?
+    let finalizedAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id, rank, reward
+        case userId = "user_id"
+        case tournamentId = "tournament_id"
+        case totalAssets = "total_assets"
+        case returnPercentage = "return_percentage"
+        case finalizedAt = "finalized_at"
+    }
+}
+
+/// 錦標賽獎勵模型
+struct TournamentReward: Codable {
+    let amount: Double
+    let type: RewardType
+    let description: String
+    
+    enum RewardType: String, Codable {
+        case cash = "cash"
+        case tokens = "tokens"
+        case title = "title"
+        case achievement = "achievement"
+    }
+}
+
+/// 錦標賽初始化參數
+struct TournamentCreationParameters {
+    let name: String
+    let description: String
+    let startDate: Date
+    let endDate: Date
+    let entryCapital: Double
+    let maxParticipants: Int
+    let feeTokens: Int
+    let returnMetric: String  // "twr", "absolute" etc
+    let resetMode: String     // "monthly", "quarterly" etc
+    
+    var isValid: Bool {
+        return !name.isEmpty &&
+               !description.isEmpty &&
+               startDate < endDate &&
+               entryCapital > 0 &&
+               maxParticipants > 0
+    }
+}
+
+// MARK: - 用戶稱號（舊版兼容）
 struct UserTitle: Identifiable, Codable {
     let id: UUID
     let name: String
