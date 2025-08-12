@@ -113,8 +113,8 @@ class TournamentDataMigration {
         let legacyPortfolios = try await fetchLegacyPortfolios()
         
         for legacyPortfolio in legacyPortfolios {
-            let newWallet = convertLegacyPortfolio(legacyPortfolio)
-            try await saveMigratedWallet(newWallet)
+            let newParticipant = convertLegacyPortfolio(legacyPortfolio)
+            try await saveMigratedParticipant(newParticipant)
         }
         
         print("✅ 投資組合數據遷移完成，共遷移 \(legacyPortfolios.count) 個投資組合")
@@ -126,8 +126,8 @@ class TournamentDataMigration {
         let legacyTrades = try await fetchLegacyTrades()
         
         for legacyTrade in legacyTrades {
-            let newTrade = convertLegacyTrade(legacyTrade)
-            try await saveMigratedTrade(newTrade)
+            let newTradeRecord = convertLegacyTrade(legacyTrade)
+            try await saveMigratedTradeRecord(newTradeRecord)
         }
         
         print("✅ 交易記錄遷移完成，共遷移 \(legacyTrades.count) 筆交易")
@@ -166,19 +166,19 @@ class TournamentDataMigration {
             throw TournamentMigrationError.validationFailed("錦標賽數量不匹配")
         }
         
-        // 驗證投資組合數據
-        let migratedWallets = try await fetchMigratedWallets()
+        // 驗證參與者數據
+        let migratedParticipants = try await fetchMigratedParticipants()
         let legacyPortfolios = try await fetchLegacyPortfolios()
         
-        guard migratedWallets.count == legacyPortfolios.count else {
-            throw TournamentMigrationError.validationFailed("投資組合數量不匹配")
+        guard migratedParticipants.count == legacyPortfolios.count else {
+            throw TournamentMigrationError.validationFailed("參與者數量不匹配")
         }
         
         // 驗證交易記錄數據
-        let migratedTrades = try await fetchMigratedTrades()
+        let migratedTradeRecords = try await fetchMigratedTradeRecords()
         let legacyTrades = try await fetchLegacyTrades()
         
-        guard migratedTrades.count == legacyTrades.count else {
+        guard migratedTradeRecords.count == legacyTrades.count else {
             throw TournamentMigrationError.validationFailed("交易記錄數量不匹配")
         }
         
@@ -188,49 +188,75 @@ class TournamentDataMigration {
     // MARK: - 數據轉換
     
     private func convertLegacyTournament(_ legacy: LegacyTournament) -> Tournament {
-        // 轉換舊的錦標賽數據結構到新的結構
+        // 轉換舊的錦標賽數據結構到新的結構（符合 schema 對齊模型）
         return Tournament(
             id: legacy.id,
             name: legacy.name,
-            description: legacy.description,
+            type: .monthly, // 新字段，根據業務邏輯設定預設值
             status: convertTournamentStatus(legacy.status),
             startDate: legacy.startDate,
             endDate: legacy.endDate,
-            entryCapital: legacy.initialBalance, // 映射舊字段名
+            description: legacy.description,
+            shortDescription: String(legacy.name.prefix(50)), // 從 name 截取短描述
+            initialBalance: legacy.initialBalance, // 對應 initial_balance
+            entryFee: Double(legacy.entryFee), // 對應 entry_fee，轉換為 Double
+            prizePool: legacy.prizePool, // 對應 prize_pool
             maxParticipants: legacy.maxParticipants,
             currentParticipants: legacy.currentParticipants,
-            feeTokens: legacy.entryFee, // 映射舊字段名
-            returnMetric: "twr", // 新字段，使用默認值
-            resetMode: "monthly", // 新字段，使用默認值
+            isFeatured: false, // 新字段，設定預設值
+            createdBy: legacy.hostUserId, // 對應 created_by，使用 hostUserId
+            riskLimitPercentage: 0.2, // 新字段，設定預設風險限制 20%
+            minHoldingRate: (legacy.rules?.minHoldingRate ?? 50.0) / 100.0, // 從舊規則取得並轉換百分比
+            maxSingleStockRate: (legacy.rules?.maxSingleStockRate ?? 30.0) / 100.0, // 從舊規則取得並轉換百分比
+            rules: [], // 簡化為空陣列，具體規則通過其他字段表達
             createdAt: legacy.createdAt,
-            rules: convertTournamentRules(legacy.rules)
+            updatedAt: legacy.createdAt // 新字段，使用 createdAt 作為初始值
         )
     }
     
-    private func convertLegacyPortfolio(_ legacy: LegacyTournamentPortfolio) -> TournamentWallet {
-        return TournamentWallet(
-            id: UUID(),
+    private func convertLegacyPortfolio(_ legacy: LegacyTournamentPortfolio) -> TournamentParticipantRecord {
+        // 將舊的投資組合轉換為新的參與者記錄（對應 tournament_participants 表）
+        return TournamentParticipantRecord(
+            id: legacy.id,
             tournamentId: legacy.tournamentId,
             userId: legacy.userId,
-            cash: legacy.cash,
-            totalAssets: legacy.totalPortfolioValue,
-            positions: convertLegacyHoldings(legacy.holdings),
-            createdAt: legacy.createdAt ?? Date(),
-            updatedAt: Date()
+            userName: legacy.userName,
+            userAvatar: nil, // 新字段，設定為 nil
+            currentRank: 999999, // 預設排名，後續會更新
+            previousRank: 999999,
+            virtualBalance: legacy.totalPortfolioValue, // 對應當前總資產
+            initialBalance: legacy.cash + legacy.holdings.reduce(0) { $0 + $1.currentValue }, // 估算初始資金
+            returnRate: 0.0, // 需要重新計算
+            totalTrades: 0, // 需要從交易記錄統計
+            winRate: 0.0, // 需要從交易記錄計算
+            maxDrawdown: 0.0, // 需要重新計算
+            sharpeRatio: nil, // 需要重新計算
+            isEliminated: false,
+            eliminationReason: nil,
+            joinedAt: legacy.createdAt ?? Date(),
+            lastUpdated: Date()
         )
     }
     
-    private func convertLegacyTrade(_ legacy: LegacyTradingRecord) -> TournamentTrade {
-        return TournamentTrade(
-            id: UUID(),
-            tournamentId: legacy.tournamentId ?? UUID(), // 處理可能的 nil 值
-            userId: legacy.userId ?? UUID(),
+    private func convertLegacyTrade(_ legacy: LegacyTradingRecord) -> TournamentTradeRecord {
+        // 將舊交易記錄轉換為新的交易記錄（對應 tournament_trading_records 表）
+        return TournamentTradeRecord(
+            id: legacy.id,
+            userId: legacy.userId ?? UUID(), // 處理可能的 nil 值
+            tournamentId: legacy.tournamentId ?? UUID(),
             symbol: legacy.symbol,
-            side: legacy.action == .buy ? .buy : .sell,
-            quantity: Int(legacy.shares),
+            stockName: legacy.symbol, // 使用 symbol 作為股票名稱，實際應該查詢
+            type: legacy.action == .buy ? .buy : .sell, // 對應 type 字段
+            shares: legacy.shares, // 保持 Double 類型
             price: legacy.price,
-            executedAt: legacy.timestamp,
-            status: .filled // 舊數據假設都已成交
+            timestamp: legacy.timestamp,
+            totalAmount: legacy.shares * legacy.price, // 計算總金額
+            fee: 0.0, // 舊數據沒有手續費，設為 0
+            netAmount: legacy.shares * legacy.price, // 淨金額等於總金額（無手續費）
+            averageCost: nil, // 新字段，設為 nil
+            realizedGainLoss: nil, // 新字段，需要重新計算
+            realizedGainLossPercent: nil, // 新字段，需要重新計算
+            notes: nil // 新字段，設為 nil
         )
     }
     
@@ -245,48 +271,51 @@ class TournamentDataMigration {
         )
     }
     
-    private func convertTournamentStatus(_ legacyStatus: LegacyTournamentStatus) -> TournamentLifecycleState {
+    private func convertTournamentStatus(_ legacyStatus: LegacyTournamentStatus) -> TournamentStatus {
+        // 將舊狀態轉換為新的 TournamentStatus 枚舉
         switch legacyStatus {
         case .upcoming:
             return .upcoming
         case .ongoing:
-            return .active
+            return .ongoing // 對應數據庫的 ongoing
         case .finished:
-            return .ended
+            return .finished // 對應數據庫的 finished
         case .cancelled:
-            return .cancelled
+            return .cancelled // 內部狀態，數據庫中映射為 finished
         }
     }
     
-    private func convertTournamentRules(_ legacyRules: LegacyTournamentRules?) -> TournamentRules? {
-        guard let legacy = legacyRules else { return nil }
+    private func convertTournamentRules(_ legacyRules: LegacyTournamentRules?) -> [String] {
+        // 簡化規則轉換，返回空陣列（具體規則已通過 Tournament 的其他字段表達）
+        // 在新的 schema 中，rules 字段是 String 陣列，主要用於存儲額外的規則描述
+        guard let legacy = legacyRules else { return [] }
         
-        return TournamentRules(
-            allowShortSelling: true, // 新字段，使用默認值
-            maxPositionSize: legacy.maxSingleStockRate / 100.0, // 轉換百分比到小數
-            allowedInstruments: ["stocks", "etfs"], // 新字段，使用默認值
-            tradingHours: TradingHours(
-                startTime: legacy.tradingHours.start,
-                endTime: legacy.tradingHours.end,
-                timeZone: legacy.tradingHours.timezone
-            ),
-            riskLimits: RiskLimits(
-                maxDrawdown: 0.2, // 新字段，使用默認值
-                maxLeverage: legacy.maxLeverage,
-                maxDailyTrades: 100 // 新字段，使用默認值
-            )
-        )
+        var rules: [String] = []
+        
+        // 添加一些基本規則描述
+        rules.append("最大單一持股比例: \(Int(legacy.maxSingleStockRate))%")
+        rules.append("最小持倉比例: \(Int(legacy.minHoldingRate))%")
+        rules.append("最大槓桿倍數: \(legacy.maxLeverage)x")
+        rules.append("交易時間: \(legacy.tradingHours.start) - \(legacy.tradingHours.end) (\(legacy.tradingHours.timezone))")
+        
+        return rules
     }
     
-    private func convertLegacyHoldings(_ legacyHoldings: [LegacyStockHolding]) -> [TournamentPosition] {
+    private func convertLegacyHoldings(_ legacyHoldings: [LegacyStockHolding]) -> [TournamentPositionRecord] {
+        // 將舊持股轉換為新的持倉記錄（對應 tournament_positions 表）
         return legacyHoldings.map { legacy in
-            TournamentPosition(
+            TournamentPositionRecord(
+                id: UUID(), // 新字段，生成新的 ID
+                tournamentId: UUID(), // 需要從上下文取得，暫時使用空 UUID
+                userId: UUID(), // 需要從上下文取得，暫時使用空 UUID
                 symbol: legacy.symbol,
-                quantity: Int(legacy.quantity),
-                averagePrice: legacy.averagePrice,
+                stockName: legacy.symbol, // 使用 symbol 作為股票名稱
+                shares: legacy.quantity, // 保持 Double 類型
+                averageCost: legacy.averagePrice,
                 currentPrice: legacy.currentPrice,
                 marketValue: legacy.currentValue,
-                unrealizedPnL: legacy.unrealizedGainLoss,
+                unrealizedGainLoss: legacy.unrealizedGainLoss,
+                unrealizedGainLossPercent: legacy.averagePrice * legacy.quantity > 0 ? (legacy.unrealizedGainLoss / (legacy.averagePrice * legacy.quantity) * 100) : 0.0,
                 lastUpdated: Date()
             )
         }
@@ -320,12 +349,13 @@ class TournamentDataMigration {
         // 可能是 Supabase、新的 Core Data 模型等
     }
     
-    private func saveMigratedWallet(_ wallet: TournamentWallet) async throws {
-        // 保存遷移後的錢包數據
+    private func saveMigratedParticipant(_ participant: TournamentParticipantRecord) async throws {
+        // 保存遷移後的參與者數據到 tournament_participants 表
+        // 可能是 Supabase、新的 Core Data 模型等
     }
     
-    private func saveMigratedTrade(_ trade: TournamentTrade) async throws {
-        // 保存遷移後的交易數據
+    private func saveMigratedTradeRecord(_ tradeRecord: TournamentTradeRecord) async throws {
+        // 保存遷移後的交易記錄到 tournament_trading_records 表
     }
     
     private func saveMigratedRanking(_ ranking: TournamentRanking) async throws {
@@ -337,13 +367,13 @@ class TournamentDataMigration {
         return []
     }
     
-    private func fetchMigratedWallets() async throws -> [TournamentWallet] {
-        // 獲取遷移後的錢包數據用於驗證
+    private func fetchMigratedParticipants() async throws -> [TournamentParticipantRecord] {
+        // 獲取遷移後的參與者數據用於驗證
         return []
     }
     
-    private func fetchMigratedTrades() async throws -> [TournamentTrade] {
-        // 獲取遷移後的交易數據用於驗證
+    private func fetchMigratedTradeRecords() async throws -> [TournamentTradeRecord] {
+        // 獲取遷移後的交易記錄數據用於驗證
         return []
     }
     
