@@ -50,6 +50,12 @@ struct Friend: Identifiable, Codable {
             return .orange
         case .aggressive:
             return .red
+        case .low:
+            return .green
+        case .medium:
+            return .yellow
+        case .high:
+            return .red
         }
     }
 }

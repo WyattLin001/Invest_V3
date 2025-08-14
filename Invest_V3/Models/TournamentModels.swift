@@ -1094,8 +1094,8 @@ struct TournamentTradeRecord: Identifiable, Codable {
     let realizedGainLossPercent: Double?
     let notes: String?
     
-    // 新增的缺失成員
-    let tradeDate: Date
+    // 新增的缺失成員 (可選，避免破壞現有代碼)
+    let tradeDate: Date?
     
     enum CodingKeys: String, CodingKey {
         case id, symbol, type, shares, price, timestamp, fee, notes

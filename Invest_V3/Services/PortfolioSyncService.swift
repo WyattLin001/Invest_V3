@@ -330,14 +330,10 @@ class PortfolioSyncService: ObservableObject {
         return TournamentTradingStatistics(
             totalTrades: tournamentRecords.count,
             totalVolume: totalVolume,
-            buyTrades: buyRecords.count,
-            sellTrades: sellRecords.count,
-            totalRealizedGainLoss: totalRealizedGainLoss,
             totalFees: totalFees,
-            averageTradeSize: tournamentRecords.isEmpty ? 0 : totalVolume / Double(tournamentRecords.count),
             winRate: winRate,
-            totalPortfolioValue: chatPortfolioManager.totalPortfolioValue,
-            availableBalance: chatPortfolioManager.availableBalance
+            winningTrades: profitableTrades.count,
+            losingTrades: sellRecords.count - profitableTrades.count
         )
     }
 }

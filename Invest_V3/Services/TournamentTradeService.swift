@@ -604,4 +604,35 @@ struct TournamentTradingStatistics {
         let totalLoss = abs(losses.reduce(0, +))
         self.profitFactor = totalLoss == 0 ? (totalProfit > 0 ? Double.infinity : 0) : totalProfit / totalLoss
     }
+    
+    // 兼容性構造函數 - 支持直接傳遞統計數據
+    init(totalTrades: Int, 
+         totalVolume: Double, 
+         totalFees: Double, 
+         winRate: Double, 
+         winningTrades: Int? = nil, 
+         losingTrades: Int? = nil, 
+         averageProfit: Double? = nil, 
+         averageLoss: Double? = nil, 
+         profitFactor: Double? = nil) {
+        self.totalTrades = totalTrades
+        self.totalVolume = totalVolume
+        self.totalFees = totalFees
+        self.winRate = winRate
+        
+        // 使用提供的值或計算合理默認值
+        if let winningTrades = winningTrades, let losingTrades = losingTrades {
+            self.winningTrades = winningTrades
+            self.losingTrades = losingTrades
+        } else {
+            // 根據勝率估算
+            let totalTradingTrades = max(1, totalTrades)
+            self.winningTrades = Int(Double(totalTradingTrades) * winRate / 100.0)
+            self.losingTrades = totalTradingTrades - self.winningTrades
+        }
+        
+        self.averageProfit = averageProfit ?? 0.0
+        self.averageLoss = averageLoss ?? 0.0
+        self.profitFactor = profitFactor ?? (self.averageLoss > 0 ? self.averageProfit / self.averageLoss : 0.0)
+    }
 }
