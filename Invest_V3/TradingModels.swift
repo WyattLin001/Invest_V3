@@ -441,7 +441,11 @@ struct PortfolioResponse: Codable {
             totalAssets: totalValue,
             totalProfit: totalReturn,
             cumulativeReturn: totalReturnPercent,
-            positions: positions
+            positions: positions,
+            // 新增的缺失參數
+            initialBalance: 1000000.0, // 假設初始資金為100萬
+            holdings: positions, // 使用相同的持倉數據
+            todayPnl: todayReturn ?? 0.0 // 使用今日損益或預設為0
         )
     }
 }

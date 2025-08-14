@@ -7847,5 +7847,126 @@ extension SupabaseService {
         print("⚠️ RankingChange 結構需要進一步定義")
         return []
     }
+    
+    // MARK: - 新增的缺失方法
+    
+    /// 插入錦標賽交易記錄
+    func insertTournamentTrade(_ trade: TournamentTradeRecord) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        let tradeData: [String: Any] = [
+            "id": trade.id.uuidString,
+            "user_id": trade.userId.uuidString,
+            "tournament_id": trade.tournamentId?.uuidString ?? "",
+            "symbol": trade.symbol,
+            "stock_name": trade.stockName,
+            "type": trade.type.rawValue,
+            "shares": trade.shares,
+            "price": trade.price,
+            "timestamp": ISO8601DateFormatter().string(from: trade.timestamp),
+            "total_amount": trade.totalAmount,
+            "fee": trade.fee,
+            "net_amount": trade.netAmount
+        ]
+        
+        try await client
+            .from("tournament_trading_records")
+            .insert(tradeData)
+            .execute()
+    }
+    
+    /// 獲取錦標賽交易記錄
+    func fetchTournamentTrade(tradeId: UUID) async throws -> TournamentTradeRecord? {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        struct TradeResponse: Codable {
+            let id: UUID
+            let userId: UUID
+            let tournamentId: UUID?
+            let symbol: String
+            let stockName: String
+            let type: String
+            let shares: Double
+            let price: Double
+            let timestamp: String
+            let totalAmount: Double
+            let fee: Double
+            let netAmount: Double
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case userId = "user_id"
+                case tournamentId = "tournament_id"
+                case symbol
+                case stockName = "stock_name"
+                case type
+                case shares
+                case price
+                case timestamp
+                case totalAmount = "total_amount"
+                case fee
+                case netAmount = "net_amount"
+            }
+        }
+        
+        let response: [TradeResponse] = try await client
+            .from("tournament_trading_records")
+            .select("*")
+            .eq("id", value: tradeId.uuidString)
+            .execute()
+            .value
+        
+        guard let tradeData = response.first else {
+            return nil
+        }
+        
+        let dateFormatter = ISO8601DateFormatter()
+        guard let timestamp = dateFormatter.date(from: tradeData.timestamp) else {
+            throw NSError(domain: "DateFormatError", code: 1, userInfo: nil)
+        }
+        
+        return TournamentTradeRecord(
+            id: tradeData.id,
+            userId: tradeData.userId,
+            tournamentId: tradeData.tournamentId,
+            symbol: tradeData.symbol,
+            stockName: tradeData.stockName,
+            type: TradeSide(rawValue: tradeData.type) ?? .buy,
+            shares: tradeData.shares,
+            price: tradeData.price,
+            timestamp: timestamp,
+            totalAmount: tradeData.totalAmount,
+            fee: tradeData.fee,
+            netAmount: tradeData.netAmount,
+            averageCost: nil,
+            realizedGainLoss: nil,
+            realizedGainLossPercent: nil,
+            notes: nil
+        )
+    }
+    
+    /// 更新錦標賽投資組合
+    func updateTournamentPortfolio(tournamentId: UUID, userId: UUID, portfolioData: [String: Any]) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        try await client
+            .from("tournament_portfolios")
+            .update(portfolioData)
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+    }
+    
+    /// 刪除錦標賽投資組合
+    func deleteTournamentPortfolio(tournamentId: UUID, userId: UUID) async throws {
+        try SupabaseManager.shared.ensureInitialized()
+        
+        try await client
+            .from("tournament_portfolios")
+            .delete()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+    }
 }
 

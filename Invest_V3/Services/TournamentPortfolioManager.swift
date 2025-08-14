@@ -377,7 +377,14 @@ class TournamentPortfolioManager: ObservableObject {
                 totalTrades: wallet.totalTrades,
                 profitableTrades: wallet.winningTrades,
                 currentRank: 0,
-                maxDrawdownPercentage: wallet.maxDrawdown
+                maxDrawdownPercentage: wallet.maxDrawdown,
+                // 新增的缺失參數
+                totalReturnPercentage: wallet.returnPercentage,
+                dailyReturn: wallet.dailyReturn ?? 0.0,
+                averageHoldingDays: 0, // 暫時為0
+                previousRank: 0, // 暫時為0
+                percentile: 50.0, // 暫時為中位數
+                lastUpdated: Date()
             ),
             lastUpdated: Date()
         )

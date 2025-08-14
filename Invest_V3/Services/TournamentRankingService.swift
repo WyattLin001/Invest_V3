@@ -389,7 +389,16 @@ class TournamentRankingService: ObservableObject {
                 diversificationScore: calculateDiversificationScore(trades: trades),
                 riskScore: calculateRiskScore(wallet: wallet, trades: trades),
                 totalTrades: wallet.totalTrades,
-                profitableTrades: wallet.winningTrades
+                profitableTrades: wallet.winningTrades,
+                currentRank: 0, // 會在排名計算後更新
+                maxDrawdownPercentage: wallet.maxDrawdown,
+                // 新增的缺失參數
+                totalReturnPercentage: wallet.returnPercentage,
+                dailyReturn: wallet.dailyReturn ?? 0.0,
+                averageHoldingDays: calculateAverageHoldingDays(trades: trades),
+                previousRank: 0, // 暫時為0
+                percentile: 50.0, // 暫時為中位數
+                lastUpdated: Date()
             )
             
             return .success(metrics)
