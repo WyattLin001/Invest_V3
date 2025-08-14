@@ -125,10 +125,13 @@ class TournamentRankingService: ObservableObject {
                         tournamentId: tournamentId,
                         userId: entry.userId,
                         asOfDate: today,
+                        snapshotDate: Date(), // 快照生成時間
                         cash: wallet.cashBalance,
                         positionValue: wallet.equityValue,
                         totalAssets: wallet.totalAssets,
+                        portfolioValue: wallet.totalAssets, // 投資組合總價值
                         returnRate: wallet.returnPercentage / 100, // 轉換為小數
+                        returnPercentage: wallet.returnPercentage, // 原始百分比
                         dailyReturn: nil, // 需要計算日變化
                         cumulativeReturn: wallet.totalReturn,
                         maxDD: wallet.maxDrawdown / 100,
@@ -443,8 +446,8 @@ class TournamentRankingService: ObservableObject {
             let history = snapshots.map { snapshot in
                 RankingHistoryEntry(
                     date: snapshot.snapshotDate,
-                    rank: snapshot.rank,
-                    totalParticipants: snapshot.totalParticipants,
+                    rank: snapshot.rank ?? 0,
+                    totalParticipants: snapshot.totalParticipants ?? 0,
                     returnPercentage: snapshot.returnPercentage,
                     portfolioValue: snapshot.portfolioValue
                 )

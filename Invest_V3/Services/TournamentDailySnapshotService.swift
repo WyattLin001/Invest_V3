@@ -363,8 +363,8 @@ extension TournamentDailySnapshotService {
                     totalTrades: snapshot.totalTrades,
                     dailyTrades: snapshot.dailyTrades,
                     winRate: snapshot.winRate,
-                    rank: snapshot.rank,
-                    totalParticipants: snapshot.totalParticipants,
+                    rank: snapshot.rank ?? 0,
+                    totalParticipants: snapshot.totalParticipants ?? 0,
                     percentile: snapshot.percentile,
                     createdAt: currentDate,
                     updatedAt: currentDate

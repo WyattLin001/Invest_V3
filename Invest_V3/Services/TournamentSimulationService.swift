@@ -108,7 +108,7 @@ class TournamentSimulationService: ObservableObject {
     }
     
     /// 獲取用戶在所有錦標賽中的狀況
-    func getUserTournamentSummary() -> TournamentSummary {
+    func getUserTournamentSummary() -> UserTournamentSummary {
         let participatingTournaments = userTournamentStatus.values.filter { $0.isParticipating }
         
         var totalPortfolioValue: Double = 0
@@ -131,7 +131,7 @@ class TournamentSimulationService: ObservableObject {
         let tournamentCount = participatingTournaments.count
         averageRank = tournamentCount > 0 ? averageRank / Double(tournamentCount) : 0
         
-        return TournamentSummary(
+        return UserTournamentSummary(
             participatingTournaments: tournamentCount,
             totalPortfolioValue: totalPortfolioValue,
             totalReturn: totalReturn,
@@ -366,7 +366,7 @@ struct TournamentUserStatus: Codable {
 }
 
 /// 錦標賽摘要資訊
-struct TournamentSummary {
+struct UserTournamentSummary {
     let participatingTournaments: Int
     let totalPortfolioValue: Double
     let totalReturn: Double

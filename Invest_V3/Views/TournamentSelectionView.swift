@@ -25,13 +25,13 @@ struct TournamentSelectionView: View {
     @State private var errorMessage = ""
     
     // 新服務架構
-    @StateObject private var workflowService: TournamentWorkflowService
+    @ObservedObject private var workflowService: TournamentWorkflowService
     
     // 初始化器
     init(selectedTournament: Binding<Tournament?>, showingDetail: Binding<Bool>, workflowService: TournamentWorkflowService) {
         self._selectedTournament = selectedTournament
         self._showingDetail = showingDetail
-        self._workflowService = StateObject(wrappedValue: workflowService)
+        self._workflowService = ObservedObject(wrappedValue: workflowService)
     }
     
     var body: some View {
@@ -66,6 +66,8 @@ struct TournamentSelectionView: View {
     
     // MARK: - 狀態事件通知區域
     
+    // FIXME: statusMonitor service needs to be properly injected
+    /*
     private var statusEventsSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
@@ -78,6 +80,7 @@ struct TournamentSelectionView: View {
         .padding(.vertical, 8)
         .background(.blue.opacity(0.05))
     }
+    */
     
     // MARK: - 主要內容區域
     

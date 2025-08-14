@@ -22,7 +22,7 @@ struct TournamentSettlementView: View {
     @State private var selectedTab: SettlementTab = .finalRankings
     
     // 統計數據
-    @State private var tournamentSummary: TournamentSummary?
+    @State private var tournamentSummary: TournamentSettlementSummary?
     
     enum SettlementTab: String, CaseIterable {
         case finalRankings = "最終排名"
@@ -277,7 +277,7 @@ struct TournamentSettlementView: View {
     
     // MARK: - 子視圖組件
     
-    private func tournamentSummarySection(_ summary: TournamentSummary) -> some View {
+    private func tournamentSummarySection(_ summary: TournamentSettlementSummary) -> some View {
         HStack {
             summaryItem("參與者", "\(summary.totalParticipants)")
             Divider().frame(height: 20)
@@ -303,7 +303,7 @@ struct TournamentSettlementView: View {
         .frame(maxWidth: .infinity)
     }
     
-    private func participationStatsSection(_ summary: TournamentSummary) -> some View {
+    private func participationStatsSection(_ summary: TournamentSettlementSummary) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("參與統計")
                 .font(.headline)
@@ -343,7 +343,7 @@ struct TournamentSettlementView: View {
         .shadow(color: Color.black.opacity(0.1), radius: 2)
     }
     
-    private func performanceDistributionSection(_ summary: TournamentSummary) -> some View {
+    private func performanceDistributionSection(_ summary: TournamentSettlementSummary) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("績效分佈")
                 .font(.headline)
@@ -389,7 +389,7 @@ struct TournamentSettlementView: View {
         }
     }
     
-    private func tradingActivitySection(_ summary: TournamentSummary) -> some View {
+    private func tradingActivitySection(_ summary: TournamentSettlementSummary) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("交易活動")
                 .font(.headline)
@@ -425,7 +425,7 @@ struct TournamentSettlementView: View {
         .cornerRadius(8)
     }
     
-    private func marketComparisonSection(_ summary: TournamentSummary) -> some View {
+    private func marketComparisonSection(_ summary: TournamentSettlementSummary) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("市場表現對比")
                 .font(.headline)
@@ -626,7 +626,7 @@ struct TournamentSettlementView: View {
     private func loadSettlementData() async {
         // 載入錦標賽摘要數據
         await MainActor.run {
-            tournamentSummary = TournamentSummary(
+            tournamentSummary = TournamentSettlementSummary(
                 totalParticipants: tournament.currentParticipants,
                 activeParticipants: tournament.currentParticipants - 5, // 模擬有些人中途退出
                 completionRate: 85.0,
@@ -712,7 +712,7 @@ struct TournamentSettlementView: View {
 
 // MARK: - 支援結構
 
-struct TournamentSummary {
+struct TournamentSettlementSummary {
     let totalParticipants: Int
     let activeParticipants: Int
     let completionRate: Double

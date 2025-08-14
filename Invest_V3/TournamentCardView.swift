@@ -333,7 +333,7 @@ struct TournamentCardView: View {
                 .buttonStyle(InfoButtonStyle())
                 .disabled(true)
             
-        case .ongoing:
+        case .ongoing, .active:
             if tournamentStateManager.isEnrolledInTournament(tournament) {
                 // 已參與錦標賽
                 Button(action: handleEnterTournament) {
@@ -362,11 +362,16 @@ struct TournamentCardView: View {
                 }
             }
             
-        case .finished:
+        case .finished, .ended:
             Button("查看結果") {
                 onViewDetails?()
             }
             .buttonStyle(SecondaryButtonStyle())
+            
+        case .settling:
+            Button("結算中") { }
+                .buttonStyle(InfoButtonStyle())
+                .disabled(true)
             
         case .cancelled:
             Button("已取消") { }
