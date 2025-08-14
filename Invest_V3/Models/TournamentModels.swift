@@ -896,6 +896,10 @@ struct TournamentPortfolioV2: Identifiable, Codable {
     let winningTrades: Int
     let maxDrawdown: Double
     
+    // 新增的缺失成員
+    let dailyReturn: Double
+    let sharpeRatio: Double?
+    
     let lastUpdated: Date
     
     // 歷史數據追蹤
@@ -914,6 +918,8 @@ struct TournamentPortfolioV2: Identifiable, Codable {
         case totalTrades = "total_trades"
         case winningTrades = "winning_trades"
         case maxDrawdown = "max_drawdown"
+        case dailyReturn = "daily_return"
+        case sharpeRatio = "sharpe_ratio"
         case lastUpdated = "last_updated"
         case dailyValueHistory = "daily_value_history"
     }
@@ -1063,7 +1069,8 @@ struct TournamentPortfolioV2: Identifiable, Codable {
             averageHoldingDays: 0, // 暫時為0
             previousRank: 0, // 暫時為0
             percentile: 50.0, // 暫時為中位數
-            lastUpdated: lastUpdated
+            lastUpdated: lastUpdated,
+            rankChange: 0 // 暫時為0，表示排名無變化
         )
     }
 }
@@ -1087,6 +1094,9 @@ struct TournamentTradeRecord: Identifiable, Codable {
     let realizedGainLossPercent: Double?
     let notes: String?
     
+    // 新增的缺失成員
+    let tradeDate: Date
+    
     enum CodingKeys: String, CodingKey {
         case id, symbol, type, shares, price, timestamp, fee, notes
         case userId = "user_id"
@@ -1097,6 +1107,7 @@ struct TournamentTradeRecord: Identifiable, Codable {
         case averageCost = "average_cost"
         case realizedGainLoss = "realized_gain_loss"
         case realizedGainLossPercent = "realized_gain_loss_percent"
+        case tradeDate = "trade_date"
     }
 }
 
@@ -1632,6 +1643,7 @@ struct PerformanceMetrics: Codable {
     let previousRank: Int
     let percentile: Double
     let lastUpdated: Date
+    let rankChange: Int
     
     enum CodingKeys: String, CodingKey {
         case totalReturn = "total_return"
@@ -1652,6 +1664,7 @@ struct PerformanceMetrics: Codable {
         case previousRank = "previous_rank"
         case percentile
         case lastUpdated = "last_updated"
+        case rankChange = "rank_change"
     }
 }
 

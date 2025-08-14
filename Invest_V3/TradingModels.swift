@@ -112,6 +112,7 @@ struct TradingPortfolio: Codable {
     let initialBalance: Double
     let holdings: [PortfolioPosition]
     let todayPnl: Double
+    let todayPnlPercentage: Double
     
     enum CodingKeys: String, CodingKey {
         case cashBalance = "cash_balance"
@@ -122,6 +123,7 @@ struct TradingPortfolio: Codable {
         case initialBalance = "initial_balance"
         case holdings
         case todayPnl = "today_pnl"
+        case todayPnlPercentage = "today_pnl_percentage"
     }
 }
 
@@ -445,7 +447,8 @@ struct PortfolioResponse: Codable {
             // 新增的缺失參數
             initialBalance: 1000000.0, // 假設初始資金為100萬
             holdings: positions, // 使用相同的持倉數據
-            todayPnl: todayReturn ?? 0.0 // 使用今日損益或預設為0
+            todayPnl: todayReturn ?? 0.0, // 使用今日損益或預設為0
+            todayPnlPercentage: (todayReturn ?? 0.0) / 1000000.0 * 100.0 // 計算百分比
         )
     }
 }

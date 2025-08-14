@@ -398,7 +398,8 @@ class TournamentRankingService: ObservableObject {
                 averageHoldingDays: calculateAverageHoldingDays(trades: trades),
                 previousRank: 0, // 暫時為0
                 percentile: 50.0, // 暫時為中位數
-                lastUpdated: Date()
+                lastUpdated: Date(),
+                rankChange: 0 // 暫時為0，表示排名無變化
             )
             
             return .success(metrics)
