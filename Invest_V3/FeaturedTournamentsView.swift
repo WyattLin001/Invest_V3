@@ -293,6 +293,8 @@ private struct FeaturedTournamentCard: View {
             return "月度賽事適合中期投資策略，獎金豐厚且參與度高，是累積經驗的最佳選擇"
         case .yearly:
             return "年度冠軍賽是最高榮譽的比賽，獎金池高達500萬，證明您的長期投資實力"
+        case .annual:
+            return "年度競賽是終極挑戰，完整一年的投資考驗，證明您的長期策略能力"
         case .special:
             return "限時特別賽事，把握重大經濟事件的投資機會，短時間內獲得高額回報"
         case .weekly:
@@ -301,6 +303,8 @@ private struct FeaturedTournamentCard: View {
             return "日賽挑戰您的短線交易技巧，適合喜歡快節奏交易的投資者"
         case .quarterly:
             return "季度賽事平衡短期與長期策略，是展現全面投資能力的舞台"
+        case .custom:
+            return "自訂競賽提供靈活的規則設定，適合特定投資策略的實戰演練"
         }
     }
 }

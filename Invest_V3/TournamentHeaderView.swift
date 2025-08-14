@@ -239,7 +239,9 @@ struct TournamentHeaderView: View {
         case .monthly: return .blue
         case .quarterly: return .purple
         case .yearly: return .red
+        case .annual: return .red.opacity(0.8)
         case .special: return .pink
+        case .custom: return .cyan
         }
     }
     
@@ -250,7 +252,9 @@ struct TournamentHeaderView: View {
         case .monthly: return "calendar.badge.clock"
         case .quarterly: return "chart.line.uptrend.xyaxis"
         case .yearly: return "crown.fill"
+        case .annual: return "crown"
         case .special: return "bolt.fill"
+        case .custom: return "gear"
         }
     }
     
@@ -348,7 +352,9 @@ struct CompactTournamentHeaderView: View {
         case .monthly: return .blue
         case .quarterly: return .purple
         case .yearly: return .red
+        case .annual: return .red.opacity(0.8)
         case .special: return .pink
+        case .custom: return .cyan
         }
     }
     
@@ -359,7 +365,9 @@ struct CompactTournamentHeaderView: View {
         case .monthly: return "calendar.badge.clock"
         case .quarterly: return "chart.line.uptrend.xyaxis"
         case .yearly: return "crown.fill"
+        case .annual: return "crown"
         case .special: return "bolt.fill"
+        case .custom: return "gear"
         }
     }
     

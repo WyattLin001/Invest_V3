@@ -44,7 +44,7 @@ struct TournamentContext: Equatable {
     let participant: TournamentParticipant?
     let state: TournamentParticipationState
     let portfolio: TournamentPortfolio?  // 使用新的錦標賽投資組合
-    let performance: TournamentPerformanceMetrics?  // 使用錦標賽專用績效指標
+    let performance: PerformanceMetrics?  // 使用統一的績效指標模型
     let currentRank: Int?
     let joinedAt: Date
     
@@ -251,7 +251,7 @@ class TournamentStateManager: ObservableObject {
     }
     
     /// 更新績效指標
-    func updatePerformance(_ performance: TournamentPerformanceMetrics?) {
+    func updatePerformance(_ performance: PerformanceMetrics?) {
         guard var context = currentTournamentContext else { return }
         
         // 更新上下文中的績效指標
@@ -269,7 +269,7 @@ class TournamentStateManager: ObservableObject {
         persistTournamentState()
         
         if let performance = performance {
-            print("📈 [TournamentStateManager] 績效指標已更新，總回報: \(performance.totalReturnPercentage)%")
+            print("📈 [TournamentStateManager] 績效指標已更新，總回報: \(performance.totalReturn)")
         }
     }
     

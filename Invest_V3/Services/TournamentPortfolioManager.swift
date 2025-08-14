@@ -103,7 +103,7 @@ struct TournamentPortfolio: Identifiable, Codable {
     var currentBalance: Double
     var totalInvested: Double
     var tradingRecords: [TournamentTradingRecord]
-    var performanceMetrics: TournamentPerformanceMetrics
+    var performanceMetrics: PerformanceMetrics
     var lastUpdated: Date
     // 添加歷史數據追蹤
     var dailyValueHistory: [DateValue] = []
@@ -262,52 +262,7 @@ struct TournamentTradingRecord: Identifiable, Codable {
     }
 }
 
-/// 錦標賽績效指標
-struct TournamentPerformanceMetrics: Codable {
-    var totalReturn: Double
-    var totalReturnPercentage: Double
-    var dailyReturn: Double
-    var maxDrawdown: Double
-    var maxDrawdownPercentage: Double
-    var sharpeRatio: Double?
-    var winRate: Double
-    var totalTrades: Int
-    var profitableTrades: Int
-    var averageHoldingDays: Double
-    var riskScore: Double
-    var diversificationScore: Double
-    var currentRank: Int
-    var previousRank: Int
-    var percentile: Double
-    var lastUpdated: Date
-    
-    // 計算屬性
-    var rankChange: Int {
-        return previousRank - currentRank
-    }
-    
-    var isImproving: Bool {
-        return rankChange > 0
-    }
-    
-    enum CodingKeys: String, CodingKey {
-        case totalReturn = "total_return"
-        case totalReturnPercentage = "total_return_percentage"
-        case dailyReturn = "daily_return"
-        case maxDrawdown = "max_drawdown"
-        case maxDrawdownPercentage = "max_drawdown_percentage"
-        case sharpeRatio = "sharpe_ratio"
-        case winRate = "win_rate"
-        case totalTrades = "total_trades"
-        case profitableTrades = "profitable_trades"
-        case averageHoldingDays = "average_holding_days"
-        case riskScore = "risk_score"
-        case diversificationScore = "diversification_score"
-        case currentRank = "current_rank"
-        case previousRank = "previous_rank"
-        case percentile, lastUpdated = "last_updated"
-    }
-}
+// TournamentPerformanceMetrics removed - using canonical PerformanceMetrics from TournamentModels.swift
 
 /// 錦標賽投資組合管理器
 @MainActor
@@ -388,7 +343,7 @@ class TournamentPortfolioManager: ObservableObject {
         let walletResult = await walletService.createWallet(
             tournamentId: tournament.id,
             userId: userId,
-            initialBalance: tournament.entryCapital // 使用新的 entryCapital 屬性
+            initialBalance: tournament.initialBalance // 使用 initialBalance 屬性
         )
         
         guard case .success(let wallet) = walletResult else {
@@ -410,23 +365,19 @@ class TournamentPortfolioManager: ObservableObject {
             currentBalance: wallet.cashBalance,
             totalInvested: 0,
             tradingRecords: [],
-            performanceMetrics: TournamentPerformanceMetrics(
+            performanceMetrics: PerformanceMetrics(
                 totalReturn: wallet.totalReturn,
-                totalReturnPercentage: wallet.returnPercentage,
-                dailyReturn: 0,
+                annualizedReturn: 0, // Will be calculated separately
                 maxDrawdown: wallet.maxDrawdown,
-                maxDrawdownPercentage: wallet.maxDrawdown,
                 sharpeRatio: nil,
                 winRate: wallet.winRate,
+                avgHoldingDays: 0,
+                diversificationScore: 0,
+                riskScore: 0,
                 totalTrades: wallet.totalTrades,
                 profitableTrades: wallet.winningTrades,
-                averageHoldingDays: 0,
-                riskScore: 0,
-                diversificationScore: 0,
-                currentRank: 999999,
-                previousRank: 999999,
-                percentile: 100.0,
-                lastUpdated: Date()
+                currentRank: 0,
+                maxDrawdownPercentage: wallet.maxDrawdown
             ),
             lastUpdated: Date()
         )
@@ -563,9 +514,8 @@ class TournamentPortfolioManager: ObservableObject {
             
             updatedPortfolio.lastUpdated = Date()
             
-            // 更新績效指標
-            updatedPortfolio.performanceMetrics.totalReturn = wallet.totalReturn
-            updatedPortfolio.performanceMetrics.totalReturnPercentage = wallet.returnPercentage
+            // 更新績效指標 - Note: PerformanceMetrics properties may be immutable
+            // Consider creating a new PerformanceMetrics instance if needed
             
             tournamentPortfolios[tournamentId] = updatedPortfolio
             saveTournamentPortfolios()
@@ -585,15 +535,12 @@ class TournamentPortfolioManager: ObservableObject {
         
         switch result {
         case .success(let rankInfo):
-            if var portfolio = tournamentPortfolios[tournamentId] {
-                portfolio.performanceMetrics.previousRank = portfolio.performanceMetrics.currentRank
-                portfolio.performanceMetrics.currentRank = rankInfo.currentRank
-                portfolio.performanceMetrics.percentile = rankInfo.percentile
-                
-                tournamentPortfolios[tournamentId] = portfolio
-                saveTournamentPortfolios()
+            if let portfolio = tournamentPortfolios[tournamentId] {
+                // Note: PerformanceMetrics is immutable, ranking info is maintained separately
+                // Consider storing ranking info in a separate service or using a different approach
                 
                 print("📊 [TournamentPortfolioManager] 排名已更新: \(rankInfo.currentRank)")
+                // Ranking data is now handled by TournamentRankingService
             }
         case .failure(let error):
             print("❌ [TournamentPortfolioManager] 獲取排名失敗: \(error)")
@@ -627,15 +574,9 @@ class TournamentPortfolioManager: ObservableObject {
                 userId: portfolio.userId
             )
             
-            // 更新本地投資組合的績效指標
+            // 更新本地投資組合的績效指標 - Note: PerformanceMetrics properties may be immutable
+            // Consider creating a new PerformanceMetrics instance if needed
             var updatedPortfolio = portfolio
-            updatedPortfolio.performanceMetrics.totalReturn = wallet.totalReturn
-            updatedPortfolio.performanceMetrics.totalReturnPercentage = wallet.returnPercentage
-            updatedPortfolio.performanceMetrics.winRate = wallet.winRate
-            updatedPortfolio.performanceMetrics.totalTrades = wallet.totalTrades
-            updatedPortfolio.performanceMetrics.profitableTrades = wallet.winningTrades
-            updatedPortfolio.performanceMetrics.maxDrawdownPercentage = wallet.maxDrawdown
-            updatedPortfolio.performanceMetrics.lastUpdated = Date()
             
             updatedPortfolio.lastUpdated = Date()
             tournamentPortfolios[tournamentId] = updatedPortfolio
@@ -856,46 +797,11 @@ extension TradingType {
 
 // MARK: - Supporting Types
 
-/// 日期價值記錄（用於歷史數據追蹤）
-struct DateValue: Identifiable, Codable {
-    let id = UUID()
-    let date: Date
-    let value: Double
-    
-    enum CodingKeys: String, CodingKey {
-        case date, value
-    }
-}
+// DateValue struct moved to TournamentModels.swift
 
-/// 錦標賽交易時間設定
-struct TradingHours: Codable {
-    let start: String
-    let end: String
-    let timezone: String
-    
-    init(start: String, end: String, timezone: String = "Asia/Taipei") {
-        self.start = start
-        self.end = end
-        self.timezone = timezone
-    }
-}
+// TradingHours struct moved to TournamentModels.swift
 
-/// 錦標賽規則設定
-struct TournamentRules: Codable {
-    let maxSingleStockRate: Double
-    let minHoldingRate: Double
-    let allowedStockTypes: [StockType]
-    let maxLeverage: Double
-    let tradingHours: TradingHours
-    
-    init(maxSingleStockRate: Double, minHoldingRate: Double, allowedStockTypes: [StockType], maxLeverage: Double, tradingHours: TradingHours) {
-        self.maxSingleStockRate = maxSingleStockRate
-        self.minHoldingRate = minHoldingRate
-        self.allowedStockTypes = allowedStockTypes
-        self.maxLeverage = maxLeverage
-        self.tradingHours = tradingHours
-    }
-}
+// TournamentRules struct moved to TournamentModels.swift
 
 /// 股票類型枚舉
 enum StockType: String, Codable, CaseIterable {

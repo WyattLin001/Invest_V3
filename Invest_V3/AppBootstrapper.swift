@@ -279,11 +279,12 @@ struct AppContainer: View {
 
 /// 創建完整配置的錦標賽工作流程服務
 private func makeTournamentWorkflowService() -> TournamentWorkflowService {
+    // 使用非隔離的初始化器，服務將在使用時才會進入MainActor上下文
     return TournamentWorkflowService(
-        tournamentService: TournamentService(),
-        tradeService: TournamentTradeService(),
-        walletService: TournamentWalletService(),
-        rankingService: TournamentRankingService(),
-        businessService: TournamentBusinessService()
+        tournamentService: TournamentService.shared,
+        tradeService: TournamentTradeService.shared,
+        walletService: TournamentWalletService.shared,
+        rankingService: TournamentRankingService.shared,
+        businessService: TournamentBusinessService.shared
     )
 }

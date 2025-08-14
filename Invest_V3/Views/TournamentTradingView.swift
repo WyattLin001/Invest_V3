@@ -298,7 +298,7 @@ struct TournamentTradingView: View {
     private func loadInitialData() {
         Task {
             await tradingService.loadStocks()
-            await tradingService.loadPortfolio()
+            await tradingService.loadTournamentPortfolio(tournamentId: tradingService.currentTournamentId)
         }
     }
     

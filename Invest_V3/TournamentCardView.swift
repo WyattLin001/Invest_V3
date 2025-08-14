@@ -428,7 +428,9 @@ struct TournamentCardView: View {
         case .monthly: return .blue
         case .quarterly: return .purple
         case .yearly: return .red
+        case .annual: return .red.opacity(0.8)
         case .special: return .pink
+        case .custom: return .cyan
         }
     }
     

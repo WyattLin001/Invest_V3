@@ -97,7 +97,7 @@ struct TournamentDetailView: View {
                 ruleItem("重置模式", tournament.resetMode.capitalized)
             }
             
-            if let rules = tournament.rules {
+            if !tournament.rules.isEmpty {
                 Divider()
                 
                 VStack(alignment: .leading, spacing: 12) {
@@ -105,18 +105,8 @@ struct TournamentDetailView: View {
                         .font(.headline)
                         .fontWeight(.semibold)
                     
-                    if rules.allowShortSelling {
-                        ruleDetail("✅ 允許做空", "可以進行賣空操作")
-                    } else {
-                        ruleDetail("❌ 禁止做空", "僅允許買入操作")
-                    }
-                    
-                    ruleDetail("📊 最大持股比例", "\(Int(rules.maxPositionSize * 100))%")
-                    
-                    if let riskLimits = rules.riskLimits {
-                        ruleDetail("⚠️ 最大回撤", "\(Int(riskLimits.maxDrawdown * 100))%")
-                        ruleDetail("📈 最大槓桿", "\(String(format: "%.1f", riskLimits.maxLeverage))x")
-                        ruleDetail("🔄 每日交易限制", "\(riskLimits.maxDailyTrades) 筆")
+                    ForEach(tournament.rules, id: \.self) { rule in
+                        ruleDetail(getRuleIcon(for: rule), rule)
                     }
                 }
             }
@@ -256,8 +246,14 @@ struct TournamentDetailView: View {
         switch tournament.status {
         case .upcoming:
             return .blue
+        case .enrolling:
+            return .green
+        case .ongoing:
+            return .orange
         case .active:
             return .green
+        case .finished:
+            return .gray
         case .ended:
             return .gray
         case .cancelled:
@@ -313,6 +309,25 @@ struct TournamentDetailView: View {
             }
         }
     }
+    
+    private func getRuleIcon(for rule: String) -> String {
+        if rule.contains("做空") {
+            return rule.contains("允許") ? "✅" : "❌"
+        } else if rule.contains("持股上限") {
+            return "📊"
+        } else if rule.contains("交易時間") {
+            return "🕒"
+        } else if rule.contains("回撤限制") {
+            return "⚠️"
+        } else if rule.contains("槓桿") {
+            return "📈"
+        } else if rule.contains("投資") {
+            return "📋"
+        } else if rule.contains("交易次數") {
+            return "🔄"
+        }
+        return "📝"
+    }
 }
 
 // MARK: - Preview
@@ -335,13 +350,15 @@ struct TournamentDetailView_Previews: PreviewProvider {
                     returnMetric: "twr",
                     resetMode: "monthly",
                     createdAt: Date().addingTimeInterval(-86400 * 2),
-                    rules: TournamentRules(
-                        allowShortSelling: true,
-                        maxPositionSize: 0.3,
-                        allowedInstruments: ["stocks", "etfs"],
-                        tradingHours: TradingHours(startTime: "09:00", endTime: "16:00", timeZone: "Asia/Taipei"),
-                        riskLimits: RiskLimits(maxDrawdown: 0.2, maxLeverage: 2.0, maxDailyTrades: 50)
-                    )
+                    rules: [
+                        "允許做空交易",
+                        "單一持股上限：30%",
+                        "允許投資：股票、ETF",
+                        "交易時間：09:00 - 16:00 (台北時間)",
+                        "最大回撤限制：20%",
+                        "最大槓桿：2.0x",
+                        "每日最大交易次數：50"
+                    ]
                 )
             )
         }

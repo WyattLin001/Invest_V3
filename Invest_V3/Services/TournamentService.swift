@@ -43,7 +43,7 @@ enum TournamentAPIError: Error, LocalizedError {
 // MARK: - Tournament Service Protocol
 protocol TournamentServiceProtocol {
     func fetchTournaments() async throws -> [Tournament]
-    func fetchTournament(id: UUID) async throws -> Tournament
+    func fetchTournament(id: UUID) async throws -> Tournament?
     func fetchTournamentParticipants(tournamentId: UUID) async throws -> [TournamentParticipant]
     func fetchTournamentActivities(tournamentId: UUID) async throws -> [TournamentActivity]
     func joinTournament(tournamentId: UUID) async throws -> Bool
@@ -120,7 +120,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     }
     
     /// 獲取特定錦標賽詳情（UTC時區標準化）
-    func fetchTournament(id: UUID) async throws -> Tournament {
+    func fetchTournament(id: UUID) async throws -> Tournament? {
         do {
             let rawTournament = try await supabaseService.fetchTournament(id: id)
             
@@ -130,9 +130,12 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             print("✅ [TournamentService] 成功獲取錦標賽詳情: \(tournament.name)（狀態：\(tournament.status.displayName)）")
             return tournament
         } catch {
-            let apiError = handleError(error)
             print("❌ [TournamentService] 獲取錦標賽詳情失敗: \(error.localizedDescription)")
-            throw apiError
+            // Return nil instead of throwing for not found cases
+            if let nsError = error as NSError?, nsError.code == 404 {
+                return nil
+            }
+            throw error
         }
     }
     
@@ -241,7 +244,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     func joinTournament(tournamentId: UUID) async throws -> Bool {
         do {
             // 步驟1：獲取錦標賽詳情
-            let tournament = try await fetchTournament(id: tournamentId)
+            guard let tournament = try await fetchTournament(id: tournamentId) else {
+                throw TournamentAPIError.noData
+            }
             
             // 步驟2：獲取當前用戶資訊
             guard let currentUser = supabaseService.getCurrentUser() else {
@@ -381,7 +386,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     
     /// 刷新錦標賽數據（UTC時區標準化）
     func refreshTournamentData(tournamentId: UUID) async throws -> Tournament {
-        let rawTournament = try await fetchTournament(id: tournamentId)
+        guard let rawTournament = try await fetchTournament(id: tournamentId) else {
+            throw TournamentAPIError.noData
+        }
         return rawTournament.needsStatusUpdate ? rawTournament.withUpdatedStatus() : rawTournament
     }
     
@@ -675,6 +682,147 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     /// 手動觸發狀態檢查
     func triggerStatusCheck() async {
         await statusMonitor.checkStatusChanges()
+    }
+    
+    // MARK: - Missing Methods Implementation
+    
+    /// 保存錦標賽到數據庫
+    func saveTournament(_ tournament: Tournament) async throws {
+        do {
+            try await supabaseService.updateTournament(tournament)
+            
+            // 更新本地緩存
+            if let index = tournaments.firstIndex(where: { $0.id == tournament.id }) {
+                await MainActor.run {
+                    self.tournaments[index] = tournament
+                }
+            } else {
+                await MainActor.run {
+                    self.tournaments.append(tournament)
+                }
+            }
+            
+            print("✅ [TournamentService] 錦標賽保存成功: \(tournament.name)")
+        } catch {
+            print("❌ [TournamentService] 保存錦標賽失敗: \(error)")
+            throw error
+        }
+    }
+    
+    /// 獲取錦標賽（簡化版本，與 fetchTournament 相同）
+    func getTournament(id: UUID) async throws -> Tournament {
+        guard let tournament = try await fetchTournament(id: id) else {
+            throw TournamentAPIError.noData
+        }
+        return tournament
+    }
+    
+    /// 獲取用戶在錦標賽中的成員資格
+    func getMembership(tournamentId: UUID, userId: UUID) async throws -> TournamentMember? {
+        do {
+            let members = try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
+            return members.first { $0.userId == userId }
+        } catch {
+            print("❌ [TournamentService] 獲取成員資格失敗: \(error)")
+            throw error
+        }
+    }
+    
+    /// 增加錦標賽參與者數量
+    func incrementParticipantCount(tournamentId: UUID) async throws {
+        do {
+            guard let tournament = try await fetchTournament(id: tournamentId) else {
+                throw TournamentAPIError.noData
+            }
+            let updatedTournament = Tournament(
+                id: tournament.id,
+                name: tournament.name,
+                type: tournament.type,
+                status: tournament.status,
+                startDate: tournament.startDate,
+                endDate: tournament.endDate,
+                description: tournament.description,
+                shortDescription: tournament.shortDescription,
+                initialBalance: tournament.initialBalance,
+                entryFee: tournament.entryFee,
+                prizePool: tournament.prizePool,
+                maxParticipants: tournament.maxParticipants,
+                currentParticipants: tournament.currentParticipants + 1,
+                isFeatured: tournament.isFeatured,
+                createdBy: tournament.createdBy,
+                riskLimitPercentage: tournament.riskLimitPercentage,
+                minHoldingRate: tournament.minHoldingRate,
+                maxSingleStockRate: tournament.maxSingleStockRate,
+                rules: tournament.rules,
+                createdAt: tournament.createdAt,
+                updatedAt: Date()
+            )
+            
+            try await saveTournament(updatedTournament)
+            print("✅ [TournamentService] 參與者數量已增加: \(updatedTournament.currentParticipants)")
+        } catch {
+            print("❌ [TournamentService] 增加參與者數量失敗: \(error)")
+            throw error
+        }
+    }
+    
+    /// 更新錦標賽狀態
+    func updateTournamentStatus(tournamentId: UUID, status: TournamentStatus) async throws {
+        do {
+            guard let tournament = try await fetchTournament(id: tournamentId) else {
+                throw TournamentAPIError.noData
+            }
+            let updatedTournament = Tournament(
+                id: tournament.id,
+                name: tournament.name,
+                type: tournament.type,
+                status: status,
+                startDate: tournament.startDate,
+                endDate: tournament.endDate,
+                description: tournament.description,
+                shortDescription: tournament.shortDescription,
+                initialBalance: tournament.initialBalance,
+                entryFee: tournament.entryFee,
+                prizePool: tournament.prizePool,
+                maxParticipants: tournament.maxParticipants,
+                currentParticipants: tournament.currentParticipants,
+                isFeatured: tournament.isFeatured,
+                createdBy: tournament.createdBy,
+                riskLimitPercentage: tournament.riskLimitPercentage,
+                minHoldingRate: tournament.minHoldingRate,
+                maxSingleStockRate: tournament.maxSingleStockRate,
+                rules: tournament.rules,
+                createdAt: tournament.createdAt,
+                updatedAt: Date()
+            )
+            
+            try await saveTournament(updatedTournament)
+            print("✅ [TournamentService] 錦標賽狀態已更新: \(status.displayName)")
+        } catch {
+            print("❌ [TournamentService] 更新錦標賽狀態失敗: \(error)")
+            throw error
+        }
+    }
+    
+    /// 獲取錦標賽成員列表（與 fetchTournamentParticipants 的成員版本）
+    func getMembers(tournamentId: UUID) async throws -> [TournamentMember] {
+        do {
+            return try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
+        } catch {
+            print("❌ [TournamentService] 獲取成員列表失敗: \(error)")
+            throw error
+        }
+    }
+    
+    /// 創建錦標賽成員
+    func createMember(_ member: TournamentMember) async throws {
+        do {
+            try await supabaseService.createTournamentMember(member)
+            print("✅ [TournamentService] 錦標賽成員創建成功")
+        } catch {
+            print("❌ [TournamentService] 創建錦標賽成員失敗: \(error)")
+            throw error
+        }
     }
 }
 

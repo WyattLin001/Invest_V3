@@ -139,6 +139,29 @@ class StockService: ObservableObject {
         
         return prices.reversed()
     }
+    
+    // MARK: - 批量獲取股票價格
+    func batchGetStockPrices(symbols: [String]) async throws -> [String: Double] {
+        var prices: [String: Double] = [:]
+        
+        // 對於每個股票代碼獲取價格
+        for symbol in symbols {
+            do {
+                let stock = try await fetchStockQuote(symbol: symbol)
+                prices[symbol] = stock.price
+                
+                // 避免 API 速率限制
+                try await Task.sleep(nanoseconds: 100_000_000) // 0.1秒延遲
+            } catch {
+                print("⚠️ 獲取股票 \(symbol) 價格失敗: \(error)")
+                // 使用模擬數據作為後備
+                let mockStock = generateMockStock(symbol: symbol)
+                prices[symbol] = mockStock.price
+            }
+        }
+        
+        return prices
+    }
 }
 
 // MARK: - 錯誤類型

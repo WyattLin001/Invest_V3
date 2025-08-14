@@ -184,8 +184,8 @@ struct PortfolioView: View {
             }
             
             // 備用方案：使用原有的 TradingService
-            await tradingService.loadPortfolio()
-            await tradingService.loadTransactions()
+            await tradingService.loadTournamentPortfolio(tournamentId: tradingService.currentTournamentId)
+            await tradingService.loadTournamentTransactions(tournamentId: tradingService.currentTournamentId)
             print("📊 [PortfolioView] 一般模式數據載入完成")
         }
     }
@@ -382,7 +382,7 @@ struct AssetAllocationCard: View {
     @ObservedObject private var tradingService = TradingService.shared
     
     private var allocationData: [PieChartData] {
-        return AssetAllocationCalculator.calculateAllocation(from: tradingService.portfolio)
+        return AssetAllocationCalculator.calculateAllocation(from: tradingService.currentPortfolio)
     }
     
     var body: some View {
@@ -485,7 +485,7 @@ struct PerformanceChartCard: View {
             // 績效圖表
             let performanceData = PerformanceDataGenerator.generateData(
                 for: selectedTimeRange,
-                portfolio: tradingService.portfolio
+                portfolio: tradingService.currentPortfolio
             )
             
             if performanceData.isEmpty {

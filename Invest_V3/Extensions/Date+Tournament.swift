@@ -34,6 +34,22 @@ extension Date {
         return formatter.string(from: self)
     }
     
+    /// ISO8601 格式字符串
+    var iso8601: String {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(abbreviation: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        return formatter.string(from: self)
+    }
+    
+    /// ISO8601 格式字符串（簡潔版本）
+    var iso8601String: String {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(abbreviation: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        return formatter.string(from: self)
+    }
+    
     // MARK: - 錦標賽專用時間判斷
     
     /// 是否為今天（基於UTC）
@@ -150,8 +166,12 @@ struct TournamentTimeUtils {
             return calendar.date(byAdding: .month, value: 3, to: startDate) ?? startDate
         case .yearly:
             return calendar.date(byAdding: .year, value: 1, to: startDate) ?? startDate
+        case .annual:
+            return calendar.date(byAdding: .year, value: 1, to: startDate) ?? startDate // 年度賽事持續1年
         case .special:
             return calendar.date(byAdding: .day, value: 7, to: startDate) ?? startDate // 特別賽事默認7天
+        case .custom:
+            return calendar.date(byAdding: .month, value: 1, to: startDate) ?? startDate // 自訂賽事默認1個月
         }
     }
     

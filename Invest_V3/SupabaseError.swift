@@ -21,6 +21,7 @@ enum SupabaseError: Error, LocalizedError {
     
     // 資料相關錯誤
     case dataNotFound
+    case dataFetchFailed(String)
     case dataCorrupted
     case uploadFailed
     case downloadFailed
@@ -69,6 +70,8 @@ enum SupabaseError: Error, LocalizedError {
         // 資料錯誤
         case .dataNotFound:
             return "找不到相關資料"
+        case .dataFetchFailed(let reason):
+            return "資料獲取失敗：\(reason)"
         case .dataCorrupted:
             return "資料格式錯誤，請重新操作"
         case .uploadFailed:

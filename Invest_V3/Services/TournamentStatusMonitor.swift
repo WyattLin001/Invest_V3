@@ -131,7 +131,7 @@ class TournamentStatusMonitor: ObservableObject {
         
         // 檢查即將開始的錦標賽
         let timeToStart = startDateUTC.timeIntervalSince(nowUTC)
-        if timeToStart > 0 && timeToStart <= notificationThresholds.max()! {
+        if timeToStart > 0 && timeToStart <= (notificationThresholds.max() ?? 1800) {
             await handleUpcomingStart(tournament, timeRemaining: timeToStart)
         }
         
@@ -142,7 +142,7 @@ class TournamentStatusMonitor: ObservableObject {
         
         // 檢查即將結束的錦標賽
         let timeToEnd = endDateUTC.timeIntervalSince(nowUTC)
-        if timeToEnd > 0 && timeToEnd <= notificationThresholds.max()! {
+        if timeToEnd > 0 && timeToEnd <= (notificationThresholds.max() ?? 1800) {
             await handleUpcomingEnd(tournament, timeRemaining: timeToEnd)
         }
         

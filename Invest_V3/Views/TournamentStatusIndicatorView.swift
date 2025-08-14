@@ -182,10 +182,12 @@ struct TournamentStatusIndicatorView: View {
             return "clock"
         case .enrolling:
             return "person.badge.plus"
-        case .ongoing:
+        case .ongoing, .active:
             return "play.circle.fill"
-        case .finished:
+        case .finished, .ended:
             return "flag.checkered"
+        case .settling:
+            return "clock.badge.checkmark"
         case .cancelled:
             return "xmark.circle"
         }
@@ -197,10 +199,12 @@ struct TournamentStatusIndicatorView: View {
             return "即將開放報名"
         case .enrolling:
             return "現在可以報名"
-        case .ongoing:
+        case .ongoing, .active:
             return "比賽進行中"
-        case .finished:
+        case .finished, .ended:
             return "查看結果"
+        case .settling:
+            return "結算中"
         case .cancelled:
             return "比賽已取消"
         }
@@ -210,9 +214,9 @@ struct TournamentStatusIndicatorView: View {
         switch computedStatus {
         case .upcoming, .enrolling:
             return "距離開始"
-        case .ongoing:
+        case .ongoing, .active:
             return "距離結束"
-        case .finished, .cancelled:
+        case .finished, .ended, .settling, .cancelled:
             return "已結束"
         }
     }
@@ -221,16 +225,16 @@ struct TournamentStatusIndicatorView: View {
         switch computedStatus {
         case .upcoming, .enrolling:
             return "開始時間"
-        case .ongoing:
+        case .ongoing, .active:
             return "結束時間"
-        case .finished, .cancelled:
+        case .finished, .ended, .settling, .cancelled:
             return "最終狀態"
         }
     }
     
     private var preciseTimeRemaining: String {
         switch computedStatus {
-        case .finished, .cancelled:
+        case .finished, .ended, .settling, .cancelled:
             return "已完成"
         default:
             return tournament.preciseTimeRemaining
@@ -381,16 +385,17 @@ private func mockTournament() -> Tournament {
         description: "測試錦標賽",
         shortDescription: "測試",
         initialBalance: 1000000,
-        maxParticipants: 1000,
-        currentParticipants: 500,
         entryFee: 0,
         prizePool: 100000,
+        maxParticipants: 1000,
+        currentParticipants: 500,
+        isFeatured: true,
+        createdBy: nil,
         riskLimitPercentage: 15,
         minHoldingRate: 0.1,
         maxSingleStockRate: 0.3,
         rules: [],
         createdAt: Date(),
-        updatedAt: Date(),
-        isFeatured: true
+        updatedAt: Date()
     )
 }

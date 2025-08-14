@@ -165,17 +165,17 @@ struct TournamentJoinView: View {
             VStack(spacing: 12) {
                 detailRow(icon: "calendar", title: "開始時間", value: formatDate(tournament.startDate))
                 detailRow(icon: "calendar.badge.clock", title: "結束時間", value: formatDate(tournament.endDate))
-                detailRow(icon: "dollarsign.circle", title: "初始資金", value: formatCurrency(tournament.entryCapital))
+                detailRow(icon: "dollarsign.circle", title: "初始資金", value: formatCurrency(tournament.initialBalance))
                 detailRow(icon: "person.3", title: "參與人數", value: "\(tournament.currentParticipants)/\(tournament.maxParticipants)")
                 
-                if tournament.feeTokens > 0 {
-                    detailRow(icon: "star.circle", title: "入場費", value: "\(tournament.feeTokens) 代幣")
+                if tournament.entryFee > 0 {
+                    detailRow(icon: "star.circle", title: "入場費", value: formatCurrency(tournament.entryFee))
                 } else {
                     detailRow(icon: "gift", title: "入場費", value: "免費")
                 }
                 
-                detailRow(icon: "chart.line.uptrend.xyaxis", title: "評估指標", value: tournament.returnMetric.uppercased())
-                detailRow(icon: "arrow.clockwise", title: "重置週期", value: tournament.resetMode)
+                detailRow(icon: "chart.line.uptrend.xyaxis", title: "錦標賽類型", value: tournament.type.displayName)
+                detailRow(icon: "checkmark.shield", title: "風險限制", value: "\(Int(tournament.riskLimitPercentage * 100))%")
             }
         }
         .padding()
@@ -192,43 +192,13 @@ struct TournamentJoinView: View {
                 .font(.headline)
                 .fontWeight(.semibold)
             
-            if let rules = tournament.rules {
+            if !tournament.rules.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    ruleItem(
-                        icon: rules.allowShortSelling ? "checkmark.circle.fill" : "xmark.circle.fill",
-                        text: rules.allowShortSelling ? "允許做空交易" : "不允許做空交易",
-                        color: rules.allowShortSelling ? .green : .red
-                    )
-                    
-                    ruleItem(
-                        icon: "percent",
-                        text: "單一持股上限: \(Int(rules.maxPositionSize * 100))%",
-                        color: .blue
-                    )
-                    
-                    ruleItem(
-                        icon: "clock",
-                        text: "交易時間: \(rules.tradingHours.startTime) - \(rules.tradingHours.endTime)",
-                        color: .orange
-                    )
-                    
-                    ruleItem(
-                        icon: "exclamationmark.triangle",
-                        text: "最大回撤限制: \(Int(rules.riskLimits.maxDrawdown * 100))%",
-                        color: .red
-                    )
-                    
-                    ruleItem(
-                        icon: "arrow.up.right",
-                        text: "最大槓桿: \(String(format: "%.1f", rules.riskLimits.maxLeverage))x",
-                        color: .purple
-                    )
-                    
-                    if !rules.allowedInstruments.isEmpty {
+                    ForEach(tournament.rules, id: \.self) { rule in
                         ruleItem(
-                            icon: "list.bullet",
-                            text: "允許投資: \(rules.allowedInstruments.joined(separator: ", "))",
-                            color: .green
+                            icon: getRuleIcon(for: rule),
+                            text: rule,
+                            color: getRuleColor(for: rule)
                         )
                     }
                 }
@@ -260,9 +230,9 @@ struct TournamentJoinView: View {
                 )
                 
                 requirementItem(
-                    icon: tournament.feeTokens > 0 ? "star.circle" : "checkmark.circle.fill",
-                    text: tournament.feeTokens > 0 ? "支付 \(tournament.feeTokens) 代幣入場費" : "免費參與",
-                    isMet: tournament.feeTokens == 0 // 簡化判斷
+                    icon: tournament.entryFee > 0 ? "star.circle" : "checkmark.circle.fill",
+                    text: tournament.entryFee > 0 ? "支付 \(formatCurrency(tournament.entryFee)) 入場費" : "免費參與",
+                    isMet: tournament.entryFee == 0 // 簡化判斷
                 )
                 
                 requirementItem(
@@ -511,6 +481,44 @@ struct TournamentJoinView: View {
             }
         }
     }
+    
+    private func getRuleIcon(for rule: String) -> String {
+        if rule.contains("做空") {
+            return rule.contains("允許") ? "checkmark.circle.fill" : "xmark.circle.fill"
+        } else if rule.contains("持股上限") {
+            return "percent"
+        } else if rule.contains("交易時間") {
+            return "clock"
+        } else if rule.contains("回撤限制") {
+            return "exclamationmark.triangle"
+        } else if rule.contains("槓桿") {
+            return "arrow.up.right"
+        } else if rule.contains("投資") {
+            return "list.bullet"
+        } else if rule.contains("交易次數") {
+            return "number"
+        }
+        return "checkmark.circle.fill"
+    }
+    
+    private func getRuleColor(for rule: String) -> Color {
+        if rule.contains("做空") {
+            return rule.contains("允許") ? .green : .red
+        } else if rule.contains("持股上限") {
+            return .blue
+        } else if rule.contains("交易時間") {
+            return .orange
+        } else if rule.contains("回撤限制") {
+            return .red
+        } else if rule.contains("槓桿") {
+            return .purple
+        } else if rule.contains("投資") {
+            return .green
+        } else if rule.contains("交易次數") {
+            return .blue
+        }
+        return .gray
+    }
 }
 
 // MARK: - 預覽
@@ -531,21 +539,15 @@ struct TournamentJoinView_Previews: PreviewProvider {
             returnMetric: "twr",
             resetMode: "monthly",
             createdAt: Date(),
-            rules: TournamentRules(
-                allowShortSelling: true,
-                maxPositionSize: 0.3,
-                allowedInstruments: ["stocks", "etfs"],
-                tradingHours: TradingHours(
-                    startTime: "09:00",
-                    endTime: "16:00",
-                    timeZone: "Asia/Taipei"
-                ),
-                riskLimits: RiskLimits(
-                    maxDrawdown: 0.2,
-                    maxLeverage: 2.0,
-                    maxDailyTrades: 50
-                )
-            )
+            rules: [
+                "允許做空交易",
+                "單一持股上限：30%",
+                "允許投資：股票、ETF",
+                "交易時間：09:00 - 16:00 (台北時間)",
+                "最大回撤限制：20%",
+                "最大槓桿：2.0x",
+                "每日最大交易次數：50"
+            ]
         )
         
         TournamentJoinView(

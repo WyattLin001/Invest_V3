@@ -312,7 +312,7 @@ class PortfolioSyncService: ObservableObject {
     }
     
     /// 獲取錦標賽相關的統計數據
-    func getTournamentStatistics(tournamentId: UUID?) -> TournamentStatistics {
+    func getTournamentStatistics(tournamentId: UUID?) -> TournamentTradingStatistics {
         let allRecords = chatPortfolioManager.tradingRecords
         let tournamentRecords = tournamentId != nil ? 
             allRecords.filter { $0.tournamentId == tournamentId } : allRecords
@@ -327,7 +327,7 @@ class PortfolioSyncService: ObservableObject {
         let profitableTrades = sellRecords.filter { ($0.realizedGainLoss ?? 0) > 0 }
         let winRate = sellRecords.isEmpty ? 0 : Double(profitableTrades.count) / Double(sellRecords.count) * 100
         
-        return TournamentStatistics(
+        return TournamentTradingStatistics(
             totalTrades: tournamentRecords.count,
             totalVolume: totalVolume,
             buyTrades: buyRecords.count,
@@ -344,19 +344,6 @@ class PortfolioSyncService: ObservableObject {
 
 // MARK: - Supporting Types
 
-/// 錦標賽統計數據
-struct TournamentStatistics {
-    let totalTrades: Int
-    let totalVolume: Double
-    let buyTrades: Int
-    let sellTrades: Int
-    let totalRealizedGainLoss: Double
-    let totalFees: Double
-    let averageTradeSize: Double
-    let winRate: Double
-    let totalPortfolioValue: Double
-    let availableBalance: Double
-}
 
 /// 同步狀態
 enum SyncStatus {

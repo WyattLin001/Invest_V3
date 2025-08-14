@@ -254,11 +254,11 @@ struct TournamentPerformanceView: View {
                 .fontWeight(.bold)
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                StatRow(title: "最大回撤", value: String(format: "%.2f%%", tournamentPortfolio.performanceMetrics.maxDrawdownPercentage))
+                StatRow(title: "最大回撤", value: String(format: "%.2f%%", tournamentPortfolio.performanceMetrics.maxDrawdown * 100))
                 StatRow(title: "夏普比率", value: tournamentPortfolio.performanceMetrics.sharpeRatio.map { String(format: "%.2f", $0) } ?? "N/A")
                 StatRow(title: "風險評分", value: String(format: "%.1f/100", tournamentPortfolio.performanceMetrics.riskScore))
                 StatRow(title: "多元化評分", value: String(format: "%.1f/100", tournamentPortfolio.performanceMetrics.diversificationScore))
-                StatRow(title: "平均持股天數", value: String(format: "%.1f天", tournamentPortfolio.performanceMetrics.averageHoldingDays))
+                StatRow(title: "平均持股天數", value: String(format: "%.1f天", tournamentPortfolio.performanceMetrics.avgHoldingDays))
                 StatRow(title: "盈利交易", value: "\(tournamentPortfolio.performanceMetrics.profitableTrades)/\(tournamentPortfolio.performanceMetrics.totalTrades)")
             }
         }
@@ -536,34 +536,19 @@ struct TournamentProgressBar: View {
 #Preview {
     NavigationView {
         TournamentPerformanceView(
-            tournamentPortfolio: TournamentPortfolio(
+            tournamentPortfolio: TournamentPortfolioV2(
                 id: UUID(),
                 tournamentId: UUID(),
                 userId: UUID(),
-                userName: "TestUser",
-                holdings: [],
+                cashBalance: 950000,
+                equityValue: 50000,
+                totalAssets: 1000000,
                 initialBalance: 1000000,
-                currentBalance: 950000,
-                totalInvested: 50000,
-                tradingRecords: [],
-                performanceMetrics: TournamentPerformanceMetrics(
-                    totalReturn: -50000,
-                    totalReturnPercentage: -5.0,
-                    dailyReturn: -0.2,
-                    maxDrawdown: 10000,
-                    maxDrawdownPercentage: 1.0,
-                    sharpeRatio: 0.8,
-                    winRate: 0.6,
-                    totalTrades: 10,
-                    profitableTrades: 6,
-                    averageHoldingDays: 3.5,
-                    riskScore: 75.0,
-                    diversificationScore: 60.0,
-                    currentRank: 15,
-                    previousRank: 20,
-                    percentile: 25.0,
-                    lastUpdated: Date()
-                ),
+                totalReturn: -50000,
+                returnPercentage: -5.0,
+                totalTrades: 10,
+                winningTrades: 6,
+                maxDrawdown: 10000,
                 lastUpdated: Date()
             ),
             tournament: Tournament(
@@ -576,17 +561,18 @@ struct TournamentProgressBar: View {
                 description: "測試錦標賽",
                 shortDescription: "春季投資挑戰賽",
                 initialBalance: 1000000,
-                maxParticipants: 100,
-                currentParticipants: 75,
                 entryFee: 0,
                 prizePool: 0,
+                maxParticipants: 100,
+                currentParticipants: 75,
+                isFeatured: false,
+                createdBy: nil,
                 riskLimitPercentage: 20.0,
                 minHoldingRate: 60.0,
                 maxSingleStockRate: 30.0,
                 rules: ["最大單股比例不超過30%", "最小持股比例不少於60%"],
                 createdAt: Date(),
-                updatedAt: Date(),
-                isFeatured: false
+                updatedAt: Date()
             )
         )
     }

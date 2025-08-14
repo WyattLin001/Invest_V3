@@ -243,7 +243,7 @@ class TournamentDataMigration {
         // 分別計算各個值以避免複雜表達式類型檢查問題
         let userId = legacy.userId ?? UUID()
         let tournamentId = legacy.tournamentId ?? UUID()
-        let tradeType: TournamentTradeAction = legacy.action == .buy ? .buy : .sell
+        let tradeType: TradeSide = legacy.action == .buy ? .buy : .sell
         let totalAmount = legacy.shares * legacy.price
         
         return TournamentTradeRecord(

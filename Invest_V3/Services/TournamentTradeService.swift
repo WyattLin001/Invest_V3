@@ -213,7 +213,7 @@ class TournamentTradeService: ObservableObject {
         }
         
         let now = Date()
-        guard now >= tournament.startsAt && now <= tournament.endsAt else {
+        guard now >= tournament.startDate && now <= tournament.endDate else {
             throw TournamentTradeError.tournamentNotActive
         }
     }
@@ -366,6 +366,163 @@ class TournamentTradeService: ObservableObject {
         // 這裡可以實現 Supabase Realtime 的監聽
         // 目前先使用定時刷新機制
     }
+    
+    // MARK: - Missing Methods Implementation
+    
+    /// 原始交易執行（不進行額外驗證）
+    func executeTradeRaw(
+        tournamentId: UUID,
+        userId: UUID,
+        symbol: String,
+        side: TradeSide,
+        qty: Double,
+        price: Double,
+        fees: Double? = nil
+    ) async -> Result<TournamentTrade, Error> {
+        
+        let calculatedFees = fees ?? calculateTradingFees(amount: qty * price, side: side)
+        
+        do {
+            let trade = try await executeAtomicTrade(
+                tournamentId: tournamentId,
+                userId: userId,
+                symbol: symbol,
+                side: side,
+                qty: qty,
+                price: price,
+                fees: calculatedFees
+            )
+            
+            await updateLocalCache(trade: trade)
+            print("✅ [TournamentTradeService] 原始交易執行成功: \(trade.id)")
+            return .success(trade)
+        } catch {
+            print("❌ [TournamentTradeService] 原始交易執行失敗: \(error)")
+            return .failure(error)
+        }
+    }
+    
+    /// 鎖定交易（防止同時交易）
+    func lockTrading(tournamentId: UUID, userId: UUID) async -> Bool {
+        // 簡化實現：使用本地狀態管理
+        guard !isExecutingTrade else {
+            return false
+        }
+        
+        isExecutingTrade = true
+        print("🔒 [TournamentTradeService] 交易已鎖定: \(userId)")
+        return true
+    }
+    
+    /// 解鎖交易
+    func unlockTrading(tournamentId: UUID, userId: UUID) async {
+        isExecutingTrade = false
+        print("🔓 [TournamentTradeService] 交易已解鎖: \(userId)")
+    }
+    
+    /// 批量執行交易
+    func executeBatchTrades(
+        trades: [(tournamentId: UUID, userId: UUID, symbol: String, side: TradeSide, qty: Double, price: Double)]
+    ) async -> [Result<TournamentTrade, Error>] {
+        
+        var results: [Result<TournamentTrade, Error>] = []
+        
+        for tradeInfo in trades {
+            let result = await executeTradeRaw(
+                tournamentId: tradeInfo.tournamentId,
+                userId: tradeInfo.userId,
+                symbol: tradeInfo.symbol,
+                side: tradeInfo.side,
+                qty: tradeInfo.qty,
+                price: tradeInfo.price
+            )
+            results.append(result)
+            
+            // 添加短暫延遲避免過載
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1秒
+        }
+        
+        return results
+    }
+    
+    /// 檢查交易狀態
+    func checkTradeStatus(tradeId: UUID) async -> Result<TradeStatus, Error> {
+        do {
+            let trade = try await supabaseService.fetchTournamentTrade(tradeId: tradeId)
+            return .success(trade.status)
+        } catch {
+            print("❌ [TournamentTradeService] 檢查交易狀態失敗: \(error)")
+            return .failure(error)
+        }
+    }
+    
+    /// 獲取交易詳情
+    func getTradeDetails(tradeId: UUID) async -> Result<TournamentTrade, Error> {
+        do {
+            let trade = try await supabaseService.fetchTournamentTrade(tradeId: tradeId)
+            return .success(trade)
+        } catch {
+            print("❌ [TournamentTradeService] 獲取交易詳情失敗: \(error)")
+            return .failure(error)
+        }
+    }
+    
+    /// 計算交易統計
+    func calculateTradingStatistics(
+        tournamentId: UUID,
+        userId: UUID
+    ) async -> Result<TournamentTradingStatistics, Error> {
+        
+        let tradesResult = await getUserTrades(tournamentId: tournamentId, userId: userId, limit: 1000)
+        
+        switch tradesResult {
+        case .success(let trades):
+            let statistics = TournamentTradingStatistics(trades: trades)
+            return .success(statistics)
+        case .failure(let error):
+            return .failure(error)
+        }
+    }
+    
+    /// 驗證交易權限
+    func validateTradingPermission(
+        tournamentId: UUID,
+        userId: UUID
+    ) async -> Result<Bool, Error> {
+        do {
+            let tournament = try await getTournament(id: tournamentId)
+            
+            // 檢查錦標賽狀態
+            guard tournament.status == .ongoing else {
+                return .success(false)
+            }
+            
+            // 檢查用戶是否為參賽者
+            let wallet = try await walletService.getWallet(tournamentId: tournamentId, userId: userId)
+            return .success(true)
+        } catch {
+            return .failure(error)
+        }
+    }
+    
+    /// 獲取交易手續費率
+    func getTradingFeeRate() -> (brokerageRate: Double, taxRate: Double) {
+        return (brokerageRate: 0.001425, taxRate: 0.003)
+    }
+    
+    /// 預估交易成本
+    func estimateTradeCost(
+        side: TradeSide,
+        qty: Double,
+        price: Double
+    ) -> (amount: Double, fees: Double, total: Double) {
+        
+        let amount = qty * price
+        let fees = calculateTradingFees(amount: amount, side: side)
+        let total = side == .buy ? amount + fees : amount - fees
+        
+        return (amount: amount, fees: fees, total: total)
+    }
 }
 
 // MARK: - 錦標賽交易錯誤類型
@@ -417,7 +574,7 @@ enum TournamentTradeError: LocalizedError {
 }
 
 // MARK: - 交易統計結構
-struct TradingStatistics {
+struct TournamentTradingStatistics {
     let totalTrades: Int
     let totalVolume: Double
     let totalFees: Double

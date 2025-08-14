@@ -108,12 +108,20 @@ struct TradingPortfolio: Codable {
     let cumulativeReturn: Double
     let positions: [PortfolioPosition]
     
+    // 新增的缺失屬性
+    let initialBalance: Double
+    let holdings: [PortfolioPosition]
+    let todayPnl: Double
+    
     enum CodingKeys: String, CodingKey {
         case cashBalance = "cash_balance"
         case totalAssets = "total_assets"
         case totalProfit = "total_profit"
         case cumulativeReturn = "cumulative_return"
         case positions
+        case initialBalance = "initial_balance"
+        case holdings
+        case todayPnl = "today_pnl"
     }
 }
 

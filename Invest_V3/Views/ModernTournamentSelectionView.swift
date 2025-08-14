@@ -406,13 +406,15 @@ struct ModernTournamentSelectionView: View {
                 returnMetric: "twr",
                 resetMode: "monthly",
                 createdAt: Date().addingTimeInterval(TimeInterval(-index * 172800)),
-                rules: index == 0 ? TournamentRules(
-                    allowShortSelling: true,
-                    maxPositionSize: 0.3,
-                    allowedInstruments: ["stocks", "etfs"],
-                    tradingHours: TradingHours(startTime: "09:00", endTime: "16:00", timeZone: "Asia/Taipei"),
-                    riskLimits: RiskLimits(maxDrawdown: 0.2, maxLeverage: 2.0, maxDailyTrades: 50)
-                ) : nil
+                rules: index == 0 ? [
+                    "允許做空交易",
+                    "單一持股上限：30%",
+                    "允許投資：股票、ETF",
+                    "交易時間：09:00 - 16:00 (台北時間)",
+                    "最大回撤限制：20%",
+                    "最大槓桿：2.0x",
+                    "每日最大交易次數：50"
+                ] : []
             )
         }
     }
@@ -683,7 +685,10 @@ struct ModernTournamentCard: View {
     private var statusColor: Color {
         switch tournament.status {
         case .upcoming: return .blue
+        case .enrolling: return .green
+        case .ongoing: return .orange
         case .active: return .green
+        case .finished: return .gray
         case .ended: return .gray
         case .cancelled: return .red
         case .settling: return .orange
@@ -693,7 +698,10 @@ struct ModernTournamentCard: View {
     private var timeLabel: String {
         switch tournament.status {
         case .upcoming: return "開始時間"
+        case .enrolling: return "報名中"
+        case .ongoing: return "剩餘時間"
         case .active: return "剩餘時間"
+        case .finished: return "結束時間"
         case .ended: return "結束時間"
         case .cancelled: return "取消時間"
         case .settling: return "結算中"
@@ -709,12 +717,14 @@ struct ModernTournamentCard: View {
         switch tournament.status {
         case .upcoming:
             return formatter.string(from: tournament.startDate)
-        case .active:
+        case .enrolling:
+            return formatter.string(from: tournament.startDate)
+        case .ongoing, .active:
             let interval = tournament.endDate.timeIntervalSince(Date())
             let days = Int(interval / 86400)
             let hours = Int((interval.truncatingRemainder(dividingBy: 86400)) / 3600)
             return days > 0 ? "\(days)天\(hours)小時" : "\(hours)小時"
-        case .ended, .cancelled:
+        case .finished, .ended, .cancelled:
             return formatter.string(from: tournament.endDate)
         case .settling:
             return "處理中..."

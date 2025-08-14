@@ -44,7 +44,9 @@ class SupabaseService: ObservableObject {
             
             // 嘗試立即同步初始化 - 使用正確的 URL
             print("⚠️ 使用緊急客戶端實例 - 正式環境")
-            let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co")!
+            guard let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co") else {
+                fatalError("Invalid Supabase URL")
+            }
             let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTMxNjcsImV4cCI6MjA2NzM4OTE2N30.2-l82gsxWDLMj3gUnSpj8sHddMLtX-JgqrbnY5c_9bg"
             
             return SupabaseClient(supabaseURL: url, supabaseKey: anonKey)
@@ -120,17 +122,18 @@ class SupabaseService: ObservableObject {
                 description: "Preview 模式專用錦標賽 Test05",
                 shortDescription: "Preview 測試錦標賽",
                 initialBalance: 1000000,
-                maxParticipants: 100,
-                currentParticipants: 50,
                 entryFee: 0,
                 prizePool: 50000,
+                maxParticipants: 100,
+                currentParticipants: 50,
+                isFeatured: true,
+                createdBy: nil,
                 riskLimitPercentage: 20.0,
                 minHoldingRate: 60.0,
                 maxSingleStockRate: 30.0,
                 rules: ["模擬交易", "無實際風險"],
                 createdAt: Date(),
-                updatedAt: Date(),
-                isFeatured: true
+                updatedAt: Date()
             ),
             Tournament(
                 id: UUID(uuidString: "22222222-2222-2222-2222-222222222222") ?? UUID(),
@@ -142,17 +145,18 @@ class SupabaseService: ObservableObject {
                 description: "Preview 模式專用錦標賽 Test06",
                 shortDescription: "Preview 測試錦標賽",
                 initialBalance: 1000000,
-                maxParticipants: 50,
-                currentParticipants: 25,
                 entryFee: 0,
                 prizePool: 30000,
+                maxParticipants: 50,
+                currentParticipants: 25,
+                isFeatured: false,
+                createdBy: nil,
                 riskLimitPercentage: 25.0,
                 minHoldingRate: 50.0,
                 maxSingleStockRate: 40.0,
                 rules: ["練習模式", "學習專用"],
                 createdAt: Date(),
-                updatedAt: Date(),
-                isFeatured: false
+                updatedAt: Date()
             ),
             Tournament(
                 id: UUID(uuidString: "33333333-3333-3333-3333-333333333333") ?? UUID(),
@@ -164,17 +168,18 @@ class SupabaseService: ObservableObject {
                 description: "專為新手設計的模擬投資競賽",
                 shortDescription: "新手專用競賽",
                 initialBalance: 500000,
-                maxParticipants: 200,
-                currentParticipants: 15,
                 entryFee: 100,
                 prizePool: 20000,
+                maxParticipants: 200,
+                currentParticipants: 15,
+                isFeatured: true,
+                createdBy: nil,
                 riskLimitPercentage: 30.0,
                 minHoldingRate: 40.0,
                 maxSingleStockRate: 50.0,
                 rules: ["適合新手", "季度賽制"],
                 createdAt: Date(),
-                updatedAt: Date(),
-                isFeatured: true
+                updatedAt: Date()
             )
         ]
     }
@@ -4873,26 +4878,6 @@ extension SupabaseService {
     // MARK: - Tournament Data APIs
     
     /// 獲取錦標賽投資組合數據
-    func fetchTournamentPortfolio(tournamentId: UUID, userId: UUID) async throws -> TournamentPortfolio? {
-        try SupabaseManager.shared.ensureInitialized()
-        
-        print("📊 [SupabaseService] 獲取錦標賽投資組合: tournament=\(tournamentId), user=\(userId)")
-        
-        // 首先嘗試從資料庫獲取真實的錦標賽投資組合數據
-        do {
-            // 查詢錦標賽投資組合表（如果存在的話）
-            // 實際的查詢邏輯會根據您的資料庫結構而定
-            
-            // 暫時返回 nil，讓系統使用 TournamentPortfolioManager 的模擬數據
-            // 這樣可以保持現有功能正常運作，同時為將來的真實數據準備 API
-            
-            return nil
-            
-        } catch {
-            print("⚠️ [SupabaseService] 獲取錦標賽投資組合失敗，使用備用數據: \(error)")
-            return nil
-        }
-    }
     
     /// 獲取錦標賽交易記錄
     func fetchTournamentTransactions(tournamentId: UUID, userId: UUID) async throws -> [TransactionDisplay] {
@@ -5274,7 +5259,7 @@ extension SupabaseService {
         guard !response.isEmpty else { return nil }
         
         let totalAmount = response.reduce(0) { $0 + $1.amount }
-        let firstRecord = response.first!
+        guard let firstRecord = response.first else { return nil }
         let lastDate = response.max(by: { $0.createdAt < $1.createdAt })?.createdAt ?? firstRecord.createdAt
         
         return DonationSummary(
@@ -6006,17 +5991,18 @@ extension SupabaseService {
             description: response.description,
             shortDescription: response.shortDescription ?? String(response.description.prefix(100)),
             initialBalance: response.initialBalance,
-            maxParticipants: response.maxParticipants,
-            currentParticipants: response.currentParticipants,
             entryFee: response.entryFee ?? 0.0,
             prizePool: response.prizePool,
+            maxParticipants: response.maxParticipants,
+            currentParticipants: response.currentParticipants,
+            isFeatured: response.isFeatured ?? false,
+            createdBy: nil, // No creator info in response
             riskLimitPercentage: response.riskLimitPercentage ?? 10.0,
             minHoldingRate: response.minHoldingRate ?? 0.0,
             maxSingleStockRate: response.maxSingleStockRate ?? 30.0,
             rules: response.rules ?? [],
             createdAt: createdAt,
-            updatedAt: updatedAt,
-            isFeatured: response.isFeatured ?? false
+            updatedAt: updatedAt
         )
     }
     
@@ -6060,7 +6046,7 @@ extension SupabaseService {
         guard let activityId = UUID(uuidString: response.id),
               let tournamentId = UUID(uuidString: response.tournamentId),
               let userId = UUID(uuidString: response.userId),
-              let activityType = TournamentActivity.ActivityType(rawValue: response.activityType) else {
+              let activityType = ActivityType(rawValue: response.activityType) else {
             return nil
         }
         
@@ -6928,7 +6914,7 @@ extension SupabaseService {
     }
     
     /// 同步錦標賽績效指標
-    private func syncTournamentPerformanceMetrics(_ metrics: TournamentPerformanceMetrics, portfolioId: UUID) async throws {
+    private func syncTournamentPerformanceMetrics(_ metrics: PerformanceMetrics, portfolioId: UUID) async throws {
         struct TournamentPerformanceInsert: Codable {
             let portfolioId: String
             let totalReturn: Double
@@ -7470,6 +7456,163 @@ extension SupabaseService {
         return true
     }
     
+    /// 更新錦標賽
+    func updateTournament(_ tournament: Tournament) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🔄 [SupabaseService] 更新錦標賽: \(tournament.name)")
+        
+        let updateData: [String: AnyJSON] = [
+            "name": AnyJSON(tournament.name),
+            "type": AnyJSON(tournament.type.rawValue),
+            "status": AnyJSON(tournament.status.rawValue),
+            "start_date": AnyJSON(ISO8601DateFormatter().string(from: tournament.startDate)),
+            "end_date": AnyJSON(ISO8601DateFormatter().string(from: tournament.endDate)),
+            "description": AnyJSON(tournament.description),
+            "short_description": AnyJSON(tournament.shortDescription),
+            "initial_balance": AnyJSON(tournament.initialBalance),
+            "entry_fee": AnyJSON(tournament.entryFee),
+            "prize_pool": AnyJSON(tournament.prizePool),
+            "max_participants": AnyJSON(tournament.maxParticipants),
+            "current_participants": AnyJSON(tournament.currentParticipants),
+            "is_featured": AnyJSON(tournament.isFeatured),
+            "risk_limit_percentage": AnyJSON(tournament.riskLimitPercentage),
+            "min_holding_rate": AnyJSON(tournament.minHoldingRate),
+            "max_single_stock_rate": AnyJSON(tournament.maxSingleStockRate),
+            "updated_at": AnyJSON(ISO8601DateFormatter().string(from: Date()))
+        ]
+        
+        try await client
+            .from("tournaments")
+            .update(updateData)
+            .eq("id", value: tournament.id.uuidString)
+            .execute()
+        
+        print("✅ 錦標賽更新成功")
+    }
+    
+    /// 刪除錦標賽成員
+    func deleteTournamentMembers(tournamentId: UUID) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🗑️ [SupabaseService] 刪除錦標賽成員: \(tournamentId)")
+        
+        try await client
+            .from("tournament_participants")
+            .delete()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .execute()
+        
+        print("✅ 錦標賽成員刪除成功")
+    }
+    
+    /// 刪除錦標賽錢包
+    func deleteTournamentWallets(tournamentId: UUID) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🗑️ [SupabaseService] 刪除錦標賽錢包: \(tournamentId)")
+        
+        try await client
+            .from("tournament_portfolios")
+            .delete()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .execute()
+        
+        print("✅ 錦標賽錢包刪除成功")
+    }
+    
+    /// 刪除錦標賽交易記錄
+    func deleteTournamentTrades(tournamentId: UUID) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🗑️ [SupabaseService] 刪除錦標賽交易記錄: \(tournamentId)")
+        
+        try await client
+            .from("tournament_trades")
+            .delete()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .execute()
+        
+        print("✅ 錦標賽交易記錄刪除成功")
+    }
+    
+    /// 刪除錦標賽持倉記錄
+    func deleteTournamentPositions(tournamentId: UUID) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🗑️ [SupabaseService] 刪除錦標賽持倉記錄: \(tournamentId)")
+        
+        try await client
+            .from("tournament_positions")
+            .delete()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .execute()
+        
+        print("✅ 錦標賽持倉記錄刪除成功")
+    }
+    
+    /// 刪除錦標賽排名記錄
+    func deleteTournamentRankings(tournamentId: UUID) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🗑️ [SupabaseService] 刪除錦標賽排名記錄: \(tournamentId)")
+        
+        try await client
+            .from("tournament_leaderboard")
+            .delete()
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .execute()
+        
+        print("✅ 錦標賽排名記錄刪除成功")
+    }
+    
+    /// 更新錦標賽參與者數量
+    func updateTournamentParticipantCount(tournamentId: UUID, increment: Int) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("📊 [SupabaseService] 更新錦標賽參與者數量: \(tournamentId), 增量: \(increment)")
+        
+        // 獲取當前參與者數量
+        let currentData: [TournamentResponse] = try await client
+            .from("tournaments")
+            .select("current_participants")
+            .eq("id", value: tournamentId.uuidString)
+            .execute()
+            .value
+        
+        guard let current = currentData.first else {
+            throw NSError(domain: "SupabaseService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Tournament not found"])
+        }
+        
+        let newCount = current.currentParticipants + increment
+        
+        try await client
+            .from("tournaments")
+            .update(["current_participants": AnyJSON(newCount)])
+            .eq("id", value: tournamentId.uuidString)
+            .execute()
+        
+        print("✅ 錦標賽參與者數量已更新: \(newCount)")
+    }
+    
+    /// 更新錦標賽狀態
+    func updateTournamentStatus(tournamentId: UUID, status: TournamentStatus) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("🔄 [SupabaseService] 更新錦標賽狀態: \(tournamentId) -> \(status.rawValue)")
+        
+        try await client
+            .from("tournaments")
+            .update([
+                "status": AnyJSON(status.rawValue),
+                "updated_at": AnyJSON(ISO8601DateFormatter().string(from: Date()))
+            ])
+            .eq("id", value: tournamentId.uuidString)
+            .execute()
+        
+        print("✅ 錦標賽狀態已更新")
+    }
+    
     // MARK: - 調試方法 (僅用於開發階段)
     #if DEBUG
     /// 測試 RLS 政策和用戶認證狀態
@@ -7597,6 +7740,112 @@ extension SupabaseService {
         }
         
         print("✅ [SupabaseService] 用戶ID更新成功")
+    }
+    
+    // MARK: - Tournament Ranking Methods
+    
+    /// 保存錦標賽排名到數據庫
+    func saveTournamentRankings(tournamentId: UUID, rankings: [TournamentLeaderboardEntry]) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("💾 [SupabaseService] 保存錦標賽排名: \(rankings.count) 位參賽者")
+        
+        // 轉換為數據庫格式
+        let rankingData = rankings.map { entry in
+            [
+                "tournament_id": AnyJSON(tournamentId.uuidString),
+                "user_id": AnyJSON(entry.userId.uuidString),
+                "rank": AnyJSON(entry.currentRank),
+                "total_assets": AnyJSON(entry.totalAssets),
+                "return_percentage": AnyJSON(entry.returnPercentage),
+                "total_trades": AnyJSON(entry.totalTrades),
+                "updated_at": AnyJSON(ISO8601DateFormatter().string(from: Date()))
+            ]
+        }
+        
+        // 批量插入或更新排名
+        try await client
+            .from("tournament_rankings")
+            .upsert(rankingData)
+            .execute()
+        
+        print("✅ 錦標賽排名已保存")
+    }
+    
+    /// 更新錦標賽排名快照
+    func updateTournamentRankSnapshot(
+        tournamentId: UUID,
+        userId: UUID,
+        rank: Int,
+        snapshotDate: Date
+    ) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("📸 [SupabaseService] 更新排名快照: 第\(rank)名")
+        
+        let snapshotData: [String: AnyJSON] = [
+            "tournament_id": AnyJSON(tournamentId.uuidString),
+            "user_id": AnyJSON(userId.uuidString),
+            "rank": AnyJSON(rank),
+            "snapshot_date": AnyJSON(ISO8601DateFormatter().string(from: snapshotDate)),
+            "created_at": AnyJSON(ISO8601DateFormatter().string(from: Date()))
+        ]
+        
+        try await client
+            .from("tournament_rank_snapshots")
+            .upsert([snapshotData])
+            .execute()
+        
+        print("✅ 排名快照已更新")
+    }
+    
+    /// 獲取排名歷史
+    func fetchRankingHistory(
+        tournamentId: UUID,
+        userId: UUID,
+        days: Int
+    ) async throws -> [TournamentSnapshot] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("📊 [SupabaseService] 獲取排名歷史: \(days) 天")
+        
+        let startDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        
+        let response = try await client
+            .from("tournament_snapshots")
+            .select("*")
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .gte("snapshot_date", value: ISO8601DateFormatter().string(from: startDate))
+            .order("snapshot_date", ascending: false)
+            .execute()
+        
+        let snapshots = try response.decoded(to: [TournamentSnapshot].self)
+        print("✅ 找到 \(snapshots.count) 個歷史快照")
+        
+        return snapshots
+    }
+    
+    /// 獲取即時排名變化
+    func fetchRealtimeRankingChanges(tournamentId: UUID) async throws -> [RankingChange] {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        print("⚡ [SupabaseService] 獲取即時排名變化")
+        
+        // 獲取過去1小時的排名變化
+        let oneHourAgo = Date().addingTimeInterval(-3600)
+        
+        let response = try await client
+            .from("tournament_ranking_changes")
+            .select("*")
+            .eq("tournament_id", value: tournamentId.uuidString)
+            .gte("timestamp", value: ISO8601DateFormatter().string(from: oneHourAgo))
+            .order("timestamp", ascending: false)
+            .execute()
+        
+        // 暫時返回空數組，因為 RankingChange 可能需要特殊處理
+        print("⚠️ RankingChange 結構需要進一步定義")
+        return []
     }
 }
 

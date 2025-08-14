@@ -28,7 +28,7 @@ struct LiveTournamentRankingsView: View {
     @State private var autoRefreshTimer: Timer?
     
     // 統計數據
-    @State private var tournamentStats: TournamentStatistics?
+    @State private var tournamentStats: TournamentOverviewStatistics?
     
     // 分段選項
     enum RankingSegment: String, CaseIterable {
@@ -183,7 +183,7 @@ struct LiveTournamentRankingsView: View {
                 // 排行榜列表
                 ForEach(filteredRankings.indices, id: \.self) { index in
                     let ranking = filteredRankings[index]
-                    RankingRow(
+                    TournamentRankingRow(
                         ranking: ranking,
                         isCurrentUser: isCurrentUser(ranking.userId),
                         onTap: {
@@ -232,7 +232,7 @@ struct LiveTournamentRankingsView: View {
     
     // MARK: - 統計部分
     
-    private func statsSection(_ stats: TournamentStatistics) -> some View {
+    private func statsSection(_ stats: TournamentOverviewStatistics) -> some View {
         HStack {
             statItem(title: "參與者", value: "\(stats.totalParticipants)")
             Divider().frame(height: 20)
@@ -375,7 +375,7 @@ struct LiveTournamentRankingsView: View {
     private func loadTournamentStats() async {
         // 模擬載入統計數據
         await MainActor.run {
-            tournamentStats = TournamentStatistics(
+            tournamentStats = TournamentOverviewStatistics(
                 totalParticipants: 85,
                 averageReturn: 2.45,
                 maxReturn: 15.67,
@@ -430,7 +430,7 @@ struct LiveTournamentRankingsView: View {
 
 // MARK: - 支援結構
 
-struct TournamentStatistics {
+struct TournamentOverviewStatistics {
     let totalParticipants: Int
     let averageReturn: Double
     let maxReturn: Double
@@ -440,7 +440,7 @@ struct TournamentStatistics {
 
 // MARK: - 排名行視圖
 
-struct RankingRow: View {
+struct TournamentRankingRow: View {
     let ranking: TournamentRanking
     let isCurrentUser: Bool
     let onTap: () -> Void

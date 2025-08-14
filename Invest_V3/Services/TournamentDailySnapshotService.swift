@@ -289,11 +289,11 @@ extension TournamentDailySnapshotService {
         historyManager.clearSnapshots(for: tournamentId, userId: userId)
         
         // 基於交易紀錄重建歷史快照
-        let tradingRecords = portfolio.tradingRecords.sorted { $0.tradeDate < $1.tradeDate }
+        let tradingRecords = portfolio.tradingRecords.sorted { $0.timestamp < $1.timestamp }
         let calendar = Calendar.current
         
         // 獲取交易日期範圍
-        guard let firstTradeDate = tradingRecords.first?.tradeDate else {
+        guard let firstTradeDate = tradingRecords.first?.timestamp else {
             print("⚠️ [TournamentDailySnapshotService] 無法獲取交易歷史")
             return
         }
@@ -319,15 +319,15 @@ extension TournamentDailySnapshotService {
         while currentDate <= finalDate {
             // 處理當日的交易
             let dayTrades = tradingRecords.filter { 
-                calendar.isDate($0.tradeDate, inSameDayAs: currentDate)
+                calendar.isDate($0.timestamp, inSameDayAs: currentDate)
             }
             
             for trade in dayTrades {
                 switch trade.type {
                 case .buy:
-                    currentValue -= trade.totalValue
+                    currentValue -= trade.totalAmount
                 case .sell:
-                    currentValue += trade.totalValue
+                    currentValue += trade.totalAmount
                 }
             }
             

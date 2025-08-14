@@ -146,7 +146,7 @@ struct RankingsView: View {
         VStack(spacing: 0) {
             if tradingService.rankings.count > 3 {
                 ForEach(Array(tradingService.rankings[3...].enumerated()), id: \.element.id) { index, ranking in
-                    RankingRow(ranking: ranking)
+                    UserRankingRow(ranking: ranking)
                     
                     if index < tradingService.rankings.count - 4 {
                         Divider()
@@ -244,7 +244,7 @@ struct TopRankerCard: View {
 }
 
 // MARK: - 排行榜行
-struct RankingRow: View {
+struct UserRankingRow: View {
     let ranking: UserRanking
     
     var body: some View {

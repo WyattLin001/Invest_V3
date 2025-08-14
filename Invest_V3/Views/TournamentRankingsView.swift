@@ -9,8 +9,7 @@ import SwiftUI
 
 // MARK: - Data Models
 // TournamentStats 已移至 TournamentModels.swift 統一定義
-// 使用 typealias 保持兼容性
-typealias TournamentStats = TournamentStatsModel
+// typealias 在 TournamentRankingService.swift 中已定義
 
 struct TournamentRankingsView: View {
     private let tournamentService = ServiceConfiguration.makeTournamentService()

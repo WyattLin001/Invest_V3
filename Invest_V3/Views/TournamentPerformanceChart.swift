@@ -498,23 +498,17 @@ struct TournamentPerformanceDataPoint: Identifiable {
             currentBalance: 950000,
             totalInvested: 50000,
             tradingRecords: [],
-            performanceMetrics: TournamentPerformanceMetrics(
+            performanceMetrics: PerformanceMetrics(
                 totalReturn: -50000,
-                totalReturnPercentage: -5.0,
-                dailyReturn: -0.2,
+                annualizedReturn: -5.0,
                 maxDrawdown: 10000,
-                maxDrawdownPercentage: 1.0,
                 sharpeRatio: 0.8,
                 winRate: 0.6,
-                totalTrades: 10,
-                profitableTrades: 6,
-                averageHoldingDays: 3.5,
-                riskScore: 75.0,
+                avgHoldingDays: 3.5,
                 diversificationScore: 60.0,
-                currentRank: 15,
-                previousRank: 20,
-                percentile: 25.0,
-                lastUpdated: Date()
+                riskScore: 75.0,
+                totalTrades: 10,
+                profitableTrades: 6
             ),
             lastUpdated: Date()
         ),

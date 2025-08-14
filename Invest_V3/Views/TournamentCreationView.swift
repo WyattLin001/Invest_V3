@@ -499,22 +499,6 @@ struct TournamentCreationView: View {
     private func createTournament() {
         isCreating = true
         
-        let rules = TournamentRules(
-            allowShortSelling: allowShortSelling,
-            maxPositionSize: maxPositionSize,
-            allowedInstruments: Array(selectedInstruments),
-            tradingHours: TradingHours(
-                startTime: tradingStartTime,
-                endTime: tradingEndTime,
-                timeZone: "Asia/Taipei"
-            ),
-            riskLimits: RiskLimits(
-                maxDrawdown: maxDrawdown,
-                maxLeverage: maxLeverage,
-                maxDailyTrades: maxDailyTrades
-            )
-        )
-        
         let parameters = TournamentCreationParameters(
             name: tournamentName,
             description: description,
@@ -524,8 +508,7 @@ struct TournamentCreationView: View {
             maxParticipants: maxParticipants,
             feeTokens: feeTokens,
             returnMetric: returnMetric,
-            resetMode: resetMode,
-            rules: rules
+            resetMode: resetMode
         )
         
         Task {

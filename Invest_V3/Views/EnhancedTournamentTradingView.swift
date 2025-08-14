@@ -28,7 +28,7 @@ struct EnhancedTournamentTradingView: View {
     @State private var isLoadingPrice: Bool = false
     
     // 模擬數據
-    @State private var portfolio: TournamentPortfolio?
+    @State private var portfolio: TournamentPortfolioV2?
     @State private var holdings: [TournamentHolding] = []
     @State private var watchlist: [String] = ["2330", "2454", "2317", "AAPL", "TSLA"]
     @State private var marketData: [String: Double] = [:]
@@ -221,7 +221,7 @@ struct EnhancedTournamentTradingView: View {
             } else {
                 LazyVStack(spacing: 8) {
                     ForEach(holdings) { holding in
-                        HoldingRow(holding: holding) {
+                        TournamentHoldingRow(holding: holding) {
                             selectStock(holding.symbol, price: holding.currentPrice)
                         }
                     }
@@ -335,13 +335,13 @@ struct EnhancedTournamentTradingView: View {
     private func loadPortfolio() async {
         // 模擬加載投資組合數據
         await MainActor.run {
-            portfolio = TournamentPortfolio(
+            portfolio = TournamentPortfolioV2(
                 id: UUID(),
                 tournamentId: tournament.id,
                 userId: currentUserId,
                 cashBalance: 850000,
                 equityValue: 150000,
-                totalAssets: 1000000,  // 修正：對應 TournamentPortfolioV2 的 totalAssets
+                totalAssets: 1000000,
                 initialBalance: 1000000,
                 totalReturn: 0,
                 returnPercentage: 0.0,
@@ -502,7 +502,7 @@ struct StockRow: View {
 
 // MARK: - 持股行視圖
 
-struct HoldingRow: View {
+struct TournamentHoldingRow: View {
     let holding: TournamentHolding
     let onTap: () -> Void
     
@@ -813,7 +813,12 @@ struct EnhancedTournamentTradingView_Previews: PreviewProvider {
             returnMetric: "twr",
             resetMode: "monthly",
             createdAt: Date(),
-            rules: nil
+            rules: [
+                "允許做空交易",
+                "單一持股上限：30%",
+                "允許投資：股票、ETF",
+                "交易時間：09:00 - 16:00 (台北時間)"
+            ]
         )
         
         EnhancedTournamentTradingView(

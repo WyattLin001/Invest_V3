@@ -98,7 +98,7 @@ struct TradingView: View {
             await loadTournamentPortfolio(tournamentId: tournamentId)
         } else {
             print("📊 [TradingView] 載入一般模式投資組合")
-            await tradingService.loadPortfolio()
+            await tradingService.loadTournamentPortfolio(tournamentId: TradingService.GENERAL_MODE_TOURNAMENT_ID)
         }
     }
     
@@ -116,7 +116,7 @@ struct TradingView: View {
         } else {
             print("❌ [TradingView] 找不到錦標賽投資組合")
             // 錯誤情況下載入一般投資組合
-            await tradingService.loadPortfolio()
+            await tradingService.loadTournamentPortfolio(tournamentId: TradingService.GENERAL_MODE_TOURNAMENT_ID)
         }
     }
     
@@ -156,9 +156,9 @@ struct HoldingsListView: View {
     @ObservedObject private var tradingService = TradingService.shared
     
     var body: some View {
-        if let portfolio = tradingService.portfolio, !portfolio.positions.isEmpty {
+        if let portfolio = tradingService.currentPortfolio, !portfolio.positions.isEmpty {
             List(portfolio.positions) { position in
-                HoldingRow(position: position)
+                PortfolioHoldingRow(position: position)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
             .listStyle(PlainListStyle())
@@ -336,7 +336,7 @@ struct TradingStockRow: View {
 }
 
 // MARK: - 持股行
-struct HoldingRow: View {
+struct PortfolioHoldingRow: View {
     let position: PortfolioPosition
     
     var body: some View {

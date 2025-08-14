@@ -107,7 +107,7 @@ struct TradingHomeView: View {
                     }
                     
                     // 投資組合摘要
-                    if let portfolio = tradingService.portfolio {
+                    if let portfolio = tradingService.currentPortfolio {
                         PortfolioSummaryCard(portfolio: portfolio)
                     }
                     
@@ -122,7 +122,7 @@ struct TradingHomeView: View {
             .navigationTitle("投資模擬")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await tradingService.loadPortfolio()
+                await tradingService.loadTournamentPortfolio(tournamentId: tradingService.currentTournamentId)
             }
         }
     }

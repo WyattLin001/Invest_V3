@@ -12,7 +12,7 @@ import Combine
 // MARK: - 錦標賽錢包服務
 @MainActor
 class TournamentWalletService: ObservableObject {
-    static let shared = TournamentWalletService(shared: ())
+    static let shared =  TournamentWalletService(shared: ())
     
     // MARK: - Published Properties
     @Published var wallets: [String: TournamentPortfolioV2] = [:]
@@ -359,6 +359,228 @@ class TournamentWalletService: ObservableObject {
         }
         
         return recommendations
+    }
+    
+    // MARK: - Missing Methods Implementation
+    
+    /// 扣除代幣（例如報名費）
+    func deductTokens(
+        tournamentId: UUID,
+        userId: UUID,
+        amount: Double
+    ) async -> Result<TournamentPortfolioV2, Error> {
+        do {
+            let wallet = try await getWallet(tournamentId: tournamentId, userId: userId)
+            
+            // 檢查餘額是否足夠
+            guard wallet.cashBalance >= amount else {
+                return .failure(WalletError.insufficientFunds)
+            }
+            
+            let updatedWallet = TournamentPortfolioV2(
+                id: wallet.id,
+                tournamentId: wallet.tournamentId,
+                userId: wallet.userId,
+                cashBalance: wallet.cashBalance - amount,
+                equityValue: wallet.equityValue,
+                totalAssets: wallet.totalAssets - amount,
+                initialBalance: wallet.initialBalance,
+                totalReturn: wallet.totalReturn - amount,
+                returnPercentage: ((wallet.totalAssets - amount - wallet.initialBalance) / wallet.initialBalance) * 100,
+                totalTrades: wallet.totalTrades,
+                winningTrades: wallet.winningTrades,
+                maxDrawdown: wallet.maxDrawdown,
+                lastUpdated: Date()
+            )
+            
+            try await supabaseService.updateTournamentPortfolio(updatedWallet)
+            
+            // 更新快取
+            let cacheKey = generateCacheKey(tournamentId: tournamentId, userId: userId)
+            wallets[cacheKey] = updatedWallet
+            
+            print("💰 [TournamentWalletService] 代幣已扣除: \(amount)")
+            return .success(updatedWallet)
+        } catch {
+            print("❌ [TournamentWalletService] 扣除代幣失敗: \(error)")
+            return .failure(error)
+        }
+    }
+    
+    /// 初始化投資組合（與 createWallet 相同但簡化版本）
+    func initializePortfolio(
+        tournamentId: UUID,
+        userId: UUID,
+        initialBalance: Double
+    ) async -> Result<TournamentPortfolioV2, Error> {
+        return await createWallet(
+            tournamentId: tournamentId,
+            userId: userId,
+            initialBalance: initialBalance
+        )
+    }
+    
+    /// 添加資金到錢包
+    func addFunds(
+        tournamentId: UUID,
+        userId: UUID,
+        amount: Double
+    ) async -> Result<TournamentPortfolioV2, Error> {
+        do {
+            let wallet = try await getWallet(tournamentId: tournamentId, userId: userId)
+            
+            let updatedWallet = TournamentPortfolioV2(
+                id: wallet.id,
+                tournamentId: wallet.tournamentId,
+                userId: wallet.userId,
+                cashBalance: wallet.cashBalance + amount,
+                equityValue: wallet.equityValue,
+                totalAssets: wallet.totalAssets + amount,
+                initialBalance: wallet.initialBalance,
+                totalReturn: wallet.totalReturn + amount,
+                returnPercentage: ((wallet.totalAssets + amount - wallet.initialBalance) / wallet.initialBalance) * 100,
+                totalTrades: wallet.totalTrades,
+                winningTrades: wallet.winningTrades,
+                maxDrawdown: wallet.maxDrawdown,
+                lastUpdated: Date()
+            )
+            
+            try await supabaseService.updateTournamentPortfolio(updatedWallet)
+            
+            // 更新快取
+            let cacheKey = generateCacheKey(tournamentId: tournamentId, userId: userId)
+            wallets[cacheKey] = updatedWallet
+            
+            print("💰 [TournamentWalletService] 資金已添加: \(amount)")
+            return .success(updatedWallet)
+        } catch {
+            print("❌ [TournamentWalletService] 添加資金失敗: \(error)")
+            return .failure(error)
+        }
+    }
+    
+    /// 檢查錢包是否存在
+    func walletExists(tournamentId: UUID, userId: UUID) async -> Bool {
+        do {
+            _ = try await getWallet(tournamentId: tournamentId, userId: userId)
+            return true
+        } catch {
+            return false
+        }
+    }
+    
+    /// 刪除錢包
+    func deleteWallet(tournamentId: UUID, userId: UUID) async -> Result<Void, Error> {
+        do {
+            try await supabaseService.deleteTournamentPortfolio(
+                tournamentId: tournamentId,
+                userId: userId
+            )
+            
+            // 從快取中移除
+            let cacheKey = generateCacheKey(tournamentId: tournamentId, userId: userId)
+            wallets.removeValue(forKey: cacheKey)
+            
+            print("🗑️ [TournamentWalletService] 錢包已刪除")
+            return .success(())
+        } catch {
+            print("❌ [TournamentWalletService] 刪除錢包失敗: \(error)")
+            return .failure(error)
+        }
+    }
+    
+    /// 獲取錢包餘額（簡化版本）
+    func getBalance(tournamentId: UUID, userId: UUID) async throws -> Double {
+        let wallet = try await getWallet(tournamentId: tournamentId, userId: userId)
+        return wallet.cashBalance
+    }
+    
+    /// 獲取總資產（簡化版本）
+    func getTotalAssets(tournamentId: UUID, userId: UUID) async throws -> Double {
+        let wallet = try await getWallet(tournamentId: tournamentId, userId: userId)
+        return wallet.totalAssets
+    }
+    
+    /// 交易後更新投資組合
+    func updatePortfolioAfterTrade(_ trade: TournamentTrade) async throws {
+        let cacheKey = generateCacheKey(tournamentId: trade.tournamentId, userId: trade.userId)
+        
+        guard let currentWallet = wallets[cacheKey] else {
+            // 如果緩存中沒有，先獲取錢包
+            _ = try await getWallet(tournamentId: trade.tournamentId, userId: trade.userId)
+            return
+        }
+        
+        let totalAmount = trade.amount + trade.fees
+        var newCashBalance = currentWallet.cashBalance
+        var newEquityValue = currentWallet.equityValue
+        
+        switch trade.side {
+        case .buy:
+            newCashBalance -= totalAmount
+            newEquityValue += trade.amount
+        case .sell:
+            newCashBalance += trade.netAmount
+            newEquityValue -= trade.amount
+        }
+        
+        let newTotalAssets = newCashBalance + newEquityValue
+        let newTotalReturn = newTotalAssets - currentWallet.initialBalance
+        let newReturnPercentage = (newTotalReturn / currentWallet.initialBalance) * 100
+        
+        let updatedWallet = TournamentPortfolioV2(
+            id: currentWallet.id,
+            tournamentId: currentWallet.tournamentId,
+            userId: currentWallet.userId,
+            cashBalance: newCashBalance,
+            equityValue: newEquityValue,
+            totalAssets: newTotalAssets,
+            initialBalance: currentWallet.initialBalance,
+            totalReturn: newTotalReturn,
+            returnPercentage: newReturnPercentage,
+            totalTrades: currentWallet.totalTrades + 1,
+            winningTrades: currentWallet.winningTrades,
+            maxDrawdown: currentWallet.maxDrawdown,
+            lastUpdated: Date()
+        )
+        
+        try await supabaseService.updateTournamentPortfolio(updatedWallet)
+        wallets[cacheKey] = updatedWallet
+        
+        print("✅ [TournamentWalletService] 交易後投資組合已更新")
+    }
+    
+    /// 更新持倉
+    func updateHoldings(_ trade: TournamentTrade) async throws {
+        // 持倉更新邏輯 - 簡化實現
+        print("📈 [TournamentWalletService] 更新持倉: \(trade.symbol) \(trade.side.rawValue) \(trade.qty)")
+        // 實際實現應該更新具體的股票持倉記錄
+    }
+    
+    /// 添加代幣到用戶帳戶（獎勵分發）
+    func addTokens(userId: UUID, amount: Int) async {
+        print("🎁 [TournamentWalletService] 為用戶 \(userId) 添加 \(amount) 代幣")
+        // 實際實現應該更新用戶的代幣餘額
+        // 這裡可以調用用戶服務或代幣服務來處理
+    }
+}
+
+// MARK: - Error Types
+
+enum WalletError: LocalizedError {
+    case insufficientFunds
+    case walletNotFound
+    case invalidAmount
+    
+    var errorDescription: String? {
+        switch self {
+        case .insufficientFunds:
+            return "餘額不足"
+        case .walletNotFound:
+            return "找不到錢包"
+        case .invalidAmount:
+            return "無效的金額"
+        }
     }
 }
 

@@ -276,6 +276,15 @@ enum TournamentStatus: String, CaseIterable, Codable {
     var canParticipate: Bool {
         return self == .ongoing
     }
+    
+    var canJoin: Bool {
+        switch self {
+        case .enrolling, .upcoming:
+            return true
+        case .ongoing, .active, .finished, .ended, .settling, .cancelled:
+            return false
+        }
+    }
 }
 
 // MARK: - 交易類型 (統一定義，解決類型歧義)
@@ -520,8 +529,12 @@ struct Tournament: Identifiable, Codable, Equatable {
             return "monthly"
         case .quarterly:
             return "quarterly"
+        case .yearly:
+            return "yearly"
         case .annual:
             return "annual"
+        case .special:
+            return "special"
         case .custom:
             return "custom"
         }
@@ -543,9 +556,9 @@ struct Tournament: Identifiable, Codable, Equatable {
         switch status {
         case .enrolling, .upcoming:
             return calendar.dateComponents([.day], from: now, to: startDate).day ?? 0
-        case .ongoing:
+        case .ongoing, .active:
             return calendar.dateComponents([.day], from: now, to: endDate).day ?? 0
-        case .finished, .cancelled:
+        case .finished, .ended, .settling, .cancelled:
             return 0
         }
     }
@@ -885,6 +898,9 @@ struct TournamentPortfolioV2: Identifiable, Codable {
     
     let lastUpdated: Date
     
+    // 歷史數據追蹤
+    var dailyValueHistory: [DateValue] = []
+    
     enum CodingKeys: String, CodingKey {
         case id
         case tournamentId = "tournament_id"
@@ -899,6 +915,7 @@ struct TournamentPortfolioV2: Identifiable, Codable {
         case winningTrades = "winning_trades"
         case maxDrawdown = "max_drawdown"
         case lastUpdated = "last_updated"
+        case dailyValueHistory = "daily_value_history"
     }
     
     // 計算屬性
@@ -922,6 +939,14 @@ struct TournamentPortfolioV2: Identifiable, Codable {
         return totalAssets
     }
     
+    var totalPortfolioValue: Double {
+        return totalAssets
+    }
+    
+    var totalReturnPercentage: Double {
+        return returnPercentage
+    }
+    
     var dailyPnL: Double {
         // 簡化版本：使用總回報作為今日損益的近似值
         return totalReturn
@@ -934,6 +959,105 @@ struct TournamentPortfolioV2: Identifiable, Codable {
     
     var totalReturnPercent: Double {
         return returnPercentage
+    }
+    
+    var currentBalance: Double {
+        return cashBalance // 向後兼容性：currentBalance 映射到 cashBalance
+    }
+    
+    var totalInvested: Double {
+        return totalAssets - cashBalance // 總投資金額 = 總資產 - 現金
+    }
+    
+    var holdingsValue: Double {
+        return equityValue // 持倉價值映射到股票價值
+    }
+    
+    // MARK: - 歷史數據相關方法
+    /// 日變化金額（基於歷史數據）
+    var dailyChange: Double {
+        return getPortfolioValueChange(daysAgo: 1)
+    }
+    
+    /// 日變化百分比
+    var dailyChangePercentage: Double {
+        let yesterdayValue = getPortfolioValueDaysAgo(1)
+        guard yesterdayValue > 0 else { return 0 }
+        return ((totalAssets - yesterdayValue) / yesterdayValue) * 100
+    }
+    
+    /// 週回報率
+    var weeklyReturn: Double {
+        let weekAgoValue = getPortfolioValueDaysAgo(7)
+        guard weekAgoValue > 0 else { return 0 }
+        return ((totalAssets - weekAgoValue) / weekAgoValue) * 100
+    }
+    
+    /// 月回報率
+    var monthlyReturn: Double {
+        let monthAgoValue = getPortfolioValueDaysAgo(30)
+        guard monthAgoValue > 0 else { return 0 }
+        return ((totalAssets - monthAgoValue) / monthAgoValue) * 100
+    }
+    
+    /// 季回報率
+    var quarterlyReturn: Double {
+        let quarterAgoValue = getPortfolioValueDaysAgo(90)
+        guard quarterAgoValue > 0 else { return 0 }
+        return ((totalAssets - quarterAgoValue) / quarterAgoValue) * 100
+    }
+    
+    /// 投資金額（與PortfolioData兼容）
+    var investedAmount: Double {
+        return totalAssets - cashBalance // 投資的金額 = 總資產 - 現金
+    }
+    
+    /// 獲取指定天數前的投資組合價值
+    private func getPortfolioValueDaysAgo(_ days: Int) -> Double {
+        let targetDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        
+        // 找到最接近的歷史記錄
+        let closestRecord = dailyValueHistory
+            .sorted { abs($0.date.timeIntervalSince(targetDate)) < abs($1.date.timeIntervalSince(targetDate)) }
+            .first
+        
+        return closestRecord?.value ?? initialBalance
+    }
+    
+    /// 獲取指定天數前的價值變化
+    private func getPortfolioValueChange(daysAgo: Int) -> Double {
+        let pastValue = getPortfolioValueDaysAgo(daysAgo)
+        return totalAssets - pastValue
+    }
+
+    // MARK: - 缺失屬性的向後兼容處理
+    var userName: String {
+        return "User_\(userId.uuidString.prefix(8))" // 臨時實現
+    }
+    
+    var holdings: [TournamentHolding] {
+        return [] // 空實現，實際持倉通過其他服務獲取
+    }
+    
+    var tradingRecords: [TournamentTradingRecord] {
+        return [] // 空實現，實際交易記錄通過其他服務獲取
+    }
+    
+    var performanceMetrics: PerformanceMetrics {
+        return PerformanceMetrics(
+            totalReturn: totalReturn,
+            annualizedReturn: 0, // 暫時為0
+            maxDrawdown: maxDrawdown,
+            sharpeRatio: nil,
+            winRate: winRate,
+            avgHoldingDays: 0,
+            diversificationScore: 0,
+            riskScore: 0,
+            totalTrades: totalTrades,
+            profitableTrades: winningTrades,
+            currentRank: 0,
+            maxDrawdownPercentage: maxDrawdown
+        )
     }
 }
 
@@ -1071,14 +1195,17 @@ struct TournamentSnapshot: Identifiable, Codable {
     let tournamentId: UUID
     let userId: UUID
     let asOfDate: Date
+    let snapshotDate: Date
     
     // 資產快照
     let cash: Double
     let positionValue: Double
     let totalAssets: Double
+    let portfolioValue: Double
     
     // 績效快照
     let returnRate: Double
+    let returnPercentage: Double
     let dailyReturn: Double?
     let cumulativeReturn: Double?
     
@@ -1107,10 +1234,13 @@ struct TournamentSnapshot: Identifiable, Codable {
         case tournamentId = "tournament_id"
         case userId = "user_id"
         case asOfDate = "as_of_date"
+        case snapshotDate = "snapshot_date"
         case cash
         case positionValue = "position_value"
         case totalAssets = "total_assets"
+        case portfolioValue = "portfolio_value"
         case returnRate = "return_rate"
+        case returnPercentage = "return_percentage"
         case dailyReturn = "daily_return"
         case cumulativeReturn = "cumulative_return"
         case maxDD = "max_dd"
@@ -1485,6 +1615,16 @@ struct PerformanceMetrics: Codable {
     let riskScore: Double
     let totalTrades: Int
     let profitableTrades: Int
+    let currentRank: Int
+    let maxDrawdownPercentage: Double
+    
+    // 新增的缺失屬性
+    let totalReturnPercentage: Double
+    let dailyReturn: Double
+    let averageHoldingDays: Double
+    let previousRank: Int
+    let percentile: Double
+    let lastUpdated: Date
     
     enum CodingKeys: String, CodingKey {
         case totalReturn = "total_return"
@@ -1497,6 +1637,14 @@ struct PerformanceMetrics: Codable {
         case riskScore = "risk_score"
         case totalTrades = "total_trades"
         case profitableTrades = "profitable_trades"
+        case currentRank = "current_rank"
+        case maxDrawdownPercentage = "max_drawdown_percentage"
+        case totalReturnPercentage = "total_return_percentage"
+        case dailyReturn = "daily_return"
+        case averageHoldingDays = "average_holding_days"
+        case previousRank = "previous_rank"
+        case percentile
+        case lastUpdated = "last_updated"
     }
 }
 
@@ -1587,16 +1735,57 @@ enum TournamentParticipantStatus: String, CaseIterable, Codable {
     case withdrawn = "withdrawn"
 }
 
-/// 交易類型（對應數據庫 type 欄位）
-enum TournamentTradeType: String, CaseIterable, Codable {
-    case buy = "buy"
-    case sell = "sell"
+/// 交易類型（統一使用 TradeSide，避免重複定義）
+// 已移除 TournamentTradeType，統一使用 TradeSide
+
+// MARK: - 錦標賽規則相關類型
+
+/// 錦標賽風險限制設定
+struct RiskLimits: Codable {
+    let maxDrawdown: Double     // 最大回撤百分比 (0.0-1.0)
+    let maxLeverage: Double     // 最大槓桿倍數
+    let maxDailyTrades: Int     // 每日最大交易次數
     
-    var displayName: String {
-        switch self {
-        case .buy: return "買入"
-        case .sell: return "賣出"
-        }
+    init(maxDrawdown: Double, maxLeverage: Double, maxDailyTrades: Int) {
+        self.maxDrawdown = maxDrawdown
+        self.maxLeverage = maxLeverage
+        self.maxDailyTrades = maxDailyTrades
+    }
+}
+
+/// 錦標賽交易時間設定
+struct TradingHours: Codable {
+    let startTime: String       // 開始時間 "09:00"
+    let endTime: String         // 結束時間 "16:00"
+    let timeZone: String        // 時區 "Asia/Taipei"
+    
+    init(startTime: String, endTime: String, timeZone: String = "Asia/Taipei") {
+        self.startTime = startTime
+        self.endTime = endTime
+        self.timeZone = timeZone
+    }
+}
+
+/// 錦標賽規則設定 (更新版本，包含 riskLimits)
+struct TournamentRules: Codable {
+    let allowShortSelling: Bool         // 是否允許做空
+    let maxPositionSize: Double         // 最大持股比例 (0.0-1.0)
+    let allowedInstruments: [String]    // 允許的金融商品類型
+    let tradingHours: TradingHours      // 交易時間
+    let riskLimits: RiskLimits          // 風險限制
+    
+    init(
+        allowShortSelling: Bool,
+        maxPositionSize: Double,
+        allowedInstruments: [String],
+        tradingHours: TradingHours,
+        riskLimits: RiskLimits
+    ) {
+        self.allowShortSelling = allowShortSelling
+        self.maxPositionSize = maxPositionSize
+        self.allowedInstruments = allowedInstruments
+        self.tradingHours = tradingHours
+        self.riskLimits = riskLimits
     }
 }
 
@@ -1623,7 +1812,7 @@ enum TournamentLifecycleState: String, CaseIterable, Codable {
 struct TournamentTradeRequest: Codable {
     let tournamentId: UUID
     let symbol: String
-    let side: TournamentTradeType
+    let side: TradeSide
     let quantity: Int
     let price: Double
     
@@ -1641,6 +1830,8 @@ struct TournamentRanking: Identifiable, Codable {
     let totalReturnPercent: Double
     let totalTrades: Int
     let winRate: Double
+    let maxDrawdown: Double
+    let sharpeRatio: Double?
     
     var id: UUID { userId }
     
@@ -1651,6 +1842,8 @@ struct TournamentRanking: Identifiable, Codable {
         case totalReturnPercent = "total_return_percent"
         case totalTrades = "total_trades"
         case winRate = "win_rate"
+        case maxDrawdown = "max_drawdown"
+        case sharpeRatio = "sharpe_ratio"
     }
 }
 
@@ -1763,6 +1956,19 @@ struct UserTitle: Identifiable, Codable {
                 return Color(hex: "#B9F2FF")
             }
         }
+    }
+}
+
+// MARK: - 支援結構類型
+
+/// 日期價值記錄（用於歷史數據追蹤）
+struct DateValue: Identifiable, Codable {
+    let id = UUID()
+    let date: Date
+    let value: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case date, value
     }
 }
 

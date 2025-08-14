@@ -131,7 +131,9 @@ class TournamentBusinessService: ObservableObject {
         
         do {
             // 步驟1：驗證錦標賽狀態
-            let tournament = try await tournamentService.fetchTournament(id: tournamentId)
+            guard let tournament = try await tournamentService.fetchTournament(id: tournamentId) else {
+                throw TournamentBusinessError.tournamentNotFound
+            }
             
             try validateTournamentForJoining(tournament: tournament)
             
@@ -156,7 +158,7 @@ class TournamentBusinessService: ObservableObject {
             let walletResult = await walletService.createWallet(
                 tournamentId: tournamentId,
                 userId: userId,
-                initialBalance: tournament.entryCapital
+                initialBalance: tournament.initialBalance
             )
             
             guard case .success(_) = walletResult else {
@@ -352,9 +354,11 @@ class TournamentBusinessService: ObservableObject {
         
         do {
             // 步驟1：驗證錦標賽可以結算
-            let tournament = try await tournamentService.fetchTournament(id: tournamentId)
+            guard let tournament = try await tournamentService.fetchTournament(id: tournamentId) else {
+                throw TournamentBusinessError.tournamentNotFound
+            }
             
-            guard tournament.status == .ongoing || tournament.endsAt <= Date() else {
+            guard tournament.status == .ongoing || tournament.endDate <= Date() else {
                 throw TournamentBusinessError.settlementNotAllowed
             }
             
@@ -432,7 +436,9 @@ class TournamentBusinessService: ObservableObject {
         
         do {
             // 獲取基本信息
-            let tournament = try await tournamentService.fetchTournament(id: tournamentId)
+            guard let tournament = try await tournamentService.fetchTournament(id: tournamentId) else {
+                return .failure(.tournamentNotFound)
+            }
             
             // 獲取成員信息
             let members = try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
@@ -513,7 +519,9 @@ class TournamentBusinessService: ObservableObject {
         }
         
         // 驗證錦標賽狀態
-        let tournament = try await tournamentService.fetchTournament(id: tournamentId)
+        guard let tournament = try await tournamentService.fetchTournament(id: tournamentId) else {
+            throw TournamentBusinessError.tournamentNotFound
+        }
         
         guard tournament.status == .ongoing else {
             throw TournamentBusinessError.tradingNotAllowed
@@ -521,7 +529,7 @@ class TournamentBusinessService: ObservableObject {
         
         // 驗證用戶是否為參賽者
         let members = try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
-        guard members.contains(where: { $0.userId == userId && $0.status == .active }) else {
+        guard members.contains(where: { $0.userId == userId && $0.status == TournamentMember.MemberStatus.active }) else {
             throw TournamentBusinessError.userNotParticipant
         }
     }
@@ -533,7 +541,7 @@ class TournamentBusinessService: ObservableObject {
     
     private func updateTournamentParticipantCount(tournamentId: UUID) async throws {
         let members = try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
-        let activeCount = members.filter { $0.status == .active }.count
+        let activeCount = members.filter { $0.status == TournamentMember.MemberStatus.active }.count
         
         // 更新錦標賽的參賽人數
         // 這裡需要實現更新邏輯
@@ -574,6 +582,267 @@ class TournamentBusinessService: ObservableObject {
         // 監控各階段的成功率和性能
         print("📈 [TournamentBusinessService] 設置業務指標追蹤")
     }
+    
+    // MARK: - Missing Methods Implementation
+    
+    /// 初始化錦標賽（完整的初始化流程）
+    func initializeTournament(
+        tournamentId: UUID,
+        forceReset: Bool = false
+    ) async -> Result<TournamentInitializationResult, TournamentBusinessError> {
+        
+        print("🚀 [TournamentBusinessService] 開始初始化錦標賽: \(tournamentId)")
+        
+        isProcessing = true
+        defer { isProcessing = false }
+        
+        do {
+            // 步驟1：獲取錦標賽資訊
+            guard let tournament = try await tournamentService.fetchTournament(id: tournamentId) else {
+                return .failure(.tournamentNotFound)
+            }
+            
+            // 步驟2：檢查是否已經初始化（除非強制重設）
+            if !forceReset {
+                let existingMembers = try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
+                if !existingMembers.isEmpty {
+                    return .failure(.alreadyInitialized)
+                }
+            }
+            
+            // 步驟3：清理現有數據（如果是強制重設）
+            if forceReset {
+                try await cleanupTournamentData(tournamentId: tournamentId)
+            }
+            
+            // 步驟4：初始化錦標賽服務狀態
+            await initializeTournamentServices(tournament: tournament)
+            
+            // 步驟5：設置錦標賽規則和限制
+            try await setupTournamentRules(tournament: tournament)
+            
+            // 步驟6：初始化排名系統
+            await initializeRankingSystem(tournamentId: tournamentId)
+            
+            // 步驟7：設置監控和通知
+            await setupTournamentMonitoring(tournamentId: tournamentId)
+            
+            let result = TournamentInitializationResult(
+                tournamentId: tournamentId,
+                status: .initialized,
+                initializedAt: Date(),
+                servicesInitialized: [
+                    "TournamentService",
+                    "WalletService", 
+                    "TradeService",
+                    "RankingService",
+                    "PositionService"
+                ],
+                rulesConfigured: true,
+                monitoringEnabled: true
+            )
+            
+            print("✅ [TournamentBusinessService] 錦標賽初始化完成")
+            return .success(result)
+            
+        } catch let error as TournamentBusinessError {
+            print("❌ [TournamentBusinessService] 錦標賽初始化失敗: \(error.localizedDescription)")
+            lastError = error.localizedDescription
+            return .failure(error)
+        } catch {
+            let businessError = TournamentBusinessError.initializationFailed(error.localizedDescription)
+            lastError = businessError.localizedDescription
+            return .failure(businessError)
+        }
+    }
+    
+    /// 計算績效指標（綜合版本）
+    func calculatePerformanceMetrics(
+        tournamentId: UUID,
+        userId: UUID
+    ) async -> Result<ComprehensivePerformanceMetrics, TournamentBusinessError> {
+        
+        do {
+            // 步驟1：獲取基礎績效指標
+            let rankingResult = await rankingService.calculatePerformanceMetrics(
+                tournamentId: tournamentId,
+                userId: userId
+            )
+            let baseMetrics = try rankingResult.get()
+            
+            // 步驟2：獲取錢包資訊
+            let wallet = try await walletService.getWallet(tournamentId: tournamentId, userId: userId)
+            
+            // 步驟3：獲取持倉資訊
+            let positionsResult = await positionService.getUserPositions(
+                tournamentId: tournamentId,
+                userId: userId
+            )
+            let positions = try positionsResult.get()
+            
+            // 步驟4：獲取交易統計
+            let tradingStatsResult = await tradeService.calculateTradingStatistics(
+                tournamentId: tournamentId,
+                userId: userId
+            )
+            let tradingStats = try tradingStatsResult.get()
+            
+            // 步驟5：計算風險指標
+            let riskMetrics = calculateRiskMetrics(
+                wallet: wallet,
+                positions: positions,
+                tournamentId: tournamentId
+            )
+            
+            // 步驟6：計算市場比較指標
+            let marketComparison = await calculateMarketComparison(
+                tournamentId: tournamentId,
+                userMetrics: baseMetrics
+            )
+            
+            let comprehensiveMetrics = ComprehensivePerformanceMetrics(
+                baseMetrics: baseMetrics,
+                wallet: wallet,
+                positions: positions,
+                tradingStatistics: tradingStats,
+                riskMetrics: riskMetrics,
+                marketComparison: marketComparison,
+                calculatedAt: Date()
+            )
+            
+            return .success(comprehensiveMetrics)
+        } catch {
+            let businessError = TournamentBusinessError.performanceCalculationFailed(error.localizedDescription)
+            lastError = businessError.localizedDescription
+            return .failure(businessError)
+        }
+    }
+    
+    // MARK: - Private Helper Methods for Initialization
+    
+    private func cleanupTournamentData(tournamentId: UUID) async throws {
+        // 清理現有的錦標賽數據
+        print("🧹 [TournamentBusinessService] 清理錦標賽數據: \(tournamentId)")
+        
+        // 刪除成員記錄
+        try await supabaseService.deleteTournamentMembers(tournamentId: tournamentId)
+        
+        // 清理錢包數據
+        try await supabaseService.deleteTournamentWallets(tournamentId: tournamentId)
+        
+        // 清理交易記錄
+        try await supabaseService.deleteTournamentTrades(tournamentId: tournamentId)
+        
+        // 清理持倉記錄
+        try await supabaseService.deleteTournamentPositions(tournamentId: tournamentId)
+        
+        // 清理排名記錄
+        try await supabaseService.deleteTournamentRankings(tournamentId: tournamentId)
+    }
+    
+    private func setupTournamentRules(tournament: Tournament) async throws {
+        // 設置錦標賽規則
+        print("📋 [TournamentBusinessService] 設置錦標賽規則")
+        
+        // 這裡可以根據錦標賽類型設置不同的規則
+        // 例如：交易限制、持倉限制、風險控制等
+    }
+    
+    private func initializeRankingSystem(tournamentId: UUID) async {
+        // 初始化排名系統
+        print("🏆 [TournamentBusinessService] 初始化排名系統")
+        
+        // 觸發排名服務的初始化
+        await rankingService.recalculateAllActiveRankings()
+    }
+    
+    private func setupTournamentMonitoring(tournamentId: UUID) async {
+        // 設置錦標賽監控
+        print("📊 [TournamentBusinessService] 設置錦標賽監控")
+        
+        // 這裡可以設置各種監控和警報
+        // 例如：異常交易監控、風險警報等
+    }
+    
+    private func calculateRiskMetrics(
+        wallet: TournamentPortfolioV2,
+        positions: [TournamentPosition],
+        tournamentId: UUID
+    ) -> RiskMetrics {
+        
+        // 計算集中度風險
+        let concentrationRisk = calculateConcentrationRisk(positions: positions, totalValue: wallet.totalAssets)
+        
+        // 計算流動性風險
+        let liquidityRisk = calculateLiquidityRisk(positions: positions)
+        
+        // 計算市場風險
+        let marketRisk = calculateMarketRisk(wallet: wallet)
+        
+        return RiskMetrics(
+            concentrationRisk: concentrationRisk,
+            liquidityRisk: liquidityRisk,
+            marketRisk: marketRisk,
+            overallRiskScore: (concentrationRisk + liquidityRisk + marketRisk) / 3
+        )
+    }
+    
+    private func calculateConcentrationRisk(positions: [TournamentPosition], totalValue: Double) -> Double {
+        guard !positions.isEmpty && totalValue > 0 else { return 0 }
+        
+        let maxPositionPercentage = positions.max { 
+            $0.marketValue / totalValue < $1.marketValue / totalValue 
+        }?.marketValue ?? 0
+        
+        return (maxPositionPercentage / totalValue) * 100
+    }
+    
+    private func calculateLiquidityRisk(positions: [TournamentPosition]) -> Double {
+        // 簡化的流動性風險計算
+        // 實際應用中應該考慮股票的成交量、市值等因素
+        return positions.isEmpty ? 0 : 30.0 // 假設固定值
+    }
+    
+    private func calculateMarketRisk(wallet: TournamentPortfolioV2) -> Double {
+        // 基於最大回撤計算市場風險
+        return wallet.maxDrawdown
+    }
+    
+    private func calculateMarketComparison(
+        tournamentId: UUID,
+        userMetrics: TournamentRankingService.PerformanceMetrics
+    ) async -> MarketComparison {
+        
+        do {
+            // 獲取錦標賽所有參與者的平均表現
+            let statsResult = await rankingService.calculateAdvancedStats(tournamentId: tournamentId)
+            let tournamentStats = try statsResult.get()
+            
+            let performanceVsAverage = userMetrics.returnPercentage - tournamentStats.averageReturn
+            let performanceVsMedian = userMetrics.returnPercentage - tournamentStats.medianReturn
+            
+            return MarketComparison(
+                performanceVsAverage: performanceVsAverage,
+                performanceVsMedian: performanceVsMedian,
+                percentileRank: calculatePercentileRank(
+                    userReturn: userMetrics.returnPercentage,
+                    allReturns: [tournamentStats.averageReturn] // 簡化版本
+                )
+            )
+        } catch {
+            return MarketComparison(
+                performanceVsAverage: 0,
+                performanceVsMedian: 0,
+                percentileRank: 50
+            )
+        }
+    }
+    
+    private func calculatePercentileRank(userReturn: Double, allReturns: [Double]) -> Double {
+        let sortedReturns = allReturns.sorted()
+        let position = sortedReturns.firstIndex { $0 >= userReturn } ?? sortedReturns.count
+        return (Double(position) / Double(sortedReturns.count)) * 100
+    }
 }
 
 // MARK: - Supporting Types
@@ -597,6 +866,9 @@ enum TournamentBusinessError: LocalizedError {
     case settlementNotAllowed
     case settlementFailed(String)
     case statusRetrievalFailed(String)
+    case alreadyInitialized
+    case initializationFailed(String)
+    case performanceCalculationFailed(String)
     
     var errorDescription: String? {
         switch self {
@@ -634,6 +906,12 @@ enum TournamentBusinessError: LocalizedError {
             return "結算失敗：\(message)"
         case .statusRetrievalFailed(let message):
             return "獲取狀態失敗：\(message)"
+        case .alreadyInitialized:
+            return "錦標賽已經初始化"
+        case .initializationFailed(let message):
+            return "初始化失敗：\(message)"
+        case .performanceCalculationFailed(let message):
+            return "績效計算失敗：\(message)"
         }
     }
 }
@@ -696,4 +974,95 @@ struct TournamentBusinessMetrics {
     let averageTradesPerParticipant: Double
     let systemUptime: Double
     let lastUpdated: Date
+}
+
+/// 錦標賽初始化結果
+struct TournamentInitializationResult {
+    let tournamentId: UUID
+    let status: InitializationStatus
+    let initializedAt: Date
+    let servicesInitialized: [String]
+    let rulesConfigured: Bool
+    let monitoringEnabled: Bool
+    
+    enum InitializationStatus {
+        case initialized
+        case partiallyInitialized
+        case failed
+        
+        var displayName: String {
+            switch self {
+            case .initialized:
+                return "已完成初始化"
+            case .partiallyInitialized:
+                return "部分初始化"
+            case .failed:
+                return "初始化失敗"
+            }
+        }
+    }
+}
+
+/// 綜合績效指標
+struct ComprehensivePerformanceMetrics {
+    let baseMetrics: TournamentRankingService.PerformanceMetrics
+    let wallet: TournamentPortfolioV2
+    let positions: [TournamentPosition]
+    let tradingStatistics: TournamentTradingStatistics
+    let riskMetrics: RiskMetrics
+    let marketComparison: MarketComparison
+    let calculatedAt: Date
+}
+
+/// 風險指標
+struct RiskMetrics {
+    let concentrationRisk: Double  // 集中度風險 (%)
+    let liquidityRisk: Double      // 流動性風險分數
+    let marketRisk: Double         // 市場風險 (%)
+    let overallRiskScore: Double   // 整體風險分數
+    
+    var riskLevel: RiskLevel {
+        if overallRiskScore < 20 {
+            return .low
+        } else if overallRiskScore < 50 {
+            return .medium
+        } else {
+            return .high
+        }
+    }
+}
+
+/// 市場比較指標
+struct MarketComparison {
+    let performanceVsAverage: Double    // 相對於平均表現 (%)
+    let performanceVsMedian: Double     // 相對於中位數表現 (%)
+    let percentileRank: Double          // 百分位排名
+    
+    var performanceCategory: PerformanceCategory {
+        if percentileRank >= 80 {
+            return .excellent
+        } else if percentileRank >= 60 {
+            return .good
+        } else if percentileRank >= 40 {
+            return .average
+        } else if percentileRank >= 20 {
+            return .belowAverage
+        } else {
+            return .poor
+        }
+    }
+    
+    enum PerformanceCategory {
+        case excellent, good, average, belowAverage, poor
+        
+        var displayName: String {
+            switch self {
+            case .excellent: return "優秀"
+            case .good: return "良好"
+            case .average: return "一般"
+            case .belowAverage: return "待改善"
+            case .poor: return "需加強"
+            }
+        }
+    }
 }

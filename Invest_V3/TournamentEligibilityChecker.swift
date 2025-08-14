@@ -301,7 +301,9 @@ class TournamentEligibilityChecker: ObservableObject {
         case .monthly: return 7
         case .quarterly: return 14
         case .yearly: return 30
+        case .annual: return 60
         case .special: return 10
+        case .custom: return 5
         }
     }
     
@@ -312,7 +314,9 @@ class TournamentEligibilityChecker: ObservableObject {
         case .monthly: return 10
         case .quarterly: return 25
         case .yearly: return 50
+        case .annual: return 100
         case .special: return 20
+        case .custom: return 15
         }
     }
     
@@ -328,7 +332,9 @@ class TournamentEligibilityChecker: ObservableObject {
         case .monthly: return 3
         case .quarterly: return 5
         case .yearly: return 1
+        case .annual: return 1 // 年度賽事只能參加一次
         case .special: return 1
+        case .custom: return 3 // 自訂賽事可參加3次
         }
     }
     
