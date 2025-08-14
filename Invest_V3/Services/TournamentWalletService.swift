@@ -94,6 +94,8 @@ class TournamentWalletService: ObservableObject {
                 totalTrades: 0,
                 winningTrades: 0,
                 maxDrawdown: 0,
+                dailyReturn: 0.0,
+                sharpeRatio: nil,
                 lastUpdated: Date()
             )
             
@@ -284,6 +286,8 @@ class TournamentWalletService: ObservableObject {
                     totalTrades: wallet.totalTrades,
                     winningTrades: wallet.winningTrades,
                     maxDrawdown: wallet.maxDrawdown,
+                    dailyReturn: wallet.dailyReturn,
+                    sharpeRatio: wallet.sharpeRatio,
                     lastUpdated: Date()
                 )
                 
@@ -390,6 +394,8 @@ class TournamentWalletService: ObservableObject {
                 totalTrades: wallet.totalTrades,
                 winningTrades: wallet.winningTrades,
                 maxDrawdown: wallet.maxDrawdown,
+                dailyReturn: wallet.dailyReturn,
+                sharpeRatio: wallet.sharpeRatio,
                 lastUpdated: Date()
             )
             
@@ -442,6 +448,8 @@ class TournamentWalletService: ObservableObject {
                 totalTrades: wallet.totalTrades,
                 winningTrades: wallet.winningTrades,
                 maxDrawdown: wallet.maxDrawdown,
+                dailyReturn: wallet.dailyReturn,
+                sharpeRatio: wallet.sharpeRatio,
                 lastUpdated: Date()
             )
             
@@ -541,6 +549,8 @@ class TournamentWalletService: ObservableObject {
             totalTrades: currentWallet.totalTrades + 1,
             winningTrades: currentWallet.winningTrades,
             maxDrawdown: currentWallet.maxDrawdown,
+            dailyReturn: currentWallet.dailyReturn,
+            sharpeRatio: currentWallet.sharpeRatio,
             lastUpdated: Date()
         )
         

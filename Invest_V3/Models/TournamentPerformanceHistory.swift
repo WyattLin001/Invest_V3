@@ -324,7 +324,7 @@ class TournamentPerformanceHistoryManager: ObservableObject {
     private func countDailyTrades(for portfolio: TournamentPortfolio, date: Date) -> Int {
         let calendar = Calendar.current
         return portfolio.tradingRecords.filter { record in
-            calendar.isDate(record.tradeDate, inSameDayAs: date)
+            calendar.isDate(record.timestamp, inSameDayAs: date)
         }.count
     }
     

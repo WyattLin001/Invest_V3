@@ -452,7 +452,7 @@ struct TournamentSelectionView: View {
         // 實時搜尋，由 filteredTournaments 計算屬性處理
     }
     
-    private func filterTournaments(by status: TournamentLifecycleState) {
+    private func filterTournaments(by status: TournamentStatus) {
         Task { @MainActor in
             do {
                 let allTournaments = try await workflowService.getAllTournaments()

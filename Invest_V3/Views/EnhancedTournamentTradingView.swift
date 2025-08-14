@@ -221,9 +221,12 @@ struct EnhancedTournamentTradingView: View {
             } else {
                 LazyVStack(spacing: 8) {
                     ForEach(holdings) { holding in
-                        TournamentHoldingRow(holding: holding) {
+                        Button {
                             selectStock(holding.symbol, price: holding.currentPrice)
+                        } label: {
+                            TournamentHoldingRow(holding: holding)
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
                 }
                 .padding()
@@ -500,71 +503,6 @@ struct StockRow: View {
     }
 }
 
-// MARK: - 持股行視圖
-
-struct TournamentHoldingRow: View {
-    let holding: TournamentHolding
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(holding.symbol)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                        
-                        Text(holding.name)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("\(Int(holding.shares)) 股")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Text(formatPrice(holding.currentPrice))
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.primary)
-                    }
-                }
-                
-                HStack {
-                    Text("成本: \(formatPrice(holding.averagePrice))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    Text("損益: \(formatCurrency(holding.unrealizedGainLoss))")
-                        .font(.caption)
-                        .foregroundColor(holding.unrealizedGainLoss >= 0 ? .green : .red)
-                }
-            }
-            .padding()
-            .background(Color(.systemBackground))
-            .cornerRadius(8)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-    
-    private func formatPrice(_ price: Double) -> String {
-        return String(format: "%.1f", price)
-    }
-    
-    private func formatCurrency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = Locale(identifier: "zh_TW")
-        return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
-    }
-}
 
 // MARK: - 空持股視圖
 

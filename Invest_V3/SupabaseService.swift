@@ -4465,6 +4465,18 @@ class SupabaseService: ObservableObject {
             .execute()
     }
     
+    /// 更新錦標賽投資組合（使用 TournamentPortfolioV2 物件）
+    func updateTournamentPortfolio(_ portfolio: TournamentPortfolioV2) async throws {
+        try await SupabaseManager.shared.ensureInitializedAsync()
+        
+        try await client
+            .from("tournament_portfolios")
+            .update(portfolio)
+            .eq("tournament_id", value: portfolio.tournamentId.uuidString)
+            .eq("user_id", value: portfolio.userId.uuidString)
+            .execute()
+    }
+    
     /// 更新錦標賽錢包
     func updateTournamentWallet(
         tournamentId: UUID,

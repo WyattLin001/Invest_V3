@@ -381,7 +381,7 @@ struct ModernTournamentSelectionView: View {
     }
     
     private func generateSampleTournaments() -> [Tournament] {
-        let statuses: [TournamentLifecycleState] = [.active, .upcoming, .ended, .active, .active]
+        let statuses: [TournamentStatus] = [.active, .upcoming, .ended, .active, .active]
         let names = ["科技股挑戰賽", "價值投資大賽", "新手友善賽", "高手進階賽", "我的專屬賽"]
         let descriptions = [
             "專注科技股的投資競賽",

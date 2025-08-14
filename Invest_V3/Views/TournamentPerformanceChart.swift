@@ -352,7 +352,7 @@ struct TournamentPerformanceChart: View {
             // 可以返回今日交易次數
             let today = Calendar.current.startOfDay(for: Date())
             let todayTrades = portfolio.tradingRecords.filter { record in
-                Calendar.current.isDate(record.tradeDate, inSameDayAs: today)
+                Calendar.current.isDate(record.timestamp, inSameDayAs: today)
             }.count
             return Double(todayTrades)
         }
