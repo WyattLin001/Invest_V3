@@ -145,8 +145,14 @@ struct TournamentJoinView: View {
         switch tournament.status {
         case .upcoming:
             return .blue
+        case .enrolling:
+            return .green
+        case .ongoing:
+            return .orange
         case .active:
             return .green
+        case .finished:
+            return .gray
         case .ended:
             return .gray
         case .cancelled:

@@ -810,7 +810,7 @@ class TournamentBusinessService: ObservableObject {
     
     private func calculateMarketComparison(
         tournamentId: UUID,
-        userMetrics: TournamentRankingService.PerformanceMetrics
+        userMetrics: PerformanceMetrics
     ) async -> MarketComparison {
         
         do {
@@ -1005,7 +1005,7 @@ struct TournamentInitializationResult {
 
 /// 綜合績效指標
 struct ComprehensivePerformanceMetrics {
-    let baseMetrics: TournamentRankingService.PerformanceMetrics
+    let baseMetrics: PerformanceMetrics
     let wallet: TournamentPortfolioV2
     let positions: [TournamentPosition]
     let tradingStatistics: TournamentTradingStatistics

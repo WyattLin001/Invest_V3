@@ -50,7 +50,7 @@ struct EnhancedTournamentTradingView: View {
                 contentArea
             }
             .navigationTitle("錦標賽交易")
-            .navigationBarTitleDisplayMode(.never)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("完成") {
@@ -351,6 +351,8 @@ struct EnhancedTournamentTradingView: View {
                 totalTrades: 0,
                 winningTrades: 0,
                 maxDrawdown: 0,
+                dailyReturn: 0.0,
+                sharpeRatio: nil,
                 lastUpdated: Date()
             )
         }
@@ -441,9 +443,8 @@ struct StockInfo: Identifiable {
     let changePercent: Double
 }
 
-// TournamentPortfolio 已移至 TournamentModels.swift 作為 TournamentPortfolioV2
-// 使用 typealias 保持向後兼容
-typealias TournamentPortfolio = TournamentPortfolioV2
+// TournamentPortfolio typealias 已移至 TournamentPortfolioManager.swift 
+// 避免重複宣告錯誤
 
 // MARK: - 股票行視圖
 

@@ -508,7 +508,16 @@ struct TournamentPerformanceDataPoint: Identifiable {
                 diversificationScore: 60.0,
                 riskScore: 75.0,
                 totalTrades: 10,
-                profitableTrades: 6
+                profitableTrades: 6,
+                currentRank: 1,
+                maxDrawdownPercentage: 10.0,
+                totalReturnPercentage: -5.0,
+                dailyReturn: -1.2,
+                averageHoldingDays: 3.5,
+                previousRank: 2,
+                percentile: 25.0,
+                lastUpdated: Date(),
+                rankChange: 1
             ),
             lastUpdated: Date()
         ),
