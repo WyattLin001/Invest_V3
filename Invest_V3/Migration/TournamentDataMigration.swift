@@ -262,7 +262,8 @@ class TournamentDataMigration {
             averageCost: nil, // 新字段，設為 nil
             realizedGainLoss: nil, // 新字段，需要重新計算
             realizedGainLossPercent: nil, // 新字段，需要重新計算
-            notes: nil // 新字段，設為 nil
+            notes: nil, // 新字段，設為 nil
+            tradeDate: legacy.timestamp // 新字段，使用 timestamp 作為交易日期
         )
     }
     
@@ -273,7 +274,9 @@ class TournamentDataMigration {
             totalAssets: legacy.totalAssets,
             totalReturnPercent: legacy.returnPercentage,
             totalTrades: legacy.totalTrades,
-            winRate: legacy.winRate
+            winRate: legacy.winRate,
+            maxDrawdown: 0.0, // 新字段，舊數據無此資訊，設為 0
+            sharpeRatio: nil // 新字段，舊數據無此資訊，設為 nil
         )
     }
     

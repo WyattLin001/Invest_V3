@@ -1843,7 +1843,7 @@ struct TournamentTradeRequest: Codable {
 }
 
 /// 錦標賽排名模型
-struct TournamentRanking: Identifiable, Codable {
+struct TournamentRanking: Identifiable, Codable, Equatable {
     let userId: UUID
     let rank: Int
     let totalAssets: Double

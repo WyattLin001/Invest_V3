@@ -475,7 +475,9 @@ class TournamentRankingService: ObservableObject {
     
     private func calculateAnnualizedReturn(wallet: TournamentPortfolioV2, tournamentId: UUID) async -> Double {
         do {
-            let tournament = try await TournamentService.shared.fetchTournament(id: tournamentId)
+            guard let tournament = try await TournamentService.shared.fetchTournament(id: tournamentId) else {
+                return 0
+            }
             let daysSinceStart = Date().timeIntervalSince(tournament.startDate) / (24 * 3600)
             
             guard daysSinceStart > 0 else { return 0 }
@@ -589,7 +591,7 @@ class TournamentRankingService: ObservableObject {
         }
     }
     
-    private func calculateRiskScore(wallet: TournamentWallet, trades: [TournamentTrade]) -> Double {
+    private func calculateRiskScore(wallet: TournamentPortfolioV2, trades: [TournamentTrade]) -> Double {
         // 基於最大回撤和交易頻率計算風險評分
         let drawdownScore = min(wallet.maxDrawdown * 10, 5.0) // 0-5分
         

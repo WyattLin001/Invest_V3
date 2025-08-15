@@ -715,7 +715,7 @@ struct TournamentRankingsView: View {
                 standardDeviation: 0.0, // 暫時設為0
                 topPerformers: [], // 暫時為空陣列
                 worstPerformers: [], // 暫時為空陣列
-                distributionStats: DistributionStats(
+                distributionStats: DistributionStatsModel(
                     positiveReturns: 0,
                     negativeReturns: 0,
                     neutralReturns: 0,
