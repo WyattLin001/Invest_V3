@@ -251,30 +251,45 @@ class TournamentStatusMonitor: ObservableObject {
     private func sendSystemNotification(for event: TournamentStatusChangeEvent) async {
         let content = UNMutableNotificationContent()
         
+        // 從事件中提取錦標賽
+        let tournament: Tournament
         switch event {
-        case .aboutToStart(let tournament, let timeRemaining):
+        case .aboutToStart(let t, _):
+            tournament = t
+        case .justStarted(let t):
+            tournament = t
+        case .aboutToEnd(let t, _):
+            tournament = t
+        case .justEnded(let t):
+            tournament = t
+        case .statusChanged(let t, _, _):
+            tournament = t
+        }
+        
+        switch event {
+        case .aboutToStart(_, let timeRemaining):
             let minutes = Int(timeRemaining / 60)
             content.title = "錦標賽即將開始"
             content.body = "'\(tournament.name)' 將在 \(minutes) 分鐘後開始"
             content.sound = .default
             
-        case .justStarted(let tournament):
+        case .justStarted(_):
             content.title = "錦標賽已開始"
             content.body = "'\(tournament.name)' 現在開始進行交易！"
             content.sound = .default
             
-        case .aboutToEnd(let tournament, let timeRemaining):
+        case .aboutToEnd(_, let timeRemaining):
             let minutes = Int(timeRemaining / 60)
             content.title = "錦標賽即將結束"
             content.body = "'\(tournament.name)' 將在 \(minutes) 分鐘後結束"
             content.sound = .default
             
-        case .justEnded(let tournament):
+        case .justEnded(_):
             content.title = "錦標賽已結束"
             content.body = "'\(tournament.name)' 已結束，查看最終排名！"
             content.sound = .default
             
-        case .statusChanged(let tournament, _, let to):
+        case .statusChanged(_, _, let to):
             content.title = "錦標賽狀態更新"
             content.body = "'\(tournament.name)' 現在是 \(to.displayName)"
             content.sound = .default
@@ -345,7 +360,9 @@ class TournamentStatusMonitor: ObservableObject {
     }
     
     deinit {
-        stopMonitoring()
+        // 在 deinit 中無法調用 @MainActor 方法，需要直接清理
+        monitorTimer?.invalidate()
+        monitorTimer = nil
     }
 }
 

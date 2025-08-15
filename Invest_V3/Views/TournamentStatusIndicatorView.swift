@@ -390,7 +390,7 @@ private func mockTournament() -> Tournament {
         maxParticipants: 1000,
         currentParticipants: 500,
         isFeatured: true,
-        createdBy: nil,
+        createdBy: UUID(),
         riskLimitPercentage: 15,
         minHoldingRate: 0.1,
         maxSingleStockRate: 0.3,

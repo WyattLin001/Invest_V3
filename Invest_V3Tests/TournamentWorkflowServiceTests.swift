@@ -341,7 +341,7 @@ class TournamentWorkflowServiceTests: XCTestCase {
             maxParticipants: 100,
             currentParticipants: 50,
             isFeatured: false,
-            createdBy: nil,
+            createdBy: UUID(),
             riskLimitPercentage: 0.2,
             minHoldingRate: 0.5,
             maxSingleStockRate: 0.3,

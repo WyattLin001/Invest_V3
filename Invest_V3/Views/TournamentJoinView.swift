@@ -528,17 +528,22 @@ struct TournamentJoinView_Previews: PreviewProvider {
         let sampleTournament = Tournament(
             id: UUID(),
             name: "科技股挑戰賽",
-            description: "專注科技股的投資競賽，測試你的選股能力和風險管理技巧。",
+            type: .monthly,
             status: .upcoming,
             startDate: Date().addingTimeInterval(86400),
             endDate: Date().addingTimeInterval(86400 * 7),
-            entryCapital: 1000000,
+            description: "專注科技股的投資競賽，測試你的選股能力和風險管理技巧。",
+            shortDescription: "科技股挑戰賽",
+            initialBalance: 1000000,
+            entryFee: 100,
+            prizePool: 0,
             maxParticipants: 100,
             currentParticipants: 45,
-            feeTokens: 100,
-            returnMetric: "twr",
-            resetMode: "monthly",
-            createdAt: Date(),
+            isFeatured: false,
+            createdBy: UUID(),
+            riskLimitPercentage: 0.2,
+            minHoldingRate: 0.5,
+            maxSingleStockRate: 0.3,
             rules: [
                 "允許做空交易",
                 "單一持股上限：30%",
@@ -547,7 +552,9 @@ struct TournamentJoinView_Previews: PreviewProvider {
                 "最大回撤限制：20%",
                 "最大槓桿：2.0x",
                 "每日最大交易次數：50"
-            ]
+            ],
+            createdAt: Date(),
+            updatedAt: Date()
         )
         
         TournamentJoinView(

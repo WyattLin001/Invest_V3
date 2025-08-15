@@ -6008,7 +6008,7 @@ extension SupabaseService {
             maxParticipants: response.maxParticipants,
             currentParticipants: response.currentParticipants,
             isFeatured: response.isFeatured ?? false,
-            createdBy: nil, // No creator info in response
+            createdBy: response.createdBy ?? UUID(), // Use response creator or default UUID if nil
             riskLimitPercentage: response.riskLimitPercentage ?? 10.0,
             minHoldingRate: response.minHoldingRate ?? 0.0,
             maxSingleStockRate: response.maxSingleStockRate ?? 30.0,

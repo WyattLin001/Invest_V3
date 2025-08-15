@@ -447,8 +447,8 @@ struct PortfolioResponse: Codable {
             // 新增的缺失參數
             initialBalance: 1000000.0, // 假設初始資金為100萬
             holdings: positions, // 使用相同的持倉數據
-            todayPnl: todayReturn ?? 0.0, // 使用今日損益或預設為0
-            todayPnlPercentage: (todayReturn ?? 0.0) / 1000000.0 * 100.0 // 計算百分比
+            todayPnl: 0.0, // 當日損益，API未提供此數據，預設為0
+            todayPnlPercentage: 0.0 // 當日損益百分比，API未提供此數據，預設為0
         )
     }
 }

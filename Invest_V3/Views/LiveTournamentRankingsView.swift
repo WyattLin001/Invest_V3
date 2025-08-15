@@ -342,18 +342,25 @@ struct LiveTournamentRankingsView: View {
             tournament = Tournament(
                 id: tournamentId,
                 name: "科技股挑戰賽",
-                description: "專注科技股投資競賽",
-                status: .active,
+                type: .monthly,
+                status: .ongoing,
                 startDate: Date().addingTimeInterval(-86400),
                 endDate: Date().addingTimeInterval(86400 * 6),
-                entryCapital: 1000000,
+                description: "專注科技股投資競賽",
+                shortDescription: "科技股挑戰賽",
+                initialBalance: 1000000,
+                entryFee: 0,
+                prizePool: 0,
                 maxParticipants: 100,
                 currentParticipants: 85,
-                feeTokens: 0,
-                returnMetric: "twr",
-                resetMode: "monthly",
+                isFeatured: false,
+                createdBy: UUID(),
+                riskLimitPercentage: 0.2,
+                minHoldingRate: 0.5,
+                maxSingleStockRate: 0.3,
+                rules: [],
                 createdAt: Date(),
-                rules: nil
+                updatedAt: Date()
             )
         }
     }

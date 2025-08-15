@@ -300,7 +300,11 @@ extension TournamentDailySnapshotService {
         
         let tournament: Tournament
         do {
-            tournament = try await tournamentService.fetchTournament(id: tournamentId)
+            guard let fetchedTournament = try await tournamentService.fetchTournament(id: tournamentId) else {
+                print("⚠️ [TournamentDailySnapshotService] 找不到錦標賽: \(tournamentId)")
+                return
+            }
+            tournament = fetchedTournament
         } catch {
             print("⚠️ [TournamentDailySnapshotService] 無法獲取錦標賽資訊: \(error)")
             return

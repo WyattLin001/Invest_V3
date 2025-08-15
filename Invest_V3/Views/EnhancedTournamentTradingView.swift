@@ -740,23 +740,30 @@ struct EnhancedTournamentTradingView_Previews: PreviewProvider {
         let sampleTournament = Tournament(
             id: UUID(),
             name: "科技股挑戰賽",
-            description: "專注科技股投資競賽",
-            status: .active,
+            type: .monthly,
+            status: .ongoing,
             startDate: Date().addingTimeInterval(-3600),
             endDate: Date().addingTimeInterval(86400 * 6),
-            entryCapital: 1000000,
+            description: "專注科技股投資競賽",
+            shortDescription: "科技股挑戰賽",
+            initialBalance: 1000000,
+            entryFee: 0,
+            prizePool: 0,
             maxParticipants: 100,
             currentParticipants: 85,
-            feeTokens: 0,
-            returnMetric: "twr",
-            resetMode: "monthly",
-            createdAt: Date(),
+            isFeatured: false,
+            createdBy: UUID(),
+            riskLimitPercentage: 0.2,
+            minHoldingRate: 0.5,
+            maxSingleStockRate: 0.3,
             rules: [
                 "允許做空交易",
                 "單一持股上限：30%",
                 "允許投資：股票、ETF",
                 "交易時間：09:00 - 16:00 (台北時間)"
-            ]
+            ],
+            createdAt: Date(),
+            updatedAt: Date()
         )
         
         EnhancedTournamentTradingView(

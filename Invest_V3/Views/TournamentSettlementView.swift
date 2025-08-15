@@ -912,18 +912,25 @@ struct TournamentSettlementView_Previews: PreviewProvider {
         let sampleTournament = Tournament(
             id: UUID(),
             name: "科技股挑戰賽",
-            description: "專注科技股投資競賽",
-            status: .ended,
+            type: .monthly,
+            status: .finished,
             startDate: Date().addingTimeInterval(-86400 * 7),
             endDate: Date().addingTimeInterval(-3600),
-            entryCapital: 1000000,
+            description: "專注科技股投資競賽",
+            shortDescription: "科技股挑戰賽",
+            initialBalance: 1000000,
+            entryFee: 100,
+            prizePool: 0,
             maxParticipants: 100,
             currentParticipants: 85,
-            feeTokens: 100,
-            returnMetric: "twr",
-            resetMode: "monthly",
+            isFeatured: false,
+            createdBy: UUID(),
+            riskLimitPercentage: 0.2,
+            minHoldingRate: 0.5,
+            maxSingleStockRate: 0.3,
+            rules: [],
             createdAt: Date().addingTimeInterval(-86400 * 8),
-            rules: nil
+            updatedAt: Date()
         )
         
         TournamentSettlementView(

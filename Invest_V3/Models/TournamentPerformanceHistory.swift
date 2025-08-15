@@ -238,6 +238,13 @@ class TournamentPerformanceHistoryManager: ObservableObject {
         saveCachedSnapshots()
     }
     
+    /// 清除指定錦標賽和用戶的所有快照
+    func clearSnapshots(for tournamentId: UUID, userId: UUID) {
+        let key = snapshotKey(tournamentId: tournamentId, userId: userId)
+        snapshots.removeValue(forKey: key)
+        saveCachedSnapshots()
+    }
+    
     // MARK: - 數據分析方法
     
     /// 生成圖表數據點

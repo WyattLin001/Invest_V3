@@ -86,7 +86,7 @@ class TournamentWorkflowService: ObservableObject {
                 maxParticipants: parameters.maxParticipants,
                 currentParticipants: 0,
                 isFeatured: false,
-                createdBy: nil, // 需要從上下文取得
+                createdBy: UUID(), // Default UUID for current user - should be replaced with actual user ID
                 riskLimitPercentage: 0.2, // 預設 20%
                 minHoldingRate: 0.5,      // 預設 50%
                 maxSingleStockRate: 0.3,  // 預設 30%

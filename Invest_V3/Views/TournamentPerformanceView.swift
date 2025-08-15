@@ -566,7 +566,7 @@ struct TournamentProgressBar: View {
                 maxParticipants: 100,
                 currentParticipants: 75,
                 isFeatured: false,
-                createdBy: nil,
+                createdBy: UUID(),
                 riskLimitPercentage: 20.0,
                 minHoldingRate: 60.0,
                 maxSingleStockRate: 30.0,

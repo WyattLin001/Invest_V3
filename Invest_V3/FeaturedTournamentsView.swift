@@ -143,7 +143,7 @@ struct FeaturedTournamentsView: View {
         ScrollView {
             LazyVStack(spacing: 16) {
                 ForEach(featuredTournaments) { tournament in
-                    FeaturedTournamentCard(
+                    FeaturedTournamentWrapper(
                         tournament: tournament,
                         onEnroll: {
                             handleEnrollTournament(tournament)
@@ -197,7 +197,7 @@ struct FeaturedTournamentsView: View {
 
 /// 精選錦標賽卡片
 /// 比普通卡片更突出，包含推薦理由
-private struct FeaturedTournamentCard: View {
+private struct FeaturedTournamentWrapper: View {
     let tournament: Tournament
     let onEnroll: () -> Void
     let onViewDetails: () -> Void

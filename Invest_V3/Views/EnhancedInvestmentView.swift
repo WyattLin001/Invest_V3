@@ -143,7 +143,7 @@ struct EnhancedInvestmentView: View {
             TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
             NavigationStack {
-                ScrollView(.vertical) {
+                ScrollView([.vertical]) {
                     GeometryReader { geometry in
                         Color.clear
                             .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
@@ -209,7 +209,7 @@ struct EnhancedInvestmentView: View {
             .tag(InvestmentTab.home)
             // 2. 交易記錄
             NavigationStack {
-                ScrollView(.vertical) {
+                ScrollView([.vertical]) {
                     GeometryReader { geometry in
                         Color.clear
                             .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
@@ -251,7 +251,7 @@ struct EnhancedInvestmentView: View {
             
             // 3. 錦標賽選擇
             NavigationStack {
-                ScrollView(.vertical) {
+                ScrollView([.vertical]) {
                     GeometryReader { geometry in
                         Color.clear
                             .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
@@ -296,7 +296,7 @@ struct EnhancedInvestmentView: View {
             
             // 4. 排行榜與動態
             NavigationStack {
-                ScrollView(.vertical) {
+                ScrollView([.vertical]) {
                     GeometryReader { geometry in
                         Color.clear
                             .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
@@ -2412,7 +2412,7 @@ struct TournamentSelectionSheet: View {
                     }
                     .padding()
                 } else {
-                    ScrollView(.vertical) {
+                    ScrollView([.vertical]) {
                         LazyVStack(spacing: 12) {
                             ForEach(participatedTournaments, id: \.id) { tournament in
                                 TournamentSelectionRow(
@@ -3075,17 +3075,18 @@ struct CreateTournamentView: View {
             description: description.trimmingCharacters(in: .whitespacesAndNewlines),
             shortDescription: shortDescription.trimmingCharacters(in: .whitespacesAndNewlines),
             initialBalance: initialBalance,
-            maxParticipants: maxParticipants,
-            currentParticipants: 0,
             entryFee: entryFee,
             prizePool: prizePool,
+            maxParticipants: maxParticipants,
+            currentParticipants: 0,
+            isFeatured: isFeatured,
+            createdBy: UUID(), // Default UUID for current user - should be replaced with actual user ID
             riskLimitPercentage: riskLimitPercentage,
             minHoldingRate: minHoldingRate,
             maxSingleStockRate: maxSingleStockRate,
             rules: rules,
             createdAt: Date(),
-            updatedAt: Date(),
-            isFeatured: isFeatured
+            updatedAt: Date()
         )
         
         Task { @MainActor in

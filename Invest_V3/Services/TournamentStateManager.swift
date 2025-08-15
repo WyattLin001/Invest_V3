@@ -650,17 +650,18 @@ class TournamentStateManager: ObservableObject {
                         description: "來自API的錦標賽",
                         shortDescription: apiTournament.name,
                         initialBalance: apiTournament.initial_balance,
-                        maxParticipants: apiTournament.max_participants,
-                        currentParticipants: apiTournament.current_participants,
                         entryFee: 0.0,
                         prizePool: 0.0,
+                        maxParticipants: apiTournament.max_participants,
+                        currentParticipants: apiTournament.current_participants,
+                        isFeatured: false,
+                        createdBy: UUID(), // Default UUID for current user - should be replaced with actual user ID
                         riskLimitPercentage: 20.0,
                         minHoldingRate: 0.1,
                         maxSingleStockRate: 0.3,
                         rules: [],
                         createdAt: Date(),
-                        updatedAt: Date(),
-                        isFeatured: false
+                        updatedAt: Date()
                     )
                     
                     tournaments.append(tournament)

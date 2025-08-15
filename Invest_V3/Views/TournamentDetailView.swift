@@ -339,17 +339,22 @@ struct TournamentDetailView_Previews: PreviewProvider {
                 tournament: Tournament(
                     id: UUID(),
                     name: "科技股挑戰賽",
-                    description: "專注於科技股投資的競賽，展現您的科技股投資策略",
-                    status: .active,
+                    type: .monthly,
+                    status: .ongoing,
                     startDate: Date().addingTimeInterval(-86400),
                     endDate: Date().addingTimeInterval(86400 * 6),
-                    entryCapital: 1000000,
+                    description: "專注於科技股投資的競賽，展現您的科技股投資策略",
+                    shortDescription: "科技股挑戰賽",
+                    initialBalance: 1000000,
+                    entryFee: 0,
+                    prizePool: 0,
                     maxParticipants: 100,
                     currentParticipants: 78,
-                    feeTokens: 0,
-                    returnMetric: "twr",
-                    resetMode: "monthly",
-                    createdAt: Date().addingTimeInterval(-86400 * 2),
+                    isFeatured: false,
+                    createdBy: UUID(),
+                    riskLimitPercentage: 0.2,
+                    minHoldingRate: 0.5,
+                    maxSingleStockRate: 0.3,
                     rules: [
                         "允許做空交易",
                         "單一持股上限：30%",
@@ -358,7 +363,9 @@ struct TournamentDetailView_Previews: PreviewProvider {
                         "最大回撤限制：20%",
                         "最大槓桿：2.0x",
                         "每日最大交易次數：50"
-                    ]
+                    ],
+                    createdAt: Date().addingTimeInterval(-86400 * 2),
+                    updatedAt: Date()
                 )
             )
         }
