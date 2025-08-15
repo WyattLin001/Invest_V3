@@ -705,17 +705,18 @@ struct TournamentEligibilityView: View {
             description: "範例競賽描述",
             shortDescription: "範例競賽",
             initialBalance: 1000000,
-            maxParticipants: 1000,
-            currentParticipants: 500,
             entryFee: 0,
             prizePool: 100000,
+            maxParticipants: 1000,
+            currentParticipants: 500,
+            isFeatured: false,
+            createdBy: UUID(),
             riskLimitPercentage: 0.20,
             minHoldingRate: 0.50,
             maxSingleStockRate: 0.30,
             rules: ["範例規則"],
             createdAt: Date(),
-            updatedAt: Date(),
-            isFeatured: false
+            updatedAt: Date()
         ),
         user: nil
     )

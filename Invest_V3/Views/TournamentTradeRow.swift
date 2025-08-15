@@ -161,7 +161,8 @@ struct TournamentTradeRow: View {
                 timestamp: Date().addingTimeInterval(-3600), // 1 hour ago
                 realizedGainLoss: nil,
                 realizedGainLossPercent: nil,
-                notes: nil
+                notes: nil,
+                tradeDate: Date().addingTimeInterval(-3600) // 添加 tradeDate 參數
             )
         )
         
@@ -181,7 +182,8 @@ struct TournamentTradeRow: View {
                 timestamp: Date().addingTimeInterval(-7200), // 2 hours ago
                 realizedGainLoss: nil,
                 realizedGainLossPercent: nil,
-                notes: nil
+                notes: nil,
+                tradeDate: Date().addingTimeInterval(-7200) // 添加 tradeDate 參數
             )
         )
         
@@ -201,7 +203,8 @@ struct TournamentTradeRow: View {
                 timestamp: Date().addingTimeInterval(-86400), // 1 day ago
                 realizedGainLoss: nil,
                 realizedGainLossPercent: nil,
-                notes: nil
+                notes: nil,
+                tradeDate: Date().addingTimeInterval(-86400) // 添加 tradeDate 參數
             )
         )
     }

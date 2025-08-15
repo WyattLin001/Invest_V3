@@ -344,7 +344,8 @@ struct TradingSummary {
                 timestamp: Date().addingTimeInterval(-3600),
                 realizedGainLoss: nil,
                 realizedGainLossPercent: nil,
-                notes: nil
+                notes: nil,
+                tradeDate: Date().addingTimeInterval(-3600)
             ),
             TournamentTradingRecord(
                 id: UUID(),
@@ -361,7 +362,8 @@ struct TradingSummary {
                 timestamp: Date().addingTimeInterval(-7200),
                 realizedGainLoss: nil,
                 realizedGainLossPercent: nil,
-                notes: nil
+                notes: nil,
+                tradeDate: Date().addingTimeInterval(-7200)
             ),
             TournamentTradingRecord(
                 id: UUID(),
@@ -378,7 +380,8 @@ struct TradingSummary {
                 timestamp: Date().addingTimeInterval(-86400),
                 realizedGainLoss: nil,
                 realizedGainLossPercent: nil,
-                notes: nil
+                notes: nil,
+                tradeDate: Date().addingTimeInterval(-86400) // 添加 tradeDate 參數
             )
         ]
     )

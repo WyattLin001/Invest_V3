@@ -124,7 +124,8 @@ private struct TournamentTabItem: View {
                 endPoint: .trailing
             )
         } else {
-            filter.accentColor.opacity(0.1)
+            Rectangle()
+                .fill(filter.accentColor.opacity(0.1))
         }
     }
     

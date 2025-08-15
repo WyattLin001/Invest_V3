@@ -305,7 +305,11 @@ struct PerformanceChart: View {
     
     /// 獲取工具提示背景顏色
     private func getTooltipBackgroundColor() -> Color {
-        return Color.primary.colorInvert().opacity(0.95)
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemBackground.withAlphaComponent(0.95)
+                : UIColor.label.withAlphaComponent(0.95)
+        })
     }
     
     /// 獲取陰影顏色

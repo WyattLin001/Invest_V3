@@ -818,14 +818,14 @@ class TournamentBusinessService: ObservableObject {
             let statsResult = await rankingService.calculateAdvancedStats(tournamentId: tournamentId)
             let tournamentStats = try statsResult.get()
             
-            let performanceVsAverage = userMetrics.returnPercentage - tournamentStats.averageReturn
-            let performanceVsMedian = userMetrics.returnPercentage - tournamentStats.medianReturn
+            let performanceVsAverage = userMetrics.totalReturnPercentage - tournamentStats.averageReturn
+            let performanceVsMedian = userMetrics.totalReturnPercentage - tournamentStats.medianReturn
             
             return MarketComparison(
                 performanceVsAverage: performanceVsAverage,
                 performanceVsMedian: performanceVsMedian,
                 percentileRank: calculatePercentileRank(
-                    userReturn: userMetrics.returnPercentage,
+                    userReturn: userMetrics.totalReturnPercentage,
                     allReturns: [tournamentStats.averageReturn] // 簡化版本
                 )
             )

@@ -259,7 +259,8 @@ class TournamentWorkflowService: ObservableObject {
                 averageCost: nil,
                 realizedGainLoss: nil,
                 realizedGainLossPercent: nil,
-                notes: nil
+                notes: nil,
+                tradeDate: Date() // 添加 tradeDate 參數，使用當前日期
             )
             
             // 使用交易服務執行
@@ -684,16 +685,14 @@ class TournamentWorkflowService: ObservableObject {
             let reward = calculateReward(for: ranking, tournament: tournament, totalParticipants: rankings.count)
             
             let result = TournamentResult(
-                tournamentId: tournament.id,
+                id: UUID(),
                 userId: ranking.userId,
+                tournamentId: tournament.id,
                 rank: ranking.rank,
-                totalParticipants: rankings.count,
-                finalReturn: ranking.totalReturnPercent,
-                maxDrawdown: ranking.maxDrawdown,
-                sharpeRatio: ranking.sharpeRatio,
-                totalTrades: ranking.totalTrades,
-                winRate: ranking.winRate,
-                reward: reward
+                totalAssets: ranking.totalAssets,
+                returnPercentage: ranking.totalReturnPercent,
+                reward: reward,
+                finalizedAt: Date()
             )
             
             results.append(result)

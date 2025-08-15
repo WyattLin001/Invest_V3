@@ -711,16 +711,6 @@ struct TournamentRankingsView: View {
             self.tournamentStats = TournamentStats(
                 totalParticipants: statsResponse.totalParticipants,
                 averageReturn: statsResponse.averageReturn,
-                medianReturn: statsResponse.averageReturn, // 暫時使用平均值
-                standardDeviation: 0.0, // 暫時設為0
-                topPerformers: [], // 暫時為空陣列
-                worstPerformers: [], // 暫時為空陣列
-                distributionStats: DistributionStatsModel(
-                    positiveReturns: 0,
-                    negativeReturns: 0,
-                    neutralReturns: 0,
-                    winnerPercentage: 0.0
-                ),
                 lastUpdated: statsResponse.lastUpdated
             )
             

@@ -7953,7 +7953,8 @@ extension SupabaseService {
             averageCost: nil,
             realizedGainLoss: nil,
             realizedGainLossPercent: nil,
-            notes: nil
+            notes: nil,
+            tradeDate: timestamp // 添加 tradeDate 參數，使用解析的 timestamp
         )
     }
     

@@ -224,9 +224,15 @@ struct PortfolioOverviewView: View {
                         .frame(maxWidth: .infinity, minHeight: 100)
                 }
                 
-                // 投資組合分析 - 統一使用 currentPortfolio  
+                // 投資組合分析 - 根據模式使用不同組件
                 if let portfolio = tradingService.currentPortfolio {
-                    TournamentPortfolioAnalysisCard(portfolio: portfolio)
+                    if isInTournament {
+                        // 錦標賽模式：需要轉換為 TournamentPortfolio 或使用通用分析卡片
+                        UnifiedPortfolioAnalysisCard(tradingPortfolio: portfolio)
+                    } else {
+                        // 一般交易模式：使用通用分析卡片
+                        UnifiedPortfolioAnalysisCard(tradingPortfolio: portfolio)
+                    }
                 }
                 
                 // 資產分配圖
@@ -1253,40 +1259,40 @@ struct UnifiedAssetOverviewCard: View {
     }
 }
 
-// MARK: - 統一錦標賽投資組合分析卡片
-struct TournamentPortfolioAnalysisCard: View {
-    let portfolio: TradingPortfolio
+// MARK: - 統一投資組合分析卡片
+struct UnifiedPortfolioAnalysisCard: View {
+    let tradingPortfolio: TradingPortfolio
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("錦標賽投資組合分析")
+            Text("投資組合分析")
                 .font(.headline)
                 .fontWeight(.bold)
             
             VStack(spacing: 12) {
                 AnalysisRow(
                     title: "持股檔數",
-                    value: "\(portfolio.positions.count)檔",
+                    value: "\(tradingPortfolio.positions.count)檔",
                     icon: "chart.pie"
                 )
                 
                 AnalysisRow(
                     title: "未實現損益",
-                    value: TradingService.shared.formatCurrency(portfolio.totalProfit),
+                    value: TradingService.shared.formatCurrency(tradingPortfolio.totalProfit),
                     icon: "arrow.up.arrow.down",
-                    valueColor: portfolio.totalProfit >= 0 ? .green : .red
+                    valueColor: tradingPortfolio.totalProfit >= 0 ? .green : .red
                 )
                 
                 AnalysisRow(
                     title: "累計報酬率",
-                    value: TradingService.shared.formatPercentage(portfolio.cumulativeReturn),
+                    value: TradingService.shared.formatPercentage(tradingPortfolio.cumulativeReturn),
                     icon: "percent",
-                    valueColor: portfolio.cumulativeReturn >= 0 ? .green : .red
+                    valueColor: tradingPortfolio.cumulativeReturn >= 0 ? .green : .red
                 )
                 
                 AnalysisRow(
                     title: "現金比重",
-                    value: String(format: "%.1f%%", (portfolio.cashBalance / portfolio.totalAssets) * 100),
+                    value: String(format: "%.1f%%", (tradingPortfolio.cashBalance / tradingPortfolio.totalAssets) * 100),
                     icon: "dollarsign.circle"
                 )
             }

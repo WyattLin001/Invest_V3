@@ -278,8 +278,9 @@ struct AppContainer: View {
 // MARK: - Service Factory
 
 /// 創建完整配置的錦標賽工作流程服務
+@MainActor
 private func makeTournamentWorkflowService() -> TournamentWorkflowService {
-    // 使用非隔離的初始化器，服務將在使用時才會進入MainActor上下文
+    // 在MainActor上下文中初始化服務
     return TournamentWorkflowService(
         tournamentService: TournamentService.shared,
         tradeService: TournamentTradeService.shared,

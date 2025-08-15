@@ -672,17 +672,13 @@ struct TradeOrderView: View {
                     try await tradingService.buyStock(
                         symbol: stock.symbol,
                         quantity: qty,
-                        price: stockPrice,
-                        tournamentId: tournamentId,
-                        tournamentName: tournamentName
+                        price: stockPrice
                     )
                 case .sell:
                     try await tradingService.sellStock(
                         symbol: stock.symbol,
                         quantity: qty,
-                        price: stockPrice,
-                        tournamentId: tournamentId,
-                        tournamentName: tournamentName
+                        price: stockPrice
                     )
                 }
                 

@@ -316,20 +316,20 @@ class TournamentTradeService: ObservableObject {
         // 使用數據庫事務執行原子操作
         try await supabaseService.executeTransactionBlock { client in
             // 1. 插入交易記錄
-            try await client.insertTournamentTrade(trade)
+            try await supabaseService.insertTournamentTrade(trade)
             
             // 2. 更新持倉
-            try await client.updateTournamentPosition(
+            try await supabaseService.updateTournamentPosition(
                 tournamentId: tournamentId,
                 userId: userId,
                 symbol: symbol,
-                side: side,
+                side: side.rawValue,
                 qty: qty,
                 price: price
             )
             
             // 3. 更新錢包
-            try await client.updateTournamentWallet(
+            try await supabaseService.updateTournamentWallet(
                 tournamentId: tournamentId,
                 userId: userId,
                 side: side,
@@ -343,7 +343,9 @@ class TournamentTradeService: ObservableObject {
     
     /// 獲取錦標賽資訊
     private func getTournament(id: UUID) async throws -> Tournament {
-        let tournament = try await TournamentService.shared.fetchTournament(id: id)
+        guard let tournament = try await TournamentService.shared.fetchTournament(id: id) else {
+            throw NSError(domain: "TournamentTradeService", code: 404, userInfo: [NSLocalizedDescriptionKey: "錦標賽不存在"])
+        }
         return tournament
     }
     
@@ -448,8 +450,16 @@ class TournamentTradeService: ObservableObject {
     /// 檢查交易狀態
     func checkTradeStatus(tradeId: UUID) async -> Result<TradeStatus, Error> {
         do {
-            let trade = try await supabaseService.fetchTournamentTrade(tradeId: tradeId)
-            return .success(trade.status)
+            let tradeRecord = try await supabaseService.fetchTournamentTrade(tradeId: tradeId)
+            
+            // 檢查交易記錄是否存在
+            guard let trade = tradeRecord else {
+                return .failure(NSError(domain: "TournamentTradeService", code: 404, userInfo: [NSLocalizedDescriptionKey: "交易記錄不存在"]))
+            }
+            
+            // TournamentTradeRecord 沒有 status 屬性，根據可用資料推斷狀態
+            let status: TradeStatus = trade.realizedGainLoss != nil ? .executed : .pending
+            return .success(status)
         } catch {
             print("❌ [TournamentTradeService] 檢查交易狀態失敗: \(error)")
             return .failure(error)
@@ -459,7 +469,32 @@ class TournamentTradeService: ObservableObject {
     /// 獲取交易詳情
     func getTradeDetails(tradeId: UUID) async -> Result<TournamentTrade, Error> {
         do {
-            let trade = try await supabaseService.fetchTournamentTrade(tradeId: tradeId)
+            let optionalTradeRecord = try await supabaseService.fetchTournamentTrade(tradeId: tradeId)
+            
+            // 檢查交易記錄是否存在
+            guard let tradeRecord = optionalTradeRecord else {
+                return .failure(NSError(domain: "TournamentTradeService", code: 404, userInfo: [NSLocalizedDescriptionKey: "交易記錄不存在"]))
+            }
+            
+            // 轉換 TournamentTradeRecord 到 TournamentTrade
+            let trade = TournamentTrade(
+                id: tradeRecord.id,
+                tournamentId: tradeRecord.tournamentId ?? UUID(),
+                userId: tradeRecord.userId,
+                symbol: tradeRecord.symbol,
+                side: tradeRecord.type,
+                qty: tradeRecord.shares,
+                price: tradeRecord.price,
+                amount: tradeRecord.totalAmount,
+                fees: tradeRecord.fee,
+                netAmount: tradeRecord.netAmount,
+                realizedPnl: tradeRecord.realizedGainLoss,
+                realizedPnlPercentage: tradeRecord.realizedGainLossPercent,
+                status: tradeRecord.realizedGainLoss != nil ? .executed : .pending,
+                executedAt: tradeRecord.timestamp,
+                createdAt: tradeRecord.timestamp
+            )
+            
             return .success(trade)
         } catch {
             print("❌ [TournamentTradeService] 獲取交易詳情失敗: \(error)")

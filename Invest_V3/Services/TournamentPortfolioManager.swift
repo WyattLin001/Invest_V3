@@ -250,6 +250,9 @@ struct TournamentTradingRecord: Identifiable, Codable {
     var realizedGainLossPercent: Double?
     let notes: String?
     
+    // 新增的缺失成員 (可選，避免破壞現有代碼)
+    let tradeDate: Date?
+    
     enum CodingKeys: String, CodingKey {
         case id, symbol, type, shares, price, timestamp, notes
         case tournamentId = "tournament_id"
@@ -259,6 +262,7 @@ struct TournamentTradingRecord: Identifiable, Codable {
         case fee, netAmount = "net_amount"
         case realizedGainLoss = "realized_gain_loss"
         case realizedGainLossPercent = "realized_gain_loss_percent"
+        case tradeDate = "trade_date"
     }
 }
 
@@ -354,39 +358,22 @@ class TournamentPortfolioManager: ObservableObject {
             return false
         }
         
-        // 創建本地投資組合記錄（為了維持向後相容）
+        // 創建本地投資組合記錄（使用 TournamentPortfolioV2 結構）
         var newPortfolio = TournamentPortfolio(
             id: wallet.id,
             tournamentId: tournament.id,
             userId: userId,
-            userName: userName,
-            holdings: [],
+            cashBalance: wallet.cashBalance,
+            equityValue: wallet.equityValue,
+            totalAssets: wallet.totalAssets,
             initialBalance: wallet.initialBalance,
-            currentBalance: wallet.cashBalance,
-            totalInvested: 0,
-            tradingRecords: [],
-            performanceMetrics: PerformanceMetrics(
-                totalReturn: wallet.totalReturn,
-                annualizedReturn: 0, // Will be calculated separately
-                maxDrawdown: wallet.maxDrawdown,
-                sharpeRatio: nil,
-                winRate: wallet.winRate,
-                avgHoldingDays: 0,
-                diversificationScore: 0,
-                riskScore: 0,
-                totalTrades: wallet.totalTrades,
-                profitableTrades: wallet.winningTrades,
-                currentRank: 0,
-                maxDrawdownPercentage: wallet.maxDrawdown,
-                // 新增的缺失參數
-                totalReturnPercentage: wallet.returnPercentage,
-                dailyReturn: wallet.dailyReturn ?? 0.0,
-                averageHoldingDays: 0, // 暫時為0
-                previousRank: 0, // 暫時為0
-                percentile: 50.0, // 暫時為中位數
-                lastUpdated: Date(),
-                rankChange: 0 // 暫時為0，表示排名無變化
-            ),
+            totalReturn: wallet.totalReturn,
+            returnPercentage: wallet.returnPercentage,
+            totalTrades: wallet.totalTrades,
+            winningTrades: wallet.winningTrades,
+            maxDrawdown: wallet.maxDrawdown,
+            dailyReturn: wallet.dailyReturn ?? 0.0,
+            sharpeRatio: wallet.sharpeRatio,
             lastUpdated: Date()
         )
         
@@ -500,27 +487,24 @@ class TournamentPortfolioManager: ObservableObject {
             
             let positions = try positionsResult.get()
             
-            // 更新本地投資組合數據
-            var updatedPortfolio = portfolio
-            updatedPortfolio.currentBalance = wallet.cashBalance
-            
-            // 將 TournamentPosition 轉換為 TournamentHolding
-            updatedPortfolio.holdings = positions.map { position in
-                TournamentHolding(
-                    id: UUID(),
-                    tournamentId: position.tournamentId,
-                    userId: position.userId,
-                    symbol: position.symbol,
-                    name: position.symbol, // 需要股票名稱，暫時使用代碼
-                    shares: position.qty,
-                    averagePrice: position.avgCost,
-                    currentPrice: position.currentPrice,
-                    firstPurchaseDate: position.firstBuyAt ?? Date(),
-                    lastUpdated: position.lastUpdated
-                )
-            }
-            
-            updatedPortfolio.lastUpdated = Date()
+            // 創建新的投資組合實例（因為 TournamentPortfolioV2 屬性為不可變）
+            let updatedPortfolio = TournamentPortfolio(
+                id: portfolio.id,
+                tournamentId: portfolio.tournamentId,
+                userId: portfolio.userId,
+                cashBalance: wallet.cashBalance,
+                equityValue: wallet.equityValue,
+                totalAssets: wallet.totalAssets,
+                initialBalance: portfolio.initialBalance,
+                totalReturn: wallet.totalReturn,
+                returnPercentage: wallet.returnPercentage,
+                totalTrades: wallet.totalTrades,
+                winningTrades: wallet.winningTrades,
+                maxDrawdown: wallet.maxDrawdown,
+                dailyReturn: wallet.dailyReturn ?? 0.0,
+                sharpeRatio: wallet.sharpeRatio,
+                lastUpdated: Date()
+            )
             
             // 更新績效指標 - Note: PerformanceMetrics properties may be immutable
             // Consider creating a new PerformanceMetrics instance if needed
@@ -582,11 +566,24 @@ class TournamentPortfolioManager: ObservableObject {
                 userId: portfolio.userId
             )
             
-            // 更新本地投資組合的績效指標 - Note: PerformanceMetrics properties may be immutable
-            // Consider creating a new PerformanceMetrics instance if needed
-            var updatedPortfolio = portfolio
-            
-            updatedPortfolio.lastUpdated = Date()
+            // 創建新的投資組合實例（因為 TournamentPortfolioV2 屬性為不可變）
+            let updatedPortfolio = TournamentPortfolio(
+                id: portfolio.id,
+                tournamentId: portfolio.tournamentId,
+                userId: portfolio.userId,
+                cashBalance: wallet.cashBalance,
+                equityValue: wallet.equityValue,
+                totalAssets: wallet.totalAssets,
+                initialBalance: portfolio.initialBalance,
+                totalReturn: wallet.totalReturn,
+                returnPercentage: wallet.returnPercentage,
+                totalTrades: wallet.totalTrades,
+                winningTrades: wallet.winningTrades,
+                maxDrawdown: wallet.maxDrawdown,
+                dailyReturn: wallet.dailyReturn ?? 0.0,
+                sharpeRatio: wallet.sharpeRatio,
+                lastUpdated: Date()
+            )
             tournamentPortfolios[tournamentId] = updatedPortfolio
             saveTournamentPortfolios()
             

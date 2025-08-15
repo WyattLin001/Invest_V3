@@ -395,17 +395,22 @@ struct ModernTournamentSelectionView: View {
             Tournament(
                 id: UUID(),
                 name: names[index],
-                description: descriptions[index],
+                type: .monthly,
                 status: status,
                 startDate: Date().addingTimeInterval(TimeInterval(index * 86400 - 172800)),
                 endDate: Date().addingTimeInterval(TimeInterval(index * 86400 + 518400)),
-                entryCapital: [1000000, 500000, 2000000, 300000, 1500000][index],
+                description: descriptions[index],
+                shortDescription: names[index],
+                initialBalance: Double([1000000, 500000, 2000000, 300000, 1500000][index]),
+                entryFee: Double([0, 50, 0, 100, 0][index]),
+                prizePool: Double([100000, 50000, 200000, 30000, 150000][index]),
                 maxParticipants: [100, 50, 200, 30, 80][index],
                 currentParticipants: [85, 35, 150, 28, 45][index],
-                feeTokens: [0, 50, 0, 100, 0][index],
-                returnMetric: "twr",
-                resetMode: "monthly",
-                createdAt: Date().addingTimeInterval(TimeInterval(-index * 172800)),
+                isFeatured: index == 0,
+                createdBy: UUID(),
+                riskLimitPercentage: 20.0,
+                minHoldingRate: 0.1,
+                maxSingleStockRate: 0.3,
                 rules: index == 0 ? [
                     "允許做空交易",
                     "單一持股上限：30%",
@@ -414,7 +419,9 @@ struct ModernTournamentSelectionView: View {
                     "最大回撤限制：20%",
                     "最大槓桿：2.0x",
                     "每日最大交易次數：50"
-                ] : []
+                ] : [],
+                createdAt: Date().addingTimeInterval(TimeInterval(-index * 172800)),
+                updatedAt: Date().addingTimeInterval(TimeInterval(-index * 172800))
             )
         }
     }

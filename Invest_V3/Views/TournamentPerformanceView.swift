@@ -454,6 +454,22 @@ struct TournamentMetricCard: View {
         .cornerRadius(8)
         .shadow(color: getMetricCardShadowColor(), radius: 1, x: 0, y: 1)
     }
+    
+    // MARK: - Helper Methods
+    
+    /// 獲取卡片背景顏色
+    private func getCardBackgroundColor() -> Color {
+        return Color(.systemBackground)
+    }
+    
+    /// 獲取指標卡片陰影顏色
+    private func getMetricCardShadowColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.white.withAlphaComponent(0.02)
+                : UIColor.black.withAlphaComponent(0.05)
+        })
+    }
 }
 
 // MARK: - 統計行組件
@@ -476,6 +492,15 @@ struct StatRow: View {
         .padding(8)
         .background(getStatRowBackgroundColor())
         .cornerRadius(6)
+    }
+    
+    /// 獲取統計行背景顏色
+    private func getStatRowBackgroundColor() -> Color {
+        return Color(UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.systemGray5.withAlphaComponent(0.3)
+                : UIColor.systemGray6.withAlphaComponent(0.5)
+        })
     }
 }
 
@@ -549,6 +574,8 @@ struct TournamentProgressBar: View {
                 totalTrades: 10,
                 winningTrades: 6,
                 maxDrawdown: 10000,
+                dailyReturn: 0.0,
+                sharpeRatio: nil,
                 lastUpdated: Date()
             ),
             tournament: Tournament(

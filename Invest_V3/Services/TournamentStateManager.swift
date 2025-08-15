@@ -518,6 +518,12 @@ class TournamentStateManager: ObservableObject {
             // 獲取最新錦標賽資訊
             let updatedTournament = try await tournamentService.fetchTournament(id: context.tournament.id)
             
+            // 檢查錦標賽是否存在
+            guard let tournament = updatedTournament else {
+                print("⚠️ [TournamentStateManager] 錦標賽不存在，無法刷新上下文")
+                return
+            }
+            
             // 獲取最新投資組合
             let updatedPortfolio = portfolioManager.getPortfolio(for: context.tournament.id)
             
@@ -531,7 +537,7 @@ class TournamentStateManager: ObservableObject {
             
             // 更新上下文
             let updatedContext = TournamentContext(
-                tournament: updatedTournament,
+                tournament: tournament,
                 participant: updatedParticipant,
                 state: context.state,
                 portfolio: updatedPortfolio,
