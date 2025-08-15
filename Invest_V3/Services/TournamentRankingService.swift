@@ -323,12 +323,12 @@ class TournamentRankingService: ObservableObject {
     }
     
     /// 計算分佈統計
-    private func calculateDistributionStats(_ returns: [Double]) -> DistributionStats {
+    private func calculateDistributionStats(_ returns: [Double]) -> DistributionStatsModel {
         let positive = returns.filter { $0 > 0 }.count
         let negative = returns.filter { $0 < 0 }.count
         let neutral = returns.filter { $0 == 0 }.count
         
-        return DistributionStats(
+        return DistributionStatsModel(
             positiveReturns: positive,
             negativeReturns: negative,
             neutralReturns: neutral,
@@ -384,7 +384,7 @@ class TournamentRankingService: ObservableObject {
             // 計算績效指標
             let metrics = PerformanceMetrics(
                 totalReturn: wallet.totalReturn,
-                annualizedReturn: calculateAnnualizedReturn(wallet: wallet, tournamentId: tournamentId),
+                annualizedReturn: await calculateAnnualizedReturn(wallet: wallet, tournamentId: tournamentId),
                 maxDrawdown: wallet.maxDrawdown,
                 sharpeRatio: wallet.sharpeRatio,
                 winRate: wallet.winRate,
@@ -595,7 +595,7 @@ class TournamentRankingService: ObservableObject {
         // 基於最大回撤和交易頻率計算風險評分
         let drawdownScore = min(wallet.maxDrawdown * 10, 5.0) // 0-5分
         
-        let tradingFrequency = Double(trades.count) / max(1.0, Date().timeIntervalSince(wallet.createdAt) / (24 * 3600 * 7)) // 每週交易次數
+        let tradingFrequency = Double(trades.count) / max(1.0, Date().timeIntervalSince(wallet.lastUpdated) / (24 * 3600 * 7)) // 每週交易次數
         let frequencyScore = min(tradingFrequency, 5.0) // 0-5分
         
         return drawdownScore + frequencyScore // 0-10分

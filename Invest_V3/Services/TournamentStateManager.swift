@@ -474,9 +474,11 @@ class TournamentStateManager: ObservableObject {
         switch computedStatus {
         case .upcoming, .enrolling:
             return .joining
-        case .ongoing:
+        case .ongoing, .active:
             return .active
-        case .finished:
+        case .finished, .ended:
+            return .completed
+        case .settling:
             return .completed
         case .cancelled:
             return .none
