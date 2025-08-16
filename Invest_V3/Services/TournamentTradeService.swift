@@ -316,10 +316,10 @@ class TournamentTradeService: ObservableObject {
         // 使用數據庫事務執行原子操作
         try await supabaseService.executeTransactionBlock { client in
             // 1. 插入交易記錄
-            try await supabaseService.insertTournamentTrade(trade)
+            try await self.supabaseService.insertTournamentTrade(trade)
             
             // 2. 更新持倉
-            try await supabaseService.updateTournamentPosition(
+            try await self.supabaseService.updateTournamentPosition(
                 tournamentId: tournamentId,
                 userId: userId,
                 symbol: symbol,
@@ -329,10 +329,10 @@ class TournamentTradeService: ObservableObject {
             )
             
             // 3. 更新錢包
-            try await supabaseService.updateTournamentWallet(
+            try await self.supabaseService.updateTournamentWallet(
                 tournamentId: tournamentId,
                 userId: userId,
-                side: side,
+                side: side.rawValue,
                 amount: qty * price,
                 fees: fees
             )

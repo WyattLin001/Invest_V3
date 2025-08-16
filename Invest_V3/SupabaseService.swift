@@ -4424,7 +4424,7 @@ class SupabaseService: ObservableObject {
         try await client
             .from("tournament_positions")
             .update([
-                "current_price": currentPrice,
+                "current_price": String(currentPrice),
                 "last_updated": ISO8601DateFormatter().string(from: Date())
             ])
             .eq("tournament_id", value: tournamentId.uuidString)
@@ -4565,12 +4565,12 @@ class SupabaseService: ObservableObject {
     func createTournamentMember(_ member: TournamentMember) async throws {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
-        let memberData: [String: Any] = [
+        let memberData: [String: AnyHashable] = [
             "tournament_id": member.tournamentId.uuidString,
             "user_id": member.userId.uuidString,
             "status": member.status.rawValue,
             "joined_at": member.joinedAt.iso8601,
-            "elimination_reason": member.eliminationReason ?? NSNull()
+            "elimination_reason": member.eliminationReason
         ]
         
         try await client
@@ -6008,7 +6008,7 @@ extension SupabaseService {
             maxParticipants: response.maxParticipants,
             currentParticipants: response.currentParticipants,
             isFeatured: response.isFeatured ?? false,
-            createdBy: response.createdBy ?? UUID(), // Use response creator or default UUID if nil
+            createdBy: UUID(), // Default UUID since response doesn't have createdBy
             riskLimitPercentage: response.riskLimitPercentage ?? 10.0,
             minHoldingRate: response.minHoldingRate ?? 0.0,
             maxSingleStockRate: response.maxSingleStockRate ?? 30.0,
@@ -7763,15 +7763,15 @@ extension SupabaseService {
         print("💾 [SupabaseService] 保存錦標賽排名: \(rankings.count) 位參賽者")
         
         // 轉換為數據庫格式
-        let rankingData = rankings.map { entry in
+        let rankingData = try rankings.map { entry in
             [
-                "tournament_id": AnyJSON(tournamentId.uuidString),
-                "user_id": AnyJSON(entry.userId.uuidString),
-                "rank": AnyJSON(entry.currentRank),
-                "total_assets": AnyJSON(entry.totalAssets),
-                "return_percentage": AnyJSON(entry.returnPercentage),
-                "total_trades": AnyJSON(entry.totalTrades),
-                "updated_at": AnyJSON(ISO8601DateFormatter().string(from: Date()))
+                "tournament_id": try AnyJSON(tournamentId.uuidString),
+                "user_id": try AnyJSON(entry.userId.uuidString),
+                "rank": try AnyJSON(entry.currentRank),
+                "total_assets": try AnyJSON(entry.totalAssets),
+                "return_percentage": try AnyJSON(entry.returnPercentage),
+                "total_trades": try AnyJSON(entry.totalTrades),
+                "updated_at": try AnyJSON(ISO8601DateFormatter().string(from: Date()))
             ]
         }
         
@@ -7796,11 +7796,11 @@ extension SupabaseService {
         print("📸 [SupabaseService] 更新排名快照: 第\(rank)名")
         
         let snapshotData: [String: AnyJSON] = [
-            "tournament_id": AnyJSON(tournamentId.uuidString),
-            "user_id": AnyJSON(userId.uuidString),
-            "rank": AnyJSON(rank),
-            "snapshot_date": AnyJSON(ISO8601DateFormatter().string(from: snapshotDate)),
-            "created_at": AnyJSON(ISO8601DateFormatter().string(from: Date()))
+            "tournament_id": try AnyJSON(tournamentId.uuidString),
+            "user_id": try AnyJSON(userId.uuidString),
+            "rank": try AnyJSON(rank),
+            "snapshot_date": try AnyJSON(ISO8601DateFormatter().string(from: snapshotDate)),
+            "created_at": try AnyJSON(ISO8601DateFormatter().string(from: Date()))
         ]
         
         try await client
@@ -7832,7 +7832,7 @@ extension SupabaseService {
             .order("snapshot_date", ascending: false)
             .execute()
         
-        let snapshots = try response.decoded(to: [TournamentSnapshot].self)
+        let snapshots: [TournamentSnapshot] = try response.value
         print("✅ 找到 \(snapshots.count) 個歷史快照")
         
         return snapshots
@@ -7866,7 +7866,7 @@ extension SupabaseService {
     func insertTournamentTrade(_ trade: TournamentTradeRecord) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
-        let tradeData: [String: Any] = [
+        let tradeData: [String: AnyHashable] = [
             "id": trade.id.uuidString,
             "user_id": trade.userId.uuidString,
             "tournament_id": trade.tournamentId?.uuidString ?? "",

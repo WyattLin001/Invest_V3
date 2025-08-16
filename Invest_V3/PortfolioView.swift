@@ -1011,10 +1011,11 @@ struct UnifiedPerformanceChartCard: View {
             )
         } else {
             // 錦標賽模式需要錦標賽上下文
-            if let context = tournamentStateManager.currentTournamentContext {
+            if let context = tournamentStateManager.currentTournamentContext,
+               let tournamentPortfolio = context.portfolio {
                 return TournamentPerformanceDataGenerator.generateData(
                     for: selectedTimeRange,
-                    portfolio: portfolio,
+                    portfolio: tournamentPortfolio,
                     tournament: context.tournament
                 )
             } else {

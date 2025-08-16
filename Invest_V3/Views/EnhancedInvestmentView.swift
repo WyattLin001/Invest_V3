@@ -143,7 +143,7 @@ struct EnhancedInvestmentView: View {
             TabView(selection: $selectedTab) {
             // 1. 投資組合總覽
             NavigationStack {
-                ScrollView([.vertical]) {
+                ScrollView(.vertical) {
                     GeometryReader { geometry in
                         Color.clear
                             .preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
