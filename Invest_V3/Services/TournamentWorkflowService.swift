@@ -714,7 +714,9 @@ class TournamentWorkflowService: ObservableObject {
                 totalAssets: ranking.totalAssets,
                 returnPercentage: ranking.totalReturnPercent,
                 reward: reward,
-                finalizedAt: Date()
+                finalizedAt: Date(),
+                totalTrades: ranking.totalTrades,
+                winRate: ranking.winRate
             )
             
             results.append(result)
