@@ -154,14 +154,14 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            Task {
+            Task { @MainActor in
                 // 第一次載入時初始化測試數據
                 await viewModel.initializeTestData()
                 await loadWalletBalance()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshGroupsList"))) { _ in
-            Task {
+            Task { @MainActor in
                 await viewModel.loadData()
             }
         }
@@ -171,7 +171,7 @@ struct HomeView: View {
                let tournamentName = userInfo["tournamentName"] as? String {
                 currentTournamentName = tournamentName
             }
-            Task {
+            Task { @MainActor in
                 await viewModel.loadData()
                 await loadWalletBalance()
             }
@@ -556,7 +556,7 @@ struct HomeView: View {
                     ) {
                         // 加入群組動作
                         selectedGroup = group
-                        Task {
+                        Task { @MainActor in
                             await viewModel.joinGroup(group.id)
                             // 成功加入後自動跳轉到聊天室
                             NotificationCenter.default.post(
@@ -644,7 +644,7 @@ struct HomeView: View {
             }
             
             Button(action: {
-                Task {
+                Task { @MainActor in
                     await viewModel.loadData()
                 }
             }) {
@@ -1452,7 +1452,7 @@ struct InvitationRowView: View {
     
     private var declineButton: some View {
         Button(action: {
-            Task {
+            Task { @MainActor in
                 await viewModel.declineInvitation(invitation)
             }
         }) {
@@ -1470,7 +1470,7 @@ struct InvitationRowView: View {
     
     private var acceptButton: some View {
         Button(action: {
-            Task {
+            Task { @MainActor in
                 await viewModel.acceptInvitation(invitation)
             }
         }) {
