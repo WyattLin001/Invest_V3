@@ -6,6 +6,227 @@
 //  投資管理主視圖 - 包含五大功能模組的完整投資體驗
 
 import SwiftUI
+import UIKit
+
+// MARK: - Temporary placeholders for missing dependencies
+class ThemeManager: ObservableObject {
+    // Placeholder for theme management
+}
+
+class TournamentStateManager: ObservableObject {
+    static let shared = TournamentStateManager()
+    
+    @Published var currentTournament: Tournament?
+    @Published var participatedTournaments: [Tournament] = []
+    @Published var isInTournamentMode = false
+    
+    private init() {}
+}
+
+struct Tournament: Identifiable, Codable {
+    let id = UUID()
+    let name: String
+    let status: TournamentStatus
+    let type: TournamentType
+    
+    init(name: String, status: TournamentStatus = .active, type: TournamentType = .regular) {
+        self.name = name
+        self.status = status
+        self.type = type
+    }
+    
+    enum TournamentStatus: Codable {
+        case active, upcoming, ended
+        
+        var displayName: String {
+            switch self {
+            case .active: return "進行中"
+            case .upcoming: return "即將開始" 
+            case .ended: return "已結束"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .active: return .green
+            case .upcoming: return .orange
+            case .ended: return .gray
+            }
+        }
+    }
+    
+    enum TournamentType: Codable {
+        case regular, special
+        
+        var displayName: String {
+            switch self {
+            case .regular: return "常規賽"
+            case .special: return "特別賽"
+            }
+        }
+    }
+}
+
+// MARK: - Design System Placeholders
+struct DesignTokens {
+    static let spacingSM: CGFloat = 8
+    static let spacingMD: CGFloat = 16
+    static let spacingLG: CGFloat = 24
+}
+
+// MARK: - Extension Placeholders
+extension Text {
+    func adaptiveTextColor(primary: Bool = true) -> Text {
+        self.foregroundColor(primary ? .primary : .secondary)
+    }
+}
+
+extension View {
+    func brandCardStyle() -> some View {
+        self
+            .padding()
+            .background(Color(UIColor.systemBackground))
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+    }
+}
+
+// MARK: - Color Extensions
+extension Color {
+    static let brandGreen = Color.green
+    static let brandBlue = Color.blue
+    static let brandOrange = Color.orange
+    static let surfacePrimary = Color(UIColor.systemBackground)
+    static let surfaceSecondary = Color(UIColor.secondarySystemBackground)
+    static let textSecondary = Color(UIColor.secondaryLabel)
+}
+
+// MARK: - Additional Placeholders
+enum InvestmentTab: CaseIterable {
+    case home, records, tournaments, rankings, performance
+}
+
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+// Placeholder for StatisticsBanner
+struct StatisticsBanner: View {
+    let statisticsManager: Any?
+    let portfolioManager: Any?
+    let tournamentStateManager: Any?
+    
+    var body: some View {
+        VStack {
+            Text("Statistics Banner Placeholder")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+    }
+}
+
+// Placeholder Views
+struct InvestmentHomeView: View {
+    let currentActiveTournament: Tournament?
+    let participatedTournaments: [Tournament]
+    @Binding var showingTournamentTrading: Bool
+    @Binding var showingTournamentSelection: Bool
+    
+    var body: some View {
+        VStack {
+            Text("Investment Home View Placeholder")
+                .font(.title2)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+    }
+}
+
+struct PersonalPerformanceScrollableView: View {
+    @Binding var showTitle: Bool
+    
+    var body: some View {
+        ScrollView {
+            VStack {
+                Text("Personal Performance View Placeholder")
+                    .font(.title2)
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+        }
+    }
+}
+
+struct TournamentRankingsView: View {
+    var body: some View {
+        VStack {
+            Text("Tournament Rankings View Placeholder")
+                .font(.title2)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+    }
+}
+
+// Placeholder for additional missing components
+class ChatPortfolioManager: ObservableObject {
+    static let shared = ChatPortfolioManager()
+    @Published var holdings: [PortfolioHolding] = []
+    @Published var portfolioPercentages: [(String, Double)] = []
+    
+    private init() {}
+}
+
+struct PortfolioHolding: Identifiable {
+    let id = UUID()
+    let symbol: String
+    let name: String
+    let totalValue: Double
+}
+
+struct StockColorPalette {
+    static func colorForStock(symbol: String) -> Color {
+        Color.blue
+    }
+}
+
+struct StockSearchTextField: View {
+    @Binding var text: String
+    let placeholder: String
+    let onSelection: (StockSelection) -> Void
+    
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .textFieldStyle(RoundedBorderTextFieldStyle())
+    }
+}
+
+struct StockSelection {
+    let code: String
+    let name: String
+}
+
+struct TradingRecordRow: View {
+    let record: TradingRecord
+    
+    var body: some View {
+        HStack {
+            Text("Trading Record Placeholder")
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+struct TradingRecord: Identifiable {
+    let id = UUID()
+}
 
 // MARK: - 錦標賽切換 Loading 視圖
 struct TournamentSwitchLoadingView: View {
@@ -75,7 +296,7 @@ struct TournamentSwitchLoadingView: View {
     private func startLoadingAnimation() {
         Task {
             while true {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                try? await Task.sleep(nanoseconds: 500_000_000)
                 await MainActor.run {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         if loadingDots.count < 3 {
@@ -84,7 +305,7 @@ struct TournamentSwitchLoadingView: View {
                             loadingDots = ""
                         }
                     }
-                })
+                }
             }
         }
     }
@@ -174,7 +395,7 @@ struct EnhancedInvestmentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showTitle = value < -50
                     }
-                })
+                }
                 .navigationTitle(showTitle ? "投資總覽" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(content: {
@@ -235,7 +456,7 @@ struct EnhancedInvestmentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showTitle = value < -50
                     }
-                })
+                }
                 .navigationTitle(showTitle ? "交易記錄" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(content: {
@@ -280,7 +501,7 @@ struct EnhancedInvestmentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showTitle = value < -50
                     }
-                })
+                }
                 .navigationTitle(showTitle ? "錦標賽" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(content: {
@@ -322,7 +543,7 @@ struct EnhancedInvestmentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showTitle = value < -50
                     }
-                })
+                }
                 .navigationTitle(showTitle ? "排行榜" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(content: {
@@ -407,7 +628,7 @@ struct EnhancedInvestmentView: View {
                         Image(systemName: "chart.bar.fill")
                         Text("一般模式")
                     }
-                })
+                }
                 
                 Divider()
                 
@@ -426,7 +647,7 @@ struct EnhancedInvestmentView: View {
                             }
                         }
                     }
-                })
+                }
             } label: {
                 HStack(spacing: 4) {
                     // 統一的錦標賽圖標，所有狀態都一樣
@@ -1111,7 +1332,7 @@ struct InvestmentHomeView: View {
                                 .cornerRadius(4)
                         }
                     }
-                })
+                }
                 
                 Spacer()
             }
@@ -1245,7 +1466,7 @@ struct InvestmentHomeView: View {
                             .cornerRadius(8)
                         }
                     }
-                })
+                }
                 
                 // 清除投資組合按鈕（僅在有持股時顯示）
                 if !portfolioManager.holdings.isEmpty {
@@ -1272,7 +1493,7 @@ struct InvestmentHomeView: View {
                                 )
                         }
                     }
-                })
+                }
             }
         }
         .brandCardStyle()
@@ -1310,12 +1531,12 @@ struct InvestmentHomeView: View {
                     Task {
                         await fetchCurrentPrice()
                     }
-                })
+                }
                 .onChange(of: stockSymbol) { newValue in
                     Task {
                         await fetchCurrentPrice()
                     }
-                })
+                }
                 
                 // 即時股價顯示
                 if !stockSymbol.isEmpty {
@@ -1859,7 +2080,7 @@ struct InvestmentRecordsView: View {
                             .fontWeight(.medium)
                             .foregroundColor(tournament.status.color)
                     }
-                })
+                }
                 
                 Spacer()
                 
@@ -2003,7 +2224,7 @@ struct InvestmentRecordsView: View {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.textSecondary)
                     }
-                })
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -2025,7 +2246,7 @@ struct InvestmentRecordsView: View {
                             selectedTradingType = type
                         }
                     }
-                }) label: {
+                } label: {
                     HStack {
                         Text(selectedTradingType?.displayName ?? "所有類型")
                             .font(.subheadline)
@@ -2048,7 +2269,7 @@ struct InvestmentRecordsView: View {
                             selectedDateRange = range
                         }
                     }
-                }) label: {
+                } label: {
                     HStack {
                         Text(selectedDateRange.displayName)
                             .font(.subheadline)
@@ -2171,7 +2392,7 @@ struct InvestmentRecordsView: View {
                             .background(Color.surfacePrimary)
                             .cornerRadius(8)
                     }
-                })
+                }
             }
             .padding(.horizontal, 4)
         }
@@ -2311,7 +2532,7 @@ struct TradingRecordRow: View {
                             .font(.caption)
                             .foregroundColor(.textSecondary)
                     }
-                })
+                }
                 .frame(width: 80, alignment: .trailing)
             }
             .frame(minWidth: 540) // 確保與表頭寬度一致
@@ -2436,7 +2657,7 @@ struct TournamentSelectionSheet: View {
                         }
                         .padding()
                     }
-                })
+                }
                 
                 Spacer()
             }
@@ -2447,7 +2668,7 @@ struct TournamentSelectionSheet: View {
                     Button("完成") {
                         dismiss()
                     }
-                })
+                }
             }
         }
     }
@@ -2519,7 +2740,7 @@ struct TournamentSelectionRow: View {
                                 .cornerRadius(6)
                         }
                     }
-                })
+                }
             }
             .padding()
             .background(
@@ -2578,7 +2799,7 @@ struct TournamentTradingSelectionSheet: View {
                     Button("關閉") {
                         dismiss()
                     }
-                })
+                }
             }
         }
     }
@@ -2779,7 +3000,7 @@ struct CreateTournamentView: View {
                     Button("取消") {
                         dismiss()
                     }
-                })
+                }
             }
             .alert("建立錦標賽", isPresented: $showAlert) {
                 Button("確定", role: .cancel) { }
@@ -2869,7 +3090,7 @@ struct CreateTournamentView: View {
                             .font(.caption)
                             .foregroundColor(.orange)
                     }
-                })
+                }
             }
         }
         .cardStyle()
@@ -3194,7 +3415,7 @@ struct PersonalPerformanceInnerContent: View {
                     VStack(spacing: DesignTokens.spacingMD) {
                         achievementsCard
                     }
-                })
+                }
             }
         }
         .refreshable {
@@ -3268,7 +3489,7 @@ struct PersonalPerformanceInnerContent: View {
                             )
                             .cornerRadius(16)
                     }
-                })
+                }
             }
             .padding(.horizontal)
         }
@@ -3300,7 +3521,7 @@ struct PersonalPerformanceInnerContent: View {
                             )
                             .cornerRadius(20)
                     }
-                })
+                }
             }
             .padding(.horizontal)
         }
