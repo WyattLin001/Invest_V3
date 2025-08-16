@@ -771,10 +771,10 @@ struct FinalRankingRow: View {
             
             // 績效指標
             VStack(alignment: .trailing, spacing: 4) {
-                Text(formatPercentage(result.finalReturn))
+                Text(formatPercentage(result.returnPercentage))
                     .font(.headline)
                     .fontWeight(.bold)
-                    .foregroundColor(result.finalReturn >= 0 ? .green : .red)
+                    .foregroundColor(result.returnPercentage >= 0 ? .green : .red)
                 
                 if let reward = result.reward {
                     HStack(spacing: 4) {
