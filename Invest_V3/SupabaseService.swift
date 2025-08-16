@@ -4565,7 +4565,7 @@ class SupabaseService: ObservableObject {
     func createTournamentMember(_ member: TournamentMember) async throws {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
-        let memberData: [String: AnyHashable] = [
+        let memberData: [String: Any] = [
             "tournament_id": member.tournamentId.uuidString,
             "user_id": member.userId.uuidString,
             "status": member.status.rawValue,
@@ -7823,7 +7823,7 @@ extension SupabaseService {
         
         let startDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
         
-        let response = try await client
+        let snapshots: [TournamentSnapshot] = try await client
             .from("tournament_snapshots")
             .select("*")
             .eq("tournament_id", value: tournamentId.uuidString)
@@ -7831,8 +7831,7 @@ extension SupabaseService {
             .gte("snapshot_date", value: ISO8601DateFormatter().string(from: startDate))
             .order("snapshot_date", ascending: false)
             .execute()
-        
-        let snapshots: [TournamentSnapshot] = try response.value
+            .value
         print("✅ 找到 \(snapshots.count) 個歷史快照")
         
         return snapshots
@@ -7866,7 +7865,7 @@ extension SupabaseService {
     func insertTournamentTrade(_ trade: TournamentTradeRecord) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
-        let tradeData: [String: AnyHashable] = [
+        let tradeData: [String: Any] = [
             "id": trade.id.uuidString,
             "user_id": trade.userId.uuidString,
             "tournament_id": trade.tournamentId?.uuidString ?? "",
@@ -7959,7 +7958,7 @@ extension SupabaseService {
     }
     
     /// 更新錦標賽投資組合
-    func updateTournamentPortfolio(tournamentId: UUID, userId: UUID, portfolioData: [String: AnyHashable]) async throws {
+    func updateTournamentPortfolio(tournamentId: UUID, userId: UUID, portfolioData: [String: Any]) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
         try await client
