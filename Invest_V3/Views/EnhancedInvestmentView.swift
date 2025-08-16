@@ -106,10 +106,6 @@ struct EnhancedInvestmentView: View {
     // Tournament state management
     @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var showTournamentModeSelector = false
-    
-    init(currentTournamentName: String? = nil) {
-        self.currentTournamentName = currentTournamentName
-    }
     @State private var showingTournamentDetail = false
     @State private var selectedTournament: Tournament?
     @State private var showingTournamentSelection = false
@@ -132,6 +128,10 @@ struct EnhancedInvestmentView: View {
     
     // 投資組合管理器
     @ObservedObject private var portfolioManager = ChatPortfolioManager.shared
+    
+    init(currentTournamentName: String? = nil) {
+        self.currentTournamentName = currentTournamentName
+    }
     
     // 計算當前錦標賽名稱
     private var displayTournamentName: String {
