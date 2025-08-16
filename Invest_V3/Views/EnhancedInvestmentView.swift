@@ -84,7 +84,7 @@ struct TournamentSwitchLoadingView: View {
                             loadingDots = ""
                         }
                     }
-                }
+                })
             }
         }
     }
@@ -174,7 +174,7 @@ struct EnhancedInvestmentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showTitle = value < -50
                     }
-                }
+                })
                 .navigationTitle(showTitle ? "投資總覽" : "")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(content: {
@@ -235,14 +235,14 @@ struct EnhancedInvestmentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showTitle = value < -50
                     }
-                }
+                })
                 .navigationTitle(showTitle ? "交易記錄" : "")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
+                .toolbar(content: {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton
                     }
-                }
+                })
             }
             .tabItem {
                 Label("交易記錄", systemImage: "list.bullet.clipboard")
@@ -280,14 +280,14 @@ struct EnhancedInvestmentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showTitle = value < -50
                     }
-                }
+                })
                 .navigationTitle(showTitle ? "錦標賽" : "")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
+                .toolbar(content: {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton
                     }
-                }
+                })
             }
             .tabItem {
                 Label("錦標賽", systemImage: "trophy.fill")
@@ -322,14 +322,14 @@ struct EnhancedInvestmentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showTitle = value < -50
                     }
-                }
+                })
                 .navigationTitle(showTitle ? "排行榜" : "")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
+                .toolbar(content: {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         tournamentSelectionButton
                     }
-                }
+                })
             }
             .tabItem {
                 Label("排行榜", systemImage: "list.number")
@@ -341,11 +341,11 @@ struct EnhancedInvestmentView: View {
                 PersonalPerformanceScrollableView(showTitle: $showTitle)
                     .navigationTitle(showTitle ? "我的績效" : "")
                     .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
+                    .toolbar(content: {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             tournamentSelectionButton
                         }
-                    }
+                    })
             }
             .tabItem {
                 Label("我的績效", systemImage: "chart.bar.fill")
@@ -407,7 +407,7 @@ struct EnhancedInvestmentView: View {
                         Image(systemName: "chart.bar.fill")
                         Text("一般模式")
                     }
-                }
+                })
                 
                 Divider()
                 
@@ -426,7 +426,7 @@ struct EnhancedInvestmentView: View {
                             }
                         }
                     }
-                }
+                })
             } label: {
                 HStack(spacing: 4) {
                     // 統一的錦標賽圖標，所有狀態都一樣
@@ -1111,7 +1111,7 @@ struct InvestmentHomeView: View {
                                 .cornerRadius(4)
                         }
                     }
-                }
+                })
                 
                 Spacer()
             }
@@ -1245,7 +1245,7 @@ struct InvestmentHomeView: View {
                             .cornerRadius(8)
                         }
                     }
-                }
+                })
                 
                 // 清除投資組合按鈕（僅在有持股時顯示）
                 if !portfolioManager.holdings.isEmpty {
@@ -1272,7 +1272,7 @@ struct InvestmentHomeView: View {
                                 )
                         }
                     }
-                }
+                })
             }
         }
         .brandCardStyle()
@@ -1310,12 +1310,12 @@ struct InvestmentHomeView: View {
                     Task {
                         await fetchCurrentPrice()
                     }
-                }
+                })
                 .onChange(of: stockSymbol) { newValue in
                     Task {
                         await fetchCurrentPrice()
                     }
-                }
+                })
                 
                 // 即時股價顯示
                 if !stockSymbol.isEmpty {
@@ -1859,7 +1859,7 @@ struct InvestmentRecordsView: View {
                             .fontWeight(.medium)
                             .foregroundColor(tournament.status.color)
                     }
-                }
+                })
                 
                 Spacer()
                 
@@ -2003,7 +2003,7 @@ struct InvestmentRecordsView: View {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.textSecondary)
                     }
-                }
+                })
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -2025,7 +2025,7 @@ struct InvestmentRecordsView: View {
                             selectedTradingType = type
                         }
                     }
-                } label: {
+                }) label: {
                     HStack {
                         Text(selectedTradingType?.displayName ?? "所有類型")
                             .font(.subheadline)
@@ -2048,7 +2048,7 @@ struct InvestmentRecordsView: View {
                             selectedDateRange = range
                         }
                     }
-                } label: {
+                }) label: {
                     HStack {
                         Text(selectedDateRange.displayName)
                             .font(.subheadline)
@@ -2171,7 +2171,7 @@ struct InvestmentRecordsView: View {
                             .background(Color.surfacePrimary)
                             .cornerRadius(8)
                     }
-                }
+                })
             }
             .padding(.horizontal, 4)
         }
@@ -2311,7 +2311,7 @@ struct TradingRecordRow: View {
                             .font(.caption)
                             .foregroundColor(.textSecondary)
                     }
-                }
+                })
                 .frame(width: 80, alignment: .trailing)
             }
             .frame(minWidth: 540) // 確保與表頭寬度一致
@@ -2436,7 +2436,7 @@ struct TournamentSelectionSheet: View {
                         }
                         .padding()
                     }
-                }
+                })
                 
                 Spacer()
             }
@@ -2447,7 +2447,7 @@ struct TournamentSelectionSheet: View {
                     Button("完成") {
                         dismiss()
                     }
-                }
+                })
             }
         }
     }
@@ -2519,7 +2519,7 @@ struct TournamentSelectionRow: View {
                                 .cornerRadius(6)
                         }
                     }
-                }
+                })
             }
             .padding()
             .background(
@@ -2578,7 +2578,7 @@ struct TournamentTradingSelectionSheet: View {
                     Button("關閉") {
                         dismiss()
                     }
-                }
+                })
             }
         }
     }
@@ -2779,7 +2779,7 @@ struct CreateTournamentView: View {
                     Button("取消") {
                         dismiss()
                     }
-                }
+                })
             }
             .alert("建立錦標賽", isPresented: $showAlert) {
                 Button("確定", role: .cancel) { }
@@ -2869,7 +2869,7 @@ struct CreateTournamentView: View {
                             .font(.caption)
                             .foregroundColor(.orange)
                     }
-                }
+                })
             }
         }
         .cardStyle()
@@ -3194,7 +3194,7 @@ struct PersonalPerformanceInnerContent: View {
                     VStack(spacing: DesignTokens.spacingMD) {
                         achievementsCard
                     }
-                }
+                })
             }
         }
         .refreshable {
@@ -3268,7 +3268,7 @@ struct PersonalPerformanceInnerContent: View {
                             )
                             .cornerRadius(16)
                     }
-                }
+                })
             }
             .padding(.horizontal)
         }
@@ -3300,7 +3300,7 @@ struct PersonalPerformanceInnerContent: View {
                             )
                             .cornerRadius(20)
                     }
-                }
+                })
             }
             .padding(.horizontal)
         }
