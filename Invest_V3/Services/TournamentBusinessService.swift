@@ -9,6 +9,9 @@
 import Foundation
 import Combine
 
+// MARK: - Type Aliases to resolve ambiguity
+typealias MainTournament = Tournament
+
 // MARK: - 錦標賽業務流程服務
 @MainActor
 class TournamentBusinessService: ObservableObject {
@@ -494,7 +497,7 @@ class TournamentBusinessService: ObservableObject {
         }
     }
     
-    private func validateTournamentForJoining(tournament: Tournament) throws {
+    private func validateTournamentForJoining(tournament: MainTournament) throws {
         guard tournament.status == .enrolling else {
             throw TournamentBusinessError.tournamentNotAcceptingRegistrations
         }
@@ -534,7 +537,7 @@ class TournamentBusinessService: ObservableObject {
         }
     }
     
-    private func initializeTournamentServices(tournament: Tournament) async {
+    private func initializeTournamentServices(tournament: MainTournament) async {
         // 初始化各服務狀態，為錦標賽做準備
         print("🔧 [TournamentBusinessService] 初始化錦標賽服務狀態")
     }

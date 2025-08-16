@@ -8,6 +8,10 @@
 
 import Foundation
 
+// MARK: - Type Aliases to resolve ambiguity
+// Main TradingRecord type for the app
+typealias MainTradingRecord = TradingRecord
+
 // MARK: - 交易類型
 
 /// 交易類型枚舉
@@ -212,7 +216,7 @@ struct TradingRecord: Identifiable, Codable {
 
 // MARK: - 交易記錄擴展
 
-extension TradingRecord {
+extension MainTradingRecord {
     /// 檢查是否為當日交易
     var isToday: Bool {
         Calendar.current.isDateInToday(timestamp)
@@ -349,7 +353,7 @@ struct TradingRecordFilter {
     }
     
     /// 檢查記錄是否符合篩選條件
-    func matches(_ record: TradingRecord) -> Bool {
+    func matches(_ record: MainTradingRecord) -> Bool {
         // 錦標賽篩選
         if let filterTournamentId = tournamentId {
             if record.tournamentId != filterTournamentId {

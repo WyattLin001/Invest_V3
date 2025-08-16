@@ -154,14 +154,14 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            Task {
+            Swift.Task {
                 // 第一次載入時初始化測試數據
                 await viewModel.initializeTestData()
                 await loadWalletBalance()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshGroupsList"))) { _ in
-            Task {
+            Swift.Task {
                 await viewModel.loadData()
             }
         }
@@ -171,7 +171,7 @@ struct HomeView: View {
                let tournamentName = userInfo["tournamentName"] as? String {
                 currentTournamentName = tournamentName
             }
-            Task {
+            Swift.Task {
                 await viewModel.loadData()
                 await loadWalletBalance()
             }
@@ -556,7 +556,7 @@ struct HomeView: View {
                     ) {
                         // 加入群組動作
                         selectedGroup = group
-                        Task {
+                        Swift.Task {
                             await viewModel.joinGroup(group.id)
                             // 成功加入後自動跳轉到聊天室
                             NotificationCenter.default.post(
@@ -644,7 +644,7 @@ struct HomeView: View {
             }
             
             Button(action: {
-                Task {
+                Swift.Task {
                     await viewModel.loadData()
                 }
             }) {
@@ -1294,7 +1294,7 @@ extension HomeView {
                             HStack(spacing: 8) {
                                 // 拒絕按鈕
                                 Button(action: {
-                                    Task {
+                                    Swift.Task {
                                         await viewModel.declineInvitation(invitation)
                                     }
                                 }) {
@@ -1311,7 +1311,7 @@ extension HomeView {
                                 
                                 // 接受按鈕
                                 Button(action: {
-                                    Task {
+                                    Swift.Task {
                                         await viewModel.acceptInvitation(invitation)
                                     }
                                 }) {
