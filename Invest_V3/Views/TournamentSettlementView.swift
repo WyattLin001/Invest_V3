@@ -851,7 +851,7 @@ struct AwardRow: View {
                     .fontWeight(.bold)
                     .foregroundColor(awardColor)
                 
-                Text(result.reward?.type.uppercased() ?? "")
+                Text(result.reward?.type.rawValue.uppercased() ?? "")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

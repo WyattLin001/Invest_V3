@@ -1877,6 +1877,8 @@ struct TournamentResult: Identifiable, Codable {
     let returnPercentage: Double
     let reward: TournamentReward?
     let finalizedAt: Date
+    let totalTrades: Int
+    let winRate: Double
     
     enum CodingKeys: String, CodingKey {
         case id, rank, reward
@@ -1885,6 +1887,8 @@ struct TournamentResult: Identifiable, Codable {
         case totalAssets = "total_assets"
         case returnPercentage = "return_percentage"
         case finalizedAt = "finalized_at"
+        case totalTrades = "total_trades"
+        case winRate = "win_rate"
     }
 }
 
