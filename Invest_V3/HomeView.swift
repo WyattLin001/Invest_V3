@@ -154,19 +154,15 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            Task(priority: .userInitiated) {
-                await MainActor.run {
-                    // 第一次載入時初始化測試數據
-                    await viewModel.initializeTestData()
-                    await loadWalletBalance()
-                }
+            _Concurrency.Task<Void, Never>(priority: .userInitiated) {
+                // 第一次載入時初始化測試數據
+                await viewModel.initializeTestData()
+                await loadWalletBalance()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshGroupsList"))) { _ in
-            Task(priority: .userInitiated) {
-                await MainActor.run {
-                    await viewModel.loadData()
-                }
+            _Concurrency.Task<Void, Never>(priority: .userInitiated) {
+                await viewModel.loadData()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { (notification: Notification) in
@@ -175,11 +171,9 @@ struct HomeView: View {
                let tournamentName = userInfo["tournamentName"] as? String {
                 currentTournamentName = tournamentName
             }
-            Task(priority: .userInitiated) {
-                await MainActor.run {
-                    await viewModel.loadData()
-                    await loadWalletBalance()
-                }
+            _Concurrency.Task<Void, Never>(priority: .userInitiated) {
+                await viewModel.loadData()
+                await loadWalletBalance()
             }
         }
         .onChange(of: tournamentStateManager.currentTournamentContext) { _, newContext in
@@ -562,10 +556,10 @@ struct HomeView: View {
                     ) {
                         // 加入群組動作
                         selectedGroup = group
-                        Task(priority: .userInitiated) {
+                        _Concurrency.Task<Void, Never>(priority: .userInitiated) {
+                            await viewModel.joinGroup(group.id)
+                            // 成功加入後自動跳轉到聊天室
                             await MainActor.run {
-                                await viewModel.joinGroup(group.id)
-                                // 成功加入後自動跳轉到聊天室
                                 NotificationCenter.default.post(
                                     name: NSNotification.Name("SwitchToChatTab"),
                                     object: group.id
@@ -650,10 +644,8 @@ struct HomeView: View {
             }
             
             Button(action: {
-                Task(priority: .userInitiated) {
-                    await MainActor.run {
-                        await viewModel.loadData()
-                    }
+                _Concurrency.Task<Void, Never>(priority: .userInitiated) {
+                    await viewModel.loadData()
                 }
             }) {
                 HStack(spacing: 8) {
@@ -1460,10 +1452,8 @@ struct InvitationRowView: View {
     
     private var declineButton: some View {
         Button(action: {
-            Task(priority: .userInitiated) {
-                await MainActor.run {
-                    await viewModel.declineInvitation(invitation)
-                }
+            _Concurrency.Task<Void, Never>(priority: .userInitiated) {
+                await viewModel.declineInvitation(invitation)
             }
         }) {
             Text("拒絕")
@@ -1480,10 +1470,8 @@ struct InvitationRowView: View {
     
     private var acceptButton: some View {
         Button(action: {
-            Task(priority: .userInitiated) {
-                await MainActor.run {
-                    await viewModel.acceptInvitation(invitation)
-                }
+            _Concurrency.Task<Void, Never>(priority: .userInitiated) {
+                await viewModel.acceptInvitation(invitation)
             }
         }) {
             if viewModel.isProcessingInvitation {
