@@ -154,24 +154,24 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            Swift.Task {
+            Task {
                 // 第一次載入時初始化測試數據
                 await viewModel.initializeTestData()
                 await loadWalletBalance()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshGroupsList"))) { _ in
-            Swift.Task {
+            Task {
                 await viewModel.loadData()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { notification in
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { (notification: Notification) in
             print("🔄 [HomeView] 錦標賽切換，更新錦標賽資訊")
             if let userInfo = notification.userInfo,
                let tournamentName = userInfo["tournamentName"] as? String {
                 currentTournamentName = tournamentName
             }
-            Swift.Task {
+            Task {
                 await viewModel.loadData()
                 await loadWalletBalance()
             }
@@ -556,7 +556,7 @@ struct HomeView: View {
                     ) {
                         // 加入群組動作
                         selectedGroup = group
-                        Swift.Task {
+                        Task {
                             await viewModel.joinGroup(group.id)
                             // 成功加入後自動跳轉到聊天室
                             NotificationCenter.default.post(
@@ -644,7 +644,7 @@ struct HomeView: View {
             }
             
             Button(action: {
-                Swift.Task {
+                Task {
                     await viewModel.loadData()
                 }
             }) {
@@ -1266,80 +1266,9 @@ extension HomeView {
             if !viewModel.pendingInvitations.isEmpty {
                 VStack(spacing: 12) {
                     ForEach(viewModel.pendingInvitations) { invitation in
-                        HStack(spacing: 12) {
-                            // 邀請圖示
-                            Image(systemName: "envelope.badge")
-                                .font(.title2)
-                                .foregroundColor(.brandBlue)
-                            
-                            // 邀請內容
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("群組邀請")
-                                    .font(.headline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.gray900)
-                                
-                                Text("邀請您加入群組")
-                                    .font(.body)
-                                    .foregroundColor(.gray600)
-                                
-                                Text("邀請者: \(invitation.inviterName)")
-                                    .font(.caption)
-                                    .foregroundColor(.gray500)
-                            }
-                            
-                            Spacer()
-                            
-                            // 操作按鈕
-                            HStack(spacing: 8) {
-                                // 拒絕按鈕
-                                Button(action: {
-                                    Swift.Task {
-                                        await viewModel.declineInvitation(invitation)
-                                    }
-                                }) {
-                                    Text("拒絕")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.gray600)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(Color.surfaceTertiary)
-                                        .cornerRadius(8)
-                                }
-                                .disabled(viewModel.isProcessingInvitation)
-                                
-                                // 接受按鈕
-                                Button(action: {
-                                    Swift.Task {
-                                        await viewModel.acceptInvitation(invitation)
-                                    }
-                                }) {
-                                    if viewModel.isProcessingInvitation {
-                                        ProgressView()
-                                            .progressViewStyle(.circular)
-                            .tint(.white)
-                                            .scaleEffect(0.8)
-                                    } else {
-                                        Text("接受")
-                                            .font(.caption)
-                                            .fontWeight(.semibold)
-                                    }
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.brandGreen)
-                                .cornerRadius(8)
-                                .disabled(viewModel.isProcessingInvitation)
-                            }
-                        }
-                        .padding(16)
-                        .background(Color.blue.opacity(0.05))
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.brandBlue.opacity(0.3), lineWidth: 1)
+                        InvitationRowView(
+                            invitation: invitation,
+                            viewModel: viewModel
                         )
                     }
                 }
@@ -1467,6 +1396,101 @@ struct TournamentSwitcherView: View {
         default:
             return "投資競賽"
         }
+    }
+}
+
+// MARK: - InvitationRowView
+struct InvitationRowView: View {
+    let invitation: GroupInvitation
+    @ObservedObject var viewModel: HomeViewModel
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            invitationIcon
+            invitationContent
+            Spacer()
+            invitationButtons
+        }
+        .padding(16)
+        .background(Color.blue.opacity(0.05))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.brandBlue.opacity(0.3), lineWidth: 1)
+        )
+    }
+    
+    private var invitationIcon: some View {
+        Image(systemName: "envelope.badge")
+            .font(.title2)
+            .foregroundColor(.brandBlue)
+    }
+    
+    private var invitationContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("群組邀請")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.gray900)
+            
+            Text("邀請您加入群組")
+                .font(.body)
+                .foregroundColor(.gray600)
+            
+            Text("邀請者: \(invitation.inviterName)")
+                .font(.caption)
+                .foregroundColor(.gray500)
+        }
+    }
+    
+    private var invitationButtons: some View {
+        HStack(spacing: 8) {
+            declineButton
+            acceptButton
+        }
+    }
+    
+    private var declineButton: some View {
+        Button(action: {
+            Task {
+                await viewModel.declineInvitation(invitation)
+            }
+        }) {
+            Text("拒絕")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.gray600)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.surfaceTertiary)
+                .cornerRadius(8)
+        }
+        .disabled(viewModel.isProcessingInvitation)
+    }
+    
+    private var acceptButton: some View {
+        Button(action: {
+            Task {
+                await viewModel.acceptInvitation(invitation)
+            }
+        }) {
+            if viewModel.isProcessingInvitation {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .tint(.white)
+                    .scaleEffect(0.8)
+            } else {
+                Text("接受")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+            }
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.brandGreen)
+        .cornerRadius(8)
+        .disabled(viewModel.isProcessingInvitation)
     }
 }
 
