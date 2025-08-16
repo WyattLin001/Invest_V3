@@ -4399,8 +4399,8 @@ class SupabaseService: ObservableObject {
                 "p_user_id": userId.uuidString,
                 "p_symbol": symbol,
                 "p_side": side,
-                "p_qty": qty,
-                "p_price": price
+                "p_qty": String(qty),
+                "p_price": String(price)
             ])
             .execute()
             .value
@@ -4425,7 +4425,7 @@ class SupabaseService: ObservableObject {
             .from("tournament_positions")
             .update([
                 "current_price": currentPrice,
-                "last_updated": Date().toISOString()
+                "last_updated": ISO8601DateFormatter().string(from: Date())
             ])
             .eq("tournament_id", value: tournamentId.uuidString)
             .eq("user_id", value: userId.uuidString)
@@ -4449,7 +4449,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard let portfolio = portfolios.first else {
-            throw SupabaseError.dataNotFound("Portfolio not found")
+            throw SupabaseError.dataFetchFailed("Portfolio not found")
         }
         
         return portfolio
@@ -4492,8 +4492,8 @@ class SupabaseService: ObservableObject {
                 "p_tournament_id": tournamentId.uuidString,
                 "p_user_id": userId.uuidString,
                 "p_side": side,
-                "p_amount": amount,
-                "p_fees": fees
+                "p_amount": String(amount),
+                "p_fees": String(fees)
             ])
             .execute()
             .value
@@ -4570,7 +4570,7 @@ class SupabaseService: ObservableObject {
             "user_id": member.userId.uuidString,
             "status": member.status.rawValue,
             "joined_at": member.joinedAt.iso8601,
-            "elimination_reason": member.eliminationReason as Any
+            "elimination_reason": member.eliminationReason ?? NSNull()
         ]
         
         try await client
@@ -7475,23 +7475,23 @@ extension SupabaseService {
         print("🔄 [SupabaseService] 更新錦標賽: \(tournament.name)")
         
         let updateData: [String: AnyJSON] = [
-            "name": AnyJSON(tournament.name),
-            "type": AnyJSON(tournament.type.rawValue),
-            "status": AnyJSON(tournament.status.rawValue),
-            "start_date": AnyJSON(ISO8601DateFormatter().string(from: tournament.startDate)),
-            "end_date": AnyJSON(ISO8601DateFormatter().string(from: tournament.endDate)),
-            "description": AnyJSON(tournament.description),
-            "short_description": AnyJSON(tournament.shortDescription),
-            "initial_balance": AnyJSON(tournament.initialBalance),
-            "entry_fee": AnyJSON(tournament.entryFee),
-            "prize_pool": AnyJSON(tournament.prizePool),
-            "max_participants": AnyJSON(tournament.maxParticipants),
-            "current_participants": AnyJSON(tournament.currentParticipants),
-            "is_featured": AnyJSON(tournament.isFeatured),
-            "risk_limit_percentage": AnyJSON(tournament.riskLimitPercentage),
-            "min_holding_rate": AnyJSON(tournament.minHoldingRate),
-            "max_single_stock_rate": AnyJSON(tournament.maxSingleStockRate),
-            "updated_at": AnyJSON(ISO8601DateFormatter().string(from: Date()))
+            "name": try AnyJSON(tournament.name),
+            "type": try AnyJSON(tournament.type.rawValue),
+            "status": try AnyJSON(tournament.status.rawValue),
+            "start_date": try AnyJSON(ISO8601DateFormatter().string(from: tournament.startDate)),
+            "end_date": try AnyJSON(ISO8601DateFormatter().string(from: tournament.endDate)),
+            "description": try AnyJSON(tournament.description),
+            "short_description": try AnyJSON(tournament.shortDescription),
+            "initial_balance": try AnyJSON(tournament.initialBalance),
+            "entry_fee": try AnyJSON(tournament.entryFee),
+            "prize_pool": try AnyJSON(tournament.prizePool),
+            "max_participants": try AnyJSON(tournament.maxParticipants),
+            "current_participants": try AnyJSON(tournament.currentParticipants),
+            "is_featured": try AnyJSON(tournament.isFeatured),
+            "risk_limit_percentage": try AnyJSON(tournament.riskLimitPercentage),
+            "min_holding_rate": try AnyJSON(tournament.minHoldingRate),
+            "max_single_stock_rate": try AnyJSON(tournament.maxSingleStockRate),
+            "updated_at": try AnyJSON(ISO8601DateFormatter().string(from: Date()))
         ]
         
         try await client
@@ -7959,7 +7959,7 @@ extension SupabaseService {
     }
     
     /// 更新錦標賽投資組合
-    func updateTournamentPortfolio(tournamentId: UUID, userId: UUID, portfolioData: [String: Any]) async throws {
+    func updateTournamentPortfolio(tournamentId: UUID, userId: UUID, portfolioData: [String: AnyHashable]) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
         try await client

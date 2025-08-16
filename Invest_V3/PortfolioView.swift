@@ -206,12 +206,16 @@ struct PortfolioOverviewView: View {
     @ObservedObject private var tradingService = TradingService.shared
     @ObservedObject private var tournamentStateManager = TournamentStateManager.shared
     
+    // 計算是否在錦標賽模式
+    private var isInTournament: Bool {
+        return tradingService.currentTournamentId != TradingService.GENERAL_MODE_TOURNAMENT_ID
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // 資產總覽卡片 - 統一使用 currentPortfolio
                 if let portfolio = tradingService.currentPortfolio {
-                    let isInTournament = tradingService.currentTournamentId != TradingService.GENERAL_MODE_TOURNAMENT_ID
                     let tournament = isInTournament ? tournamentStateManager.currentTournamentContext?.tournament : nil
                     
                     UnifiedAssetOverviewCard(

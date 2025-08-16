@@ -52,6 +52,28 @@ class TournamentWorkflowService: ObservableObject {
         self.supabaseService = supabaseService
     }
     
+    // MARK: - 錦標賽查詢功能
+    
+    /// 獲取所有錦標賽
+    func getAllTournaments() async throws -> [Tournament] {
+        do {
+            return try await supabaseService.fetchTournaments()
+        } catch {
+            errorMessage = "獲取錦標賽列表失敗: \(error.localizedDescription)"
+            throw error
+        }
+    }
+    
+    /// 獲取精選錦標賽
+    func getFeaturedTournaments() async throws -> [Tournament] {
+        do {
+            return try await supabaseService.fetchFeaturedTournaments()
+        } catch {
+            errorMessage = "獲取精選錦標賽失敗: \(error.localizedDescription)"
+            throw error
+        }
+    }
+    
     // MARK: - 1. 建賽事功能
     func createTournament(_ parameters: TournamentCreationParameters) async throws -> Tournament {
         print("🏆 開始創建錦標賽: \(parameters.name)")
