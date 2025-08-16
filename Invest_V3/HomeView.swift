@@ -154,15 +154,19 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            Task { @MainActor in
-                // 第一次載入時初始化測試數據
-                await viewModel.initializeTestData()
-                await loadWalletBalance()
+            Task(priority: .userInitiated) {
+                await MainActor.run {
+                    // 第一次載入時初始化測試數據
+                    await viewModel.initializeTestData()
+                    await loadWalletBalance()
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshGroupsList"))) { _ in
-            Task { @MainActor in
-                await viewModel.loadData()
+            Task(priority: .userInitiated) {
+                await MainActor.run {
+                    await viewModel.loadData()
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { (notification: Notification) in
@@ -171,9 +175,11 @@ struct HomeView: View {
                let tournamentName = userInfo["tournamentName"] as? String {
                 currentTournamentName = tournamentName
             }
-            Task { @MainActor in
-                await viewModel.loadData()
-                await loadWalletBalance()
+            Task(priority: .userInitiated) {
+                await MainActor.run {
+                    await viewModel.loadData()
+                    await loadWalletBalance()
+                }
             }
         }
         .onChange(of: tournamentStateManager.currentTournamentContext) { _, newContext in
@@ -556,15 +562,15 @@ struct HomeView: View {
                     ) {
                         // 加入群組動作
                         selectedGroup = group
-                        Task { @MainActor in
-                            await viewModel.joinGroup(group.id)
-                            // 成功加入後自動跳轉到聊天室
-                            NotificationCenter.default.post(
-                                name: NSNotification.Name("SwitchToChatTab"),
-                                object: group.id
-                            )
-                            // 無障礙聲明
+                        Task(priority: .userInitiated) {
                             await MainActor.run {
+                                await viewModel.joinGroup(group.id)
+                                // 成功加入後自動跳轉到聊天室
+                                NotificationCenter.default.post(
+                                    name: NSNotification.Name("SwitchToChatTab"),
+                                    object: group.id
+                                )
+                                // 無障礙聲明
                                 UIAccessibility.post(notification: .announcement, 
                                                    argument: "成功加入 \(group.name) 群組")
                             }
@@ -644,8 +650,10 @@ struct HomeView: View {
             }
             
             Button(action: {
-                Task { @MainActor in
-                    await viewModel.loadData()
+                Task(priority: .userInitiated) {
+                    await MainActor.run {
+                        await viewModel.loadData()
+                    }
                 }
             }) {
                 HStack(spacing: 8) {
@@ -1452,8 +1460,10 @@ struct InvitationRowView: View {
     
     private var declineButton: some View {
         Button(action: {
-            Task { @MainActor in
-                await viewModel.declineInvitation(invitation)
+            Task(priority: .userInitiated) {
+                await MainActor.run {
+                    await viewModel.declineInvitation(invitation)
+                }
             }
         }) {
             Text("拒絕")
@@ -1470,8 +1480,10 @@ struct InvitationRowView: View {
     
     private var acceptButton: some View {
         Button(action: {
-            Task { @MainActor in
-                await viewModel.acceptInvitation(invitation)
+            Task(priority: .userInitiated) {
+                await MainActor.run {
+                    await viewModel.acceptInvitation(invitation)
+                }
             }
         }) {
             if viewModel.isProcessingInvitation {
