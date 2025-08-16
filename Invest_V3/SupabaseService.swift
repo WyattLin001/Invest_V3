@@ -4565,13 +4565,21 @@ class SupabaseService: ObservableObject {
     func createTournamentMember(_ member: TournamentMember) async throws {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
-        let memberData: [String: Any] = [
-            "tournament_id": member.tournamentId.uuidString,
-            "user_id": member.userId.uuidString,
-            "status": member.status.rawValue,
-            "joined_at": member.joinedAt.iso8601,
-            "elimination_reason": member.eliminationReason
-        ]
+        struct TournamentMemberInsert: Codable {
+            let tournament_id: String
+            let user_id: String
+            let status: String
+            let joined_at: String
+            let elimination_reason: String?
+        }
+        
+        let memberData = TournamentMemberInsert(
+            tournament_id: member.tournamentId.uuidString,
+            user_id: member.userId.uuidString,
+            status: member.status.rawValue,
+            joined_at: member.joinedAt.iso8601,
+            elimination_reason: member.eliminationReason
+        )
         
         try await client
             .from("tournament_members")
@@ -7865,20 +7873,35 @@ extension SupabaseService {
     func insertTournamentTrade(_ trade: TournamentTradeRecord) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
-        let tradeData: [String: Any] = [
-            "id": trade.id.uuidString,
-            "user_id": trade.userId.uuidString,
-            "tournament_id": trade.tournamentId?.uuidString ?? "",
-            "symbol": trade.symbol,
-            "stock_name": trade.stockName,
-            "type": trade.type.rawValue,
-            "shares": trade.shares,
-            "price": trade.price,
-            "timestamp": ISO8601DateFormatter().string(from: trade.timestamp),
-            "total_amount": trade.totalAmount,
-            "fee": trade.fee,
-            "net_amount": trade.netAmount
-        ]
+        struct TournamentTradeInsert: Codable {
+            let id: String
+            let user_id: String
+            let tournament_id: String
+            let symbol: String
+            let stock_name: String
+            let type: String
+            let shares: Double
+            let price: Double
+            let timestamp: String
+            let total_amount: Double
+            let fee: Double
+            let net_amount: Double
+        }
+        
+        let tradeData = TournamentTradeInsert(
+            id: trade.id.uuidString,
+            user_id: trade.userId.uuidString,
+            tournament_id: trade.tournamentId?.uuidString ?? "",
+            symbol: trade.symbol,
+            stock_name: trade.stockName,
+            type: trade.type.rawValue,
+            shares: trade.shares,
+            price: trade.price,
+            timestamp: ISO8601DateFormatter().string(from: trade.timestamp),
+            total_amount: trade.totalAmount,
+            fee: trade.fee,
+            net_amount: trade.netAmount
+        )
         
         try await client
             .from("tournament_trading_records")
@@ -7958,7 +7981,7 @@ extension SupabaseService {
     }
     
     /// 更新錦標賽投資組合
-    func updateTournamentPortfolio(tournamentId: UUID, userId: UUID, portfolioData: [String: Any]) async throws {
+    func updateTournamentPortfolio<T: Codable>(tournamentId: UUID, userId: UUID, portfolioData: T) async throws {
         try SupabaseManager.shared.ensureInitialized()
         
         try await client
