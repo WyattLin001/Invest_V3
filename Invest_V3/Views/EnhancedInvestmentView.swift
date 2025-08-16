@@ -177,7 +177,7 @@ struct EnhancedInvestmentView: View {
                 }
                 .navigationTitle(showTitle ? "投資總覽" : "")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
+                .toolbar(content: {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button("關閉") {
                             dismiss()
@@ -201,7 +201,7 @@ struct EnhancedInvestmentView: View {
                             }
                         }
                     }
-                }
+                })
             }
             .tabItem {
                 Label("投資總覽", systemImage: "chart.pie.fill")

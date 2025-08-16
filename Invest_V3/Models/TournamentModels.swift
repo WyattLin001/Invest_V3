@@ -2030,6 +2030,27 @@ struct TournamentStatsModel: Identifiable, Codable {
         self.lastUpdated = lastUpdated
     }
     
+    /// 完整的初始化器（用於詳細統計）
+    init(
+        totalParticipants: Int,
+        averageReturn: Double,
+        medianReturn: Double,
+        standardDeviation: Double,
+        topPerformers: [TournamentLeaderboardEntry],
+        worstPerformers: [TournamentLeaderboardEntry],
+        distributionStats: DistributionStatsModel,
+        lastUpdated: Date
+    ) {
+        self.totalParticipants = totalParticipants
+        self.averageReturn = averageReturn
+        self.medianReturn = medianReturn
+        self.standardDeviation = standardDeviation
+        self.topPerformers = topPerformers
+        self.worstPerformers = worstPerformers
+        self.distributionStats = distributionStats
+        self.lastUpdated = lastUpdated
+    }
+    
     enum CodingKeys: String, CodingKey {
         case totalParticipants = "total_participants"
         case averageReturn = "average_return"
