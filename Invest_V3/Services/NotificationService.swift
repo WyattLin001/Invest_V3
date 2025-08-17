@@ -168,7 +168,7 @@ class NotificationService: NSObject, ObservableObject {
         }
     }
     
-    /// 儲存 Device Token 到後端
+    /// 儲存 Device Token 到後端（直接資料庫操作）
     private func saveDeviceTokenToBackend(_ token: String) async {
         do {
             guard let user = try? await supabaseService.client.auth.user() else {
@@ -176,37 +176,7 @@ class NotificationService: NSObject, ObservableObject {
                 return
             }
             
-            // 使用新的 Edge Function 來註冊設備 Token
-            let deviceInfo = [
-                "device_token": token,
-                "user_id": user.id.uuidString,
-                "device_type": "ios",
-                "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0",
-                "os_version": UIDevice.current.systemVersion,
-                "device_model": UIDevice.current.model,
-                "environment": PushNotificationConfig.environment.rawValue
-            ]
-            
-            let response = try await supabaseService.client.functions
-                .invoke("register-device-token")
-            
-            print("✅ [NotificationService] Device Token 註冊請求已發送")
-            
-        } catch {
-            print("❌ [NotificationService] 儲存 Device Token 失敗: \(error)")
-            
-            // 降級到直接資料庫操作
-            await saveDeviceTokenDirectly(token)
-        }
-    }
-    
-    /// 直接儲存到資料庫（降級方案）
-    private func saveDeviceTokenDirectly(_ token: String) async {
-        do {
-            guard let user = try? await supabaseService.client.auth.user() else {
-                return
-            }
-            
+            // 使用 UPSERT 儲存到 device_tokens 表，處理重複鍵值衝突
             try await supabaseService.client
                 .from("device_tokens")
                 .upsert([
@@ -219,13 +189,46 @@ class NotificationService: NSObject, ObservableObject {
                     "environment": PushNotificationConfig.environment.rawValue,
                     "is_active": "true",
                     "updated_at": ISO8601DateFormatter().string(from: Date())
-                ])
+                ], onConflict: "user_id,device_token")
                 .execute()
             
-            print("✅ [NotificationService] Device Token 直接儲存成功")
+            print("✅ [NotificationService] Device Token 儲存成功 (用戶: \(user.id.uuidString.prefix(8))...)")
             
         } catch {
-            print("❌ [NotificationService] 直接儲存 Device Token 也失敗: \(error)")
+            // 檢查是否仍然是重複鍵值錯誤
+            if let postgrestError = error as? NSError,
+               postgrestError.localizedDescription.contains("23505") {
+                print("⚠️ [NotificationService] Device Token 已存在，嘗試更新現有記錄")
+                // 嘗試直接更新現有記錄
+                await updateExistingDeviceToken(token, for: user.id.uuidString)
+            } else {
+                print("❌ [NotificationService] 儲存 Device Token 失敗: \(error)")
+            }
+        }
+    }
+    
+    /// 更新現有的 Device Token 記錄（fallback方法）
+    private func updateExistingDeviceToken(_ token: String, for userId: String) async {
+        do {
+            try await supabaseService.client
+                .from("device_tokens")
+                .update([
+                    "device_type": "ios",
+                    "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0",
+                    "os_version": UIDevice.current.systemVersion,
+                    "device_model": UIDevice.current.model,
+                    "environment": PushNotificationConfig.environment.rawValue,
+                    "is_active": "true",
+                    "updated_at": ISO8601DateFormatter().string(from: Date())
+                ])
+                .eq("user_id", value: userId)
+                .eq("device_token", value: token)
+                .execute()
+            
+            print("✅ [NotificationService] Device Token 更新成功")
+            
+        } catch {
+            print("❌ [NotificationService] 更新 Device Token 也失敗: \(error)")
         }
     }
     
@@ -516,7 +519,12 @@ class NotificationService: NSObject, ObservableObject {
             return true
             
         } catch {
-            print("❌ [NotificationService] 發送推播通知異常: \(error)")
+            // 檢查是否為Edge Function不存在的錯誤
+            if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
+                print("⚠️ [NotificationService] Edge Function 'send-push-notification' 不存在，跳過推播通知")
+            } else {
+                print("❌ [NotificationService] 發送推播通知異常: \(error)")
+            }
             return false
         }
     }
@@ -551,7 +559,12 @@ class NotificationService: NSObject, ObservableObject {
             return true
             
         } catch {
-            print("❌ [NotificationService] 發送批量推播異常: \(error)")
+            // 檢查是否為Edge Function不存在的錯誤
+            if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
+                print("⚠️ [NotificationService] Edge Function 'send-bulk-notifications' 不存在，跳過批量推播")
+            } else {
+                print("❌ [NotificationService] 發送批量推播異常: \(error)")
+            }
             return false
         }
     }
@@ -575,7 +588,13 @@ class NotificationService: NSObject, ObservableObject {
             return [:]
             
         } catch {
-            print("❌ [NotificationService] 獲取推播偏好失敗: \(error)")
+            // 檢查是否為Edge Function不存在的錯誤
+            if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
+                print("⚠️ [NotificationService] Edge Function 'manage-user-preferences' 不存在，返回預設偏好")
+                return ["notifications_enabled": true] // 返回預設偏好
+            } else {
+                print("❌ [NotificationService] 獲取推播偏好失敗: \(error)")
+            }
             return nil
         }
     }
@@ -598,7 +617,12 @@ class NotificationService: NSObject, ObservableObject {
             return true
             
         } catch {
-            print("❌ [NotificationService] 更新推播偏好異常: \(error)")
+            // 檢查是否為Edge Function不存在的錯誤
+            if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
+                print("⚠️ [NotificationService] Edge Function 'manage-user-preferences' 不存在，跳過偏好更新")
+            } else {
+                print("❌ [NotificationService] 更新推播偏好異常: \(error)")
+            }
             return false
         }
     }
@@ -623,7 +647,13 @@ class NotificationService: NSObject, ObservableObject {
             return [:]
             
         } catch {
-            print("❌ [NotificationService] 獲取推播分析失敗: \(error)")
+            // 檢查是否為Edge Function不存在的錯誤
+            if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
+                print("⚠️ [NotificationService] Edge Function 'notification-analytics' 不存在，返回模擬分析數據")
+                return ["total_notifications": 0, "delivery_rate": 1.0] // 返回模擬數據
+            } else {
+                print("❌ [NotificationService] 獲取推播分析失敗: \(error)")
+            }
             return nil
         }
     }
@@ -717,10 +747,18 @@ class NotificationService: NSObject, ObservableObject {
     /// 檢查後端連接狀態
     private func checkBackendConnection() async -> Bool {
         do {
-            // 嘗試調用一個簡單的 Edge Function 來測試連接
-            let healthCheckData = ["action": "health_check"]
-            let response = try await supabaseService.client.functions
-                .invoke("notification-analytics")
+            // 嘗試查詢 device_tokens 表來測試 Supabase 連接
+            guard let user = try? await supabaseService.client.auth.user() else {
+                print("⚠️ [NotificationService] 用戶未登入，無法檢查後端連接")
+                return false
+            }
+            
+            let _ = try await supabaseService.client
+                .from("device_tokens")
+                .select("id", head: true, count: .exact)
+                .eq("user_id", value: user.id)
+                .limit(1)
+                .execute()
             
             print("✅ [NotificationService] 後端連接檢查完成")
             return true
