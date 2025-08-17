@@ -83,14 +83,14 @@ struct HomeView: View {
                 NavigationView {
                     FriendsView()
                         .environmentObject(ThemeManager.shared)
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button("完成") {
-                                    showFriendSearch = false
-                                }
-                                .foregroundColor(.brandGreen)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .navigationBarBackButtonHidden(true)
+                        .navigationBarItems(trailing: 
+                            Button("完成") {
+                                showFriendSearch = false
                             }
-                        }
+                            .foregroundColor(.brandGreen)
+                        )
                 }
             }
             .sheet(isPresented: $showTournamentSwitcher) {
