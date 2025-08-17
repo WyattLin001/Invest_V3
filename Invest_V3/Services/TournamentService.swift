@@ -55,7 +55,10 @@ protocol TournamentServiceProtocol {
 // MARK: - Tournament Service Implementation
 @MainActor
 class TournamentService: ObservableObject, TournamentServiceProtocol {
-    static let shared = TournamentService(shared: ())
+    static let shared: TournamentService = {
+        let instance = TournamentService(shared: ())
+        return instance
+    }()
     
     // MARK: - Properties
     private let supabaseService = SupabaseService.shared
