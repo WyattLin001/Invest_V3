@@ -649,21 +649,15 @@ struct HomeView: View {
                         Text("創建群組")
                             .font(.body.weight(.semibold))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.mediumButtonText)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
-                    .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: [Color.brandPrimary, Color.brandPrimary.opacity(0.8)]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .background(Color.mediumButtonPrimary)
                     .cornerRadius(25)
-                    .shadow(color: Color.brandPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
                 }
                 .padding(.trailing, 20)
-                .padding(.bottom, 100) // 避免與底部 Tab Bar 重疊
+                .padding(.bottom, 30) // 降低按鈕位置，不遮擋內容
             }
         }
     }

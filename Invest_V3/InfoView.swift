@@ -18,8 +18,8 @@ struct InfoView: View {
 
     var body: some View {
         ZStack {
-            // 全螢幕背景
-            Color.gray100
+            // Medium 風格全螢幕背景
+            Color.mediumBackground
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -95,9 +95,7 @@ struct InfoView: View {
     private var topNavigationBar: some View {
         HStack {
             Text("資訊")
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(.gray900)
+                .mediumTitleStyle(size: .medium)
             
             Spacer()
             
@@ -111,16 +109,16 @@ struct InfoView: View {
                     Text("草稿")
                         .font(.subheadline)
                 }
-                .foregroundColor(.brandGreen)
+                .foregroundColor(.mediumTextPrimary)
             }
         }
         .padding(.horizontal, DesignTokens.spacingMD)
         .frame(height: 44)
-        .background(Color(.systemBackground))
+        .background(Color.mediumSurfacePrimary)
         .overlay(
             Rectangle()
-                .frame(height: 1)
-                .foregroundColor(.gray300),
+                .frame(height: 0.5)
+                .foregroundColor(.mediumDivider),
             alignment: .bottom
         )
     }
@@ -129,16 +127,14 @@ struct InfoView: View {
     private var searchBar: some View {
         HStack(spacing: DesignTokens.spacingSM) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray600)
+                .foregroundColor(.mediumTextSecondary)
                 .frame(width: 20, height: 20)
             
             TextField("搜尋文章或作者…", text: $searchText)
-                .font(.body)
+                .font(.mediumBody)
+                .foregroundColor(.mediumTextPrimary)
         }
-        .padding(.horizontal, DesignTokens.spacingMD)
-        .padding(.vertical, DesignTokens.spacingSM)
-        .background(Color.gray200)
-        .cornerRadius(DesignTokens.cornerRadius)
+        .mediumTextFieldStyle()
         .frame(width: 343, height: 40)
         .padding(.horizontal, DesignTokens.spacingMD)
         .padding(.vertical, DesignTokens.spacingSM)
@@ -238,9 +234,9 @@ struct InfoView: View {
                     showArticleEditor = true
                 }) {
                     ZStack {
-                        // 主圓形背景
+                        // Medium 風格圓形背景
                         Circle()
-                            .fill(Color.brandGreen)
+                            .fill(Color.mediumButtonPrimary)
                             .frame(width: 56, height: 56)
                             .shadow(
                                 color: Color.black.opacity(0.15),
@@ -252,7 +248,7 @@ struct InfoView: View {
                         // 加號圖標
                         Image(systemName: "plus")
                             .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(.mediumButtonText)
                     }
                 }
                 .scaleEffect(1.0)
@@ -260,7 +256,7 @@ struct InfoView: View {
                 .accessibilityLabel("寫文章")
                 .accessibilityHint("點擊開始撰寫新文章")
                 .padding(.trailing, 20)
-                .padding(.bottom, 100) // 避免與底部 Tab Bar 重疊
+                .padding(.bottom, 30) // 降低按鈕位置，不遮擋內容
             }
         }
     }
@@ -275,13 +271,13 @@ struct KeywordChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.caption)
+                .font(.mediumCaption)
                 .fontWeight(.medium)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(isSelected ? Color.brandGreen : Color.gray200)
-                .foregroundColor(isSelected ? .white : .gray600)
-                .cornerRadius(16)
+                .background(isSelected ? Color.mediumButtonPrimary : Color.mediumSurfaceSecondary)
+                .foregroundColor(isSelected ? Color.mediumButtonText : Color.mediumTextSecondary)
+                .cornerRadius(12)
         }
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityLabel(isSelected ? "目前關鍵字：\(title)" : "關鍵字：\(title)")

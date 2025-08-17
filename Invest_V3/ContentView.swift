@@ -55,7 +55,7 @@ struct ContentView: View {
                 }
                 .tag(5)
         }
-        .accentColor(.brandGreen)
+        .accentColor(.mediumButtonPrimary)
         .onAppear {
             // 配置 TabBar 外觀 - 改善深色模式適配
             let appearance = UITabBarAppearance()
@@ -65,16 +65,15 @@ struct ContentView: View {
             // 深色模式下增加分隔線
             appearance.shadowColor = UIColor.separator
             
-            // 設定選中狀態 - 使用適配的品牌綠色
-            appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color.brandGreen)
+            // 設定選中狀態 - 使用 Medium 主題色
+            appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color.mediumButtonPrimary)
             appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-                .foregroundColor: UIColor(Color.brandGreen),
+                .foregroundColor: UIColor(Color.mediumButtonPrimary),
                 .font: UIFont.systemFont(ofSize: 10, weight: .medium)
             ]
             
-            // 設定未選中狀態 - 改善深色模式對比度
-            let normalColor = UITraitCollection.current.userInterfaceStyle == .dark ? 
-                UIColor.systemGray2 : UIColor.systemGray
+            // 設定未選中狀態 - Medium 風格灰色
+            let normalColor = UIColor(Color.mediumTextSecondary)
             
             appearance.stackedLayoutAppearance.normal.iconColor = normalColor
             appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
