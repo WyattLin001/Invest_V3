@@ -30,13 +30,13 @@ struct ColorConfiguration {
         "2395", "3711", "2412", "1303", "1301", "2382", "2308"
     ]
     
-    // 淺色模式配置
-    static let lightSaturationRange = 0.65...0.85
-    static let lightLightnessRange = 0.45...0.65
+    // 淺色模式配置 - Medium 風格低飽和度
+    static let lightSaturationRange = 0.20...0.40
+    static let lightLightnessRange = 0.35...0.55
     
-    // 深色模式配置 (更高的亮度以提升可見度)
-    static let darkSaturationRange = 0.70...0.90
-    static let darkLightnessRange = 0.60...0.80
+    // 深色模式配置 - Medium 風格低飽和度
+    static let darkSaturationRange = 0.25...0.45
+    static let darkLightnessRange = 0.50...0.70
     
     static let maxColorCacheSize = 1000
     static let colorSimilarityThreshold = 0.15
@@ -245,72 +245,72 @@ class HybridColorProvider: ColorProvider, ObservableObject {
     private let persistenceManager: ColorPersistenceManager
     private let dynamicGenerator: DynamicColorGenerator
     private let cashColor = ThemeAdaptiveColor.create(
-        light: Color(red: 0.5, green: 0.5, blue: 0.5),  // 淺色模式：較深的灰色
-        dark: Color(red: 0.8, green: 0.8, blue: 0.8)    // 深色模式：較淺的灰色
+        light: Color(red: 0.4, green: 0.4, blue: 0.4),  // Medium 風格深灰色
+        dark: Color(red: 0.7, green: 0.7, blue: 0.7)    // Medium 風格淺灰色
     )
     
     private init() {
-        // 預定義顏色（深色模式適配）
+        // 預定義顏色 - Medium 風格低飽和度
         self.predefinedColors = [
             "2330": ThemeAdaptiveColor.create(
-                light: Color(red: 0.9, green: 0.2, blue: 0.2),    // 台積電 - 紅色
-                dark: Color(red: 1.0, green: 0.4, blue: 0.4)
+                light: Color(red: 0.5, green: 0.3, blue: 0.3),    // 台積電 - 低飽和度紅
+                dark: Color(red: 0.7, green: 0.5, blue: 0.5)
             ),
             "0050": ThemeAdaptiveColor.create(
-                light: Color(red: 0.2, green: 0.5, blue: 0.9),    // 台灣50 - 藍色
-                dark: Color(red: 0.4, green: 0.7, blue: 1.0)
+                light: Color(red: 0.3, green: 0.4, blue: 0.5),    // 台灣50 - 低飽和度藍
+                dark: Color(red: 0.5, green: 0.6, blue: 0.7)
             ),
             "2454": ThemeAdaptiveColor.create(
-                light: Color(red: 0.2, green: 0.7, blue: 0.2),    // 聯發科 - 綠色
-                dark: Color(red: 0.4, green: 0.9, blue: 0.4)
+                light: Color(red: 0.3, green: 0.5, blue: 0.3),    // 聯發科 - 低飽和度綠
+                dark: Color(red: 0.5, green: 0.7, blue: 0.5)
             ),
             "2317": ThemeAdaptiveColor.create(
-                light: Color(red: 0.7, green: 0.2, blue: 0.7),    // 鴻海 - 紫色
-                dark: Color(red: 0.9, green: 0.4, blue: 0.9)
+                light: Color(red: 0.5, green: 0.3, blue: 0.5),    // 鴻海 - 低飽和度紫
+                dark: Color(red: 0.7, green: 0.5, blue: 0.7)
             ),
             "2881": ThemeAdaptiveColor.create(
-                light: Color(red: 0.8, green: 0.6, blue: 0.1),    // 富邦金 - 黃色
-                dark: Color(red: 1.0, green: 0.8, blue: 0.3)
+                light: Color(red: 0.5, green: 0.4, blue: 0.3),    // 富邦金 - 低飽和度棕
+                dark: Color(red: 0.7, green: 0.6, blue: 0.5)
             ),
             "2882": ThemeAdaptiveColor.create(
-                light: Color(red: 0.1, green: 0.7, blue: 0.7),    // 國泰金 - 青色
-                dark: Color(red: 0.3, green: 0.9, blue: 0.9)
+                light: Color(red: 0.3, green: 0.5, blue: 0.5),    // 國泰金 - 低飽和度青
+                dark: Color(red: 0.5, green: 0.7, blue: 0.7)
             ),
             "2886": ThemeAdaptiveColor.create(
-                light: Color(red: 0.7, green: 0.4, blue: 0.1),    // 兆豐金 - 棕色
-                dark: Color(red: 0.9, green: 0.6, blue: 0.3)
+                light: Color(red: 0.5, green: 0.4, blue: 0.3),    // 兆豐金 - 低飽和度棕
+                dark: Color(red: 0.7, green: 0.6, blue: 0.5)
             ),
             "2891": ThemeAdaptiveColor.create(
-                light: Color(red: 0.5, green: 0.1, blue: 0.7),    // 中信金 - 深紫色
-                dark: Color(red: 0.7, green: 0.3, blue: 0.9)
+                light: Color(red: 0.4, green: 0.3, blue: 0.5),    // 中信金 - 低飽和度紫
+                dark: Color(red: 0.6, green: 0.5, blue: 0.7)
             ),
             "2395": ThemeAdaptiveColor.create(
-                light: Color(red: 0.1, green: 0.3, blue: 0.7),    // 研華 - 深藍色
-                dark: Color(red: 0.3, green: 0.5, blue: 0.9)
+                light: Color(red: 0.3, green: 0.3, blue: 0.5),    // 研華 - 低飽和度藍
+                dark: Color(red: 0.5, green: 0.5, blue: 0.7)
             ),
             "3711": ThemeAdaptiveColor.create(
-                light: Color(red: 0.7, green: 0.1, blue: 0.3),    // 日月光投控 - 深紅色
-                dark: Color(red: 0.9, green: 0.3, blue: 0.5)
+                light: Color(red: 0.5, green: 0.3, blue: 0.3),    // 日月光投控 - 低飽和度紅
+                dark: Color(red: 0.7, green: 0.5, blue: 0.5)
             ),
             "2412": ThemeAdaptiveColor.create(
-                light: Color(red: 0.3, green: 0.7, blue: 0.5),    // 中華電 - 淺綠色
-                dark: Color(red: 0.5, green: 0.9, blue: 0.7)
+                light: Color(red: 0.3, green: 0.5, blue: 0.4),    // 中華電 - 低飽和度綠
+                dark: Color(red: 0.5, green: 0.7, blue: 0.6)
             ),
             "1303": ThemeAdaptiveColor.create(
-                light: Color(red: 0.6, green: 0.2, blue: 0.5),    // 南亞 - 粉紫色
-                dark: Color(red: 0.8, green: 0.4, blue: 0.7)
+                light: Color(red: 0.5, green: 0.3, blue: 0.4),    // 南亞 - 低飽和度紫
+                dark: Color(red: 0.7, green: 0.5, blue: 0.6)
             ),
             "1301": ThemeAdaptiveColor.create(
-                light: Color(red: 0.2, green: 0.5, blue: 0.6),    // 台塑 - 淺藍色
-                dark: Color(red: 0.4, green: 0.7, blue: 0.8)
+                light: Color(red: 0.3, green: 0.4, blue: 0.5),    // 台塑 - 低飽和度藍
+                dark: Color(red: 0.5, green: 0.6, blue: 0.7)
             ),
             "2382": ThemeAdaptiveColor.create(
-                light: Color(red: 0.7, green: 0.5, blue: 0.3),    // 廣達 - 淺棕色
-                dark: Color(red: 0.9, green: 0.7, blue: 0.5)
+                light: Color(red: 0.5, green: 0.4, blue: 0.3),    // 廣達 - 低飽和度棕
+                dark: Color(red: 0.7, green: 0.6, blue: 0.5)
             ),
             "2308": ThemeAdaptiveColor.create(
-                light: Color(red: 0.4, green: 0.6, blue: 0.2),    // 台達電 - 淺綠色
-                dark: Color(red: 0.6, green: 0.8, blue: 0.4)
+                light: Color(red: 0.4, green: 0.5, blue: 0.3),    // 台達電 - 低飽和度綠
+                dark: Color(red: 0.6, green: 0.7, blue: 0.5)
             )
         ]
         

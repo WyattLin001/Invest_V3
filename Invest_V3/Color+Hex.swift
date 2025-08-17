@@ -11,20 +11,20 @@ import UIKit
 extension Color {
     // MARK: - Brand Colors (根據 target.txt Design Tokens)
     
-    /// 主要品牌色 #1DB954 - 用於主要 CTA 和品牌識別
-    static let brandPrimary = Color(hex: "#1DB954")
+    /// 主要品牌色 - Medium 風格黑白色調
+    static let brandPrimary = Color(light: "#000000", dark: "#FFFFFF")
     
-    /// 次要品牌色 #0066CC - 用於次要 CTA 和強調
-    static let brandSecondary = Color(hex: "#0066CC")
+    /// 次要品牌色 - Medium 風格灰色
+    static let brandSecondary = Color(light: "#6B6B6B", dark: "#B3B3B3")
     
-    /// 主要品牌綠色 - 深色模式適配
-    static let brandGreen = Color(light: "#00B900", dark: "#4CAF50")
+    /// 主要品牌色（保持向後兼容） - Medium 風格黑白色調
+    static let brandGreen = Color(light: "#000000", dark: "#FFFFFF")
     
-    /// 品牌橙色 - 深色模式適配  
-    static let brandOrange = Color(light: "#FD7E14", dark: "#FF8A50")
+    /// 品牌橙色 - Medium 風格低飽和度
+    static let brandOrange = Color(light: "#8B5A2B", dark: "#D2B48C")
     
-    /// 品牌藍色 - 深色模式適配
-    static let brandBlue = Color(light: "#007BFF", dark: "#64B5F6")
+    /// 品牌藍色 - Medium 風格低飽和度
+    static let brandBlue = Color(light: "#4A5568", dark: "#A0AEC0")
     
     // MARK: - Semantic Colors (支援深色模式)
     
@@ -341,8 +341,8 @@ extension View {
     /// 應用品牌按鈕樣式 (深色模式適配)
     @MainActor
     func brandButtonStyle(
-        backgroundColor: Color = .brandGreen,
-        foregroundColor: Color = .white,
+        backgroundColor: Color = .mediumButtonPrimary,
+        foregroundColor: Color = .mediumButtonText,
         isDisabled: Bool = false,
         size: ButtonSize = .medium
     ) -> some View {
@@ -370,8 +370,8 @@ extension View {
     /// 帶圖標的按鈕樣式
     func iconButtonStyle(
         icon: String,
-        backgroundColor: Color = .brandGreen,
-        foregroundColor: Color = .white,
+        backgroundColor: Color = .mediumButtonPrimary,
+        foregroundColor: Color = .mediumButtonText,
         isDisabled: Bool = false,
         size: ButtonSize = .medium
     ) -> some View {
@@ -390,8 +390,8 @@ extension View {
     
     /// 次要按鈕樣式 (無填充背景)
     func secondaryButtonStyle(
-        borderColor: Color = .brandGreen,
-        foregroundColor: Color = .brandGreen,
+        borderColor: Color = .mediumButtonPrimary,
+        foregroundColor: Color = .mediumButtonPrimary,
         isDisabled: Bool = false,
         size: ButtonSize = .medium
     ) -> some View {
@@ -448,8 +448,8 @@ extension View {
         let isDark = ThemeManager.shared.isDarkMode
         
         return self
-            .background(Color.brandGreen)
-            .foregroundColor(.white)
+            .background(Color.mediumButtonPrimary)
+            .foregroundColor(.mediumButtonText)
             .clipShape(Circle())
             .overlay(
                 // 深色模式下添加細邊框增強層次
