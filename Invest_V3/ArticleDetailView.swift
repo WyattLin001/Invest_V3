@@ -9,6 +9,7 @@ struct ArticleDetailView: View {
     @State private var showGroupPicker = false
     @State private var availableGroups: [InvestmentGroup] = []
     @State private var showSubscriptionSheet = false
+    @State private var isContentVisible = false
     // ScrollViewReader doesn't need to be stored as state
     
     let article: Article
@@ -19,9 +20,68 @@ struct ArticleDetailView: View {
     }
 
     var body: some View {
-        NavigationView {
-            mainContentStack
+        ZStack {
+            // 背景
+            Color(.systemBackground)
+                .ignoresSafeArea()
+            
+            if isContentVisible {
+                VStack(spacing: 0) {
+                    // 自定義導航欄
+                    customNavigationBar
+                    
+                    // 主要內容
+                    mainContentStack
+                }
+                .opacity(isContentVisible ? 1 : 0)
+                .animation(.easeInOut(duration: 0.3), value: isContentVisible)
+            } else {
+                // Loading 狀態
+                ProgressView()
+                    .scaleEffect(1.2)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
+        .onAppear {
+            // 確保所有 StateObject 初始化完成後才顯示內容
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isContentVisible = true
+            }
+        }
+    }
+    
+    // MARK: - 自定義導航欄
+    private var customNavigationBar: some View {
+        HStack {
+            Button("關閉") {
+                dismiss()
+            }
+            .foregroundColor(.blue)
+            
+            Spacer()
+            
+            Text("文章詳情")
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            Spacer()
+            
+            // 平衡右側空間
+            Button("關閉") {
+                dismiss()
+            }
+            .opacity(0)
+            .disabled(true)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(.systemBackground))
+        .overlay(
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(.gray.opacity(0.3)),
+            alignment: .bottom
+        )
     }
     
     // MARK: - 主要內容堆疊
@@ -35,15 +95,6 @@ struct ArticleDetailView: View {
             
             // 動畫效果層
             animationOverlays
-        }
-        .navigationTitle("文章詳情")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button("關閉") {
-                    dismiss()
-                }
-            }
         }
         .sheet(isPresented: $showGroupPicker) {
             GroupPickerView(
