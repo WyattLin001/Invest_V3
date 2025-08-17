@@ -53,13 +53,14 @@ protocol TournamentServiceProtocol {
 }
 
 // MARK: - Tournament Service Implementation
+@MainActor
 class TournamentService: ObservableObject, TournamentServiceProtocol {
-    static let shared = TournamentService()
+    nonisolated static let shared = TournamentService()
     
     // MARK: - Properties
-    private lazy var supabaseService = SupabaseService.shared
-    private lazy var portfolioManager = TournamentPortfolioManager.shared
-    private lazy var statusMonitor = TournamentStatusMonitor.shared
+    private let supabaseService = SupabaseService.shared
+    private let portfolioManager = TournamentPortfolioManager.shared
+    private let statusMonitor = TournamentStatusMonitor.shared
     
     // Published properties for UI binding
     @Published var tournaments: [Tournament] = []
