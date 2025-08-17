@@ -170,12 +170,13 @@ class NotificationService: NSObject, ObservableObject {
     
     /// 儲存 Device Token 到後端（直接資料庫操作）
     private func saveDeviceTokenToBackend(_ token: String) async {
+        // 先獲取用戶信息
+        guard let user = try? await supabaseService.client.auth.user() else {
+            print("⚠️ [NotificationService] 用戶未登入，無法儲存 Device Token")
+            return
+        }
+        
         do {
-            guard let user = try? await supabaseService.client.auth.user() else {
-                print("⚠️ [NotificationService] 用戶未登入，無法儲存 Device Token")
-                return
-            }
-            
             // 使用 UPSERT 儲存到 device_tokens 表，處理重複鍵值衝突
             try await supabaseService.client
                 .from("device_tokens")
