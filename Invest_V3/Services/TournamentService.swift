@@ -58,9 +58,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     nonisolated static let shared = TournamentService()
     
     // MARK: - Properties
-    private let supabaseService = SupabaseService.shared
-    private let portfolioManager = TournamentPortfolioManager.shared
-    private let statusMonitor = TournamentStatusMonitor.shared
+    private lazy var supabaseService = SupabaseService.shared
+    private lazy var portfolioManager = TournamentPortfolioManager.shared
+    private lazy var statusMonitor = TournamentStatusMonitor.shared
     
     // Published properties for UI binding
     @Published var tournaments: [Tournament] = []
