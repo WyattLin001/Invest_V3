@@ -38,7 +38,8 @@ class TournamentBusinessService: ObservableObject {
     }
     
     private init(shared: Void) {
-        setupBusinessMetricsTracking()
+        // 錦標賽功能暫時關閉 - 禁用業務指標追蹤
+        // setupBusinessMetricsTracking()
     }
     
     // MARK: - 階段1：建立賽事 (Tournament Creation)

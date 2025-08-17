@@ -266,7 +266,8 @@ struct AppContainer: View {
                     .environmentObject(ThemeManager.shared)
                     .environmentObject(StockService.shared)
                     .environmentObject(NotificationService.shared)
-                    .environmentObject(makeTournamentWorkflowService())
+                    // 錦標賽功能暫時關閉 - 移除錦標賽工作流程服務
+                    // .environmentObject(makeTournamentWorkflowService())
             } else {
                 // 顯示啟動畫面
                 BootstrapView()
@@ -278,6 +279,8 @@ struct AppContainer: View {
 // MARK: - Service Factory
 
 /// 創建完整配置的錦標賽工作流程服務
+/// 錦標賽功能暫時關閉 - 註釋此函數以避免服務初始化
+/*
 @MainActor
 private func makeTournamentWorkflowService() -> TournamentWorkflowService {
     // 在MainActor上下文中初始化服務
@@ -289,3 +292,4 @@ private func makeTournamentWorkflowService() -> TournamentWorkflowService {
         businessService: TournamentBusinessService.shared
     )
 }
+*/

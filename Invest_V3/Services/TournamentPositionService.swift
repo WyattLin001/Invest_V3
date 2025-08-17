@@ -26,7 +26,8 @@ class TournamentPositionService: ObservableObject {
     private var priceUpdateTimer: Timer?
     
     private init() {
-        setupPriceUpdateTimer()
+        // 錦標賽功能暫時關閉 - 禁用價格更新定時器
+        // setupPriceUpdateTimer()
     }
     
     deinit {

@@ -123,7 +123,7 @@ struct HomeView: View {
             HelpCenterView()
         }
         .fullScreenCover(isPresented: $viewModel.showInvestmentPanel) {
-            EnhancedInvestmentView()
+            DevelopmentPlaceholderView()
                 .environmentObject(ThemeManager.shared)
         }
         .onReceive(viewModel.$errorMessage) { errorMessage in
