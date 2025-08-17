@@ -4509,12 +4509,32 @@ class SupabaseService: ObservableObject {
     func fetchTournamentMembers(tournamentId: UUID) async throws -> [TournamentMember] {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
-        let members: [TournamentMember] = try await client
-            .from("tournament_members")
-            .select()
+        struct TournamentParticipantData: Codable {
+            let tournament_id: String
+            let user_id: String
+            let joined_at: String
+            let is_eliminated: Bool
+            let elimination_reason: String?
+        }
+        
+        let participantData: [TournamentParticipantData] = try await client
+            .from("tournament_participants")
+            .select("tournament_id, user_id, joined_at, is_eliminated, elimination_reason")
             .eq("tournament_id", value: tournamentId.uuidString)
             .execute()
             .value
+        
+        let members = participantData.map { data in
+            let status: TournamentMember.MemberStatus = data.is_eliminated ? .eliminated : .active
+            
+            return TournamentMember(
+                tournamentId: UUID(uuidString: data.tournament_id) ?? tournamentId,
+                userId: UUID(uuidString: data.user_id) ?? UUID(),
+                joinedAt: ISO8601DateFormatter().date(from: data.joined_at) ?? Date(),
+                status: status,
+                eliminationReason: data.elimination_reason
+            )
+        }
         
         return members
     }
@@ -4565,25 +4585,49 @@ class SupabaseService: ObservableObject {
     func createTournamentMember(_ member: TournamentMember) async throws {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
-        struct TournamentMemberInsert: Codable {
+        struct TournamentParticipantInsert: Codable {
             let tournament_id: String
             let user_id: String
-            let status: String
-            let joined_at: String
+            let user_name: String
+            let user_avatar: String?
+            let current_rank: Int
+            let previous_rank: Int
+            let virtual_balance: Double
+            let initial_balance: Double
+            let return_rate: Double
+            let total_trades: Int
+            let win_rate: Double
+            let max_drawdown: Double
+            let sharpe_ratio: Double?
+            let is_eliminated: Bool
             let elimination_reason: String?
+            let joined_at: String
+            let last_updated: String
         }
         
-        let memberData = TournamentMemberInsert(
+        let participantData = TournamentParticipantInsert(
             tournament_id: member.tournamentId.uuidString,
             user_id: member.userId.uuidString,
-            status: member.status.rawValue,
+            user_name: "參賽者", // 預設值，需要從用戶資料獲取
+            user_avatar: nil,
+            current_rank: 999999,
+            previous_rank: 999999,
+            virtual_balance: 1000000.00,
+            initial_balance: 1000000.00,
+            return_rate: 0.00,
+            total_trades: 0,
+            win_rate: 0.00,
+            max_drawdown: 0.00,
+            sharpe_ratio: nil,
+            is_eliminated: member.status == .eliminated,
+            elimination_reason: member.eliminationReason,
             joined_at: member.joinedAt.iso8601,
-            elimination_reason: member.eliminationReason
+            last_updated: Date().iso8601
         )
         
         try await client
-            .from("tournament_members")
-            .insert(memberData)
+            .from("tournament_participants")
+            .insert(participantData)
             .execute()
     }
 }

@@ -12,7 +12,7 @@ import Combine
 // MARK: - 錦標賽排名服務
 @MainActor
 class TournamentRankingService: ObservableObject {
-    static let shared = TournamentRankingService(shared: ())
+    nonisolated static let shared = TournamentRankingService()
     
     // MARK: - Published Properties
     @Published var leaderboards: [UUID: [TournamentLeaderboardEntry]] = [:]
@@ -20,18 +20,19 @@ class TournamentRankingService: ObservableObject {
     @Published var lastCalculated: [UUID: Date] = [:]
     
     // MARK: - Dependencies
-    private let supabaseService = SupabaseService.shared
-    private let walletService = TournamentWalletService.shared
-    private let tournamentService = TournamentService.shared
+    private lazy var supabaseService = SupabaseService.shared
+    private lazy var walletService = TournamentWalletService.shared
+    private lazy var tournamentService = TournamentService.shared
     private var calculationTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     
-    // 公開初始化器（用於測試和依賴注入）
-    init() {
-        // 用於測試的公開初始化器
+    // 公開初始化器 - nonisolated 允許靜態創建
+    nonisolated init() {
+        // 簡潔的初始化器，避免在靜態創建時觸發複雜任務
     }
     
-    private init(shared: Void) {
+    // 啟動服務的方法，需要手動調用
+    func startService() {
         setupRankingTimer()
     }
     
