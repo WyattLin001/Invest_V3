@@ -44,8 +44,11 @@ struct ArticleDetailView: View {
         }
         .onAppear {
             // 確保所有 StateObject 初始化完成後才顯示內容
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isContentVisible = true
+            // 增加延遲時間以確保 StateObjects 完全初始化
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isContentVisible = true
+                }
             }
         }
     }

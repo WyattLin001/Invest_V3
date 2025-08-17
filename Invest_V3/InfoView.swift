@@ -55,7 +55,25 @@ struct InfoView: View {
                         Task {
                             await viewModel.fetchArticles()
                         }
+                        // 清理選中的文章
+                        selectedArticle = nil
                     }
+            } else {
+                // 如果沒有選中文章，顯示錯誤狀態並關閉 sheet
+                VStack {
+                    Text("無法載入文章")
+                        .foregroundColor(.secondary)
+                    Button("關閉") {
+                        showArticleDetail = false
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .onAppear {
+                    // 自動關閉無效的 sheet
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        showArticleDetail = false
+                    }
+                }
             }
         }
         .onAppear {
@@ -195,7 +213,10 @@ struct InfoView: View {
                             ArticleCardView(article: article)
                                 .onTapGesture {
                                     selectedArticle = article
-                                    showArticleDetail = true
+                                    // 確保 selectedArticle 設定完成後再顯示 sheet
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        showArticleDetail = true
+                                    }
                                 }
                         }
                     }
