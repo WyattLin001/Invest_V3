@@ -72,8 +72,8 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     private var refreshTimer: Timer?
     private let refreshInterval: TimeInterval = 30.0 // 30秒刷新一次
     
-    // 公開初始化器
-    init() {
+    // 公開初始化器 - nonisolated 允許靜態創建
+    nonisolated init() {
         // 簡潔的初始化器，避免在靜態創建時觸發複雜任務
     }
     
