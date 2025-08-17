@@ -25,30 +25,28 @@ struct ArticleDetailView: View {
             Color(.systemBackground)
                 .ignoresSafeArea()
             
-            if isContentVisible {
-                VStack(spacing: 0) {
-                    // 自定義導航欄
-                    customNavigationBar
-                    
-                    // 主要內容
-                    mainContentStack
-                }
-                .opacity(isContentVisible ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: isContentVisible)
-            } else {
-                // Loading 狀態
+            VStack(spacing: 0) {
+                // 自定義導航欄
+                customNavigationBar
+                
+                // 主要內容
+                mainContentStack
+            }
+            .opacity(isContentVisible ? 1 : 0)
+            .animation(.easeInOut(duration: 0.2), value: isContentVisible)
+            
+            // Loading 覆蓋層
+            if !isContentVisible {
                 ProgressView()
                     .scaleEffect(1.2)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(.systemBackground))
             }
         }
         .onAppear {
-            // 確保所有 StateObject 初始化完成後才顯示內容
-            // 增加延遲時間以確保 StateObjects 完全初始化
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isContentVisible = true
-                }
+            // 立即顯示內容，不再延遲
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isContentVisible = true
             }
         }
     }

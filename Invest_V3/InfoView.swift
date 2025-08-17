@@ -17,27 +17,27 @@ struct InfoView: View {
     @State private var showDrafts = false
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                VStack(spacing: 0) {
-                    // 頂部導航欄 (44px)
-                    topNavigationBar
-                    
-                    // 搜尋框 (343×40 pt)
-                    searchBar
-                    
-                    // 熱門關鍵字篩選
-                    keywordFilter
-                    
-                    // 文章列表
-                    articlesList
-                }
-                .background(Color.gray100)
+        ZStack {
+            // 全螢幕背景
+            Color.gray100
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // 頂部導航欄 (44px)
+                topNavigationBar
                 
-                // Medium 風格圓形浮動按鈕
-                mediumStyleFloatingButton
+                // 搜尋框 (343×40 pt)
+                searchBar
+                
+                // 熱門關鍵字篩選
+                keywordFilter
+                
+                // 文章列表
+                articlesList
             }
-            .navigationBarHidden(true)
+            
+            // Medium 風格圓形浮動按鈕
+            mediumStyleFloatingButton
         }
         .sheet(isPresented: $showArticleEditor) {
             MediumStyleEditor()
@@ -225,7 +225,6 @@ struct InfoView: View {
                 }
             }
         }
-        .background(Color.gray100)
     }
     
     // MARK: - Medium 風格圓形浮動按鈕
