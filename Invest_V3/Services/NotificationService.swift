@@ -200,7 +200,7 @@ class NotificationService: NSObject, ObservableObject {
                postgrestError.localizedDescription.contains("23505") {
                 print("⚠️ [NotificationService] Device Token 已存在，嘗試更新現有記錄")
                 // 嘗試直接更新現有記錄
-                await updateExistingDeviceToken(token, for: user.id.uuidString)
+                await updateExistingDeviceToken(token, for: user)
             } else {
                 print("❌ [NotificationService] 儲存 Device Token 失敗: \(error)")
             }
@@ -208,7 +208,7 @@ class NotificationService: NSObject, ObservableObject {
     }
     
     /// 更新現有的 Device Token 記錄（fallback方法）
-    private func updateExistingDeviceToken(_ token: String, for userId: String) async {
+    private func updateExistingDeviceToken(_ token: String, for user: Supabase.User) async {
         do {
             try await supabaseService.client
                 .from("device_tokens")
@@ -221,11 +221,11 @@ class NotificationService: NSObject, ObservableObject {
                     "is_active": "true",
                     "updated_at": ISO8601DateFormatter().string(from: Date())
                 ])
-                .eq("user_id", value: userId)
+                .eq("user_id", value: user.id.uuidString)
                 .eq("device_token", value: token)
                 .execute()
             
-            print("✅ [NotificationService] Device Token 更新成功")
+            print("✅ [NotificationService] Device Token 更新成功 (用戶: \(user.id.uuidString.prefix(8))...)")
             
         } catch {
             print("❌ [NotificationService] 更新 Device Token 也失敗: \(error)")
