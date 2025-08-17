@@ -35,40 +35,45 @@ struct ArticleReadLog: Codable, Identifiable {
     }
 }
 
-// MARK: - 文章閱讀記錄插入模型
+// MARK: - 文章閱讀記錄插入模型（匹配數據庫 schema）
 struct ArticleReadLogInsert: Codable {
-    let articleId: String
     let userId: String
-    let readStartTime: Date
-    let readEndTime: Date?
-    let readDurationSeconds: Int
+    let articleId: String
+    let authorId: String
+    let readingDuration: Int
     let scrollPercentage: Double
-    let isCompleteRead: Bool
-    let deviceType: String
-    let createdAt: Date
+    let isCompleted: Bool
+    let readingDate: String
+    let sessionStart: String?
+    let sessionEnd: String?
     
     enum CodingKeys: String, CodingKey {
-        case articleId = "article_id"
         case userId = "user_id"
-        case readStartTime = "read_start_time"
-        case readEndTime = "read_end_time"
-        case readDurationSeconds = "read_duration_seconds"
+        case articleId = "article_id"
+        case authorId = "author_id"
+        case readingDuration = "reading_duration"
         case scrollPercentage = "scroll_percentage"
-        case isCompleteRead = "is_complete_read"
-        case deviceType = "device_type"
-        case createdAt = "created_at"
+        case isCompleted = "is_completed"
+        case readingDate = "reading_date"
+        case sessionStart = "session_start"
+        case sessionEnd = "session_end"
     }
     
-    init(articleId: UUID, userId: UUID, readStartTime: Date, readEndTime: Date?, readDurationSeconds: Int, scrollPercentage: Double, isCompleteRead: Bool) {
-        self.articleId = articleId.uuidString
+    init(userId: UUID, articleId: UUID, authorId: UUID, readingDuration: Int, scrollPercentage: Double, isCompleted: Bool, sessionStart: Date? = nil, sessionEnd: Date? = nil) {
         self.userId = userId.uuidString
-        self.readStartTime = readStartTime
-        self.readEndTime = readEndTime
-        self.readDurationSeconds = readDurationSeconds
+        self.articleId = articleId.uuidString
+        self.authorId = authorId.uuidString
+        self.readingDuration = readingDuration
         self.scrollPercentage = scrollPercentage
-        self.isCompleteRead = isCompleteRead
-        self.deviceType = "iOS"
-        self.createdAt = Date()
+        self.isCompleted = isCompleted
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        self.readingDate = formatter.string(from: Date())
+        
+        let isoFormatter = ISO8601DateFormatter()
+        self.sessionStart = sessionStart != nil ? isoFormatter.string(from: sessionStart!) : nil
+        self.sessionEnd = sessionEnd != nil ? isoFormatter.string(from: sessionEnd!) : nil
     }
 }
 

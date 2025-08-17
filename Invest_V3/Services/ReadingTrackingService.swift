@@ -161,13 +161,14 @@ class ReadingTrackingService: ObservableObject {
         }
         
         let readLog = ArticleReadLogInsert(
-            articleId: session.articleId,
             userId: currentUser.id,
-            readStartTime: session.startTime,
-            readEndTime: session.endTime,
-            readDurationSeconds: session.readDurationSeconds,
+            articleId: session.articleId,
+            authorId: session.authorId,
+            readingDuration: session.readDurationSeconds,
             scrollPercentage: session.maxScrollPercentage,
-            isCompleteRead: session.isCompleteRead
+            isCompleted: session.isCompleteRead,
+            sessionStart: session.startTime,
+            sessionEnd: session.endTime
         )
         
         do {
