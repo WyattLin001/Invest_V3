@@ -727,6 +727,15 @@ class TournamentPortfolioManager: ObservableObject {
             print("✅ 載入錦標賽投資組合: \(tournamentPortfolios.count) 個")
         } catch {
             print("❌ 載入錦標賽投資組合失敗: \(error)")
+            
+            // 版本不匹配或數據損壞時清除舊數據
+            if error.localizedDescription.contains("cash_balance") || 
+               error.localizedDescription.contains("keyNotFound") {
+                print("🔄 [TournamentPortfolioManager] 檢測到版本不匹配，清除舊投資組合數據")
+                UserDefaults.standard.removeObject(forKey: "tournament_portfolios")
+                tournamentPortfolios = [:]
+                print("✅ [TournamentPortfolioManager] 舊數據已清除，重新初始化")
+            }
         }
     }
     

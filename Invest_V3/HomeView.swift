@@ -22,9 +22,6 @@ struct HomeView: View {
     @State private var showWalletView = false
     @State private var showCreateGroupView = false
     @State private var showFriendSearch = false // 好友搜尋頁面
-    @State private var currentTournamentName = "2025年度投資錦標賽" // 當前錦標賽名稱
-    @State private var showTournamentSwitcher = false // 錦標賽切換器
-    @StateObject private var tournamentStateManager = TournamentStateManager.shared
     @State private var showHelpCenter = false // 幫助中心
     
 
@@ -93,9 +90,6 @@ struct HomeView: View {
                         )
                 }
             }
-            .sheet(isPresented: $showTournamentSwitcher) {
-                TournamentSwitcherView(currentTournament: $currentTournamentName)
-            }
         }
         .alert("錯誤", isPresented: $showErrorAlert) {
             Button("確定", role: .cancel) {
@@ -163,25 +157,6 @@ struct HomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshGroupsList"))) { _ in
             _Concurrency.Task<Void, Never>(priority: .userInitiated) {
                 await viewModel.loadData()
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TournamentContextChanged"))) { (notification: Notification) in
-            print("🔄 [HomeView] 錦標賽切換，更新錦標賽資訊")
-            if let userInfo = notification.userInfo,
-               let tournamentName = userInfo["tournamentName"] as? String {
-                currentTournamentName = tournamentName
-            }
-            _Concurrency.Task<Void, Never>(priority: .userInitiated) {
-                await viewModel.loadData()
-                await loadWalletBalance()
-            }
-        }
-        .onChange(of: tournamentStateManager.currentTournamentContext) { _, newContext in
-            print("🔄 [HomeView] 錦標賽上下文變更")
-            if let context = newContext {
-                currentTournamentName = context.displayTitle
-            } else {
-                currentTournamentName = "一般模式"
             }
         }
     }
@@ -325,20 +300,6 @@ struct HomeView: View {
                             .foregroundColor(.gray600)
                     }
                     
-                    VStack(spacing: 8) {
-                        Button(action: { 
-                            // 錦標賽功能暫時停用
-                        }) {
-                            Image(systemName: "trophy.fill")
-                                .font(.title3)
-                                .foregroundColor(.orange)
-                        }
-                        .accessibilityLabel("錦標賽測試")
-                        
-                        Text("測試")
-                            .font(.caption2)
-                            .foregroundColor(.gray600)
-                    }
                 }
             }
         }
@@ -371,26 +332,14 @@ struct HomeView: View {
                         .foregroundColor(.white)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        if tournamentStateManager.isParticipatingInTournament {
-                            Text("錦標賽交易")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
+                        Text("投資交易")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
 
-                            Text(tournamentStateManager.getCurrentTournamentDisplayName() ?? "參與中...")
-                                .font(.caption2)
-                                .foregroundColor(.white.opacity(0.8))
-                                .lineLimit(1)
-                        } else {
-                            Text("投資交易")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-
-                            Text("模擬股票交易")
-                                .font(.caption2)
-                                .foregroundColor(.white.opacity(0.8))
-                        }
+                        Text("模擬股票交易")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.8))
                     }
 
                     Spacer()
@@ -410,8 +359,8 @@ struct HomeView: View {
                 )
                 .cornerRadius(12)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(tournamentStateManager.isParticipatingInTournament ? "錦標賽交易" : "投資交易")
-                .accessibilityHint(tournamentStateManager.isParticipatingInTournament ? "開啟錦標賽交易界面" : "開啟投資面板進行模擬股票交易")
+                .accessibilityLabel("投資交易")
+                .accessibilityHint("開啟投資面板進行模擬股票交易")
             }
         }
         .padding(.all, 20)
@@ -1280,124 +1229,6 @@ extension HomeView {
     }
 }
 
-// MARK: - 錦標賽切換器視圖
-struct TournamentSwitcherView: View {
-    @Binding var currentTournament: String
-    @Environment(\.dismiss) private var dismiss
-    
-    private let availableTournaments = [
-        "2025年度投資錦標賽",
-        "2025第一季錦標賽",
-        "新手投資挑戰賽",
-        "專業投資競技賽"
-    ]
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 24) {
-                // 標題說明
-                VStack(spacing: 12) {
-                    Text("選擇錦標賽")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.gray900)
-                    
-                    Text("選擇您想要參加的投資錦標賽")
-                        .font(.body)
-                        .foregroundColor(.gray600)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.top, 20)
-                
-                // 錦標賽列表
-                VStack(spacing: 16) {
-                    ForEach(availableTournaments, id: \.self) { tournament in
-                        Button(action: {
-                            currentTournament = tournament
-                            dismiss()
-                        }) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(tournament)
-                                        .font(.headline)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.gray900)
-                                    
-                                    Text(getTournamentDescription(tournament))
-                                        .font(.caption)
-                                        .foregroundColor(.gray600)
-                                }
-                                
-                                Spacer()
-                                
-                                if currentTournament == tournament {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.title2)
-                                        .foregroundColor(.brandGreen)
-                                } else {
-                                    Image(systemName: "circle")
-                                        .font(.title2)
-                                        .foregroundColor(.gray400)
-                                }
-                            }
-                            .padding(16)
-                            .background(currentTournament == tournament ? Color.brandGreen.opacity(0.1) : Color.surfaceSecondary)
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(currentTournament == tournament ? Color.brandGreen : Color.gray300, lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-                
-                Spacer()
-                
-                // 確認按鈕
-                Button(action: {
-                    dismiss()
-                }) {
-                    Text("確認選擇")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.brandGreen)
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal)
-            }
-            .padding()
-            .navigationTitle("切換錦標賽")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("取消") {
-                        dismiss()
-                    }
-                    .foregroundColor(.brandGreen)
-                }
-            }
-        }
-    }
-    
-    private func getTournamentDescription(_ tournament: String) -> String {
-        switch tournament {
-        case "2025年度投資錦標賽":
-            return "全年度最高榮譽競賽，獎勵豐厚"
-        case "2025第一季錦標賽":
-            return "季度競賽，適合穩健型投資者"
-        case "新手投資挑戰賽":
-            return "專為投資新手設計的入門賽事"
-        case "專業投資競技賽":
-            return "高難度競賽，適合專業投資者"
-        default:
-            return "投資競賽"
-        }
-    }
-}
 
 // MARK: - InvitationRowView
 struct InvitationRowView: View {

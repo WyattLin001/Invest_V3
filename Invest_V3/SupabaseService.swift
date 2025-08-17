@@ -4440,17 +4440,47 @@ class SupabaseService: ObservableObject {
     ) async throws -> TournamentPortfolioV2 {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
-        let portfolios: [TournamentPortfolioV2] = try await client
-            .from("tournament_portfolios")
-            .select()
+        struct PortfolioData: Codable {
+            let id: String
+            let user_id: String
+            let tournament_id: String
+            let initial_cash: Double
+            let available_cash: Double
+            let total_value: Double
+            let return_rate: Double
+            let last_updated: String
+        }
+        
+        let portfolioData: [PortfolioData] = try await client
+            .from("portfolios")
+            .select("id, user_id, tournament_id, initial_cash, available_cash, total_value, return_rate, last_updated")
             .eq("tournament_id", value: tournamentId.uuidString)
             .eq("user_id", value: userId.uuidString)
             .execute()
             .value
         
-        guard let portfolio = portfolios.first else {
+        guard let data = portfolioData.first else {
             throw SupabaseError.dataFetchFailed("Portfolio not found")
         }
+        
+        // 轉換為 TournamentPortfolioV2
+        let portfolio = TournamentPortfolioV2(
+            id: UUID(uuidString: data.id) ?? UUID(),
+            tournamentId: tournamentId,
+            userId: userId,
+            cashBalance: data.available_cash,
+            equityValue: data.total_value - data.available_cash,
+            totalAssets: data.total_value,
+            initialBalance: data.initial_cash,
+            totalReturn: data.total_value - data.initial_cash,
+            returnPercentage: data.return_rate * 100.0, // 轉換為百分比
+            totalTrades: 0, // 需要額外查詢
+            winningTrades: 0,
+            maxDrawdown: 0.0, // 需要額外計算
+            dailyReturn: 0.0, // 修正：使用 0.0 而非 nil
+            sharpeRatio: nil,
+            lastUpdated: ISO8601DateFormatter().date(from: data.last_updated) ?? Date()
+        )
         
         return portfolio
     }
@@ -4459,9 +4489,30 @@ class SupabaseService: ObservableObject {
     func createTournamentPortfolio(_ portfolio: TournamentPortfolioV2) async throws {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
+        // 映射到 portfolios 表的結構
+        struct PortfolioInsert: Codable {
+            let group_id: String?
+            let user_id: String
+            let initial_cash: Double
+            let available_cash: Double
+            let total_value: Double
+            let return_rate: Double
+            let tournament_id: String
+        }
+        
+        let portfolioData = PortfolioInsert(
+            group_id: nil, // 錦標賽投資組合不需要群組 ID
+            user_id: portfolio.userId.uuidString,
+            initial_cash: portfolio.initialBalance,
+            available_cash: portfolio.cashBalance,
+            total_value: portfolio.totalAssets,
+            return_rate: portfolio.returnPercentage / 100.0, // 轉換為小數
+            tournament_id: portfolio.tournamentId.uuidString
+        )
+        
         try await client
-            .from("tournament_portfolios")
-            .insert(portfolio)
+            .from("portfolios")
+            .insert(portfolioData)
             .execute()
     }
     
@@ -4469,9 +4520,24 @@ class SupabaseService: ObservableObject {
     func updateTournamentPortfolio(_ portfolio: TournamentPortfolioV2) async throws {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
+        // 映射到 portfolios 表的結構
+        struct PortfolioUpdate: Codable {
+            let available_cash: Double
+            let total_value: Double
+            let return_rate: Double
+            let last_updated: String
+        }
+        
+        let updateData = PortfolioUpdate(
+            available_cash: portfolio.cashBalance,
+            total_value: portfolio.totalAssets,
+            return_rate: portfolio.returnPercentage / 100.0,
+            last_updated: Date().iso8601
+        )
+        
         try await client
-            .from("tournament_portfolios")
-            .update(portfolio)
+            .from("portfolios")
+            .update(updateData)
             .eq("tournament_id", value: portfolio.tournamentId.uuidString)
             .eq("user_id", value: portfolio.userId.uuidString)
             .execute()
@@ -6916,10 +6982,32 @@ extension SupabaseService {
             lastUpdated: portfolio.lastUpdated
         )
         
-        // 使用 upsert 插入或更新投資組合
+        // 映射到 portfolios 表並使用 upsert
+        struct PortfolioUpsert: Codable {
+            let id: String
+            let user_id: String
+            let tournament_id: String
+            let initial_cash: Double
+            let available_cash: Double
+            let total_value: Double
+            let return_rate: Double
+            let last_updated: String
+        }
+        
+        let upsertData = PortfolioUpsert(
+            id: portfolio.id.uuidString,
+            user_id: portfolio.userId.uuidString,
+            tournament_id: portfolio.tournamentId.uuidString,
+            initial_cash: portfolio.initialBalance,
+            available_cash: portfolio.cashBalance,
+            total_value: portfolio.totalAssets,
+            return_rate: portfolio.returnPercentage / 100.0,
+            last_updated: portfolio.lastUpdated.iso8601
+        )
+        
         try await client
-            .from("tournament_portfolios")
-            .upsert(portfolioData)
+            .from("portfolios")
+            .upsert(upsertData)
             .execute()
         
         // 同步持股資訊
@@ -7577,7 +7665,7 @@ extension SupabaseService {
         print("🗑️ [SupabaseService] 刪除錦標賽錢包: \(tournamentId)")
         
         try await client
-            .from("tournament_portfolios")
+            .from("portfolios")
             .delete()
             .eq("tournament_id", value: tournamentId.uuidString)
             .execute()
@@ -8029,7 +8117,7 @@ extension SupabaseService {
         try SupabaseManager.shared.ensureInitialized()
         
         try await client
-            .from("tournament_portfolios")
+            .from("portfolios")
             .update(portfolioData)
             .eq("tournament_id", value: tournamentId.uuidString)
             .eq("user_id", value: userId.uuidString)
@@ -8041,7 +8129,7 @@ extension SupabaseService {
         try SupabaseManager.shared.ensureInitialized()
         
         try await client
-            .from("tournament_portfolios")
+            .from("portfolios")
             .delete()
             .eq("tournament_id", value: tournamentId.uuidString)
             .eq("user_id", value: userId.uuidString)

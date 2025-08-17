@@ -18,8 +18,16 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>此應用程式需要使用相機來讓您拍攝照片設置頭像或分享投資內容。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>此應用程式需要存取照片庫來讓您設置頭像和分享投資相關圖片。</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>此應用程式需要發送推播通知來提醒您重要的投資資訊、市場動態和群組訊息。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -29,7 +37,6 @@
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>remote-notification</string>
 		<string>background-fetch</string>
 	</array>
 	<key>UILaunchScreen</key>
@@ -49,13 +56,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>此應用程式需要發送推播通知來提醒您重要的投資資訊、市場動態和群組訊息。</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>此應用程式需要存取照片庫來讓您設置頭像和分享投資相關圖片。</string>
-	<key>NSCameraUsageDescription</key>
-	<string>此應用程式需要使用相機來讓您拍攝照片設置頭像或分享投資內容。</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 </dict>
 </plist>

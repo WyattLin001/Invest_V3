@@ -12,7 +12,7 @@ import Combine
 // MARK: - 錦標賽錢包服務
 @MainActor
 class TournamentWalletService: ObservableObject {
-    static let shared =  TournamentWalletService(shared: ())
+    nonisolated static let shared = TournamentWalletService()
     
     // MARK: - Published Properties
     @Published var wallets: [String: TournamentPortfolioV2] = [:]
@@ -20,16 +20,17 @@ class TournamentWalletService: ObservableObject {
     @Published var lastUpdated: Date?
     
     // MARK: - Dependencies
-    private let supabaseService = SupabaseService.shared
-    private let positionService = TournamentPositionService.shared
+    private lazy var supabaseService = SupabaseService.shared
+    private lazy var positionService = TournamentPositionService.shared
     private var cancellables = Set<AnyCancellable>()
     
-    // 公開初始化器（用於測試和依賴注入）
-    init() {
-        // 用於測試的公開初始化器
+    // 公開初始化器 - nonisolated 允許靜態創建
+    nonisolated init() {
+        // 簡潔的初始化器，避免在靜態創建時觸發複雜任務
     }
     
-    private init(shared: Void) {
+    // 啟動服務的方法，需要手動調用
+    func startService() {
         // 監聽持倉服務的更新
         positionService.$lastUpdated
             .sink { [weak self] _ in
