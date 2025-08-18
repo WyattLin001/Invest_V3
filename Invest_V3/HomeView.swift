@@ -132,23 +132,17 @@ struct HomeView: View {
         }
         .onReceive(viewModel.$errorMessage) { errorMessage in
             if let errorMessage = errorMessage {
-                // 延遲顯示警告框確保視圖層級正確
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    // 檢查是否為餘額不足錯誤
-                    if errorMessage.contains("餘額不足") {
-                        showInsufficientBalanceAlert = true
-                    } else {
-                        showErrorAlert = true
-                    }
+                // 檢查是否為餘額不足錯誤
+                if errorMessage.contains("餘額不足") {
+                    showInsufficientBalanceAlert = true
+                } else {
+                    showErrorAlert = true
                 }
             }
         }
         .onReceive(viewModel.$successMessage) { successMessage in
             if successMessage != nil {
-                // 延遲顯示成功警告框確保視圖層級正確
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    showSuccessAlert = true
-                }
+                showSuccessAlert = true
             }
         }
         .onAppear {

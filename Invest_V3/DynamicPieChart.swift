@@ -125,11 +125,9 @@ struct DynamicPieChart: View {
                                     showDetailPopup = false
                                 } else {
                                     selectedSegment = item
-                                    // 延遲顯示詳情彈窗
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                        if item.holdingQuantity != nil || item.currentValue != nil {
-                                            showDetailPopup = true
-                                        }
+                                    // 立即顯示詳情彈窗（如果有必要數據）
+                                    if item.holdingQuantity != nil || item.currentValue != nil {
+                                        showDetailPopup = true
                                     }
                                 }
                             }

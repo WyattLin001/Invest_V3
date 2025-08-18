@@ -5,8 +5,7 @@ struct DraftsView: View {
     @State private var drafts: [ArticleDraft] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var selectedDraft: ArticleDraft?
-    @State private var showDraftEditor = false
+    @State private var selectedDraftForEditing: ArticleDraft?
     @State private var sortOption: DraftSortOption = .lastModified
     @State private var filterStatus: DraftStatus? = nil
     @State private var searchText = ""
@@ -80,8 +79,7 @@ struct DraftsView: View {
                         ForEach(filteredDrafts) { draft in
                             EnhancedDraftRowView(draft: draft)
                                 .onTapGesture {
-                                    selectedDraft = draft
-                                    showDraftEditor = true
+                                    selectedDraftForEditing = draft
                                 }
                         }
                         .onDelete(perform: deleteDrafts)
@@ -122,12 +120,10 @@ struct DraftsView: View {
                 Text(errorMessage)
             }
         }
-        .fullScreenCover(isPresented: $showDraftEditor) {
-            if let draft = selectedDraft {
-                MediumStyleEditor(existingDraft: draft) {
-                    // 編輯完成後重新加載草稿
-                    loadDrafts()
-                }
+        .fullScreenCover(item: $selectedDraftForEditing) { draft in
+            MediumStyleEditor(existingDraft: draft) {
+                // 編輯完成後重新加載草稿
+                loadDrafts()
             }
         }
         .actionSheet(isPresented: $showSortOptions) {
