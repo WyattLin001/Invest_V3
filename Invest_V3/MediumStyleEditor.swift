@@ -956,7 +956,6 @@ struct PreviewSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("完成") {
-                        onComplete?()
                         dismiss()
                     }
                     .foregroundColor(textColor)
