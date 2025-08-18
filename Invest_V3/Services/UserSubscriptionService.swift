@@ -16,6 +16,7 @@ class UserSubscriptionService: ObservableObject {
     @Published var isSubscribed: Bool = false
     @Published var subscriptionExpiryDate: Date?
     @Published var isLoading: Bool = false
+    @Published var isInitialized: Bool = false
     
     private var cancellables = Set<AnyCancellable>()
     private let supabaseService = SupabaseService.shared
@@ -119,10 +120,20 @@ class UserSubscriptionService: ObservableObject {
     /// 載入本地儲存的訂閱狀態
     private func loadSubscriptionStatus() {
         // 從 UserDefaults 載入上次的訂閱狀態（快速顯示）
-        isSubscribed = UserDefaults.standard.bool(forKey: "user_subscription_active")
+        let hasStoredSubscription = UserDefaults.standard.object(forKey: "user_subscription_active") != nil
         
-        if let expiryTimestamp = UserDefaults.standard.object(forKey: "user_subscription_expiry") as? Date {
-            subscriptionExpiryDate = expiryTimestamp
+        if hasStoredSubscription {
+            isSubscribed = UserDefaults.standard.bool(forKey: "user_subscription_active")
+            if let expiryTimestamp = UserDefaults.standard.object(forKey: "user_subscription_expiry") as? Date {
+                subscriptionExpiryDate = expiryTimestamp
+            }
+            // 如果有儲存的狀態，立即標記為已初始化
+            isInitialized = true
+        } else {
+            // 沒有儲存的狀態，假設為免費用戶（大部分情況）
+            isSubscribed = false
+            subscriptionExpiryDate = nil
+            isInitialized = true
         }
         
         // 異步刷新最新狀態

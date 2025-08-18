@@ -9,7 +9,7 @@ struct ArticleDetailView: View {
     @State private var showGroupPicker = false
     @State private var availableGroups: [InvestmentGroup] = []
     @State private var showSubscriptionSheet = false
-    @State private var isContentVisible = false
+    @State private var isContentVisible = true
     // ScrollViewReader doesn't need to be stored as state
     
     let article: Article
@@ -32,29 +32,13 @@ struct ArticleDetailView: View {
                 // 主要內容
                 mainContentStack
             }
-            .opacity(isContentVisible ? 1 : 0)
-            .animation(.easeInOut(duration: 0.2), value: isContentVisible)
-            
-            // Loading 覆蓋層
-            if !isContentVisible {
-                ProgressView()
-                    .scaleEffect(1.2)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(.systemBackground))
-            }
+            // 內容立即顯示，統計數據在背景載入
         }
         .onAppear {
-            // 確保內容在數據載入後才顯示
+            // 內容立即顯示，統計數據在背景載入
             Task {
-                // 等待關鍵數據載入完成
+                // 異步載入統計數據，不阻塞內容顯示
                 await interactionVM.loadInteractionStats()
-                
-                // 數據載入完成後顯示內容
-                await MainActor.run {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isContentVisible = true
-                    }
-                }
             }
         }
     }
@@ -228,20 +212,33 @@ struct ArticleDetailView: View {
     // MARK: - Markdown 內容視圖
     private var markdownContentView: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // 顯示可讀的內容（根據訂閱狀態決定完整或預覽）
-            let readableContent = subscriptionService.getReadableContent(for: article)
-            
-            Markdown(readableContent)
-                .markdownTextStyle {
-                    FontSize(.em(1.0))
+            // 確保訂閱狀態已初始化後再決定顯示內容
+            if subscriptionService.isInitialized {
+                // 顯示可讀的內容（根據訂閱狀態決定完整或預覽）
+                let readableContent = subscriptionService.getReadableContent(for: article)
+                
+                Markdown(readableContent)
+                    .markdownTextStyle {
+                        FontSize(.em(1.0))
+                    }
+                    .modifier(MarkdownHeadingStyleModifier())
+                    .modifier(MarkdownBlockStyleModifier())
+                    .multilineTextAlignment(.leading)
+                
+                // 付費文章的訂閱提示
+                if !article.isFree && !subscriptionService.canAccessPaidContent() {
+                    paywallPromptView
                 }
-                .modifier(MarkdownHeadingStyleModifier())
-                .modifier(MarkdownBlockStyleModifier())
-                .multilineTextAlignment(.leading)
-            
-            // 付費文章的訂閱提示
-            if !article.isFree && !subscriptionService.canAccessPaidContent() {
-                paywallPromptView
+            } else {
+                // 訂閱狀態載入中，顯示文章基本內容
+                Markdown(article.bodyMD ?? article.fullContent)
+                    .markdownTextStyle {
+                        FontSize(.em(1.0))
+                    }
+                    .modifier(MarkdownHeadingStyleModifier())
+                    .modifier(MarkdownBlockStyleModifier())
+                    .multilineTextAlignment(.leading)
+                    .opacity(0.8) // 略微透明表示載入中
             }
         }
     }
