@@ -73,14 +73,14 @@ struct AuthorEarningsView: View {
             // 初始化數據按鈕 - 適用於所有用戶
             Button(action: { Task { await viewModel.initializeUserData() } }) {
                 Image(systemName: "gear")
-                    .foregroundColor(.orange)
+                    .foregroundColor(.mediumTextSecondary)
                     .imageScale(.large)
             }
             .accessibilityLabel("初始化用戶數據")
             
             Button(action: { Task { await viewModel.refreshData() } }) {
                 Image(systemName: "arrow.clockwise")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.mediumButtonPrimary)
                     .imageScale(.large)
             }
             .accessibilityLabel("重新整理收益資料")
@@ -105,15 +105,15 @@ struct AuthorEarningsView: View {
             }
             VStack(spacing: EarningsDesignTokens.spacing8) {
                 HStack {
-                    earningsBreakdown("訂閱分潤", viewModel.subscriptionEarnings, .green)
+                    earningsBreakdown("訂閱分潤", viewModel.subscriptionEarnings, .mediumSuccess)
                     Spacer()
-                    earningsBreakdown("讀者抖內", viewModel.tipEarnings, .blue)
+                    earningsBreakdown("讀者抖內", viewModel.tipEarnings, .mediumTextSecondary)
                 }
                 
                 HStack {
-                    earningsBreakdown("群組入會費", viewModel.groupEntryFeeEarnings, .orange)
+                    earningsBreakdown("群組入會費", viewModel.groupEntryFeeEarnings, .mediumTextTertiary)
                     Spacer()
-                    earningsBreakdown("群組抖內", viewModel.groupTipEarnings, .purple)
+                    earningsBreakdown("群組抖內", viewModel.groupTipEarnings, .mediumGray)
                 }
             }
         }
@@ -151,17 +151,17 @@ struct AuthorEarningsView: View {
                 if let status = eligibilityStatus {
                     HStack(spacing: 6) {
                         Image(systemName: status.isEligible ? "checkmark.circle.fill" : "clock.circle.fill")
-                            .foregroundColor(status.isEligible ? .green : .orange)
+                            .foregroundColor(status.isEligible ? .mediumSuccess : .mediumTextSecondary)
                         Text(status.isEligible ? "已達成" : "進行中")
                             .font(EarningsDesignTokens.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(status.isEligible ? .green : .orange)
+                            .foregroundColor(status.isEligible ? .mediumSuccess : .mediumTextSecondary)
                     }
                 }
                 
                 Button(action: { Task { await evaluateEligibility() } }) {
                     Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.mediumButtonPrimary)
                         .imageScale(.medium)
                 }
                 .disabled(eligibilityService.isEvaluating)
@@ -199,7 +199,7 @@ struct AuthorEarningsView: View {
         VStack(alignment: .leading, spacing: EarningsDesignTokens.spacing8) {
             HStack {
                 Image(systemName: progress.condition.icon)
-                    .foregroundColor(progress.isCompleted ? .green : .orange)
+                    .foregroundColor(progress.isCompleted ? .mediumSuccess : .mediumTextSecondary)
                     .frame(width: 20)
                 
                 VStack(alignment: .leading, spacing: 2) {
@@ -217,18 +217,18 @@ struct AuthorEarningsView: View {
                     Text("\(progress.currentValue)/\(progress.requiredValue)")
                         .font(EarningsDesignTokens.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(progress.isCompleted ? .green : .primary)
+                        .foregroundColor(progress.isCompleted ? .mediumSuccess : .mediumTextPrimary)
                     
                     if progress.isCompleted {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                            .foregroundColor(.mediumSuccess)
                             .font(.caption)
                     }
                 }
             }
             
             ProgressView(value: progress.progressPercentage.safeProgressValue(total: 100))
-                .progressViewStyle(LinearProgressViewStyle(tint: progress.isCompleted ? .green : .orange))
+                .progressViewStyle(LinearProgressViewStyle(tint: progress.isCompleted ? .mediumSuccess : .mediumTextSecondary))
                 .scaleEffect(x: 1, y: 1.5)
         }
         .padding(.vertical, EarningsDesignTokens.spacing4)
@@ -253,7 +253,7 @@ struct AuthorEarningsView: View {
                     .foregroundColor(.secondary)
             }
             ProgressView(value: viewModel.withdrawableAmount.safeProgressValue(total: 10))
-                .progressViewStyle(LinearProgressViewStyle(tint: .accentColor))
+                .progressViewStyle(LinearProgressViewStyle(tint: .mediumButtonPrimary))
                 .scaleEffect(x: 1, y: 2)
         }
     }
@@ -281,7 +281,7 @@ struct AuthorEarningsView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .background(
-                LinearGradient(colors: [.accentColor, .accentColor.opacity(0.8)],
+                LinearGradient(colors: [.mediumButtonPrimary, .mediumButtonPrimary.opacity(0.8)],
                                startPoint: .leading,
                                endPoint: .trailing)
             )
@@ -307,7 +307,7 @@ struct AuthorEarningsView: View {
         VStack(spacing: EarningsDesignTokens.spacing16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 48))
-                .foregroundColor(.orange)
+                .foregroundColor(.mediumTextSecondary)
             Text("載入失敗")
                 .font(EarningsDesignTokens.headline)
             Button("重試") {
@@ -335,7 +335,7 @@ struct AuthorEarningsView: View {
                     if animationPhase >= 1 {
                         Image(systemName: "dollarsign.circle.fill")
                             .font(.system(size: 60))
-                            .foregroundColor(.green)
+                            .foregroundColor(.mediumSuccess)
                             .scaleEffect(animationPhase == 1 ? 1.2 : 1.0)
                             .animation(.spring(response: 0.6, dampingFraction: 0.8), value: animationPhase)
                     }
@@ -346,7 +346,7 @@ struct AuthorEarningsView: View {
                             VStack {
                                 Image(systemName: "doc.text.fill")
                                     .font(.title)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.mediumTextSecondary)
                                 Text("創作收益")
                                     .font(.caption)
                                     .foregroundColor(.white)
@@ -362,7 +362,7 @@ struct AuthorEarningsView: View {
                             VStack {
                                 Image(systemName: "wallet.pass.fill")
                                     .font(.title)
-                                    .foregroundColor(.green)
+                                    .foregroundColor(.mediumSuccess)
                                 Text("錢包")
                                     .font(.caption)
                                     .foregroundColor(.white)
@@ -376,7 +376,7 @@ struct AuthorEarningsView: View {
                         VStack(spacing: 12) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 50))
-                                .foregroundColor(.green)
+                                .foregroundColor(.mediumSuccess)
                                 .scaleEffect(animationPhase == 3 ? 1.3 : 1.0)
                                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: animationPhase)
                             
@@ -450,14 +450,14 @@ struct AuthorEarningsView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.red)
+                    .background(Color.mediumError)
                     .cornerRadius(10)
             }
             
             ForEach(notificationService.unreadNotifications.prefix(3), id: \.id) { notification in
                 HStack {
                     Image(systemName: notification.type.icon)
-                        .foregroundColor(notification.type.color)
+                        .foregroundColor(.mediumTextSecondary)
                         .frame(width: 20)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -487,16 +487,16 @@ struct AuthorEarningsView: View {
                 }) {
                     Text("查看全部 \(notificationService.unreadNotifications.count) 條通知")
                         .font(EarningsDesignTokens.caption)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.mediumButtonPrimary)
                 }
             }
         }
         .padding(EarningsDesignTokens.spacing16)
-        .background(Color.orange.opacity(0.1))
+        .background(Color.mediumSurfaceSecondary)
         .cornerRadius(EarningsDesignTokens.cornerRadius12)
         .overlay(
             RoundedRectangle(cornerRadius: EarningsDesignTokens.cornerRadius12)
-                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                .stroke(Color.mediumBorder, lineWidth: 1)
         )
     }
     
