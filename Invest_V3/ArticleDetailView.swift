@@ -44,9 +44,17 @@ struct ArticleDetailView: View {
             }
         }
         .onAppear {
-            // 立即顯示內容，不再延遲
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isContentVisible = true
+            // 確保內容在數據載入後才顯示
+            Task {
+                // 等待關鍵數據載入完成
+                await interactionVM.loadInteractionStats()
+                
+                // 數據載入完成後顯示內容
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isContentVisible = true
+                    }
+                }
             }
         }
     }
@@ -116,7 +124,7 @@ struct ArticleDetailView: View {
         }
         .onAppear {
             Task {
-                await interactionVM.loadInteractionStats()
+                // 載入額外數據（評論和群組），但不影響主要內容顯示
                 await interactionVM.loadComments()
                 await loadAvailableGroups()
                 

@@ -53,7 +53,7 @@ struct MediumStyleEditor: View {
     /// 從現有草稿編輯的初始化
     init(existingDraft: ArticleDraft, onComplete: (() -> Void)? = nil) {
         self._title = State(initialValue: existingDraft.title)
-        // 將 Markdown 文本轉換為 NSAttributedString
+        // 暫時使用簡單的文本轉換，後續會改進
         let attributedString = NSAttributedString(string: existingDraft.bodyMD)
         self._attributedContent = State(initialValue: attributedString)
         self._isPaidContent = State(initialValue: existingDraft.isPaid)
@@ -108,7 +108,7 @@ struct MediumStyleEditor: View {
                         // 富文本編輯器
                         richTextEditor
                     }
-                    .padding(.bottom, 100) // 為鍵盤留出空間
+                    .padding(.bottom, 20) // 減少底部空白
                 }
             }
         }
@@ -269,12 +269,9 @@ struct MediumStyleEditor: View {
             
             // 字數統計和文章統計
             HStack {
-                // 文章統計（字數、預估閱讀時間）
-                if wordCount > 0 {
+                // 文章統計（預估閱讀時間）
+                if readingTime > 0 {
                     HStack(spacing: 12) {
-                        Label("\(wordCount) 字", systemImage: "doc.text")
-                            .font(.caption)
-                            .foregroundColor(secondaryTextColor)
                         
                         Label("\(readingTime) 分鐘閱讀", systemImage: "clock")
                             .font(.caption)
@@ -823,8 +820,25 @@ struct MediumStyleEditor: View {
     /// 更新字數統計和閱讀時間
     private func updateWordCount() {
         let fullText = title + " " + attributedContent.string
-        let words = fullText.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
-        wordCount = words.count
+        
+        // 計算中文字符數（包括中文標點符號）
+        let chineseCount = fullText.unicodeScalars.filter { scalar in
+            // 中文字符範圍
+            (scalar.value >= 0x4E00 && scalar.value <= 0x9FFF) ||
+            // 中文標點符號
+            (scalar.value >= 0x3000 && scalar.value <= 0x303F) ||
+            (scalar.value >= 0xFF00 && scalar.value <= 0xFFEF)
+        }.count
+        
+        // 計算英文單詞數
+        let words = fullText.components(separatedBy: .whitespacesAndNewlines)
+            .compactMap { word in
+                let trimmed = word.trimmingCharacters(in: .punctuationCharacters)
+                // 只計算包含英文字母的單詞
+                return trimmed.isEmpty || !trimmed.unicodeScalars.contains(where: { CharacterSet.letters.contains($0) && $0.value < 0x4E00 }) ? nil : trimmed
+            }
+        
+        wordCount = chineseCount + words.count
         
         // 根據平均閱讀速度計算閱讀時間（假設每分鐘250字）
         readingTime = max(1, Int(ceil(Double(wordCount) / 250.0)))
@@ -1042,6 +1056,137 @@ struct RichTextPreviewView: UIViewRepresentable {
                     )
                 }
             }
+        }
+        
+        return mutableText
+    }
+    
+    // MARK: - Markdown 轉換
+    
+    /// 將 Markdown 文本轉換為 NSAttributedString
+    static func convertMarkdownToAttributedString(_ markdown: String) -> NSAttributedString {
+        let mutableText = NSMutableAttributedString()
+        let lines = markdown.components(separatedBy: .newlines)
+        
+        for line in lines {
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            
+            if trimmedLine.hasPrefix("# ") {
+                // H1 標題
+                let title = String(trimmedLine.dropFirst(2))
+                let titleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 24, weight: .bold),
+                    .foregroundColor: UIColor.label
+                ]
+                let titleText = NSAttributedString(string: title + "\n", attributes: titleAttributes)
+                mutableText.append(titleText)
+                
+            } else if trimmedLine.hasPrefix("## ") {
+                // H2 標題
+                let title = String(trimmedLine.dropFirst(3))
+                let titleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 20, weight: .semibold),
+                    .foregroundColor: UIColor.label
+                ]
+                let titleText = NSAttributedString(string: title + "\n", attributes: titleAttributes)
+                mutableText.append(titleText)
+                
+            } else if trimmedLine.hasPrefix("### ") {
+                // H3 標題
+                let title = String(trimmedLine.dropFirst(4))
+                let titleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 18, weight: .medium),
+                    .foregroundColor: UIColor.label
+                ]
+                let titleText = NSAttributedString(string: title + "\n", attributes: titleAttributes)
+                mutableText.append(titleText)
+                
+            } else if trimmedLine.hasPrefix("• ") || trimmedLine.hasPrefix("- ") {
+                // 列表項目
+                let content = String(trimmedLine.dropFirst(2))
+                let listAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 16),
+                    .foregroundColor: UIColor.label
+                ]
+                let bulletText = NSAttributedString(string: "• " + content + "\n", attributes: listAttributes)
+                mutableText.append(bulletText)
+                
+            } else if !trimmedLine.isEmpty {
+                // 一般段落，處理粗體格式
+                let processedText = processBoldText(trimmedLine)
+                mutableText.append(processedText)
+                mutableText.append(NSAttributedString(string: "\n"))
+            } else {
+                // 空行
+                mutableText.append(NSAttributedString(string: "\n"))
+            }
+        }
+        
+        return mutableText
+    }
+    
+    /// 處理文本中的粗體格式 **text**
+    private static func processBoldText(_ text: String) -> NSAttributedString {
+        let mutableText = NSMutableAttributedString()
+        let pattern = "\\*\\*(.*?)\\*\\*"
+        
+        do {
+            let regex = try NSRegularExpression(pattern: pattern, options: [])
+            let range = NSRange(location: 0, length: text.count)
+            let matches = regex.matches(in: text, options: [], range: range)
+            
+            var lastEnd = 0
+            
+            for match in matches {
+                // 添加粗體前的普通文本
+                if match.range.location > lastEnd {
+                    let normalRange = NSRange(location: lastEnd, length: match.range.location - lastEnd)
+                    let normalText = (text as NSString).substring(with: normalRange)
+                    let normalAttributes: [NSAttributedString.Key: Any] = [
+                        .font: UIFont.systemFont(ofSize: 16),
+                        .foregroundColor: UIColor.label
+                    ]
+                    mutableText.append(NSAttributedString(string: normalText, attributes: normalAttributes))
+                }
+                
+                // 添加粗體文本
+                let boldRange = match.range(at: 1)
+                let boldText = (text as NSString).substring(with: boldRange)
+                let boldAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 16, weight: .bold),
+                    .foregroundColor: UIColor.label
+                ]
+                mutableText.append(NSAttributedString(string: boldText, attributes: boldAttributes))
+                
+                lastEnd = match.range.location + match.range.length
+            }
+            
+            // 添加剩餘的普通文本
+            if lastEnd < text.count {
+                let remainingText = (text as NSString).substring(from: lastEnd)
+                let normalAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 16),
+                    .foregroundColor: UIColor.label
+                ]
+                mutableText.append(NSAttributedString(string: remainingText, attributes: normalAttributes))
+            }
+            
+        } catch {
+            // 如果正則表達式失敗，返回普通文本
+            let normalAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 16),
+                .foregroundColor: UIColor.label
+            ]
+            return NSAttributedString(string: text, attributes: normalAttributes)
+        }
+        
+        // 如果沒有找到粗體標記，返回普通文本
+        if mutableText.length == 0 {
+            let normalAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 16),
+                .foregroundColor: UIColor.label
+            ]
+            return NSAttributedString(string: text, attributes: normalAttributes)
         }
         
         return mutableText

@@ -122,7 +122,7 @@ struct DraftsView: View {
                 Text(errorMessage)
             }
         }
-        .sheet(isPresented: $showDraftEditor) {
+        .fullScreenCover(isPresented: $showDraftEditor) {
             if let draft = selectedDraft {
                 MediumStyleEditor(existingDraft: draft) {
                     // 編輯完成後重新加載草稿
@@ -377,24 +377,46 @@ struct EnhancedDraftRowView: View {
                     .frame(height: 4)
             }
             
-            // 統計信息和元數據
+            // 關鍵字標籤區域（獨立一行）
+            if !draft.keywords.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(draft.keywords, id: \.self) { keyword in
+                            Text(keyword)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundColor(.blue)
+                                .cornerRadius(12)
+                        }
+                    }
+                    .padding(.horizontal, 1) // 防止邊緣裁剪
+                }
+            } else {
+                // 如果沒有關鍵字，顯示分類
+                HStack {
+                    Text(draft.category)
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.gray.opacity(0.1))
+                        .foregroundColor(.gray)
+                        .cornerRadius(8)
+                    Spacer()
+                }
+            }
+            
+            // 統計信息和元數據（另一行）
             HStack {
-                // 分類標籤
-                Text(draft.category)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.blue.opacity(0.1))
-                    .foregroundColor(.blue)
-                    .cornerRadius(8)
-                
                 // 統計信息
                 HStack(spacing: 12) {
                     Label("\(draft.wordCount)", systemImage: "doc.text")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Label("\(draft.estimatedReadingTime)min", systemImage: "clock")
+                    Label("\(draft.estimatedReadingTime) 分鐘", systemImage: "clock")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

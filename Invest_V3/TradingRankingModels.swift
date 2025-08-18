@@ -151,7 +151,7 @@ struct TradingUserPerformance: Identifiable, Codable {
 }
 
 /// 排行榜期間枚舉
-enum RankingPeriod: String, CaseIterable {
+enum RankingPeriod: String, CaseIterable, Codable {
     case weekly = "週榜"
     case monthly = "月榜"
     case quarterly = "季榜"

@@ -1714,7 +1714,7 @@ class SupabaseService: ObservableObject {
             // 如果沒有關鍵字數據，返回預設熱門關鍵字
             if keywordCount.isEmpty {
                 print("ℹ️ 沒有關鍵字數據，使用預設熱門關鍵字")
-                return ["投資分析", "市場趨勢", "股票", "基金", "風險管理"]
+                return ["股票", "投資", "市場分析", "基金", "風險管理"]
             }
             
             // 按出現次數排序，取前5個
@@ -1730,7 +1730,7 @@ class SupabaseService: ObservableObject {
         } catch {
             print("⚠️ 獲取關鍵字失敗，使用預設關鍵字: \(error)")
             // 發生錯誤時返回預設關鍵字
-            return ["投資分析", "市場趨勢", "股票", "基金", "風險管理"]
+            return ["股票", "投資", "市場分析", "基金", "風險管理"]
         }
     }
     
@@ -1763,6 +1763,123 @@ class SupabaseService: ObservableObject {
     func getTrendingKeywordsWithAll() async throws -> [String] {
         let trendingKeywords = try await fetchTrendingKeywords()
         return ["全部"] + trendingKeywords
+    }
+    
+    /// 根據 ID 獲取單一文章
+    func fetchArticleById(_ id: UUID) async throws -> Article {
+        print("📰 根據 ID 獲取文章: \(id)")
+        
+        let articles: [Article] = try await client
+            .from("articles")
+            .select("*")
+            .eq("id", value: id.uuidString)
+            .execute()
+            .value
+        
+        guard let article = articles.first else {
+            throw NSError(domain: "ArticleNotFound", code: 404, userInfo: [
+                NSLocalizedDescriptionKey: "找不到指定的文章"
+            ])
+        }
+        
+        print("✅ 成功獲取文章: \(article.title)")
+        return article
+    }
+    
+    // MARK: - Article Likes Ranking
+    
+    /// 根據時間週期獲取文章點讚排行榜
+    func fetchArticleLikesRanking(period: RankingPeriod, limit: Int = 3) async throws -> [ArticleLikesRanking] {
+        print("📊 開始獲取文章點讚排行榜: \(period.rawValue)")
+        
+        do {
+            // 計算時間範圍
+            let (startDate, endDate) = getDateRange(for: period)
+            
+            // 如果是 Preview 模式，返回測試資料
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+                print("🔍 Preview 模式：返回測試排行榜資料")
+                return ArticleLikesRanking.createTestData(for: period)
+            }
+            #endif
+            
+            // 獲取指定時間範圍內的文章，按點讚數排序
+            let articles: [Article] = try await client
+                .from("articles")
+                .select("*")
+                .eq("status", value: "published") // 只獲取已發布的文章
+                .gte("created_at", value: startDate.toSupabaseString())
+                .lte("created_at", value: endDate.toSupabaseString())
+                .order("likes_count", ascending: false)
+                .limit(limit)
+                .execute()
+                .value
+            
+            // 轉換為排行榜資料
+            let rankings = articles.enumerated().map { index, article in
+                ArticleLikesRanking(
+                    id: article.id,
+                    rank: index + 1,
+                    title: article.title,
+                    author: article.author,
+                    authorId: article.authorId,
+                    likesCount: article.likesCount,
+                    category: article.category,
+                    keywords: article.keywords,
+                    createdAt: article.createdAt,
+                    period: period
+                )
+            }
+            
+            print("✅ 成功獲取 \(rankings.count) 篇文章的點讚排行榜")
+            return rankings
+            
+        } catch {
+            print("❌ 獲取文章點讚排行榜失敗: \(error)")
+            // 錯誤時返回空陣列或測試資料
+            #if DEBUG
+            return ArticleLikesRanking.createTestData(for: period)
+            #else
+            return []
+            #endif
+        }
+    }
+    
+    /// 獲取時間範圍的輔助方法
+    private func getDateRange(for period: RankingPeriod) -> (startDate: Date, endDate: Date) {
+        let now = Date()
+        let calendar = Calendar.current
+        
+        switch period {
+        case .weekly:
+            // 本週開始到現在
+            let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+            return (startOfWeek, now)
+            
+        case .monthly:
+            // 本月開始到現在
+            let startOfMonth = calendar.dateInterval(of: .month, for: now)?.start ?? now
+            return (startOfMonth, now)
+            
+        case .quarterly:
+            // 本季開始到現在
+            let currentMonth = calendar.component(.month, from: now)
+            let currentYear = calendar.component(.year, from: now)
+            let quarterStart = currentMonth - ((currentMonth - 1) % 3)
+            let startOfQuarter = calendar.date(from: DateComponents(year: currentYear, month: quarterStart, day: 1)) ?? now
+            return (startOfQuarter, now)
+            
+        case .yearly:
+            // 本年開始到現在
+            let startOfYear = calendar.dateInterval(of: .year, for: now)?.start ?? now
+            return (startOfYear, now)
+            
+        case .all:
+            // 所有時間（從很久以前到現在）
+            let veryOldDate = calendar.date(byAdding: .year, value: -10, to: now) ?? now
+            return (veryOldDate, now)
+        }
     }
 
     // MARK: - Group Management

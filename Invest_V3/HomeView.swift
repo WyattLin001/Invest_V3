@@ -9,6 +9,7 @@ import SwiftUI
 struct HomeView: View {
     @StateObject var viewModel = HomeViewModel()
     @StateObject private var supabaseService = SupabaseService.shared
+    @StateObject private var articleViewModel = ArticleViewModel()
     @State private var showNotifications = false // 通知彈窗狀態
     @State private var showSearch = false // 搜尋彈窗狀態
     @State private var showJoinGroupSheet = false
@@ -23,6 +24,8 @@ struct HomeView: View {
     @State private var showCreateGroupView = false
     @State private var showFriendSearch = false // 好友搜尋頁面
     @State private var showHelpCenter = false // 幫助中心
+    @State private var selectedArticleForReading: Article? // 從排行榜選擇的文章
+    @State private var showArticleDetail = false // 顯示文章詳情
     
 
     var body: some View {
@@ -36,16 +39,14 @@ struct HomeView: View {
                         // 投資動作區域
                         investmentActionSection
                         
-                        // 群組系統測試區域 (開發/測試用)
-                        #if DEBUG
-                        groupSystemTestSection
-                        #endif
+                        // 資訊點讚排行榜
+                        articleLikesRankingSection
                         
                         // 邀請 Banner (B線功能)
                         invitationBanner
                         
-                        // 改進的排行榜區塊
-                        improvedRankingSection
+                        // 交易排行榜區塊 (未來開發)
+                        // improvedRankingSection
                         
                         // 群組列表
                         groupsList
@@ -122,6 +123,16 @@ struct HomeView: View {
         .sheet(isPresented: $showHelpCenter) {
             HelpCenterView()
         }
+        .fullScreenCover(isPresented: $showArticleDetail) {
+            if let article = selectedArticleForReading {
+                ArticleDetailView(article: article)
+                    .environmentObject(ThemeManager.shared)
+                    .onDisappear {
+                        // 清理選中的文章
+                        selectedArticleForReading = nil
+                    }
+            }
+        }
         .fullScreenCover(isPresented: $viewModel.showInvestmentPanel) {
             DevelopmentPlaceholderView()
                 .environmentObject(ThemeManager.shared)
@@ -152,6 +163,8 @@ struct HomeView: View {
                 // 第一次載入時初始化測試數據
                 await viewModel.initializeTestData()
                 await loadWalletBalance()
+                // 初始化文章點讚排行榜
+                await articleViewModel.initializeLikesRanking()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshGroupsList"))) { _ in
@@ -614,23 +627,223 @@ struct HomeView: View {
         .padding(.horizontal, 32)
     }
     
-    // MARK: - Group System Test Section
-    #if DEBUG
-    private var groupSystemTestSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("開發測試")
-                    .font(.headline)
-                    .foregroundColor(.primary)
+    // MARK: - 專欄點讚排行榜區塊
+    var articleLikesRankingSection: some View {
+        VStack(spacing: 20) {
+            // 標題和週期選擇
+            VStack(spacing: 16) {
+                HStack {
+                    Text("專欄點讚排行榜")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.gray900)
+                    
+                    Spacer()
+                }
                 
-                Spacer()
+                // 時間週期選擇按鈕
+                articleLikesRankingPeriodSelectionButtons
             }
             
+            // 排行榜內容區域
+            articleLikesRankingContentView
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 20)
+        .background(Color.surfacePrimary)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.bottom, 16) // 增加底部間距
     }
-    #endif
+    
+    private var articleLikesRankingPeriodSelectionButtons: some View {
+        HStack(spacing: 8) {
+            ForEach(RankingPeriod.allCases, id: \.self) { period in
+                articleLikesRankingPeriodButton(for: period)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+    }
+    
+    private func articleLikesRankingPeriodButton(for period: RankingPeriod) -> some View {
+        let isSelected = articleViewModel.selectedLikesRankingPeriod == period
+        
+        return Button(action: {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                articleViewModel.switchLikesRankingPeriod(to: period)
+            }
+        }) {
+            Text(period.rawValue)
+                .font(.system(size: 14, weight: .medium, design: .default))
+                .foregroundColor(isSelected ? Color.white : Color.primary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .fixedSize(horizontal: true, vertical: false)
+                .background(
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(isSelected ? Color.accentColor : Color(.secondarySystemFill))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(isSelected ? Color.clear : Color(.separator), lineWidth: 0.5)
+                )
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .accessibilityLabel(isSelected ? "目前選擇：\(period.rawValue)" : "切換至\(period.rawValue)")
+        .accessibilityHint("查看\(period.rawValue)文章點讚排行榜")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+    
+    private var articleLikesRankingContentView: some View {
+        VStack(spacing: 12) {
+            if articleViewModel.isLoadingLikesRanking {
+                // 載入中狀態
+                HStack(spacing: 12) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("載入點讚排行榜...")
+                        .font(.body)
+                        .foregroundColor(.gray600)
+                }
+                .frame(height: 120)
+            } else if let error = articleViewModel.likesRankingError {
+                // 錯誤狀態
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 40))
+                        .foregroundColor(.danger)
+                    
+                    Text("載入失敗")
+                        .font(.headline)
+                        .foregroundColor(.gray900)
+                    
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(.gray600)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                    
+                    Button("重試") {
+                        Task {
+                            await articleViewModel.fetchArticlesLikesRanking()
+                        }
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.brandPrimary)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                }
+                .frame(height: 120)
+            } else if articleViewModel.articlesLikesRanking.isEmpty {
+                // 空狀態顯示
+                VStack(spacing: 16) {
+                    Image(systemName: "heart.text.square")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray400)
+                    
+                    VStack(spacing: 8) {
+                        Text("暫無點讚排行榜")
+                            .font(.headline)
+                            .foregroundColor(.gray900)
+                        
+                        Text("等待更多優質文章產生")
+                            .font(.body)
+                            .foregroundColor(.gray600)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .frame(height: 120)
+            } else {
+                // 文章排行榜列表
+                VStack(spacing: 8) {
+                    ForEach(articleViewModel.articlesLikesRanking.prefix(3)) { ranking in
+                        Button(action: {
+                            // 點擊排行榜項目開啟文章詳情
+                            print("🔍 點擊專欄排行榜項目: \(ranking.title)")
+                            Task {
+                                // 先嘗試從資料庫獲取完整文章
+                                let article = await articleViewModel.getArticleById(ranking.id)
+                                
+                                await MainActor.run {
+                                    if let article = article {
+                                        print("✅ 成功獲取文章資料，準備顯示")
+                                        // 確保文章物件完整設置
+                                        selectedArticleForReading = article
+                                        // 使用輕微延遲確保狀態完全設置
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                            showArticleDetail = true
+                                            print("📱 設置 showArticleDetail = true")
+                                        }
+                                    } else {
+                                        print("⚠️ 無法獲取文章，使用 fallback 資料")
+                                        // 如果獲取失敗，創建一個包含更多內容的文章物件
+                                        let fallbackArticle = Article(
+                                            id: ranking.id,
+                                            title: ranking.title,
+                                            author: ranking.author,
+                                            authorId: ranking.authorId,
+                                            summary: "這是一篇來自專欄排行榜的熱門文章",
+                                            fullContent: """
+                                            # \(ranking.title)
+                                            
+                                            ## 作者：\(ranking.author)
+                                            
+                                            這是一篇來自專欄排行榜的熱門文章，獲得了 \(ranking.likesCount) 個點讚。
+                                            
+                                            **分類**：\(ranking.category)
+                                            
+                                            如果您看到此訊息，表示文章完整內容正在載入中。此文章在 \(ranking.periodText) 中表現優異，深受讀者喜愛。
+                                            
+                                            > 注意：這是一個暫時顯示的內容，完整文章內容將在數據載入完成後更新。
+                                            """,
+                                            bodyMD: """
+                                            # \(ranking.title)
+                                            
+                                            ## 作者：\(ranking.author)
+                                            
+                                            這是一篇來自專欄排行榜的熱門文章，獲得了 \(ranking.likesCount) 個點讚。
+                                            """,
+                                            category: ranking.category,
+                                            readTime: "5 分鐘",
+                                            likesCount: ranking.likesCount,
+                                            commentsCount: 0,
+                                            sharesCount: 0,
+                                            isFree: true,
+                                            status: .published,
+                                            source: .human,
+                                            coverImageUrl: nil,
+                                            createdAt: ranking.createdAt,
+                                            updatedAt: ranking.createdAt,
+                                            keywords: ranking.keywords
+                                        )
+                                        selectedArticleForReading = fallbackArticle
+                                        // 同樣使用延遲確保狀態設置完成
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                            showArticleDetail = true
+                                            print("📱 設置 showArticleDetail = true (fallback)")
+                                        }
+                                    }
+                                }
+                            }
+                        }) {
+                            ArticleLikesRankingRow(ranking: ranking)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .accessibilityLabel("\(ranking.periodText) 第 \(ranking.rank) 名，\(ranking.title)，\(ranking.formattedLikesCount) 個讚")
+                        .accessibilityHint("點擊查看文章詳情")
+                    }
+                }
+                .padding(.horizontal, 4) // 增加水平內邊距
+            }
+        }
+    }
+    
     
     // MARK: - Create Group Floating Button
     private var createGroupFloatingButton: some View {
@@ -1316,6 +1529,91 @@ struct InvitationRowView: View {
         .background(Color.brandGreen)
         .cornerRadius(8)
         .disabled(viewModel.isProcessingInvitation)
+    }
+}
+
+// MARK: - 文章點讚排行榜列項目
+struct ArticleLikesRankingRow: View {
+    let ranking: ArticleLikesRanking
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // 排名徽章
+            ZStack {
+                Circle()
+                    .fill(ranking.badgeColor)
+                    .frame(width: 44, height: 44)
+                    .shadow(color: ranking.badgeColor.opacity(0.3), radius: 2, x: 0, y: 1)
+                
+                Text("\(ranking.rank)")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+            }
+            
+            // 文章資訊
+            VStack(alignment: .leading, spacing: 4) {
+                Text(ranking.truncatedTitle)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.gray900)
+                    .lineLimit(1)
+                
+                HStack(spacing: 4) {
+                    Text("作者:")
+                        .font(.caption)
+                        .foregroundColor(.gray500)
+                    
+                    Text(ranking.author)
+                        .font(.caption)
+                        .foregroundColor(.gray600)
+                    
+                    Text("•")
+                        .font(.caption)
+                        .foregroundColor(.gray400)
+                    
+                    Text(ranking.primaryKeyword)
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.surfaceSecondary)
+                        .foregroundColor(.gray600)
+                        .cornerRadius(4)
+                }
+            }
+            
+            Spacer()
+            
+            // 點讚數
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(spacing: 4) {
+                    Image(systemName: "heart.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    
+                    Text(ranking.formattedLikesCount)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.gray900)
+                }
+                
+                Text("點讚")
+                    .font(.caption)
+                    .foregroundColor(.gray600)
+            }
+            
+            // 箭頭指示器
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.gray400)
+        }
+        .padding(16)
+        .background(Color.surfaceSecondary.opacity(0.5))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(ranking.borderColor, lineWidth: 1)
+        )
     }
 }
 

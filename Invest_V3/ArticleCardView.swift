@@ -166,8 +166,26 @@ struct ArticleCardView: View {
     // MARK: - 底部資訊列
     private var bottomInfoRow: some View {
         HStack {
-            // 類別標籤
-            if !article.category.isEmpty {
+            // 關鍵字標籤（優先顯示）或類別標籤
+            if !article.keywords.isEmpty {
+                // 顯示第一個關鍵字作為主要標籤
+                Text(article.keywords.first!)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.surfaceSecondary)
+                    .foregroundColor(.textSecondary)
+                    .cornerRadius(4)
+                
+                // 如果有多個關鍵字，顯示數量提示
+                if article.keywords.count > 1 {
+                    Text("+\(article.keywords.count - 1)")
+                        .font(.caption2)
+                        .foregroundColor(.textTertiary)
+                }
+            } else if !article.category.isEmpty {
+                // 沒有關鍵字時顯示類別
                 Text(article.category)
                     .font(.caption2)
                     .fontWeight(.medium)

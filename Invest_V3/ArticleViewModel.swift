@@ -19,6 +19,12 @@ class ArticleViewModel: ObservableObject {
     @Published var trendingKeywords: [String] = ["全部"]
     @Published var freeArticlesReadToday = 0
     
+    // MARK: - 文章點讚排行榜相關屬性
+    @Published var articlesLikesRanking: [ArticleLikesRanking] = []
+    @Published var selectedLikesRankingPeriod: RankingPeriod = .weekly
+    @Published var isLoadingLikesRanking = false
+    @Published var likesRankingError: String?
+    
     private let maxFreeArticlesPerDay = 3
     
     func fetchArticles() async {
@@ -378,7 +384,7 @@ class ArticleViewModel: ObservableObject {
         } catch {
             print("❌ 載入熱門關鍵字失敗: \(error)")
             // 使用預設關鍵字
-            trendingKeywords = ["全部", "投資分析", "市場趨勢", "股票", "基金", "風險管理"]
+            trendingKeywords = ["全部", "股票", "投資", "市場分析", "基金", "風險管理"]
         }
     }
     
@@ -502,6 +508,51 @@ class ArticleViewModel: ObservableObject {
         } catch {
             self.error = error
             throw error
+        }
+    }
+    
+    // MARK: - Article Likes Ranking
+    
+    /// 獲取文章點讚排行榜
+    func fetchArticlesLikesRanking() async {
+        isLoadingLikesRanking = true
+        likesRankingError = nil
+        
+        do {
+            let rankings = try await SupabaseService.shared.fetchArticleLikesRanking(
+                period: selectedLikesRankingPeriod
+            )
+            articlesLikesRanking = rankings
+            print("✅ [ArticleViewModel] 成功獲取 \(rankings.count) 篇文章的點讚排行榜")
+        } catch {
+            likesRankingError = error.localizedDescription
+            articlesLikesRanking = []
+            print("❌ [ArticleViewModel] 獲取點讚排行榜失敗: \(error)")
+        }
+        
+        isLoadingLikesRanking = false
+    }
+    
+    /// 切換點讚排行榜時間週期
+    func switchLikesRankingPeriod(to period: RankingPeriod) {
+        selectedLikesRankingPeriod = period
+        Task {
+            await fetchArticlesLikesRanking()
+        }
+    }
+    
+    /// 初始化時載入點讚排行榜
+    func initializeLikesRanking() async {
+        await fetchArticlesLikesRanking()
+    }
+    
+    /// 根據 ID 獲取文章（用於排行榜點擊）
+    func getArticleById(_ id: UUID) async -> Article? {
+        do {
+            return try await SupabaseService.shared.fetchArticleById(id)
+        } catch {
+            print("❌ [ArticleViewModel] 獲取文章失敗: \(error)")
+            return nil
         }
     }
 }

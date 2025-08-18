@@ -69,7 +69,39 @@ struct ArticleDraft: Identifiable, Codable {
     /// Calculate word count for content
     var wordCount: Int {
         let text = title + " " + bodyMD
-        return text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
+        // 移除常見的 markdown 標記
+        let cleanText = text
+            .replacingOccurrences(of: "#+\\s*", with: "", options: .regularExpression) // 標題標記
+            .replacingOccurrences(of: "\\*\\*(.+?)\\*\\*", with: "$1", options: .regularExpression) // 粗體
+            .replacingOccurrences(of: "\\*(.+?)\\*", with: "$1", options: .regularExpression) // 斜體
+            .replacingOccurrences(of: "`(.+?)`", with: "$1", options: .regularExpression) // 行內代碼
+            .replacingOccurrences(of: "```[\\s\\S]*?```", with: "", options: .regularExpression) // 代碼塊
+            .replacingOccurrences(of: "\\[(.+?)\\]\\(.+?\\)", with: "$1", options: .regularExpression) // 鏈接
+            .replacingOccurrences(of: "!\\[.*?\\]\\(.+?\\)", with: "", options: .regularExpression) // 圖片
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression) // 多個空白合併
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 如果內容為空，返回 0
+        if cleanText.isEmpty { return 0 }
+        
+        // 計算中文字符數（包括中文標點符號）
+        let chineseCount = cleanText.unicodeScalars.filter { scalar in
+            // 中文字符範圍
+            (scalar.value >= 0x4E00 && scalar.value <= 0x9FFF) ||
+            // 中文標點符號
+            (scalar.value >= 0x3000 && scalar.value <= 0x303F) ||
+            (scalar.value >= 0xFF00 && scalar.value <= 0xFFEF)
+        }.count
+        
+        // 計算英文單詞數
+        let words = cleanText.components(separatedBy: .whitespacesAndNewlines)
+            .compactMap { word in
+                let trimmed = word.trimmingCharacters(in: .punctuationCharacters)
+                // 只計算包含英文字母的單詞
+                return trimmed.isEmpty || !trimmed.unicodeScalars.contains(where: { CharacterSet.letters.contains($0) && $0.value < 0x4E00 }) ? nil : trimmed
+            }
+        
+        return chineseCount + words.count
     }
     
     /// Estimate reading time in minutes

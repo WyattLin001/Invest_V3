@@ -21,21 +21,21 @@ struct AuthenticationView: View {
                 // Logo 區域
                 VStack(spacing: 16) {
                     Circle()
-                        .fill(Color.investGreen)
+                        .fill(Color.mediumButtonPrimary)
                         .frame(width: 100, height: 100)
                         .overlay(
-                            Text("投")
+                            Text("股")
                                 .font(.system(size: 40, weight: .bold))
                                 .foregroundColor(.white)
                         )
                     
-                    Text("Invest V3")
+                    Text("股圈")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.black)
+                        .foregroundColor(.mediumTextPrimary)
                     
-                    Text("社交投資競賽平台")
+                    Text("股票知識分享平台")
                         .font(.system(size: 16))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.mediumTextSecondary)
                 }
                 .padding(.top, 50)
                 
@@ -45,7 +45,7 @@ struct AuthenticationView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Email")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.black)
+                            .foregroundColor(.mediumTextPrimary)
                         
                         TextField("Email", text: $email)
                             .textFieldStyle(.roundedBorder)
@@ -61,7 +61,7 @@ struct AuthenticationView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("用戶名")
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.black)
+                                .foregroundColor(.mediumTextPrimary)
                             
                             TextField("請輸入用戶名", text: $username)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -74,7 +74,7 @@ struct AuthenticationView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("密碼")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.black)
+                            .foregroundColor(.mediumTextPrimary)
                         
                         SecureField("密碼", text: $password)
                             .textFieldStyle(.roundedBorder)
@@ -87,7 +87,7 @@ struct AuthenticationView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("暱稱")
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.black)
+                                .foregroundColor(.mediumTextPrimary)
                             
                             TextField("請輸入暱稱", text: $displayName)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -116,7 +116,7 @@ struct AuthenticationView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Color.investGreen)
+                    .background(Color.mediumButtonPrimary)
                     .cornerRadius(25)
                     .disabled(authService.isLoading || email.isEmpty || password.isEmpty || (isSignUp && (username.isEmpty || displayName.isEmpty)))
                     
@@ -127,7 +127,7 @@ struct AuthenticationView: View {
                     }) {
                         Text(isSignUp ? "已有帳號？登入" : "沒有帳號？註冊")
                             .font(.system(size: 14))
-                            .foregroundColor(.investGreen)
+                            .foregroundColor(.mediumButtonPrimary)
                     }
                 }
                 .padding(.horizontal, 30)
@@ -136,8 +136,8 @@ struct AuthenticationView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.investBackground)
-                    .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: -5)
+                    .fill(Color.mediumBackground)
+                    .shadow(color: Color.black.opacity(0.05), radius: 20, x: 0, y: -5)
             )
             .navigationBarHidden(true)
             .alert("錯誤", isPresented: $showError) {

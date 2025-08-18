@@ -172,30 +172,35 @@ struct BootstrapView: View {
     
     var body: some View {
         ZStack {
-            // 使用明確的背景色來診斷問題
-            Color.white
+            // 使用 Medium 主題背景色
+            Color.mediumBackground
                 .ignoresSafeArea()
             
             VStack(spacing: 24) {
                 // Logo 或品牌圖標
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 60))
-                    .foregroundColor(.green)
+                Circle()
+                    .fill(Color.mediumButtonPrimary)
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Text("股")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundColor(.white)
+                    )
                 
-                Text("Invest V3")
+                Text("股圈")
                     .font(.title)
                     .fontWeight(.bold)
-                    .foregroundColor(.black)
+                    .foregroundColor(.mediumTextPrimary)
                 
                 // 添加調試信息
                 Text("初始化狀態: \(bootstrapper.isInitialized ? "已完成" : "進行中")")
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.mediumTextSecondary)
                 
                 if let error = bootstrapper.initializationError {
                     Text("錯誤: \(error)")
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundColor(.mediumError)
                         .multilineTextAlignment(.center)
                         .padding()
                 }
@@ -204,23 +209,23 @@ struct BootstrapView: View {
                     // 初始化完成
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.brandGreen)
+                            .foregroundColor(.mediumSuccess)
                         Text("初始化完成")
-                            .foregroundColor(.gray700)
+                            .foregroundColor(.mediumTextSecondary)
                     }
                 } else if let error = bootstrapper.initializationError {
                     // 初始化失敗
                     VStack(spacing: 16) {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.danger)
+                                .foregroundColor(.mediumError)
                             Text("初始化失敗")
-                                .foregroundColor(.danger)
+                                .foregroundColor(.mediumError)
                         }
                         
                         Text(error)
                             .font(.caption)
-                            .foregroundColor(.gray600)
+                            .foregroundColor(.mediumTextSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
                         
@@ -229,16 +234,16 @@ struct BootstrapView: View {
                                 await bootstrapper.retry()
                             }
                         }
-                        .brandButtonStyle()
+                        .mediumButtonStyle()
                     }
                 } else {
                     // 初始化中
                     VStack(spacing: 12) {
                         ProgressView()
-                            .tint(.brandGreen)
+                            .tint(.mediumButtonPrimary)
                         
                         Text("正在初始化應用...")
-                            .foregroundColor(.gray600)
+                            .foregroundColor(.mediumTextSecondary)
                     }
                 }
             }

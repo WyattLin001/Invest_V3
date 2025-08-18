@@ -39,7 +39,7 @@ struct InfoView: View {
             // Medium 風格圓形浮動按鈕
             mediumStyleFloatingButton
         }
-        .sheet(isPresented: $showArticleEditor) {
+        .fullScreenCover(isPresented: $showArticleEditor) {
             MediumStyleEditor()
                 .onDisappear {
                     Task {
@@ -47,7 +47,7 @@ struct InfoView: View {
                     }
                 }
         }
-        .sheet(isPresented: $showArticleDetail) {
+        .fullScreenCover(isPresented: $showArticleDetail) {
             if let article = selectedArticle {
                 ArticleDetailView(article: article)
                     .onDisappear {
@@ -94,7 +94,7 @@ struct InfoView: View {
     // MARK: - 頂部導航欄
     private var topNavigationBar: some View {
         HStack {
-            Text("資訊")
+            Text("專欄")
                 .mediumTitleStyle(size: .medium)
             
             Spacer()
@@ -208,10 +208,11 @@ struct InfoView: View {
                         ForEach(viewModel.filteredArticles(search: searchText)) { article in
                             ArticleCardView(article: article)
                                 .onTapGesture {
-                                    selectedArticle = article
-                                    // 確保 selectedArticle 設定完成後再顯示 sheet
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        showArticleDetail = true
+                                    Task {
+                                        await MainActor.run {
+                                            selectedArticle = article
+                                            showArticleDetail = true
+                                        }
                                     }
                                 }
                         }

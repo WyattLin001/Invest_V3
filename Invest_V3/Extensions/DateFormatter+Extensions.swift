@@ -36,4 +36,19 @@ extension DateFormatter {
         formatter.dateFormat = "MM/dd"
         return formatter
     }()
+    
+    /// Supabase ISO8601 formatter
+    static let supabaseISO8601: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        formatter.timeZone = TimeZone(abbreviation: "UTC")
+        return formatter
+    }()
+}
+
+extension Date {
+    /// Convert Date to Supabase-compatible string format
+    func toSupabaseString() -> String {
+        return DateFormatter.supabaseISO8601.string(from: self)
+    }
 }
