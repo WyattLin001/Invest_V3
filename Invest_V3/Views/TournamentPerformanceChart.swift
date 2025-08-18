@@ -102,7 +102,7 @@ struct TournamentPerformanceChart: View {
                     x: .value("日期", dataPoint.date),
                     y: .value(metric.rawValue, dataPoint.value)
                 )
-                .foregroundStyle(dataPoint.value >= 0 ? .taiwanStockUp : .taiwanStockDown)
+                .foregroundStyle(dataPoint.value >= 0 ? Color.taiwanStockUp : Color.taiwanStockDown)
                 
             case .trades:
                 LineMark(
