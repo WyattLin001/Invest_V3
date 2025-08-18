@@ -303,7 +303,7 @@ struct AssetOverviewCard: View {
                     Text(TradingService.shared.formatCurrency(totalProfit))
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(totalProfit >= 0 ? .green : .red)
+                        .foregroundColor(totalProfit >= 0 ? .taiwanStockUp : .taiwanStockDown)
                 }
             }
         }
@@ -335,14 +335,14 @@ struct PortfolioAnalysisCard: View {
                     title: "未實現損益",
                     value: TradingService.shared.formatCurrency(portfolio.totalProfit),
                     icon: "arrow.up.arrow.down",
-                    valueColor: portfolio.totalProfit >= 0 ? .green : .red
+                    valueColor: portfolio.totalProfit >= 0 ? .taiwanStockUp : .taiwanStockDown
                 )
                 
                 AnalysisRow(
                     title: "累計報酬率",
                     value: TradingService.shared.formatPercentage(portfolio.cumulativeReturn),
                     icon: "percent",
-                    valueColor: portfolio.cumulativeReturn >= 0 ? .green : .red
+                    valueColor: portfolio.cumulativeReturn >= 0 ? .taiwanStockUp : .taiwanStockDown
                 )
                 
                 AnalysisRow(
@@ -615,11 +615,11 @@ struct PortfolioPositionRow: View {
                         Text(TradingService.shared.formatCurrency(position.unrealizedPnl))
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(position.unrealizedPnl >= 0 ? .green : .red)
+                            .foregroundColor(position.unrealizedPnl >= 0 ? .taiwanStockUp : .taiwanStockDown)
                         
                         Text(String(format: "(%.2f%%)", position.unrealizedPnlPercent))
                             .font(.caption2)
-                            .foregroundColor(position.unrealizedPnl >= 0 ? .green : .red)
+                            .foregroundColor(position.unrealizedPnl >= 0 ? .taiwanStockUp : .taiwanStockDown)
                     }
                 }
             }
@@ -714,7 +714,7 @@ struct TransactionHistoryRow: View {
                     Text(TradingService.shared.formatCurrency(transaction.totalAmount))
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(transaction.action == "buy" ? .red : .green)
+                        .foregroundColor(transaction.action == "buy" ? .taiwanStockUp : .taiwanStockDown)
                 }
                 
                 HStack {
@@ -809,7 +809,7 @@ struct TournamentAssetOverviewCard: View {
                     Text(TradingService.shared.formatCurrency(totalProfit))
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(totalProfit >= 0 ? .green : .red)
+                        .foregroundColor(totalProfit >= 0 ? .taiwanStockUp : .taiwanStockDown)
                 }
             }
         }
@@ -841,14 +841,14 @@ struct TournamentPortfolioAnalysisCard: View {
                     title: "未實現損益",
                     value: TradingService.shared.formatCurrency(portfolio.holdingsValue - portfolio.totalInvested),
                     icon: "arrow.up.arrow.down",
-                    valueColor: (portfolio.holdingsValue - portfolio.totalInvested) >= 0 ? .green : .red
+                    valueColor: (portfolio.holdingsValue - portfolio.totalInvested) >= 0 ? .taiwanStockUp : .taiwanStockDown
                 )
                 
                 AnalysisRow(
                     title: "累計報酬率",
                     value: String(format: "%.2f%%", portfolio.totalReturnPercentage),
                     icon: "percent",
-                    valueColor: portfolio.totalReturnPercentage >= 0 ? .green : .red
+                    valueColor: portfolio.totalReturnPercentage >= 0 ? .taiwanStockUp : .taiwanStockDown
                 )
                 
                 AnalysisRow(
@@ -1240,7 +1240,7 @@ struct UnifiedAssetOverviewCard: View {
                     Text(TradingService.shared.formatCurrency(totalProfit))
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(totalProfit >= 0 ? .green : .red)
+                        .foregroundColor(totalProfit >= 0 ? .taiwanStockUp : .taiwanStockDown)
                     
                     // 報酬率顯示
                     if isTournament, let tournament = tournament {

@@ -373,7 +373,7 @@ struct TransactionRowView: View {
                 Text(transaction.formattedAmount)
                     .font(.body)
                     .fontWeight(.semibold)
-                    .foregroundColor(transaction.amount >= 0 ? .mediumSuccess : .mediumTextSecondary)
+                    .foregroundColor(transaction.amount >= 0 ? .taiwanStockUp : .taiwanStockDown)
                 
                 Text(transaction.formattedDate)
                     .font(.caption2)

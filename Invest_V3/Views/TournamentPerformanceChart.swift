@@ -102,7 +102,7 @@ struct TournamentPerformanceChart: View {
                     x: .value("日期", dataPoint.date),
                     y: .value(metric.rawValue, dataPoint.value)
                 )
-                .foregroundStyle(dataPoint.value >= 0 ? getDynamicGreen() : getDynamicRed())
+                .foregroundStyle(dataPoint.value >= 0 ? .taiwanStockUp : .taiwanStockDown)
                 
             case .trades:
                 LineMark(
@@ -187,11 +187,11 @@ struct TournamentPerformanceChart: View {
                 HStack(spacing: 2) {
                     Image(systemName: change >= 0 ? "arrow.up" : "arrow.down")
                         .font(.caption2)
-                        .foregroundColor(change >= 0 ? .green : .red)
+                        .foregroundColor(change >= 0 ? .taiwanStockUp : .taiwanStockDown)
                     
                     Text(String(format: "%+.2f%%", change))
                         .font(.caption)
-                        .foregroundColor(change >= 0 ? .green : .red)
+                        .foregroundColor(change >= 0 ? .taiwanStockUp : .taiwanStockDown)
                 }
             }
         }
@@ -386,9 +386,9 @@ struct TournamentPerformanceChart: View {
     private func getValueColor(_ value: Double, for metric: TournamentPerformanceView.PerformanceMetric) -> Color {
         switch metric {
         case .portfolio:
-            return value >= portfolio.initialBalance ? .green : .red
+            return value >= portfolio.initialBalance ? .taiwanStockUp : .taiwanStockDown
         case .returns, .dailyChange:
-            return value >= 0 ? .green : .red
+            return value >= 0 ? .taiwanStockUp : .taiwanStockDown
         case .trades:
             return metric.color
         }

@@ -285,7 +285,7 @@ struct EnhancedTournamentTradingView: View {
     
     private var portfolioPnLColor: Color {
         guard let pnl = portfolio?.dailyPnL else { return .secondary }
-        return pnl >= 0 ? .green : .red
+        return pnl >= 0 ? .taiwanStockUp : .taiwanStockDown
     }
     
     private var popularStocks: [StockInfo] {
@@ -479,7 +479,7 @@ struct StockRow: View {
                         Text("(\(formatPercentage(stock.changePercent)))")
                     }
                     .font(.caption)
-                    .foregroundColor(stock.change >= 0 ? .green : .red)
+                    .foregroundColor(stock.change >= 0 ? .taiwanStockUp : .taiwanStockDown)
                 }
             }
             .padding()

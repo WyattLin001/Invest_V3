@@ -97,7 +97,7 @@ struct ExpertProfileView: View {
                 PerformanceMetric(
                     title: "累計報酬",
                     value: TradingService.shared.formatPercentage(expert.returnRate),
-                    color: expert.returnRate >= 0 ? .green : .red
+                    color: expert.returnRate >= 0 ? .taiwanStockUp : .taiwanStockDown
                 )
                 
                 Spacer()
@@ -123,9 +123,9 @@ struct ExpertProfileView: View {
                 .fontWeight(.bold)
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
-                StatItem(title: "最大回撤", value: "-8.2%", color: .red)
+                StatItem(title: "最大回撤", value: "-8.2%", color: .taiwanStockDown)
                 StatItem(title: "夏普比率", value: "1.85", color: .blue)
-                StatItem(title: "年化報酬", value: "24.3%", color: .green)
+                StatItem(title: "年化報酬", value: "24.3%", color: .taiwanStockUp)
                 StatItem(title: "波動度", value: "15.6%", color: .orange)
                 StatItem(title: "交易次數", value: "128", color: .purple)
                 StatItem(title: "平均持有", value: "12天", color: .pink)
@@ -173,9 +173,9 @@ struct ExpertProfileView: View {
                 .fontWeight(.bold)
             
             VStack(spacing: 12) {
-                ExpertTransactionRow(action: "買入", symbol: "MSFT", price: 420.50, time: "2小時前", color: .green)
-                ExpertTransactionRow(action: "賣出", symbol: "AMZN", price: 145.20, time: "1天前", color: .red)
-                ExpertTransactionRow(action: "買入", symbol: "NVDA", price: 875.30, time: "2天前", color: .green)
+                ExpertTransactionRow(action: "買入", symbol: "MSFT", price: 420.50, time: "2小時前", color: .taiwanStockUp)
+                ExpertTransactionRow(action: "賣出", symbol: "AMZN", price: 145.20, time: "1天前", color: .taiwanStockDown)
+                ExpertTransactionRow(action: "買入", symbol: "NVDA", price: 875.30, time: "2天前", color: .taiwanStockUp)
                 
                 Button(action: {
                     // 查看完整交易記錄
@@ -336,7 +336,7 @@ struct HoldingItem: View {
                 
                 Text(String(format: "%+.1f%%", change))
                     .font(.caption)
-                    .foregroundColor(change >= 0 ? .green : .red)
+                    .foregroundColor(change >= 0 ? .taiwanStockUp : .taiwanStockDown)
             }
         }
         .padding(.vertical, 4)

@@ -222,7 +222,7 @@ struct PortfolioSummaryCard: View {
                     Text(TradingService.shared.formatCurrency(portfolio.totalProfit))
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(portfolio.totalProfit >= 0 ? .green : .red)
+                        .foregroundColor(portfolio.totalProfit >= 0 ? .taiwanStockUp : .taiwanStockDown)
                 }
                 
                 Spacer()
@@ -235,7 +235,7 @@ struct PortfolioSummaryCard: View {
                     Text(TradingService.shared.formatPercentage(portfolio.cumulativeReturn))
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(portfolio.cumulativeReturn >= 0 ? .green : .red)
+                        .foregroundColor(portfolio.cumulativeReturn >= 0 ? .taiwanStockUp : .taiwanStockDown)
                 }
             }
             
@@ -330,13 +330,13 @@ struct StockCard: View {
             HStack(spacing: 4) {
                 Image(systemName: change >= 0 ? "triangle.fill" : "triangle.fill")
                     .font(.caption2)
-                    .foregroundColor(change >= 0 ? .green : .red)
+                    .foregroundColor(change >= 0 ? .taiwanStockUp : .taiwanStockDown)
                     .rotationEffect(change >= 0 ? .degrees(0) : .degrees(180))
                 
                 Text(String(format: "%.2f%%", abs(changePercent)))
                     .font(.caption2)
                     .fontWeight(.medium)
-                    .foregroundColor(change >= 0 ? .green : .red)
+                    .foregroundColor(change >= 0 ? .taiwanStockUp : .taiwanStockDown)
             }
         }
         .frame(width: 100, height: 80)

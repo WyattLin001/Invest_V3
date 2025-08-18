@@ -227,13 +227,13 @@ struct TradingStockRowWithActions: View {
                     HStack(spacing: 4) {
                         Image(systemName: change >= 0 ? "triangle.fill" : "triangle.fill")
                             .font(.caption2)
-                            .foregroundColor(change >= 0 ? .green : .red)
+                            .foregroundColor(change >= 0 ? .taiwanStockUp : .taiwanStockDown)
                             .rotationEffect(change >= 0 ? .degrees(0) : .degrees(180))
                         
                         Text(String(format: "%.2f%%", changePercent))
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(change >= 0 ? .green : .red)
+                            .foregroundColor(change >= 0 ? .taiwanStockUp : .taiwanStockDown)
                     }
                 }
             }
@@ -251,7 +251,7 @@ struct TradingStockRowWithActions: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(Color.green)
+                    .background(Color.taiwanStockUp)
                     .cornerRadius(8)
                 }
                 
@@ -266,7 +266,7 @@ struct TradingStockRowWithActions: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(Color.red)
+                    .background(Color.taiwanStockDown)
                     .cornerRadius(8)
                 }
             }
@@ -362,12 +362,12 @@ struct PortfolioHoldingRow: View {
                     Text(String(format: "%.2f", position.unrealizedPnl))
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(position.unrealizedPnl >= 0 ? .green : .red)
+                        .foregroundColor(position.unrealizedPnl >= 0 ? .taiwanStockUp : .taiwanStockDown)
                     
                     Text(String(format: "(%.2f%%)", position.unrealizedPnlPercent))
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(position.unrealizedPnl >= 0 ? .green : .red)
+                        .foregroundColor(position.unrealizedPnl >= 0 ? .taiwanStockUp : .taiwanStockDown)
                 }
             }
         }
