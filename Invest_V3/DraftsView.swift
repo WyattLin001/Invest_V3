@@ -124,7 +124,7 @@ struct DraftsView: View {
         }
         .sheet(isPresented: $showDraftEditor) {
             if let draft = selectedDraft {
-                DraftEditorView(draft: draft) {
+                MediumStyleEditor(existingDraft: draft) {
                     // 編輯完成後重新加載草稿
                     loadDrafts()
                 }
@@ -318,64 +318,6 @@ struct DraftRowView: View {
     }
 }
 
-// MARK: - Draft Editor View
-struct DraftEditorView: View {
-    let draft: ArticleDraft
-    let onComplete: () -> Void
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 16) {
-                Text("草稿編輯")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Text("這裡將會集成完整的草稿編輯功能")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("標題: \(draft.title)")
-                        .font(.headline)
-                    
-                    Text("分類: \(draft.category)")
-                        .font(.subheadline)
-                    
-                    Text("更新時間: \(draft.updatedAt.formatted())")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
-                
-                Spacer()
-                
-                Button("繼續編輯") {
-                    // TODO: 將草稿內容傳遞給 MediumStyleEditor
-                    dismiss()
-                    onComplete()
-                }
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.brandGreen)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            }
-            .padding()
-            .navigationTitle("草稿")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("關閉") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
 
 // MARK: - Enhanced Draft Row View
 

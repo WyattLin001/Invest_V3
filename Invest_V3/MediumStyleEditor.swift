@@ -7,12 +7,12 @@ import SupabaseStorage
 
 // MARK: - Medium 風格編輯器
 struct MediumStyleEditor: View {
-    @State private var title: String = ""
-    @State private var attributedContent: NSAttributedString = NSAttributedString()
-    @State private var isPaidContent: Bool = false
-    @State private var selectedSubtopic: String = "投資分析"
-    @State private var keywords: [String] = []
-    @State private var currentDraft: ArticleDraft = ArticleDraft()
+    @State private var title: String
+    @State private var attributedContent: NSAttributedString
+    @State private var isPaidContent: Bool
+    @State private var selectedSubtopic: String
+    @State private var keywords: [String]
+    @State private var currentDraft: ArticleDraft
     @State private var showSettings: Bool = false
     @State private var showPreview: Bool = false
     @State private var showPhotoPicker: Bool = false
@@ -30,9 +30,38 @@ struct MediumStyleEditor: View {
     @State private var wordCount: Int = 0
     @State private var readingTime: Int = 0
     
+    
+    private let onComplete: (() -> Void)?
+    
     @StateObject private var articleViewModel = ArticleViewModel()
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
+    
+    // MARK: - Initializers
+    
+    /// 新創文章的初始化
+    init(onComplete: (() -> Void)? = nil) {
+        self._title = State(initialValue: "")
+        self._attributedContent = State(initialValue: NSAttributedString())
+        self._isPaidContent = State(initialValue: false)
+        self._selectedSubtopic = State(initialValue: "投資分析")
+        self._keywords = State(initialValue: [])
+        self._currentDraft = State(initialValue: ArticleDraft())
+        self.onComplete = onComplete
+    }
+    
+    /// 從現有草稿編輯的初始化
+    init(existingDraft: ArticleDraft, onComplete: (() -> Void)? = nil) {
+        self._title = State(initialValue: existingDraft.title)
+        // 將 Markdown 文本轉換為 NSAttributedString
+        let attributedString = NSAttributedString(string: existingDraft.bodyMD)
+        self._attributedContent = State(initialValue: attributedString)
+        self._isPaidContent = State(initialValue: existingDraft.isPaid)
+        self._selectedSubtopic = State(initialValue: existingDraft.category)
+        self._keywords = State(initialValue: existingDraft.keywords)
+        self._currentDraft = State(initialValue: existingDraft)
+        self.onComplete = onComplete
+    }
     
     // 字數統計
     private let maxTitleLength = 100
@@ -595,6 +624,7 @@ struct MediumStyleEditor: View {
                         name: NSNotification.Name("ArticlePublished"),
                         object: nil
                     )
+                    onComplete?()
                     dismiss() // 發布成功後關閉編輯器
                 }
             } catch {
@@ -926,6 +956,7 @@ struct PreviewSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("完成") {
+                        onComplete?()
                         dismiss()
                     }
                     .foregroundColor(textColor)
