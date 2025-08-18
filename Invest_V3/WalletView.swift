@@ -105,7 +105,7 @@ struct WalletView: View {
                     Text(TokenSystem.formatTokens(viewModel.balance))
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.green)
+                        .foregroundColor(.mediumTextPrimary)
                     
                     Text(TokenSystem.formatNTD(viewModel.balance))
                         .font(.caption)
@@ -119,13 +119,7 @@ struct WalletView: View {
                     showTopUpOptions = true 
                 }) {
                     Text("充值")
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 8)
-                        .background(Color.blue)
-                        .cornerRadius(8)
+                        .mediumButtonStyle()
                 }
                 
                 Spacer()
@@ -147,10 +141,10 @@ struct WalletView: View {
                 Text("專業會員")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundColor(.mediumButtonText)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.blue)
+                    .background(Color.mediumButtonPrimary)
                     .cornerRadius(4)
             }
             
@@ -217,22 +211,22 @@ struct WalletView: View {
                 if viewModel.isLoadingMore {
                     ProgressView()
                         .scaleEffect(0.8)
-                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        .progressViewStyle(CircularProgressViewStyle(tint: .mediumTextSecondary))
                     Text("載入中...")
                         .font(.body)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.mediumTextSecondary)
                 } else {
                     Image(systemName: "arrow.down.circle")
                         .font(.body)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.mediumTextSecondary)
                     Text("載入更多")
                         .font(.body)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.mediumTextSecondary)
                 }
             }
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(Color.blue.opacity(0.1))
+            .background(Color.mediumSurfaceSecondary)
             .cornerRadius(8)
         }
         .disabled(viewModel.isLoadingMore)
@@ -334,7 +328,7 @@ struct TopUpOptionButton: View {
                 
                 Image(systemName: "plus.circle.fill")
                     .font(.title2)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.mediumButtonPrimary)
             }
             .padding(16)
             .background(Color.systemSecondaryBackground)
@@ -379,7 +373,7 @@ struct TransactionRowView: View {
                 Text(transaction.formattedAmount)
                     .font(.body)
                     .fontWeight(.semibold)
-                    .foregroundColor(transaction.amount >= 0 ? .green : .red)
+                    .foregroundColor(transaction.amount >= 0 ? .mediumSuccess : .mediumTextSecondary)
                 
                 Text(transaction.formattedDate)
                     .font(.caption2)

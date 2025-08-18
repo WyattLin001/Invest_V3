@@ -116,28 +116,20 @@ enum WalletTransactionType: String, Codable, CaseIterable {
     }
     
     var backgroundColor: Color {
-        switch self {
-        case .deposit: return Color.brandGreen.opacity(0.1)
-        case .withdrawal: return Color.brandOrange.opacity(0.1)
-        case .giftPurchase: return Color.purple.opacity(0.1)
-        case .subscription: return Color.blue.opacity(0.1)
-        case .tip: return Color.pink.opacity(0.1)
-        case .bonus: return Color.yellow.opacity(0.1)
-        case .groupEntryFee: return Color.cyan.opacity(0.1)
-        case .groupTip: return Color.mint.opacity(0.1)
-        }
+        // Medium 風格統一使用極淺灰背景
+        return Color.mediumSurfaceSecondary
     }
     
     var iconColor: Color {
         switch self {
-        case .deposit: return .brandGreen
-        case .withdrawal: return .brandOrange
-        case .giftPurchase: return .purple
-        case .subscription: return .blue
-        case .tip: return .pink
-        case .bonus: return .orange
-        case .groupEntryFee: return .cyan
-        case .groupTip: return .mint
+        case .deposit: return .mediumSuccess
+        case .withdrawal: return .mediumTextSecondary
+        case .giftPurchase: return Color(light: "#8B5A5A", dark: "#CD7F7F")  // 低飽和度紫紅
+        case .subscription: return .mediumButtonPrimary
+        case .tip: return Color(light: "#B85A8B", dark: "#E092C0")           // 低飽和度粉
+        case .bonus: return Color(light: "#B8A85A", dark: "#E0D192")         // 低飽和度黃
+        case .groupEntryFee: return Color(light: "#5A8BB8", dark: "#92C0E0") // 低飽和度青
+        case .groupTip: return .mediumGray
         }
     }
 }
