@@ -12,8 +12,7 @@ struct InfoView: View {
     @State private var searchText = ""
     @State private var selectedKeywordIndex = 0
     @State private var showArticleEditor = false
-    @State private var selectedArticle: Article?
-    @State private var showArticleDetail = false
+    @State private var selectedArticleForDetail: Article?
     @State private var showDrafts = false
 
     var body: some View {
@@ -47,34 +46,14 @@ struct InfoView: View {
                     }
                 }
         }
-        .fullScreenCover(isPresented: $showArticleDetail) {
-            if let article = selectedArticle {
-                ArticleDetailView(article: article)
-                    .onDisappear {
-                        // 從文章詳情返回時刷新文章列表，更新按讚數等統計資料
-                        Task {
-                            await viewModel.fetchArticles()
-                        }
-                        // 清理選中的文章
-                        selectedArticle = nil
-                    }
-            } else {
-                // 如果沒有選中文章，顯示錯誤狀態並關閉 sheet
-                VStack {
-                    Text("無法載入文章")
-                        .foregroundColor(.secondary)
-                    Button("關閉") {
-                        showArticleDetail = false
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .onAppear {
-                    // 自動關閉無效的 sheet
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        showArticleDetail = false
+        .fullScreenCover(item: $selectedArticleForDetail) { article in
+            ArticleDetailView(article: article)
+                .onDisappear {
+                    // 從文章詳情返回時刷新文章列表，更新按讚數等統計資料
+                    Task {
+                        await viewModel.fetchArticles()
                     }
                 }
-            }
         }
         .onAppear {
             Task {
@@ -208,12 +187,7 @@ struct InfoView: View {
                         ForEach(viewModel.filteredArticles(search: searchText)) { article in
                             ArticleCardView(article: article)
                                 .onTapGesture {
-                                    Task {
-                                        await MainActor.run {
-                                            selectedArticle = article
-                                            showArticleDetail = true
-                                        }
-                                    }
+                                    selectedArticleForDetail = article
                                 }
                         }
                     }

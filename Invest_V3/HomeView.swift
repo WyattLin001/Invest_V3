@@ -24,8 +24,7 @@ struct HomeView: View {
     @State private var showCreateGroupView = false
     @State private var showFriendSearch = false // 好友搜尋頁面
     @State private var showHelpCenter = false // 幫助中心
-    @State private var selectedArticleForReading: Article? // 從排行榜選擇的文章
-    @State private var showArticleDetail = false // 顯示文章詳情
+    @State private var selectedArticleForDetail: Article? // 從排行榜選擇的文章
     
 
     var body: some View {
@@ -123,15 +122,9 @@ struct HomeView: View {
         .sheet(isPresented: $showHelpCenter) {
             HelpCenterView()
         }
-        .fullScreenCover(isPresented: $showArticleDetail) {
-            if let article = selectedArticleForReading {
-                ArticleDetailView(article: article)
-                    .environmentObject(ThemeManager.shared)
-                    .onDisappear {
-                        // 清理選中的文章
-                        selectedArticleForReading = nil
-                    }
-            }
+        .fullScreenCover(item: $selectedArticleForDetail) { article in
+            ArticleDetailView(article: article)
+                .environmentObject(ThemeManager.shared)
         }
         .fullScreenCover(isPresented: $viewModel.showInvestmentPanel) {
             DevelopmentPlaceholderView()
@@ -773,13 +766,7 @@ struct HomeView: View {
                                 await MainActor.run {
                                     if let article = article {
                                         print("✅ 成功獲取文章資料，準備顯示")
-                                        // 確保文章物件完整設置
-                                        selectedArticleForReading = article
-                                        // 使用輕微延遲確保狀態完全設置
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                            showArticleDetail = true
-                                            print("📱 設置 showArticleDetail = true")
-                                        }
+                                        selectedArticleForDetail = article
                                     } else {
                                         print("⚠️ 無法獲取文章，使用 fallback 資料")
                                         // 如果獲取失敗，創建一個包含更多內容的文章物件
@@ -822,12 +809,7 @@ struct HomeView: View {
                                             updatedAt: ranking.createdAt,
                                             keywords: ranking.keywords
                                         )
-                                        selectedArticleForReading = fallbackArticle
-                                        // 同樣使用延遲確保狀態設置完成
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                            showArticleDetail = true
-                                            print("📱 設置 showArticleDetail = true (fallback)")
-                                        }
+                                        selectedArticleForDetail = fallbackArticle
                                     }
                                 }
                             }
