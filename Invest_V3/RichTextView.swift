@@ -574,9 +574,15 @@ struct RichTextView: UIViewRepresentable {
             
             // 強制觸發佈局更新，確保圖片和標籤立即顯示
             DispatchQueue.main.async {
+                // 強制重新渲染文字內容
+                textView.setNeedsDisplay()
                 textView.invalidateIntrinsicContentSize()
                 textView.setNeedsLayout()
                 textView.layoutIfNeeded()
+                
+                // 強制重新繪製所有的 attachment
+                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                textView.layoutManager.ensureLayout(for: textView.textContainer)
                 
                 // 觸發 SwiftUI 更新
                 if let customTextView = textView as? CustomTextView {
@@ -649,9 +655,15 @@ struct RichTextView: UIViewRepresentable {
             
             // 強制觸發佈局更新，確保圖片立即顯示
             DispatchQueue.main.async {
+                // 強制重新渲染文字內容
+                textView.setNeedsDisplay()
                 textView.invalidateIntrinsicContentSize()
                 textView.setNeedsLayout()
                 textView.layoutIfNeeded()
+                
+                // 強制重新繪製所有的 attachment
+                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                textView.layoutManager.ensureLayout(for: textView.textContainer)
                 
                 // 觸發 SwiftUI 更新
                 if let customTextView = textView as? CustomTextView {
