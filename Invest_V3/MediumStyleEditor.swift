@@ -590,7 +590,9 @@ struct MediumStyleEditor: View {
                let data = image.jpegData(compressionQuality: 0.8) {
                 // 使用一致的圖片ID生成方法
                 let imageId = generateImageId(from: image)
-                let fileName = imageId + ".jpg"
+                // 添加時間戳確保文件名唯一，避免重複上傳錯誤
+                let timestamp = Int(Date().timeIntervalSince1970)
+                let fileName = "\(imageId)_\(timestamp).jpg"
                 print("📸 嘗試上傳圖片: \(fileName)，大小: \(data.count) bytes")
                 
                 do {

@@ -164,15 +164,34 @@ class SupabaseManager {
             let path = "\(fileName)"
             
             // 上傳到 Supabase Storage
-            let _ = try await client.storage
-                .from("article-images")
-                .upload(
-                    path: path,
-                    file: data,
-                    options: FileOptions(
-                        contentType: "image/jpeg"
+            do {
+                let _ = try await client.storage
+                    .from("article-images")
+                    .upload(
+                        path: path,
+                        file: data,
+                        options: FileOptions(
+                            contentType: "image/jpeg"
+                        )
                     )
-                )
+            } catch let error {
+                // 如果是重複文件錯誤，使用 upsert 選項覆蓋
+                if error.localizedDescription.contains("already exists") {
+                    print("⚠️ 文件已存在，使用 upsert 選項覆蓋: \(fileName)")
+                    let _ = try await client.storage
+                        .from("article-images")
+                        .upload(
+                            path: path,
+                            file: data,
+                            options: FileOptions(
+                                contentType: "image/jpeg",
+                                upsert: true
+                            )
+                        )
+                } else {
+                    throw error
+                }
+            }
             
             // 獲取公開 URL
             let url = try client.storage

@@ -1406,9 +1406,23 @@ class SupabaseService: ObservableObject {
         
         let path = "\(fileName)"
         
-        try await client.storage
-            .from("article-images")
-            .upload(path: path, file: imageData, options: FileOptions(contentType: contentType))
+        do {
+            // 嘗試上傳圖片
+            try await client.storage
+                .from("article-images")
+                .upload(path: path, file: imageData, options: FileOptions(contentType: contentType))
+        } catch let error {
+            // 如果是重複文件錯誤，嘗試使用 upsert 選項覆蓋
+            if error.localizedDescription.contains("already exists") {
+                print("⚠️ 文件已存在，使用 upsert 選項覆蓋: \(fileName)")
+                try await client.storage
+                    .from("article-images")
+                    .upload(path: path, file: imageData, options: FileOptions(contentType: contentType, upsert: true))
+            } else {
+                // 其他錯誤直接拋出
+                throw error
+            }
+        }
         
         // 獲取公開 URL
         let publicURL = try client.storage
