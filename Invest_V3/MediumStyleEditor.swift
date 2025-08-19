@@ -54,8 +54,8 @@ struct MediumStyleEditor: View {
     /// 從現有草稿編輯的初始化
     init(existingDraft: ArticleDraft, onComplete: (() -> Void)? = nil) {
         self._title = State(initialValue: existingDraft.title)
-        // 暫時使用簡單的文本轉換，後續會改進
-        let attributedString = NSAttributedString(string: existingDraft.bodyMD)
+        // 使用 Markdown 轉換器來正確處理圖片和格式
+        let attributedString = RichTextPreviewView.convertMarkdownToAttributedString(existingDraft.bodyMD)
         self._attributedContent = State(initialValue: attributedString)
         self._isPaidContent = State(initialValue: existingDraft.isPaid)
         self._selectedSubtopic = State(initialValue: existingDraft.category)
@@ -153,6 +153,7 @@ struct MediumStyleEditor: View {
                         
                         // 富文本編輯器
                         richTextEditor
+                            .frame(maxWidth: .infinity) // 確保不超出父容器寬度
                         
                         // 底部間距 - 模仿 ArticleDetailView
                         Spacer(minLength: 100)
@@ -372,6 +373,10 @@ struct MediumStyleEditor: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowPhotoPicker"))) { _ in
                 showPhotoPicker = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageLoadedForDraft"))) { _ in
+                // 圖片加載完成後強制更新顯示
+                self.attributedContent = self.attributedContent
             }
     }
     
@@ -1210,8 +1215,14 @@ struct RichTextPreviewView: UIViewRepresentable {
                 let bulletText = NSAttributedString(string: "• " + content + "\n", attributes: listAttributes)
                 mutableText.append(bulletText)
                 
+            } else if trimmedLine.hasPrefix("![") {
+                // 圖片處理：![alt text](image_url)
+                if let imageAttachment = processImageMarkdown(trimmedLine) {
+                    mutableText.append(NSAttributedString(attachment: imageAttachment))
+                    mutableText.append(NSAttributedString(string: "\n"))
+                }
             } else if !trimmedLine.isEmpty {
-                // 一般段落，處理粗體格式
+                // 一般段落，處理粗體格式和內聯圖片
                 let processedText = processBoldText(trimmedLine)
                 mutableText.append(processedText)
                 mutableText.append(NSAttributedString(string: "\n"))
@@ -1222,6 +1233,108 @@ struct RichTextPreviewView: UIViewRepresentable {
         }
         
         return mutableText
+    }
+    
+    /// 處理 Markdown 圖片格式 ![alt](url) 並創建 NSTextAttachment
+    private static func processImageMarkdown(_ line: String) -> NSTextAttachment? {
+        let pattern = "!\\[([^\\]]*)\\]\\(([^\\)]+)\\)"
+        
+        do {
+            let regex = try NSRegularExpression(pattern: pattern, options: [])
+            let range = NSRange(location: 0, length: line.count)
+            
+            if let match = regex.firstMatch(in: line, options: [], range: range) {
+                let urlRange = match.range(at: 2)
+                let urlString = (line as NSString).substring(with: urlRange)
+                
+                // 創建文本附件
+                let attachment = NSTextAttachment()
+                
+                // 設置佔位符圖片
+                let placeholderImage = createPlaceholderImage(with: "📷 載入中...")
+                ImageSizeConfiguration.configureAttachment(attachment, with: placeholderImage)
+                
+                // 異步加載實際圖片
+                Task {
+                    await loadImageForAttachment(attachment, from: urlString)
+                }
+                
+                return attachment
+            }
+        } catch {
+            print("❌ 圖片 Markdown 解析失敗: \(error)")
+        }
+        
+        return nil
+    }
+    
+    /// 創建佔位符圖片
+    private static func createPlaceholderImage(with text: String) -> UIImage {
+        let size = CGSize(width: 200, height: 100)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        
+        return renderer.image { context in
+            // 背景色
+            UIColor.systemGray5.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            
+            // 邊框
+            UIColor.systemGray3.setStroke()
+            context.stroke(CGRect(origin: .zero, size: size))
+            
+            // 文字
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 16),
+                .foregroundColor: UIColor.systemGray
+            ]
+            
+            let textSize = text.size(withAttributes: attributes)
+            let textRect = CGRect(
+                x: (size.width - textSize.width) / 2,
+                y: (size.height - textSize.height) / 2,
+                width: textSize.width,
+                height: textSize.height
+            )
+            
+            text.draw(in: textRect, withAttributes: attributes)
+        }
+    }
+    
+    /// 異步加載圖片並更新附件
+    private static func loadImageForAttachment(_ attachment: NSTextAttachment, from urlString: String) async {
+        guard let url = URL(string: urlString) else {
+            print("❌ 無效的圖片 URL: \(urlString)")
+            return
+        }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            
+            if let image = UIImage(data: data) {
+                await MainActor.run {
+                    // 使用統一的圖片尺寸配置
+                    ImageSizeConfiguration.configureAttachment(attachment, with: image)
+                    
+                    // 發送通知以更新顯示
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ImageLoadedForDraft"),
+                        object: attachment
+                    )
+                }
+            } else {
+                print("❌ 無法解析圖片數據: \(urlString)")
+                await MainActor.run {
+                    let errorImage = createPlaceholderImage(with: "❌ 載入失敗")
+                    ImageSizeConfiguration.configureAttachment(attachment, with: errorImage)
+                }
+            }
+        } catch {
+            print("❌ 圖片載入失敗: \(error.localizedDescription)")
+            await MainActor.run {
+                let errorImage = createPlaceholderImage(with: "❌ 載入失敗")
+                ImageSizeConfiguration.configureAttachment(attachment, with: errorImage)
+            }
+        }
     }
     
     /// 處理文本中的粗體格式 **text**
