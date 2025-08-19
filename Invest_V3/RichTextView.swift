@@ -5,6 +5,7 @@ import PhotosUI
 // MARK: - RichTextView (Medium/Notion 風格)
 struct RichTextView: UIViewRepresentable {
     @Binding var attributedText: NSAttributedString
+    @Binding var height: CGFloat
     @State private var selectedImages: [PhotosPickerItem] = []
     @State private var showPhotoPicker = false
     
@@ -16,7 +17,7 @@ struct RichTextView: UIViewRepresentable {
         textView.textColor = UIColor.label
         textView.allowsEditingTextAttributes = true
         textView.isScrollEnabled = false
-        textView.textContainerInset = UIEdgeInsets(top: 16, left: 0, bottom: 16, right: 0)
+        textView.textContainerInset = UIEdgeInsets(top: 16, left: 0, bottom: 8, right: 0)
         textView.textContainer.lineFragmentPadding = 0
         textView.adjustsFontForContentSizeCategory = true
         
@@ -29,11 +30,16 @@ struct RichTextView: UIViewRepresentable {
     func updateUIView(_ uiView: UITextView, context: Context) {
         if uiView.attributedText != attributedText {
             uiView.attributedText = attributedText
+        }
+        
+        // 計算實際所需高度並回拋給 SwiftUI
+        DispatchQueue.main.async {
+            let targetWidth = uiView.bounds.width > 0 ? uiView.bounds.width : UIScreen.main.bounds.width - 32
+            let size = uiView.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude))
+            let newHeight = max(size.height, 44) // 最小44pt確保可編輯
             
-            // 強制重新計算高度，確保自適應正確
-            DispatchQueue.main.async {
-                uiView.invalidateIntrinsicContentSize()
-                uiView.setNeedsLayout()
+            if abs(self.height - newHeight) > 0.5 {
+                self.height = newHeight
             }
         }
     }
@@ -119,9 +125,18 @@ struct RichTextView: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             self.textView = textView
             
-            // 防抖動更新
+            // 防抖動更新並重新計算高度
             DispatchQueue.main.async {
                 self.parent.attributedText = textView.attributedText
+                
+                // 立即重新計算高度
+                let targetWidth = textView.bounds.width > 0 ? textView.bounds.width : UIScreen.main.bounds.width - 32
+                let size = textView.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude))
+                let newHeight = max(size.height, 44)
+                
+                if abs(self.parent.height - newHeight) > 0.5 {
+                    self.parent.height = newHeight
+                }
             }
         }
         
@@ -267,18 +282,31 @@ struct RichTextView: UIViewRepresentable {
                 context: "編輯器"
             )
             
-            // 插入圖片
+            // 插入圖片 - 優化換行邏輯避免底部空白累積
             let attachmentString = NSAttributedString(attachment: attachment)
-            let newlineString = NSAttributedString(string: "\n")
-            
             let insertionIndex = selectedRange.location + selectedRange.length
-
-            mutableText.insert(newlineString, at: insertionIndex)
-            mutableText.insert(attachmentString, at: insertionIndex + 1)
-            mutableText.insert(newlineString, at: insertionIndex + 2)
-
+            
+            // 只在非開頭位置前方加一個換行，末尾不自動加換行
+            if insertionIndex > 0 {
+                let newlineString = NSAttributedString(string: "\n")
+                mutableText.insert(newlineString, at: insertionIndex)
+                mutableText.insert(attachmentString, at: insertionIndex + 1)
+                textView.selectedRange = NSRange(location: insertionIndex + 2, length: 0)
+            } else {
+                mutableText.insert(attachmentString, at: insertionIndex)
+                textView.selectedRange = NSRange(location: insertionIndex + 1, length: 0)
+            }
+            
             textView.attributedText = mutableText
-            textView.selectedRange = NSRange(location: insertionIndex + 3, length: 0)
+            
+            // 插入圖片後立即重新計算高度
+            let targetWidth = textView.bounds.width > 0 ? textView.bounds.width : UIScreen.main.bounds.width - 32
+            let size = textView.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude))
+            let newHeight = max(size.height, 44)
+            
+            if abs(parent.height - newHeight) > 0.5 {
+                parent.height = newHeight
+            }
         }
         
         @objc func dismissKeyboard() {

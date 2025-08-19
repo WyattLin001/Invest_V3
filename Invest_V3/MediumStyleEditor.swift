@@ -30,6 +30,7 @@ struct MediumStyleEditor: View {
     @State private var wordCount: Int = 0
     @State private var readingTime: Int = 0
     @State private var userChoseNotToSave = false // 追蹤用戶是否選擇不保存
+    @State private var editorHeight: CGFloat = 44 // 編輯器動態高度
     
     
     private let onComplete: (() -> Void)?
@@ -362,8 +363,9 @@ struct MediumStyleEditor: View {
     
     // MARK: - 富文本編輯器
     private var richTextEditor: some View {
-        RichTextView(attributedText: $attributedContent)
-            .fixedSize(horizontal: false, vertical: true) // 讓高度完全自適應內容
+        RichTextView(attributedText: $attributedContent, height: $editorHeight)
+            .frame(maxWidth: .infinity)
+            .frame(height: max(editorHeight, 44)) // 使用精確的高度控制
             .background(backgroundColor)
             .onChange(of: attributedContent) { _, newValue in
                 hasTypingActivity = true
