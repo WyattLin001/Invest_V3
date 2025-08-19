@@ -23,7 +23,7 @@ struct RichTextView: UIViewRepresentable {
         textView.textContainer.widthTracksTextView = true
         textView.textContainer.maximumNumberOfLines = 0
         textView.textContainer.lineBreakMode = .byWordWrapping
-        textView.textContainer.containerSize = CGSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer.size = CGSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
         
         textView.adjustsFontForContentSizeCategory = true
         
