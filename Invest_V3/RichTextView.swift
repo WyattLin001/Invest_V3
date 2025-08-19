@@ -534,6 +534,7 @@ struct RichTextView: UIViewRepresentable {
                 .foregroundColor: UIColor.label,
                 .paragraphStyle: {
                     let style = NSMutableParagraphStyle()
+                    style.alignment = .left  // 明確設置左對齊
                     style.firstLineHeadIndent = 0
                     style.headIndent = 0
                     return style
@@ -542,33 +543,33 @@ struct RichTextView: UIViewRepresentable {
             
             // 插入圖片、標籤和必要的格式
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
-                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 標籤 + 後續換行
+                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 標籤 + 額外左對齊換行
                 let beforeNewline = NSAttributedString(string: "\n")
-                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                let resetAlignmentNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
                 mutableText.insert(attachmentString, at: insertionIndex + 1)
                 mutableText.insert(imageCaption, at: insertionIndex + 2)
-                mutableText.insert(afterNewline, at: insertionIndex + 3)
+                mutableText.insert(resetAlignmentNewline, at: insertionIndex + 3)
                 
-                // 設置游標在標籤後的換行符後面
+                // 設置游標在左對齊換行符後面
                 textView.selectedRange = NSRange(location: insertionIndex + 4, length: 0)
             } else {
-                // 開頭位置或前面已有換行：只插入圖片 + 標籤 + 後續換行
-                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                // 開頭位置或前面已有換行：只插入圖片 + 標籤 + 左對齊換行
+                let resetAlignmentNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
                 mutableText.insert(attachmentString, at: insertionIndex)
                 mutableText.insert(imageCaption, at: insertionIndex + 1)
-                mutableText.insert(afterNewline, at: insertionIndex + 2)
+                mutableText.insert(resetAlignmentNewline, at: insertionIndex + 2)
                 
-                // 設置游標在標籤後的換行符後面
+                // 設置游標在左對齊換行符後面
                 textView.selectedRange = NSRange(location: insertionIndex + 3, length: 0)
             }
             
             // 更新文字內容
             textView.attributedText = mutableText
             
-            // 設置後續輸入的屬性為正常格式
+            // 設置後續輸入的屬性為正常格式（明確左對齊）
             textView.typingAttributes = normalAttributes
             
             // 強制觸發佈局更新，確保圖片和標籤立即顯示
