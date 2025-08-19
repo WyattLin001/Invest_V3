@@ -9,7 +9,7 @@ struct RichTextView: UIViewRepresentable {
     @State private var showPhotoPicker = false
     
     func makeUIView(context: Context) -> UITextView {
-        let textView = UITextView()
+        let textView = CustomTextView()
         textView.delegate = context.coordinator
         textView.font = UIFont.systemFont(ofSize: 17)
         textView.backgroundColor = UIColor.systemBackground
@@ -18,6 +18,13 @@ struct RichTextView: UIViewRepresentable {
         textView.isScrollEnabled = false
         textView.textContainerInset = UIEdgeInsets(top: 16, left: 0, bottom: 8, right: 0)
         textView.textContainer.lineFragmentPadding = 0
+        
+        // 關鍵修復：確保文字不會溢出容器
+        textView.textContainer.widthTracksTextView = true
+        textView.textContainer.maximumNumberOfLines = 0
+        textView.textContainer.lineBreakMode = .byWordWrapping
+        textView.textContainer.containerSize = CGSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        
         textView.adjustsFontForContentSizeCategory = true
         
         // 修復：同步設置工具列，立即可用
@@ -29,6 +36,22 @@ struct RichTextView: UIViewRepresentable {
     func updateUIView(_ uiView: UITextView, context: Context) {
         if uiView.attributedText != attributedText {
             uiView.attributedText = attributedText
+        }
+        
+        // 關鍵修復：確保 textContainer 寬度約束到 SwiftUI 容器
+        DispatchQueue.main.async {
+            if uiView.bounds.width > 0 {
+                // 設定文字容器的最大寬度，避免文字溢出
+                let availableWidth = uiView.bounds.width - uiView.textContainerInset.left - uiView.textContainerInset.right
+                uiView.textContainer.size.width = availableWidth
+                uiView.textContainer.maximumNumberOfLines = 0
+                uiView.textContainer.lineBreakMode = .byWordWrapping
+                
+                // 強制重新佈局
+                uiView.layoutManager.ensureLayout(for: uiView.textContainer)
+                uiView.setNeedsLayout()
+                uiView.layoutIfNeeded()
+            }
         }
     }
     
@@ -282,6 +305,19 @@ struct RichTextView: UIViewRepresentable {
         @objc func dismissKeyboard() {
             textView?.resignFirstResponder()
         }
+    }
+}
+
+// MARK: - Custom UITextView for better intrinsic content size
+class CustomTextView: UITextView {
+    override var intrinsicContentSize: CGSize {
+        let textSize = sizeThatFits(CGSize(width: bounds.width, height: CGFloat.greatestFiniteMagnitude))
+        return CGSize(width: UIView.noIntrinsicMetric, height: textSize.height)
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        invalidateIntrinsicContentSize()
     }
 }
 
