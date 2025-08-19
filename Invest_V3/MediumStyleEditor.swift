@@ -144,20 +144,21 @@ struct MediumStyleEditor: View {
                     VStack(alignment: .leading, spacing: 16) {
                         // 標題輸入區域
                         titleSection
+                            .padding(.horizontal)
                         
                         // 付費內容切換（靠右對齊）
                         HStack {
                             Spacer()
                             paidContentToggle
                         }
+                        .padding(.horizontal)
                         
-                        // 富文本編輯器
+                        // 富文本編輯器 - 不加額外 padding，讓 UITextView 自己控制
                         richTextEditor
                         
                         // 底部間距 - 模仿 ArticleDetailView
                         Spacer(minLength: 100)
                     }
-                    .padding() // 使用系統標準 padding
                 }
             }
         }
