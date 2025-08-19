@@ -560,12 +560,12 @@ struct MediumStyleEditor: View {
     private func convertAttributedContentToMarkdown() async -> String {
         var markdown = ""
 
-        // 收集所有區段及對應圖片
-        var segments: [(text: String, attachment: NSTextAttachment?)] = []
+        // 收集所有區段及對應圖片和屬性
+        var segments: [(attributedText: NSAttributedString, attachment: NSTextAttachment?)] = []
         attributedContent.enumerateAttributes(in: NSRange(location: 0, length: attributedContent.length)) { attrs, range, _ in
-            let text = attributedContent.attributedSubstring(from: range).string
+            let attributedText = attributedContent.attributedSubstring(from: range)
             let attachment = attrs[.attachment] as? NSTextAttachment
-            segments.append((text, attachment))
+            segments.append((attributedText, attachment))
         }
 
         for segment in segments {
@@ -602,10 +602,52 @@ struct MediumStyleEditor: View {
                     markdown += "![圖片上傳失敗]"
                 }
             } else {
-                markdown += segment.text
+                // 處理富文本格式轉換為 Markdown
+                let convertedText = convertAttributedStringToMarkdown(segment.attributedText)
+                markdown += convertedText
             }
         }
 
+        return markdown
+    }
+    
+    /// 將 NSAttributedString 轉換為對應的 Markdown 格式
+    private func convertAttributedStringToMarkdown(_ attributedString: NSAttributedString) -> String {
+        let text = attributedString.string
+        if text.isEmpty { return text }
+        
+        var markdown = text
+        
+        // 遍歷所有屬性來決定 Markdown 格式
+        attributedString.enumerateAttributes(in: NSRange(location: 0, length: attributedString.length)) { attrs, range, _ in
+            let substring = (text as NSString).substring(with: range)
+            
+            if let font = attrs[.font] as? UIFont {
+                // 處理標題 (基於字體大小)
+                if font.pointSize >= 24 {
+                    // H1 標題
+                    markdown = markdown.replacingOccurrences(of: substring, with: "# \(substring)")
+                } else if font.pointSize >= 20 {
+                    // H2 標題
+                    markdown = markdown.replacingOccurrences(of: substring, with: "## \(substring)")
+                } else if font.pointSize >= 18 {
+                    // H3 標題
+                    markdown = markdown.replacingOccurrences(of: substring, with: "### \(substring)")
+                } else if font.isBold {
+                    // 粗體文字
+                    markdown = markdown.replacingOccurrences(of: substring, with: "**\(substring)**")
+                }
+            }
+            
+            // 處理顏色 (使用 HTML 標籤，因為 Markdown 本身不支持顏色)
+            if let color = attrs[.foregroundColor] as? UIColor {
+                if !color.isEqual(UIColor.label) && !color.isEqual(UIColor.black) {
+                    let hexColor = color.hexString
+                    markdown = markdown.replacingOccurrences(of: substring, with: "<span style=\"color:\(hexColor)\">\(substring)</span>")
+                }
+            }
+        }
+        
         return markdown
     }
     
@@ -615,7 +657,8 @@ struct MediumStyleEditor: View {
         var draft = currentDraft
         draft.title = title
         draft.subtitle = nil
-        draft.bodyMD = attributedContent.string
+        // 關鍵修復：使用格式轉換函數保持富文本格式
+        draft.bodyMD = convertAttributedContentToMarkdownSync()
         draft.isFree = !isPaidContent
         draft.isPaid = isPaidContent
         draft.category = selectedSubtopic
@@ -625,8 +668,34 @@ struct MediumStyleEditor: View {
         if draft.createdAt.timeIntervalSinceNow > -1 {
             draft.createdAt = Date()
         }
-        print("📝 更新草稿 ID: \(draft.id)，關鍵字: \(keywords)")
+        print("📝 更新草稿 ID: \(draft.id)，保留格式，關鍵字: \(keywords)")
         return draft
+    }
+    
+    /// 同步版本的格式轉換（不上傳圖片，用於草稿創建）
+    private func convertAttributedContentToMarkdownSync() -> String {
+        var markdown = ""
+
+        // 收集所有區段及對應圖片和屬性
+        var segments: [(attributedText: NSAttributedString, attachment: NSTextAttachment?)] = []
+        attributedContent.enumerateAttributes(in: NSRange(location: 0, length: attributedContent.length)) { attrs, range, _ in
+            let attributedText = attributedContent.attributedSubstring(from: range)
+            let attachment = attrs[.attachment] as? NSTextAttachment
+            segments.append((attributedText, attachment))
+        }
+
+        for segment in segments {
+            if let attachment = segment.attachment {
+                // 對於圖片，在同步版本中只生成占位符
+                markdown += "![圖片待上傳]"
+            } else {
+                // 處理富文本格式轉換為 Markdown
+                let convertedText = convertAttributedStringToMarkdown(segment.attributedText)
+                markdown += convertedText
+            }
+        }
+
+        return markdown
     }
     
     private func handlePublishSheetAction(_ action: PublishSheetAction) {
@@ -1233,8 +1302,8 @@ struct RichTextPreviewView: UIViewRepresentable {
                     mutableText.append(NSAttributedString(string: "\n"))
                 }
             } else if !trimmedLine.isEmpty {
-                // 一般段落，處理粗體格式和內聯圖片
-                let processedText = processBoldText(trimmedLine)
+                // 一般段落，處理粗體格式、顏色和內聯圖片
+                let processedText = processRichText(trimmedLine)
                 mutableText.append(processedText)
                 mutableText.append(NSAttributedString(string: "\n"))
             } else {
@@ -1348,10 +1417,18 @@ struct RichTextPreviewView: UIViewRepresentable {
         }
     }
     
-    /// 處理文本中的粗體格式 **text**
-    private static func processBoldText(_ text: String) -> NSAttributedString {
+    /// 處理文本中的富文本格式（粗體、顏色等）
+    private static func processRichText(_ text: String) -> NSAttributedString {
+        // 首先處理 HTML 顏色標籤
+        let colorProcessedText = processColorTags(text)
+        // 然後處理粗體
+        return processBoldText(colorProcessedText)
+    }
+    
+    /// 處理 HTML 顏色標籤 <span style="color:#hex">text</span>
+    private static func processColorTags(_ text: String) -> NSAttributedString {
         let mutableText = NSMutableAttributedString()
-        let pattern = "\\*\\*(.*?)\\*\\*"
+        let pattern = "<span style=\"color:(#[0-9A-Fa-f]{6})\">([^<]+)</span>"
         
         do {
             let regex = try NSRegularExpression(pattern: pattern, options: [])
@@ -1361,7 +1438,7 @@ struct RichTextPreviewView: UIViewRepresentable {
             var lastEnd = 0
             
             for match in matches {
-                // 添加粗體前的普通文本
+                // 添加顏色標籤前的普通文本
                 if match.range.location > lastEnd {
                     let normalRange = NSRange(location: lastEnd, length: match.range.location - lastEnd)
                     let normalText = (text as NSString).substring(with: normalRange)
@@ -1372,14 +1449,24 @@ struct RichTextPreviewView: UIViewRepresentable {
                     mutableText.append(NSAttributedString(string: normalText, attributes: normalAttributes))
                 }
                 
-                // 添加粗體文本
-                let boldRange = match.range(at: 1)
-                let boldText = (text as NSString).substring(with: boldRange)
-                let boldAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 16, weight: .bold),
-                    .foregroundColor: UIColor.label
+                // 添加帶顏色的文本
+                let colorRange = match.range(at: 1) // 顏色值
+                let textRange = match.range(at: 2)  // 文本內容
+                let colorString = (text as NSString).substring(with: colorRange)
+                let coloredText = (text as NSString).substring(with: textRange)
+                
+                var coloredAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 16)
                 ]
-                mutableText.append(NSAttributedString(string: boldText, attributes: boldAttributes))
+                
+                // 將十六進制顏色轉換為 UIColor
+                if let color = UIColor(hexString: colorString) {
+                    coloredAttributes[.foregroundColor] = color
+                } else {
+                    coloredAttributes[.foregroundColor] = UIColor.label
+                }
+                
+                mutableText.append(NSAttributedString(string: coloredText, attributes: coloredAttributes))
                 
                 lastEnd = match.range.location + match.range.length
             }
@@ -1403,7 +1490,7 @@ struct RichTextPreviewView: UIViewRepresentable {
             return NSAttributedString(string: text, attributes: normalAttributes)
         }
         
-        // 如果沒有找到粗體標記，返回普通文本
+        // 如果沒有找到顏色標籤，返回普通文本
         if mutableText.length == 0 {
             let normalAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 16),
@@ -1413,6 +1500,43 @@ struct RichTextPreviewView: UIViewRepresentable {
         }
         
         return mutableText
+    }
+    
+    /// 處理文本中的粗體格式 **text**，保持現有的顏色和其他屬性
+    private static func processBoldText(_ attributedText: NSAttributedString) -> NSAttributedString {
+        let text = attributedText.string
+        let finalText = NSMutableAttributedString(attributedString: attributedText)
+        let pattern = "\\*\\*(.*?)\\*\\*"
+        
+        do {
+            let regex = try NSRegularExpression(pattern: pattern, options: [])
+            let range = NSRange(location: 0, length: text.count)
+            let matches = regex.matches(in: text, options: [], range: range).reversed() // 從後往前處理避免範圍變化
+            
+            for match in matches {
+                let boldRange = match.range(at: 1)
+                let boldText = (text as NSString).substring(with: boldRange)
+                
+                // 獲取原有的屬性
+                var existingAttributes = finalText.attributes(at: match.range.location, effectiveRange: nil)
+                
+                // 添加粗體屬性，保持其他屬性（如顏色）
+                if let existingFont = existingAttributes[.font] as? UIFont {
+                    existingAttributes[.font] = existingFont.addingBold()
+                } else {
+                    existingAttributes[.font] = UIFont.systemFont(ofSize: 16, weight: .bold)
+                }
+                
+                // 替換整個 **text** 為粗體文本
+                finalText.replaceCharacters(in: match.range, with: NSAttributedString(string: boldText, attributes: existingAttributes))
+            }
+            
+        } catch {
+            // 如果正則表達式失敗，返回原文本
+            return attributedText
+        }
+        
+        return finalText
     }
 }
 
@@ -1439,5 +1563,54 @@ extension String {
             context: nil
         )
         return ceil(boundingBox.height)
+    }
+}
+
+// MARK: - UIFont 擴展
+extension UIFont {
+    var isBold: Bool {
+        return fontDescriptor.symbolicTraits.contains(.traitBold)
+    }
+    
+    func addingBold() -> UIFont {
+        let traits = fontDescriptor.symbolicTraits.union(.traitBold)
+        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
+        return UIFont(descriptor: descriptor, size: pointSize)
+    }
+}
+
+// MARK: - UIColor 擴展
+extension UIColor {
+    var hexString: String {
+        guard let components = cgColor.components, components.count >= 3 else {
+            return "#000000"
+        }
+        
+        let r = Float(components[0])
+        let g = Float(components[1])
+        let b = Float(components[2])
+        
+        return String(format: "#%02lX%02lX%02lX",
+                     lroundf(r * 255),
+                     lroundf(g * 255),
+                     lroundf(b * 255))
+    }
+    
+    convenience init?(hexString: String) {
+        let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int = UInt64()
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            return nil
+        }
+        self.init(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: CGFloat(a) / 255)
     }
 } 
