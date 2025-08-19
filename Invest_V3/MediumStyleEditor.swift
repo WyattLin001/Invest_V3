@@ -1277,14 +1277,24 @@ struct RichTextPreviewView: UIViewRepresentable {
                     // 計算插入位置（需要考慮之前插入的標籤造成的偏移）
                     let insertionPosition = range.location + range.length + insertionOffset
                     
-                    // 創建圖片標籤
-                    let caption = createImageCaption(imageIndex: imageCount, image: image)
+                    // 檢查是否已經有圖片標籤（編輯器中已經添加的）
+                    let searchLength = min(50, mutableText.length - insertionPosition)
+                    let searchRange = NSRange(location: insertionPosition, length: searchLength)
+                    let existingText = mutableText.string
+                    let textToCheck = (existingText as NSString).substring(with: searchRange)
+                    let hasExistingCaption = textToCheck.contains("圖片") && textToCheck.contains("[來源：")
                     
-                    // 在圖片後插入標籤
-                    mutableText.insert(caption, at: insertionPosition)
-                    
-                    // 更新偏移量
-                    insertionOffset += caption.length
+                    // 只有當沒有現有標籤時才添加新標籤
+                    if !hasExistingCaption {
+                        // 創建圖片標籤
+                        let caption = createImageCaption(imageIndex: imageCount, image: image)
+                        
+                        // 在圖片後插入標籤
+                        mutableText.insert(caption, at: insertionPosition)
+                        
+                        // 更新偏移量
+                        insertionOffset += caption.length
+                    }
                 }
             }
         }

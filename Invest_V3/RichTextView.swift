@@ -506,7 +506,22 @@ struct RichTextView: UIViewRepresentable {
                 }()
             ]
             
-            return NSAttributedString(string: captionText, attributes: captionAttributes)
+            let captionString = NSMutableAttributedString(string: captionText, attributes: captionAttributes)
+            
+            // 添加一個左對齊的零寬度字符來重置樣式
+            let resetAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 13, weight: .regular),
+                .foregroundColor: UIColor.clear,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.alignment = .left
+                    return style
+                }()
+            ]
+            let resetString = NSAttributedString(string: "\u{200B}", attributes: resetAttributes) // 零寬度空格
+            captionString.append(resetString)
+            
+            return captionString
         }
         
         // 插入帶標籤的圖片
@@ -541,11 +556,26 @@ struct RichTextView: UIViewRepresentable {
                 }()
             ]
             
+            // 創建額外的左對齊重置文字
+            let extraResetAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 17),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.alignment = .left
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 0
+                    style.paragraphSpacing = 0
+                    style.paragraphSpacingBefore = 0
+                    return style
+                }()
+            ]
+            
             // 插入圖片、標籤和必要的格式
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
-                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 標籤 + 額外左對齊換行
+                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 標籤 + 強制左對齊換行
                 let beforeNewline = NSAttributedString(string: "\n")
-                let resetAlignmentNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                let resetAlignmentNewline = NSAttributedString(string: "\n\u{200B}", attributes: extraResetAttributes) // 零寬度空格確保左對齊
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
                 mutableText.insert(attachmentString, at: insertionIndex + 1)
@@ -555,8 +585,8 @@ struct RichTextView: UIViewRepresentable {
                 // 設置游標在左對齊換行符後面
                 textView.selectedRange = NSRange(location: insertionIndex + 4, length: 0)
             } else {
-                // 開頭位置或前面已有換行：只插入圖片 + 標籤 + 左對齊換行
-                let resetAlignmentNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                // 開頭位置或前面已有換行：只插入圖片 + 標籤 + 強制左對齊換行
+                let resetAlignmentNewline = NSAttributedString(string: "\n\u{200B}", attributes: extraResetAttributes) // 零寬度空格確保左對齊
                 
                 mutableText.insert(attachmentString, at: insertionIndex)
                 mutableText.insert(imageCaption, at: insertionIndex + 1)
@@ -570,7 +600,7 @@ struct RichTextView: UIViewRepresentable {
             textView.attributedText = mutableText
             
             // 設置後續輸入的屬性為正常格式（明確左對齊）
-            textView.typingAttributes = normalAttributes
+            textView.typingAttributes = extraResetAttributes
             
             // 強制觸發佈局更新，確保圖片和標籤立即顯示
             DispatchQueue.main.async {
