@@ -1063,32 +1063,32 @@ struct RichTextPreviewView: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> UITextView {
-        let textView = UITextView()
+        let textView = CustomTextView()
         textView.isEditable = false
         textView.isSelectable = true
+        textView.font = UIFont.systemFont(ofSize: 17)
         textView.backgroundColor = UIColor.clear
-        // 修復：與 RichTextView 一致的 inset 設定
+        textView.textColor = UIColor.label
+        textView.isScrollEnabled = false
+        // 完全復制 RichTextView 的 inset 設定
         textView.textContainerInset = UIEdgeInsets(top: 16, left: 0, bottom: 8, right: 0)
         textView.textContainer.lineFragmentPadding = 0
+        
+        // 完全復制 RichTextView 的 textContainer 設定
+        textView.textContainer.widthTracksTextView = true
         textView.textContainer.maximumNumberOfLines = 0
         textView.textContainer.lineBreakMode = .byWordWrapping
-        textView.isScrollEnabled = false // 禁用內部滾動，讓外層 ScrollView 控制
-        textView.showsVerticalScrollIndicator = false
-        textView.showsHorizontalScrollIndicator = false
-        
-        // 關鍵修復：確保文字不會溢出容器
-        textView.textContainer.widthTracksTextView = true
         textView.textContainer.size = CGSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
         
-        // 設置默認字體作為備選，但不覆蓋 NSAttributedString 的格式
-        textView.font = UIFont.systemFont(ofSize: 17)
-        textView.textColor = UIColor.label
+        textView.adjustsFontForContentSizeCategory = true
+        textView.showsVerticalScrollIndicator = false
+        textView.showsHorizontalScrollIndicator = false
         
         // 設置內容壓縮阻力和內容擁抱優先級，確保高度自適應
         textView.setContentCompressionResistancePriority(.required, for: .vertical)
         textView.setContentHuggingPriority(.required, for: .vertical)
         
-        print("🔍 makeUIView - textView created with frame: \(textView.frame)")
+        print("🔍 預覽 makeUIView - textView created with frame: \(textView.frame)")
         
         return textView
     }
@@ -1104,21 +1104,23 @@ struct RichTextPreviewView: UIViewRepresentable {
         let processedText = processImagesForPreview(trimmedText)
         uiView.attributedText = processedText
         
-        // 精確計算並設置內容高度和寬度 - 完全模仿 RichTextView 邏輯
+        // 精確計算並設置內容高度和寬度 - 完全復制 RichTextView 邏輯
         DispatchQueue.main.async {
             if uiView.bounds.width > 0 {
-                // 由於 textContainerInset 的 left 和 right 現在都是 0，直接使用 bounds.width
-                let availableWidth = uiView.bounds.width
+                // 使用與 RichTextView 完全相同的寬度計算邏輯
+                let availableWidth = uiView.bounds.width - uiView.textContainerInset.left - uiView.textContainerInset.right
                 uiView.textContainer.size.width = availableWidth
                 uiView.textContainer.maximumNumberOfLines = 0
                 uiView.textContainer.lineBreakMode = .byWordWrapping
                 
-                // 強制重新佈局 - 與 RichTextView 保持一致
+                // 強制重新佈局 - 與 RichTextView 完全一致
                 uiView.layoutManager.ensureLayout(for: uiView.textContainer)
                 uiView.setNeedsLayout()
                 uiView.layoutIfNeeded()
                 
-                print("🔍 預覽視圖可用寬度: \(availableWidth)")
+                print("🔍 預覽視圖 bounds.width: \(uiView.bounds.width)")
+                print("🔍 預覽視圖 textContainerInset: \(uiView.textContainerInset)")
+                print("🔍 預覽視圖 計算可用寬度: \(availableWidth)")
                 
                 // 通知SwiftUI更新
                 uiView.invalidateIntrinsicContentSize()
