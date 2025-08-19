@@ -1592,10 +1592,10 @@ struct RichTextPreviewView: UIViewRepresentable {
             .foregroundColor: UIColor.label
         ]
         
-        // 處理簡化格式和HTML格式
+        // 處理簡化格式和HTML格式，使用非貪婪匹配
         let patterns = [
-            "<color:(#[0-9A-Fa-f]{6})>([^<]+)</color>",
-            "<span style=\"color:(#[0-9A-Fa-f]{6})\">([^<]+)</span>"
+            "<color:(#[0-9A-Fa-f]{6})>(.*?)</color>",
+            "<span style=\"color:(#[0-9A-Fa-f]{6})\">(.*?)</span>"
         ]
         
         var foundMatch = false

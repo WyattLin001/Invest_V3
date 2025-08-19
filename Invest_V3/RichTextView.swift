@@ -534,9 +534,21 @@ struct RichTextView: UIViewRepresentable {
             let selectedRange = textView.selectedRange
             let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
             
-            // 創建 attachment 並設置統一的圖片尺寸
+            // 創建 attachment 並使用 ImageSizeConfiguration 來正確配置
             let attachment = NSTextAttachment()
+            
+            // 使用統一的配置方法，確保圖片正確設置和立即顯示
             ImageSizeConfiguration.configureAttachment(attachment, with: image)
+            
+            // 額外確保圖片已正確設置（雙重保險）
+            if attachment.image == nil {
+                attachment.image = image
+                let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
+                attachment.bounds = CGRect(origin: .zero, size: displaySize)
+                print("🔧 備用圖片設置 - 顯示尺寸: \(displaySize)")
+            }
+            
+            print("🖼️ 配置圖片附件 - 原始尺寸: \(image.size), 最終尺寸: \(attachment.bounds.size)")
             
             // 準備插入的內容
             let attachmentString = NSAttributedString(attachment: attachment)
@@ -602,22 +614,29 @@ struct RichTextView: UIViewRepresentable {
             // 設置後續輸入的屬性為正常格式（明確左對齊）
             textView.typingAttributes = extraResetAttributes
             
-            // 強制觸發佈局更新，確保圖片和標籤立即顯示
+            // 立即強制佈局更新，確保圖片和標籤立即顯示
+            // 同步操作確保立即生效
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            textView.setNeedsDisplay()
+            textView.layoutIfNeeded()
+            
+            // 異步進行額外的佈局確保
             DispatchQueue.main.async {
-                // 強制重新渲染文字內容
-                textView.setNeedsDisplay()
-                textView.invalidateIntrinsicContentSize()
-                textView.setNeedsLayout()
-                textView.layoutIfNeeded()
-                
-                // 強制重新繪製所有的 attachment
-                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                // 強制重新計算所有的 attachment 顯示
+                let range = NSRange(location: 0, length: textView.textStorage.length)
+                textView.layoutManager.invalidateDisplay(forCharacterRange: range)
+                textView.layoutManager.invalidateLayout(forCharacterRange: range, actualCharacterRange: nil)
                 textView.layoutManager.ensureLayout(for: textView.textContainer)
                 
                 // 觸發 SwiftUI 更新
+                textView.invalidateIntrinsicContentSize()
                 if let customTextView = textView as? CustomTextView {
                     customTextView.invalidateIntrinsicContentSize()
                 }
+                
+                // 強制重新繪製
+                textView.setNeedsDisplay()
+                textView.layoutIfNeeded()
             }
         }
         

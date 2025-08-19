@@ -29,20 +29,40 @@ struct ImageSizeConfiguration {
     static func configureAttachment(_ attachment: NSTextAttachment, with image: UIImage) {
         let displaySize = calculateDisplaySize(for: image)
         
-        // 創建適當尺寸的圖片
+        // 創建適當尺寸的圖片，並確保立即可用
         let resizedImage = resizeImageForDisplay(image, targetSize: displaySize)
         
-        // 設置圖片和bounds
+        // 設置圖片和bounds - 確保圖片已完全準備好
         attachment.image = resizedImage
         attachment.bounds = CGRect(origin: .zero, size: displaySize)
         
-        // 強制設置圖片內容模式
+        // 強制設置圖片內容模式和顯示屬性
         if #available(iOS 13.0, *) {
             attachment.lineLayoutPadding = 0
         }
         
+        // 確保圖片處於可顯示狀態
+        if let cgImage = resizedImage.cgImage {
+            // 強制解碼圖片以確保立即可用
+            let context = CGContext(
+                data: nil,
+                width: Int(displaySize.width),
+                height: Int(displaySize.height),
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+            if let context = context {
+                context.draw(cgImage, in: CGRect(origin: .zero, size: displaySize))
+                if let decodedImage = context.makeImage() {
+                    attachment.image = UIImage(cgImage: decodedImage)
+                }
+            }
+        }
+        
         // 調試信息
-        print("🖼️ 配置圖片附件 - 原始尺寸: \(image.size), 顯示尺寸: \(displaySize)")
+        print("🖼️ 配置圖片附件 - 原始尺寸: \(image.size), 顯示尺寸: \(displaySize), 圖片已設置: \(attachment.image != nil)")
     }
     
     /// 調整圖片尺寸以適應顯示需求
