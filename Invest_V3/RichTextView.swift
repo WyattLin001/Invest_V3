@@ -15,8 +15,9 @@ struct RichTextView: UIViewRepresentable {
         textView.backgroundColor = UIColor.systemBackground
         textView.textColor = UIColor.label
         textView.allowsEditingTextAttributes = true
-        textView.isScrollEnabled = true
-        textView.textContainerInset = UIEdgeInsets(top: 20, left: 16, bottom: 20, right: 16)
+        textView.isScrollEnabled = false
+        textView.textContainerInset = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        textView.textContainer.lineFragmentPadding = 0
         textView.adjustsFontForContentSizeCategory = true
         
         // 修復：同步設置工具列，立即可用
@@ -28,6 +29,12 @@ struct RichTextView: UIViewRepresentable {
     func updateUIView(_ uiView: UITextView, context: Context) {
         if uiView.attributedText != attributedText {
             uiView.attributedText = attributedText
+            
+            // 強制重新計算高度，確保自適應正確
+            DispatchQueue.main.async {
+                uiView.invalidateIntrinsicContentSize()
+                uiView.setNeedsLayout()
+            }
         }
     }
     

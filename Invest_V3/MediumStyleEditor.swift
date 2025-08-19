@@ -29,6 +29,7 @@ struct MediumStyleEditor: View {
     @State private var autoSaveTimer: Timer?
     @State private var wordCount: Int = 0
     @State private var readingTime: Int = 0
+    @State private var userChoseNotToSave = false // 追蹤用戶是否選擇不保存
     
     
     private let onComplete: (() -> Void)?
@@ -83,6 +84,52 @@ struct MediumStyleEditor: View {
     private var hasUnsavedChanges: Bool {
         !title.isEmpty || attributedContent.length > 0
     }
+    
+    // 動態計算編輯器最小高度
+    private var dynamicMinHeight: CGFloat {
+        let contentHeight = estimateContentHeight()
+        let screenHeight = UIScreen.main.bounds.height
+        
+        // 計算可用編輯區域（扣除導航欄、安全區域等）
+        let availableHeight = screenHeight - 200 // 200pt用於導航欄和其他UI元素
+        
+        // 動態計算：內容高度 + 編輯緩衝區，但不超過可用空間的60%
+        let idealHeight = contentHeight + 150 // 150pt編輯緩衝區
+        let maxHeight = availableHeight * 0.6
+        
+        // 設置最小250pt，最大不超過計算值
+        let result = max(250, min(idealHeight, maxHeight))
+        
+        // 調試日誌
+        print("🔍 動態高度計算:")
+        print("   內容高度: \(contentHeight)pt")
+        print("   屏幕高度: \(screenHeight)pt")
+        print("   可用高度: \(availableHeight)pt")
+        print("   理想高度: \(idealHeight)pt")
+        print("   最大高度: \(maxHeight)pt")
+        print("   最終結果: \(result)pt")
+        
+        return result
+    }
+    
+    // 估算當前內容的實際高度
+    private func estimateContentHeight() -> CGFloat {
+        let font = UIFont.systemFont(ofSize: 17)
+        let screenWidth = UIScreen.main.bounds.width - 32 // 減去左右邊距
+        
+        let titleHeight = title.calculateTextHeight(width: screenWidth, font: .boldSystemFont(ofSize: 32))
+        let contentHeight = attributedContent.string.calculateTextHeight(width: screenWidth, font: font)
+        let totalHeight = titleHeight + contentHeight + 40 // 加上間距
+        
+        // 調試日誌
+        print("📏 內容高度估算:")
+        print("   標題: '\(title.prefix(20))' -> \(titleHeight)pt")
+        print("   內容: '\(attributedContent.string.prefix(20))' -> \(contentHeight)pt")
+        print("   間距: 40pt")
+        print("   總計: \(totalHeight)pt")
+        
+        return totalHeight
+    }
 
     var body: some View {
         ZStack {
@@ -93,7 +140,7 @@ struct MediumStyleEditor: View {
                 customNavigationBar
                 
                 // 主內容區域
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: 8) { // 減少間距從 24 到 8
                         // 標題輸入區域
                         titleSection
@@ -108,7 +155,6 @@ struct MediumStyleEditor: View {
                         // 富文本編輯器
                         richTextEditor
                     }
-                    .padding(.bottom, 20) // 減少底部空白
                 }
             }
         }
@@ -126,9 +172,9 @@ struct MediumStyleEditor: View {
             setupAutoSave()
         }
         .onDisappear {
-            // 當視圖消失時自動保存草稿
+            // 當視圖消失時自動保存草稿（只有在用戶沒有選擇不保存的情況下）
             autoSaveTimer?.invalidate()
-            if hasUnsavedChanges {
+            if hasUnsavedChanges && !userChoseNotToSave {
                 Task {
                     await autoSaveDraft(silent: true)
                 }
@@ -141,6 +187,7 @@ struct MediumStyleEditor: View {
                 }
             }
             Button("不保存") {
+                userChoseNotToSave = true
                 dismiss()
             }
             Button("取消", role: .cancel) { }
@@ -306,12 +353,16 @@ struct MediumStyleEditor: View {
     // MARK: - 富文本編輯器
     private var richTextEditor: some View {
         RichTextView(attributedText: $attributedContent)
-            .frame(minHeight: 400)
+            .fixedSize(horizontal: false, vertical: true) // 讓高度完全自適應內容
             .background(backgroundColor)
             .onChange(of: attributedContent) { _, newValue in
                 hasTypingActivity = true
                 updateWordCount()
                 scheduleAutoSave()
+                // 觸發視圖重新計算動態高度
+            }
+            .onChange(of: title) { _, _ in
+                // 當標題改變時也重新計算高度（觸發dynamicMinHeight重新計算）
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowPhotoPicker"))) { _ in
                 showPhotoPicker = true
@@ -922,7 +973,7 @@ struct PreviewSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 20) {
+                LazyVStack(alignment: .leading, spacing: 12) {
                     // 標題
                     Text(title)
                         .font(.system(size: 32, weight: .bold, design: .default))
@@ -945,10 +996,11 @@ struct PreviewSheet: View {
                         .cornerRadius(12)
                     }
                     
-                    // 內容 - 使用富文本顯示，移除 minHeight 避免空白
+                    // 內容 - 使用富文本顯示，徹底消除底部空白
                     if attributedContent.length > 0 {
                         RichTextPreviewView(attributedText: attributedContent)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .fixedSize(horizontal: false, vertical: true)
                     } else {
                         Text("尚無內容...")
                             .font(.body)
@@ -956,8 +1008,6 @@ struct PreviewSheet: View {
                             .italic()
                     }
                     
-                    // 底部適當間距
-                    Color.clear.frame(height: 20)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 20)
@@ -1000,9 +1050,11 @@ struct RichTextPreviewView: UIViewRepresentable {
         textView.isEditable = false
         textView.isSelectable = true
         textView.backgroundColor = UIColor.clear
-        // 修復：減少底部間距，避免額外空白
+        // 修復：徹底消除底部空白
         textView.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 0, right: 8)
         textView.textContainer.lineFragmentPadding = 0
+        textView.textContainer.maximumNumberOfLines = 0
+        textView.textContainer.lineBreakMode = .byWordWrapping
         textView.isScrollEnabled = false // 禁用內部滾動，讓外層 ScrollView 控制
         textView.showsVerticalScrollIndicator = false
         textView.showsHorizontalScrollIndicator = false
@@ -1010,6 +1062,10 @@ struct RichTextPreviewView: UIViewRepresentable {
         // 設置默認字體作為備選，但不覆蓋 NSAttributedString 的格式
         textView.font = UIFont.systemFont(ofSize: 17)
         textView.textColor = UIColor.label
+        
+        // 設置內容壓縮阻力和內容擁抱優先級，確保高度自適應
+        textView.setContentCompressionResistancePriority(.required, for: .vertical)
+        textView.setContentHuggingPriority(.required, for: .vertical)
         
         print("🔍 makeUIView - textView created with frame: \(textView.frame)")
         
@@ -1020,18 +1076,33 @@ struct RichTextPreviewView: UIViewRepresentable {
         print("🔍 updateUIView - attributedText.length: \(attributedText.length)")
         print("🔍 updateUIView - attributedText.string: '\(attributedText.string.prefix(100))'")
         
+        // 移除尾部空白和換行符
+        let trimmedText = trimTrailingWhitespace(attributedText)
+        
         // 處理本地圖片顯示
-        let processedText = processImagesForPreview(attributedText)
+        let processedText = processImagesForPreview(trimmedText)
         uiView.attributedText = processedText
         
-        // 優化高度計算，避免額外空白
+        // 精確計算並設置內容高度
         DispatchQueue.main.async {
-            let size = uiView.sizeThatFits(CGSize(width: uiView.frame.width, height: CGFloat.greatestFiniteMagnitude))
-            print("🔍 計算的內容高度: \(size.height)")
+            // 設置UITextView的寬度約束
+            let targetWidth = uiView.frame.width > 0 ? uiView.frame.width : UIScreen.main.bounds.width - 32
             
-            // 強制重新佈局
+            // 計算實際所需的高度
+            let constraintSize = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
+            let contentSize = uiView.sizeThatFits(constraintSize)
+            
+            // 設置UITextView的高度約束
+            uiView.frame.size.height = max(contentSize.height, 1) // 最小高度為1避免為0
+            
+            print("🔍 目標寬度: \(targetWidth), 計算高度: \(contentSize.height)")
+            
+            // 確保佈局更新
             uiView.setNeedsLayout()
             uiView.layoutIfNeeded()
+            
+            // 通知SwiftUI更新
+            uiView.invalidateIntrinsicContentSize()
         }
         
         print("🔍 updateUIView - uiView.attributedText.length: \(uiView.attributedText?.length ?? 0)")
@@ -1059,6 +1130,28 @@ struct RichTextPreviewView: UIViewRepresentable {
         }
         
         return mutableText
+    }
+    
+    // 移除NSAttributedString尾部的空白字符和換行符
+    private func trimTrailingWhitespace(_ attributedString: NSAttributedString) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let string = mutableString.string
+        
+        // 從末尾開始移除空白字符和換行符
+        let trimmedRange = string.rangeOfCharacter(from: CharacterSet.whitespacesAndNewlines.inverted, options: .backwards)
+        
+        if let endRange = trimmedRange {
+            let endIndex = string.distance(from: string.startIndex, to: endRange.upperBound)
+            if endIndex < string.count {
+                let nsRange = NSRange(location: endIndex, length: string.count - endIndex)
+                mutableString.deleteCharacters(in: nsRange)
+            }
+        } else if !string.isEmpty {
+            // 如果整個字符串都是空白字符，保留一個空字符串
+            mutableString.deleteCharacters(in: NSRange(location: 0, length: string.count))
+        }
+        
+        return mutableString
     }
     
     // MARK: - Markdown 轉換
@@ -1203,4 +1296,18 @@ enum PublishAction {
 
 #Preview {
     MediumStyleEditor()
+}
+
+// MARK: - String 擴展：高度計算
+extension String {
+    func calculateTextHeight(width: CGFloat, font: UIFont) -> CGFloat {
+        let constraintRect = CGSize(width: width, height: .greatestFiniteMagnitude)
+        let boundingBox = self.boundingRect(
+            with: constraintRect,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font],
+            context: nil
+        )
+        return ceil(boundingBox.height)
+    }
 } 
