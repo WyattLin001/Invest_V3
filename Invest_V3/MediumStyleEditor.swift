@@ -24,6 +24,7 @@ struct MediumStyleEditor: View {
     @State private var isPublishing: Bool = false
     @State private var showSaveDraftAlert = false
     @State private var isAutoSaving = false
+    @State private var showSaveSuccess = false
     @State private var lastAutoSaveTime: Date = Date()
     @State private var hasTypingActivity = false
     @State private var autoSaveTimer: Timer?
@@ -187,18 +188,22 @@ struct MediumStyleEditor: View {
             }
         }
         .alert("保存草稿", isPresented: $showSaveDraftAlert) {
-            Button("保存") {
-                Task {
-                    await saveDraftAndClose()
+            Button(isAutoSaving ? "保存中..." : "保存") {
+                if !isAutoSaving {
+                    Task {
+                        await saveDraftAndClose()
+                    }
                 }
             }
+            .disabled(isAutoSaving)
+            
             Button("不保存") {
                 userChoseNotToSave = true
                 dismiss()
             }
             Button("取消", role: .cancel) { }
         } message: {
-            Text("你有未保存的更改，是否要保存為草稿？")
+            Text(isAutoSaving ? "正在保存草稿，請稍候..." : "你有未保存的更改，是否要保存為草稿？")
         }
         .onChange(of: showSettings) { _, isShowing in
             if isShowing {
@@ -290,6 +295,31 @@ struct MediumStyleEditor: View {
             }
             .font(.system(size: 16, weight: .medium))
             .foregroundColor(.brandBlue)
+            
+            // 保存狀態指示器
+            if isAutoSaving {
+                HStack(spacing: 4) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .tint(.secondary)
+                    Text("保存中")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .transition(.scale.combined(with: .opacity))
+                .animation(.easeInOut(duration: 0.2), value: isAutoSaving)
+            } else if showSaveSuccess {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.green)
+                    Text("已保存")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.green)
+                }
+                .transition(.scale.combined(with: .opacity))
+                .animation(.easeInOut(duration: 0.2), value: showSaveSuccess)
+            }
             
             // 發佈按鈕
             Button(isPublishing ? "發佈中..." : "發佈") {
@@ -895,7 +925,9 @@ struct MediumStyleEditor: View {
     private func autoSaveDraft(silent: Bool = false) async {
         guard hasUnsavedChanges else { return }
         
-        isAutoSaving = true
+        await MainActor.run {
+            isAutoSaving = true
+        }
         
         do {
             var draft = createDraftFromCurrentState()
@@ -906,7 +938,15 @@ struct MediumStyleEditor: View {
             if !silent {
                 await MainActor.run {
                     lastAutoSaveTime = Date()
+                    showSaveSuccess = true
                     print("✅ 草稿自動保存成功")
+                    
+                    // 2秒後隱藏成功提示
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation {
+                            showSaveSuccess = false
+                        }
+                    }
                 }
             }
         } catch {
@@ -915,7 +955,9 @@ struct MediumStyleEditor: View {
             }
         }
         
-        isAutoSaving = false
+        await MainActor.run {
+            isAutoSaving = false
+        }
     }
     
     /// 保存草稿並關閉編輯器
