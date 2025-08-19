@@ -106,7 +106,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .sheet(isPresented: $showLoginSheet) {
+        .fullScreenCover(isPresented: $showLoginSheet) {
             AuthenticationView()
                 .environmentObject(authService)
         }
@@ -133,10 +133,10 @@ struct SettingsView: View {
                 }
             )
         }
-        .sheet(isPresented: $showHelpCenter) {
+        .fullScreenCover(isPresented: $showHelpCenter) {
             HelpCenterView()
         }
-        .sheet(isPresented: $showFAQ) {
+        .fullScreenCover(isPresented: $showFAQ) {
             FAQView()
         }
         .fullScreenCover(isPresented: $showAvatarPreview) {

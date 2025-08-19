@@ -41,16 +41,16 @@ struct HelpCenterView: View {
                 }
             }
         }
-        .sheet(isPresented: $showFAQ) {
+        .fullScreenCover(isPresented: $showFAQ) {
             FAQView(initialCategory: selectedFAQCategory)
         }
-        .sheet(isPresented: $showTutorial) {
+        .fullScreenCover(isPresented: $showTutorial) {
             TutorialView()
         }
-        .sheet(isPresented: $showContactSupport) {
+        .fullScreenCover(isPresented: $showContactSupport) {
             ContactSupportView()
         }
-        .sheet(isPresented: $showReportIssue) {
+        .fullScreenCover(isPresented: $showReportIssue) {
             ReportIssueView()
         }
     }
@@ -107,7 +107,7 @@ struct HelpCenterView: View {
                     icon: "phone.circle",
                     title: "聯繫支援",
                     subtitle: "專人協助",
-                    color: .blue
+                    color: .brandBlue
                 ) {
                     showContactSupport = true
                 }
@@ -116,7 +116,7 @@ struct HelpCenterView: View {
                     icon: "play.circle",
                     title: "使用教學",
                     subtitle: "功能介紹",
-                    color: .purple
+                    color: .brandBlue
                 ) {
                     showTutorial = true
                 }
@@ -125,7 +125,7 @@ struct HelpCenterView: View {
                     icon: "exclamationmark.triangle",
                     title: "回報問題",
                     subtitle: "技術支援",
-                    color: .orange
+                    color: .brandOrange
                 ) {
                     showReportIssue = true
                 }
@@ -275,13 +275,26 @@ struct QuickActionCard: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: DesignTokens.spacingSM) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(color)
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [color.opacity(0.15), color.opacity(0.05)]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 48, height: 48)
+                    
+                    Image(systemName: icon)
+                        .font(.title2)
+                        .foregroundColor(color)
+                }
                 
                 VStack(spacing: DesignTokens.spacingXXS) {
                     Text(title)
                         .font(DesignTokens.bodyMedium)
+                        .fontWeight(.semibold)
                         .foregroundColor(.primary)
                     
                     Text(subtitle)
@@ -291,13 +304,26 @@ struct QuickActionCard: View {
             }
             .frame(maxWidth: .infinity)
             .padding(DesignTokens.spacingMD)
-            .background(Color(.systemBackground))
-            .cornerRadius(DesignTokens.cornerRadius)
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(.systemBackground),
+                        Color(.systemBackground).opacity(0.95)
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .cornerRadius(DesignTokens.cornerRadiusLG)
             .shadow(
-                color: Color.black.opacity(0.05),
-                radius: 2,
+                color: Color.black.opacity(0.08),
+                radius: 8,
                 x: 0,
-                y: 1
+                y: 4
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.cornerRadiusLG)
+                    .stroke(color.opacity(0.1), lineWidth: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -362,7 +388,7 @@ struct UpdateItemRow: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.red)
+                            .background(Color.brandOrange)
                             .cornerRadius(4)
                     }
                     

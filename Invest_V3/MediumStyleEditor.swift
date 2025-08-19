@@ -248,7 +248,7 @@ struct MediumStyleEditor: View {
             }
         }
         .sheet(isPresented: $showImageAttributionPicker) {
-            ImageSourceAttributionPicker(selectedAttribution: Binding(
+            SimpleImageAttributionPicker(selectedAttribution: Binding(
                 get: { selectedImageAttribution },
                 set: { attribution in
                     selectedImageAttribution = attribution
@@ -393,15 +393,7 @@ struct MediumStyleEditor: View {
     
     // 生成圖片的一致性ID（基於圖片數據的哈希）
     private func generateImageId(from image: UIImage) -> String {
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-            return UUID().uuidString // 備選方案
-        }
-        
-        // 使用圖片數據的簡單哈希作為ID
-        let hash = imageData.reduce(0) { result, byte in
-            result &+ Int(byte)
-        }
-        return "img_\(hash)_\(imageData.count)"
+        return ImageUtils.generateImageId(from: image)
     }
     
     // 插入帶來源標註的圖片
@@ -616,39 +608,63 @@ struct MediumStyleEditor: View {
         let text = attributedString.string
         if text.isEmpty { return text }
         
-        var markdown = text
+        var result = ""
+        var processedRanges: [NSRange] = []
         
-        // 遍歷所有屬性來決定 Markdown 格式
+        // 按順序處理屬性，避免重複替換
         attributedString.enumerateAttributes(in: NSRange(location: 0, length: attributedString.length)) { attrs, range, _ in
             let substring = (text as NSString).substring(with: range)
+            var formattedText = substring
             
-            if let font = attrs[.font] as? UIFont {
-                // 處理標題 (基於字體大小)
+            // 檢查是否為列表項目
+            if let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle,
+               paragraphStyle.headIndent > 0 {
+                // 有縮排的文字，檢查是否為列表
+                if substring.hasPrefix("1. ") || substring.hasPrefix("2. ") || substring.hasPrefix("3. ") ||
+                   substring.contains(". ") && substring.first?.isNumber == true {
+                    // 編號列表 - 保持原格式
+                    formattedText = substring
+                } else if substring.hasPrefix("• ") {
+                    // 項目符號列表 - 保持原格式
+                    formattedText = substring
+                }
+            }
+            // 處理字體相關格式（只在非列表項目時）
+            else if let font = attrs[.font] as? UIFont {
                 if font.pointSize >= 24 {
-                    // H1 標題
-                    markdown = markdown.replacingOccurrences(of: substring, with: "# \(substring)")
+                    // H1 標題 - 只在行首添加，避免重複
+                    if range.location == 0 || (text as NSString).character(at: range.location - 1) == 10 { // 10是換行符
+                        formattedText = "# \(substring)"
+                    }
                 } else if font.pointSize >= 20 {
                     // H2 標題
-                    markdown = markdown.replacingOccurrences(of: substring, with: "## \(substring)")
+                    if range.location == 0 || (text as NSString).character(at: range.location - 1) == 10 {
+                        formattedText = "## \(substring)"
+                    }
                 } else if font.pointSize >= 18 {
                     // H3 標題
-                    markdown = markdown.replacingOccurrences(of: substring, with: "### \(substring)")
+                    if range.location == 0 || (text as NSString).character(at: range.location - 1) == 10 {
+                        formattedText = "### \(substring)"
+                    }
                 } else if font.isBold {
                     // 粗體文字
-                    markdown = markdown.replacingOccurrences(of: substring, with: "**\(substring)**")
+                    formattedText = "**\(substring)**"
                 }
             }
             
-            // 處理顏色 (使用 HTML 標籤，因為 Markdown 本身不支持顏色)
+            // 處理顏色 - 只對非默認顏色添加HTML標籤
             if let color = attrs[.foregroundColor] as? UIColor {
-                if !color.isEqual(UIColor.label) && !color.isEqual(UIColor.black) {
+                if !color.isEqual(UIColor.label) && !color.isEqual(UIColor.black) && !color.isEqual(UIColor.systemBlue) {
                     let hexColor = color.hexString
-                    markdown = markdown.replacingOccurrences(of: substring, with: "<span style=\"color:\(hexColor)\">\(substring)</span>")
+                    // 簡化HTML輸出，使用更短的格式
+                    formattedText = "<color:\(hexColor)>\(formattedText)</color>"
                 }
             }
+            
+            result += formattedText
         }
         
-        return markdown
+        return result
     }
     
     // MARK: - 草稿創建
@@ -1134,7 +1150,7 @@ struct RichTextPreviewView: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let textView = CustomTextView()
         textView.isEditable = false
-        textView.isSelectable = true
+        textView.isSelectable = false // 防止圖片點擊交互
         textView.font = UIFont.systemFont(ofSize: 17)
         textView.backgroundColor = UIColor.clear
         textView.textColor = UIColor.label
@@ -1202,8 +1218,10 @@ struct RichTextPreviewView: UIViewRepresentable {
     // 處理圖片以便在預覽中正確顯示
     private func processImagesForPreview(_ originalText: NSAttributedString) -> NSAttributedString {
         let mutableText = NSMutableAttributedString(attributedString: originalText)
+        var imageCount = 0
+        var insertionOffset = 0 // 追蹤由於插入標籤而產生的偏移量
         
-        // 遍歷所有附件，確保圖片能正確顯示
+        // 遍歷所有附件，確保圖片能正確顯示並添加標籤
         originalText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: originalText.length)) { value, range, _ in
             if let attachment = value as? NSTextAttachment {
                 // 使用統一的圖片尺寸配置
@@ -1216,11 +1234,52 @@ struct RichTextPreviewView: UIViewRepresentable {
                         displaySize: attachment.bounds.size,
                         context: "預覽"
                     )
+                    
+                    // 增加圖片計數
+                    imageCount += 1
+                    
+                    // 計算插入位置（需要考慮之前插入的標籤造成的偏移）
+                    let insertionPosition = range.location + range.length + insertionOffset
+                    
+                    // 創建圖片標籤
+                    let caption = createImageCaption(imageIndex: imageCount, image: image)
+                    
+                    // 在圖片後插入標籤
+                    mutableText.insert(caption, at: insertionPosition)
+                    
+                    // 更新偏移量
+                    insertionOffset += caption.length
                 }
             }
         }
         
         return mutableText
+    }
+    
+    // 創建圖片標籤
+    private func createImageCaption(imageIndex: Int, image: UIImage) -> NSAttributedString {
+        // 嘗試獲取圖片的來源信息
+        let imageId = ImageUtils.generateImageId(from: image)
+        let attribution = ImageAttributionManager.shared.getAttribution(for: imageId)
+        
+        // 構建標籤文字 - 減少多餘的換行符
+        let sourceText = attribution?.displayText ?? "未知"
+        let captionText = "\n圖片\(imageIndex)[來源：\(sourceText)]"
+        
+        // 設置標籤樣式
+        let captionAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 13, weight: .regular),
+            .foregroundColor: UIColor.systemGray2,
+            .paragraphStyle: {
+                let style = NSMutableParagraphStyle()
+                style.alignment = .center
+                style.paragraphSpacing = 4
+                style.paragraphSpacingBefore = 4
+                return style
+            }()
+        ]
+        
+        return NSAttributedString(string: captionText, attributes: captionAttributes)
     }
     
     // 移除NSAttributedString尾部的空白字符和換行符
@@ -1229,17 +1288,12 @@ struct RichTextPreviewView: UIViewRepresentable {
         let string = mutableString.string
         
         // 從末尾開始移除空白字符和換行符
-        let trimmedRange = string.rangeOfCharacter(from: CharacterSet.whitespacesAndNewlines.inverted, options: .backwards)
+        let trimmedString = string.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        if let endRange = trimmedRange {
-            let endIndex = string.distance(from: string.startIndex, to: endRange.upperBound)
-            if endIndex < string.count {
-                let nsRange = NSRange(location: endIndex, length: string.count - endIndex)
-                mutableString.deleteCharacters(in: nsRange)
-            }
-        } else if !string.isEmpty {
-            // 如果整個字符串都是空白字符，保留一個空字符串
-            mutableString.deleteCharacters(in: NSRange(location: 0, length: string.count))
+        if trimmedString.count < string.count {
+            // 計算需要刪除的範圍
+            let deleteRange = NSRange(location: trimmedString.count, length: string.count - trimmedString.count)
+            mutableString.deleteCharacters(in: deleteRange)
         }
         
         return mutableString
@@ -1256,44 +1310,45 @@ struct RichTextPreviewView: UIViewRepresentable {
             let trimmedLine = line.trimmingCharacters(in: .whitespaces)
             
             if trimmedLine.hasPrefix("# ") {
-                // H1 標題
+                // H1 標題 - 支持內聯格式
                 let title = String(trimmedLine.dropFirst(2))
-                let titleAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 24, weight: .bold),
-                    .foregroundColor: UIColor.label
-                ]
-                let titleText = NSAttributedString(string: title + "\n", attributes: titleAttributes)
+                let processedTitle = processRichText(title)
+                let titleText = applyHeadingAttributes(processedTitle, fontSize: 24, weight: .bold)
                 mutableText.append(titleText)
+                mutableText.append(NSAttributedString(string: "\n"))
                 
             } else if trimmedLine.hasPrefix("## ") {
-                // H2 標題
+                // H2 標題 - 支持內聯格式
                 let title = String(trimmedLine.dropFirst(3))
-                let titleAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 20, weight: .semibold),
-                    .foregroundColor: UIColor.label
-                ]
-                let titleText = NSAttributedString(string: title + "\n", attributes: titleAttributes)
+                let processedTitle = processRichText(title)
+                let titleText = applyHeadingAttributes(processedTitle, fontSize: 20, weight: .semibold)
                 mutableText.append(titleText)
+                mutableText.append(NSAttributedString(string: "\n"))
                 
             } else if trimmedLine.hasPrefix("### ") {
-                // H3 標題
+                // H3 標題 - 支持內聯格式
                 let title = String(trimmedLine.dropFirst(4))
-                let titleAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 18, weight: .medium),
-                    .foregroundColor: UIColor.label
-                ]
-                let titleText = NSAttributedString(string: title + "\n", attributes: titleAttributes)
+                let processedTitle = processRichText(title)
+                let titleText = applyHeadingAttributes(processedTitle, fontSize: 18, weight: .medium)
                 mutableText.append(titleText)
+                mutableText.append(NSAttributedString(string: "\n"))
                 
             } else if trimmedLine.hasPrefix("• ") || trimmedLine.hasPrefix("- ") {
-                // 列表項目
+                // 項目符號列表 - 支持內聯格式
                 let content = String(trimmedLine.dropFirst(2))
-                let listAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 16),
-                    .foregroundColor: UIColor.label
-                ]
-                let bulletText = NSAttributedString(string: "• " + content + "\n", attributes: listAttributes)
-                mutableText.append(bulletText)
+                let processedContent = processRichText(content)
+                let listText = applyListAttributes(processedContent, prefix: "• ")
+                mutableText.append(listText)
+                mutableText.append(NSAttributedString(string: "\n"))
+                
+            } else if let numberMatch = trimmedLine.range(of: "^\\d+\\. ", options: .regularExpression) {
+                // 編號列表 - 支持內聯格式
+                let content = String(trimmedLine[numberMatch.upperBound...])
+                let numberPrefix = String(trimmedLine[..<numberMatch.upperBound])
+                let processedContent = processRichText(content)
+                let listText = applyListAttributes(processedContent, prefix: numberPrefix)
+                mutableText.append(listText)
+                mutableText.append(NSAttributedString(string: "\n"))
                 
             } else if trimmedLine.hasPrefix("![") {
                 // 圖片處理：![alt text](image_url)
@@ -1312,6 +1367,59 @@ struct RichTextPreviewView: UIViewRepresentable {
             }
         }
         
+        return mutableText
+    }
+    
+    /// 為處理過的內聯格式文本應用標題屬性
+    private static func applyHeadingAttributes(_ attributedText: NSAttributedString, fontSize: CGFloat, weight: UIFont.Weight) -> NSAttributedString {
+        let mutableText = NSMutableAttributedString(attributedString: attributedText)
+        let fullRange = NSRange(location: 0, length: mutableText.length)
+        
+        // 設置統一的標題字體大小和粗細，保持其他屬性（如顏色）
+        mutableText.enumerateAttribute(.font, in: fullRange) { value, range, _ in
+            let newFont = UIFont.systemFont(ofSize: fontSize, weight: weight)
+            mutableText.addAttribute(.font, value: newFont, range: range)
+        }
+        
+        return mutableText
+    }
+    
+    /// 為處理過的內聯格式文本應用列表屬性
+    private static func applyListAttributes(_ attributedText: NSAttributedString, prefix: String) -> NSAttributedString {
+        let mutableText = NSMutableAttributedString()
+        
+        // 添加列表前綴
+        let prefixAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 17),
+            .foregroundColor: UIColor.label,
+            .paragraphStyle: {
+                let style = NSMutableParagraphStyle()
+                style.firstLineHeadIndent = 0
+                style.headIndent = 24
+                return style
+            }()
+        ]
+        mutableText.append(NSAttributedString(string: prefix, attributes: prefixAttributes))
+        
+        // 添加處理過的內容，調整字體大小但保持其他格式
+        let contentText = NSMutableAttributedString(attributedString: attributedText)
+        let fullRange = NSRange(location: 0, length: contentText.length)
+        
+        contentText.enumerateAttributes(in: fullRange) { attributes, range, _ in
+            var newAttributes = attributes
+            // 設置列表字體大小，保持其他屬性（如顏色、粗體）
+            if let font = attributes[.font] as? UIFont {
+                let newFont = font.withSize(17)
+                newAttributes[.font] = newFont
+            } else {
+                newAttributes[.font] = UIFont.systemFont(ofSize: 17)
+            }
+            // 設置段落樣式
+            newAttributes[.paragraphStyle] = prefixAttributes[.paragraphStyle]
+            contentText.setAttributes(newAttributes, range: range)
+        }
+        
+        mutableText.append(contentText)
         return mutableText
     }
     
@@ -1425,82 +1533,66 @@ struct RichTextPreviewView: UIViewRepresentable {
         return processBoldText(colorProcessedText)
     }
     
-    /// 處理 HTML 顏色標籤 <span style="color:#hex">text</span>
+    /// 處理顏色標籤，支持兩種格式：<color:#hex>text</color> 和 <span style="color:#hex">text</span>
     private static func processColorTags(_ text: String) -> NSAttributedString {
-        let mutableText = NSMutableAttributedString()
-        let pattern = "<span style=\"color:(#[0-9A-Fa-f]{6})\">([^<]+)</span>"
+        let mutableResult = NSMutableAttributedString()
+        var remainingText = text
         
-        do {
-            let regex = try NSRegularExpression(pattern: pattern, options: [])
-            let range = NSRange(location: 0, length: text.count)
-            let matches = regex.matches(in: text, options: [], range: range)
-            
-            var lastEnd = 0
-            
-            for match in matches {
-                // 添加顏色標籤前的普通文本
-                if match.range.location > lastEnd {
-                    let normalRange = NSRange(location: lastEnd, length: match.range.location - lastEnd)
-                    let normalText = (text as NSString).substring(with: normalRange)
-                    let normalAttributes: [NSAttributedString.Key: Any] = [
-                        .font: UIFont.systemFont(ofSize: 16),
-                        .foregroundColor: UIColor.label
-                    ]
-                    mutableText.append(NSAttributedString(string: normalText, attributes: normalAttributes))
+        // 基礎屬性
+        let normalAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 16),
+            .foregroundColor: UIColor.label
+        ]
+        
+        // 處理簡化格式和HTML格式
+        let patterns = [
+            "<color:(#[0-9A-Fa-f]{6})>([^<]+)</color>",
+            "<span style=\"color:(#[0-9A-Fa-f]{6})\">([^<]+)</span>"
+        ]
+        
+        var foundMatch = false
+        for pattern in patterns {
+            do {
+                let regex = try NSRegularExpression(pattern: pattern, options: [])
+                let matches = regex.matches(in: remainingText, options: [], range: NSRange(location: 0, length: remainingText.count))
+                
+                if let firstMatch = matches.first {
+                    foundMatch = true
+                    
+                    // 添加匹配前的文本
+                    if firstMatch.range.location > 0 {
+                        let beforeText = (remainingText as NSString).substring(with: NSRange(location: 0, length: firstMatch.range.location))
+                        mutableResult.append(NSAttributedString(string: beforeText, attributes: normalAttributes))
+                    }
+                    
+                    // 處理匹配的顏色文本
+                    let hexColor = (remainingText as NSString).substring(with: firstMatch.range(at: 1))
+                    let coloredText = (remainingText as NSString).substring(with: firstMatch.range(at: 2))
+                    
+                    var colorAttributes = normalAttributes
+                    if let color = UIColor(hex: hexColor) {
+                        colorAttributes[.foregroundColor] = color
+                    }
+                    mutableResult.append(NSAttributedString(string: coloredText, attributes: colorAttributes))
+                    
+                    // 遞歸處理剩餘文本
+                    let afterMatchIndex = firstMatch.range.location + firstMatch.range.length
+                    if afterMatchIndex < remainingText.count {
+                        let afterText = (remainingText as NSString).substring(from: afterMatchIndex)
+                        mutableResult.append(processColorTags(afterText))
+                    }
+                    
+                    return mutableResult
                 }
-                
-                // 添加帶顏色的文本
-                let colorRange = match.range(at: 1) // 顏色值
-                let textRange = match.range(at: 2)  // 文本內容
-                let colorString = (text as NSString).substring(with: colorRange)
-                let coloredText = (text as NSString).substring(with: textRange)
-                
-                var coloredAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 16)
-                ]
-                
-                // 將十六進制顏色轉換為 UIColor
-                if let color = UIColor(hexString: colorString) {
-                    coloredAttributes[.foregroundColor] = color
-                } else {
-                    coloredAttributes[.foregroundColor] = UIColor.label
-                }
-                
-                mutableText.append(NSAttributedString(string: coloredText, attributes: coloredAttributes))
-                
-                lastEnd = match.range.location + match.range.length
+            } catch {
+                print("❌ 顏色標籤處理失敗: \(error)")
             }
-            
-            // 添加剩餘的普通文本
-            if lastEnd < text.count {
-                let remainingText = (text as NSString).substring(from: lastEnd)
-                let normalAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 16),
-                    .foregroundColor: UIColor.label
-                ]
-                mutableText.append(NSAttributedString(string: remainingText, attributes: normalAttributes))
-            }
-            
-        } catch {
-            // 如果正則表達式失敗，返回普通文本
-            let normalAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16),
-                .foregroundColor: UIColor.label
-            ]
-            return NSAttributedString(string: text, attributes: normalAttributes)
         }
         
         // 如果沒有找到顏色標籤，返回普通文本
-        if mutableText.length == 0 {
-            let normalAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16),
-                .foregroundColor: UIColor.label
-            ]
-            return NSAttributedString(string: text, attributes: normalAttributes)
-        }
-        
-        return mutableText
+        return NSAttributedString(string: remainingText, attributes: normalAttributes)
     }
+    
     
     /// 處理文本中的粗體格式 **text**，保持現有的顏色和其他屬性
     private static func processBoldText(_ attributedText: NSAttributedString) -> NSAttributedString {
@@ -1600,5 +1692,23 @@ extension UIColor {
             return nil
         }
         self.init(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: CGFloat(a) / 255)
+    }
+    
+    convenience init?(hex: String) {
+        self.init(hexString: hex)
+    }
+}
+
+// MARK: - Image Utils
+class ImageUtils {
+    static func generateImageId(from image: UIImage) -> String {
+        // 使用圖片的雜湊值生成一致性ID
+        guard let imageData = image.pngData() else {
+            return UUID().uuidString
+        }
+        
+        // 計算圖片數據的雜湊值作為唯一ID
+        let hash = imageData.hashValue
+        return "image_\(abs(hash))"
     }
 } 

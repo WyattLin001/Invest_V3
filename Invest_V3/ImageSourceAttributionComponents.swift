@@ -383,6 +383,104 @@ struct QuickSourcePicker: View {
     }
 }
 
+// MARK: - 簡化版圖片來源選擇器
+struct SimpleImageAttributionPicker: View {
+    @Binding var selectedAttribution: ImageAttribution?
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var customSourceText = ""
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // 標題說明
+                VStack(spacing: 8) {
+                    Text("圖片來源")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    Text("請輸入圖片的來源信息")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top)
+                
+                // 自定義來源輸入
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("來源說明")
+                        .font(.headline)
+                    
+                    TextField("例如：作者拍攝、網路圖片、素材庫等", text: $customSourceText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.body)
+                }
+                .padding(.horizontal)
+                
+                // 預覽區域
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("預覽")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    
+                    HStack {
+                        Text(previewText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                }
+                
+                Spacer()
+            }
+            .navigationTitle("圖片來源")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("確定") {
+                        confirmSelection()
+                    }
+                    .disabled(customSourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .onAppear {
+            // 如果已有選擇的 attribution，預填充文本
+            if let existingAttribution = selectedAttribution,
+               existingAttribution.source == .custom {
+                customSourceText = existingAttribution.customText ?? ""
+            }
+        }
+    }
+    
+    private var previewText: String {
+        let trimmedText = customSourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedText.isEmpty {
+            return "來源：請輸入來源信息"
+        } else {
+            return "來源：\(trimmedText)"
+        }
+    }
+    
+    private func confirmSelection() {
+        let trimmedText = customSourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        selectedAttribution = ImageAttribution(
+            source: .custom,
+            customText: trimmedText
+        )
+        dismiss()
+    }
+}
+
 // MARK: - 使用示例
 struct ImageSourceAttributionExample: View {
     @State private var selectedImage: UIImage?

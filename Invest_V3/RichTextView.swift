@@ -80,6 +80,10 @@ struct RichTextView: UIViewRepresentable {
             UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
             createToolbarButton(systemName: "bold", action: #selector(coordinator.toggleBold), coordinator: coordinator),
             UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            createToolbarButton(systemName: "list.number", action: #selector(coordinator.insertNumberedList), coordinator: coordinator),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            createToolbarButton(systemName: "list.bullet", action: #selector(coordinator.insertBulletList), coordinator: coordinator),
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
             createToolbarButton(systemName: "photo", action: #selector(coordinator.insertPhoto), coordinator: coordinator),
             UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
             createToolbarButton(systemName: "minus", action: #selector(coordinator.insertDivider), coordinator: coordinator),
@@ -140,6 +144,184 @@ struct RichTextView: UIViewRepresentable {
             DispatchQueue.main.async {
                 self.parent.attributedText = textView.attributedText
             }
+        }
+        
+        // MARK: - 自動列表續行功能
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            // 檢測是否按下 Enter 鍵
+            if text == "\n" {
+                return handleEnterKeyPress(textView: textView, at: range)
+            }
+            return true
+        }
+        
+        private func handleEnterKeyPress(textView: UITextView, at range: NSRange) -> Bool {
+            let currentText = textView.attributedText.string
+            
+            // 獲取當前行的內容
+            let currentLine = getCurrentLine(text: currentText, at: range.location)
+            let currentLineRange = getCurrentLineRange(text: currentText, at: range.location)
+            
+            // 檢查是否為列表項目
+            if let listType = detectListType(line: currentLine) {
+                return processListContinuation(
+                    textView: textView,
+                    listType: listType,
+                    currentLine: currentLine,
+                    currentLineRange: currentLineRange,
+                    insertionPoint: range.location
+                )
+            }
+            
+            // 不是列表項目，允許正常換行
+            return true
+        }
+        
+        private func getCurrentLine(text: String, at position: Int) -> String {
+            let lines = text.components(separatedBy: .newlines)
+            var currentPosition = 0
+            
+            for line in lines {
+                let lineEndPosition = currentPosition + line.count
+                if position <= lineEndPosition {
+                    return line
+                }
+                currentPosition = lineEndPosition + 1 // +1 for newline character
+            }
+            
+            return lines.last ?? ""
+        }
+        
+        private func getCurrentLineRange(text: String, at position: Int) -> NSRange {
+            let nsText = text as NSString
+            let lineRange = nsText.lineRange(for: NSRange(location: position, length: 0))
+            return lineRange
+        }
+        
+        private func detectListType(line: String) -> ListType? {
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            
+            // 檢測編號列表：1. 2. 3. 等
+            if let match = trimmedLine.range(of: "^(\\d+)\\. ", options: .regularExpression) {
+                let numberPart = String(trimmedLine[..<match.upperBound]).dropLast(2) // 移除 ". "
+                if let number = Int(numberPart) {
+                    return .numbered(current: number)
+                }
+            }
+            
+            // 檢測項目符號列表：•
+            if trimmedLine.hasPrefix("• ") {
+                return .bullet
+            }
+            
+            return nil
+        }
+        
+        private enum ListType {
+            case numbered(current: Int)
+            case bullet
+        }
+        
+        private func processListContinuation(
+            textView: UITextView,
+            listType: ListType,
+            currentLine: String,
+            currentLineRange: NSRange,
+            insertionPoint: Int
+        ) -> Bool {
+            // 檢查是否為空列表項目（只有列表標記沒有內容）
+            let trimmedLine = currentLine.trimmingCharacters(in: .whitespaces)
+            let isEmptyListItem = checkIfEmptyListItem(line: trimmedLine, listType: listType)
+            
+            if isEmptyListItem {
+                // 空列表項目，退出列表模式
+                exitListMode(textView: textView, currentLineRange: currentLineRange)
+                return false // 防止添加額外的換行
+            }
+            
+            // 非空列表項目，創建下一個列表項目
+            let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
+            
+            // 插入換行符
+            mutableText.insert(NSAttributedString(string: "\n"), at: insertionPoint)
+            
+            // 根據列表類型創建下一個項目
+            let nextListItem = createNextListItem(listType: listType)
+            let listAttributes = getListAttributes()
+            
+            let nextItemAttributedString = NSAttributedString(string: nextListItem, attributes: listAttributes)
+            mutableText.insert(nextItemAttributedString, at: insertionPoint + 1)
+            
+            // 更新 textView
+            textView.attributedText = mutableText
+            
+            // 設置游標位置到新列表項目的末尾
+            let newCursorPosition = insertionPoint + 1 + nextListItem.count
+            textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
+            
+            // 設置輸入屬性為列表樣式
+            textView.typingAttributes = listAttributes
+            
+            return false // 我們已經處理了換行，防止系統再次添加
+        }
+        
+        private func checkIfEmptyListItem(line: String, listType: ListType) -> Bool {
+            switch listType {
+            case .numbered:
+                // 檢查是否只有編號和點號，沒有其他內容
+                return line.range(of: "^\\d+\\. *$", options: .regularExpression) != nil
+            case .bullet:
+                // 檢查是否只有項目符號，沒有其他內容
+                return line == "•" || line == "• "
+            }
+        }
+        
+        private func createNextListItem(listType: ListType) -> String {
+            switch listType {
+            case .numbered(let current):
+                return "\(current + 1). "
+            case .bullet:
+                return "• "
+            }
+        }
+        
+        private func getListAttributes() -> [NSAttributedString.Key: Any] {
+            return [
+                .font: UIFont.systemFont(ofSize: 17),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 24
+                    return style
+                }()
+            ]
+        }
+        
+        private func exitListMode(textView: UITextView, currentLineRange: NSRange) {
+            let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
+            
+            // 刪除當前的空列表項目
+            mutableText.deleteCharacters(in: currentLineRange)
+            
+            // 插入換行符並重置為正常段落格式
+            let normalAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 17),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 0 // 重置縮排
+                    return style
+                }()
+            ]
+            
+            let normalString = NSAttributedString(string: "\n", attributes: normalAttributes)
+            mutableText.insert(normalString, at: currentLineRange.location)
+            
+            textView.attributedText = mutableText
+            textView.selectedRange = NSRange(location: currentLineRange.location + 1, length: 0)
+            textView.typingAttributes = normalAttributes
         }
         
         // MARK: - 標題樣式
@@ -284,24 +466,129 @@ struct RichTextView: UIViewRepresentable {
                 context: "編輯器"
             )
             
-            // 插入圖片 - 優化換行邏輯避免底部空白累積
+            // 準備插入的內容
             let attachmentString = NSAttributedString(attachment: attachment)
             let insertionIndex = selectedRange.location + selectedRange.length
             
-            // 只在非開頭位置前方加一個換行，末尾不自動加換行
-            if insertionIndex > 0 {
-                let newlineString = NSAttributedString(string: "\n")
-                mutableText.insert(newlineString, at: insertionIndex)
+            // 創建正常段落屬性（用於圖片後的換行）
+            let normalAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 17),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 0
+                    return style
+                }()
+            ]
+            
+            // 插入圖片和必要的格式
+            if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
+                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 後續換行
+                let beforeNewline = NSAttributedString(string: "\n")
+                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                
+                mutableText.insert(beforeNewline, at: insertionIndex)
                 mutableText.insert(attachmentString, at: insertionIndex + 1)
-                textView.selectedRange = NSRange(location: insertionIndex + 2, length: 0)
+                mutableText.insert(afterNewline, at: insertionIndex + 2)
+                
+                // 設置游標在圖片後的換行符後面
+                textView.selectedRange = NSRange(location: insertionIndex + 3, length: 0)
             } else {
+                // 開頭位置或前面已有換行：只插入圖片 + 後續換行
+                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                
                 mutableText.insert(attachmentString, at: insertionIndex)
-                textView.selectedRange = NSRange(location: insertionIndex + 1, length: 0)
+                mutableText.insert(afterNewline, at: insertionIndex + 1)
+                
+                // 設置游標在圖片後的換行符後面
+                textView.selectedRange = NSRange(location: insertionIndex + 2, length: 0)
             }
             
+            // 更新文字內容
             textView.attributedText = mutableText
+            
+            // 設置後續輸入的屬性為正常格式
+            textView.typingAttributes = normalAttributes
+            
+            // 強制觸發佈局更新，確保圖片立即顯示
+            DispatchQueue.main.async {
+                textView.invalidateIntrinsicContentSize()
+                textView.setNeedsLayout()
+                textView.layoutIfNeeded()
+                
+                // 觸發 SwiftUI 更新
+                if let customTextView = textView as? CustomTextView {
+                    customTextView.invalidateIntrinsicContentSize()
+                }
+            }
         }
         
+        // MARK: - 列表功能
+        @objc func insertNumberedList() {
+            guard let textView = textView else { return }
+            
+            let selectedRange = textView.selectedRange
+            let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
+            
+            // 創建編號列表項目（只有編號和點號）
+            let listItem = "1. "
+            let listAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 17),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 24 // 縮排
+                    return style
+                }()
+            ]
+            
+            let listString = NSAttributedString(string: listItem, attributes: listAttributes)
+            
+            // 直接插入列表標記
+            mutableText.insert(listString, at: selectedRange.location)
+            
+            // 設置游標位置在列表標記後面
+            let newCursorPosition = selectedRange.location + listItem.count
+            textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
+            
+            textView.attributedText = mutableText
+            textView.typingAttributes = listAttributes
+        }
+        
+        @objc func insertBulletList() {
+            guard let textView = textView else { return }
+            
+            let selectedRange = textView.selectedRange
+            let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
+            
+            // 創建項目符號列表項目（只有項目符號）
+            let listItem = "• "
+            let listAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 17),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 24 // 縮排
+                    return style
+                }()
+            ]
+            
+            let listString = NSAttributedString(string: listItem, attributes: listAttributes)
+            
+            // 直接插入列表標記
+            mutableText.insert(listString, at: selectedRange.location)
+            
+            // 設置游標位置在列表標記後面
+            let newCursorPosition = selectedRange.location + listItem.count
+            textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
+            
+            textView.attributedText = mutableText
+            textView.typingAttributes = listAttributes
+        }
+
         @objc func dismissKeyboard() {
             textView?.resignFirstResponder()
         }
