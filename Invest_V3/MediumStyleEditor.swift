@@ -991,7 +991,7 @@ struct PreviewSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 16) {
                     // 標題
                     Text(title)
                         .font(.system(size: 32, weight: .bold, design: .default))
@@ -1014,11 +1014,10 @@ struct PreviewSheet: View {
                         .cornerRadius(12)
                     }
                     
-                    // 內容 - 使用富文本顯示，徹底消除底部空白
+                    // 內容 - 使用富文本顯示，完全模仿 MediumStyleEditor 結構
                     if attributedContent.length > 0 {
                         RichTextPreviewView(attributedText: attributedContent)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity)
                     } else {
                         Text("尚無內容...")
                             .font(.body)
@@ -1026,10 +1025,10 @@ struct PreviewSheet: View {
                             .italic()
                     }
                     
+                    // 底部間距 - 模仿 ArticleDetailView
+                    Spacer(minLength: 100)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 20)
-                .padding(.bottom, 0)
+                .padding() // 系統自適應 padding - 完全模仿 MediumStyleEditor
             }
             .background(backgroundColor)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1068,8 +1067,8 @@ struct RichTextPreviewView: UIViewRepresentable {
         textView.isEditable = false
         textView.isSelectable = true
         textView.backgroundColor = UIColor.clear
-        // 修復：徹底消除底部空白
-        textView.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 0, right: 8)
+        // 修復：與 RichTextView 一致的 inset 設定
+        textView.textContainerInset = UIEdgeInsets(top: 16, left: 0, bottom: 8, right: 0)
         textView.textContainer.lineFragmentPadding = 0
         textView.textContainer.maximumNumberOfLines = 0
         textView.textContainer.lineBreakMode = .byWordWrapping
@@ -1105,26 +1104,21 @@ struct RichTextPreviewView: UIViewRepresentable {
         let processedText = processImagesForPreview(trimmedText)
         uiView.attributedText = processedText
         
-        // 精確計算並設置內容高度和寬度
+        // 精確計算並設置內容高度和寬度 - 完全模仿 RichTextView 邏輯
         DispatchQueue.main.async {
             if uiView.bounds.width > 0 {
-                // 設定文字容器的最大寬度，避免文字溢出
-                let availableWidth = uiView.bounds.width - uiView.textContainerInset.left - uiView.textContainerInset.right
+                // 由於 textContainerInset 的 left 和 right 現在都是 0，直接使用 bounds.width
+                let availableWidth = uiView.bounds.width
                 uiView.textContainer.size.width = availableWidth
+                uiView.textContainer.maximumNumberOfLines = 0
+                uiView.textContainer.lineBreakMode = .byWordWrapping
                 
-                // 計算實際所需的高度
-                let constraintSize = CGSize(width: availableWidth, height: .greatestFiniteMagnitude)
-                let contentSize = uiView.sizeThatFits(constraintSize)
-                
-                // 設置UITextView的高度約束
-                uiView.frame.size.height = max(contentSize.height, 1) // 最小高度為1避免為0
-                
-                print("🔍 可用寬度: \(availableWidth), 計算高度: \(contentSize.height)")
-                
-                // 強制重新佈局
+                // 強制重新佈局 - 與 RichTextView 保持一致
                 uiView.layoutManager.ensureLayout(for: uiView.textContainer)
                 uiView.setNeedsLayout()
                 uiView.layoutIfNeeded()
+                
+                print("🔍 預覽視圖可用寬度: \(availableWidth)")
                 
                 // 通知SwiftUI更新
                 uiView.invalidateIntrinsicContentSize()
