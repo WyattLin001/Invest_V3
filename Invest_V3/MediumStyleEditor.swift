@@ -1566,18 +1566,6 @@ extension String {
     }
 }
 
-// MARK: - UIFont 擴展
-extension UIFont {
-    var isBold: Bool {
-        return fontDescriptor.symbolicTraits.contains(.traitBold)
-    }
-    
-    func addingBold() -> UIFont {
-        let traits = fontDescriptor.symbolicTraits.union(.traitBold)
-        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
-        return UIFont(descriptor: descriptor, size: pointSize)
-    }
-}
 
 // MARK: - UIColor 擴展
 extension UIColor {
