@@ -30,7 +30,6 @@ struct MediumStyleEditor: View {
     @State private var wordCount: Int = 0
     @State private var readingTime: Int = 0
     @State private var userChoseNotToSave = false // 追蹤用戶是否選擇不保存
-    @State private var editorHeight: CGFloat = 44 // 編輯器動態高度
     
     
     private let onComplete: (() -> Void)?
@@ -140,9 +139,9 @@ struct MediumStyleEditor: View {
                 // 自定義導航欄
                 customNavigationBar
                 
-                // 主內容區域
+                // 主內容區域 - 模仿 ArticleDetailView 結構
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 8) { // 減少間距從 24 到 8
+                    VStack(alignment: .leading, spacing: 16) {
                         // 標題輸入區域
                         titleSection
                         
@@ -151,12 +150,14 @@ struct MediumStyleEditor: View {
                             Spacer()
                             paidContentToggle
                         }
-                        .padding(.horizontal, 16)
                         
                         // 富文本編輯器
                         richTextEditor
-                            .padding(.horizontal, 16)
+                        
+                        // 底部間距 - 模仿 ArticleDetailView
+                        Spacer(minLength: 100)
                     }
+                    .padding() // 使用系統標準 padding
                 }
             }
         }
@@ -345,7 +346,6 @@ struct MediumStyleEditor: View {
                     .foregroundColor(titleCharacterCount > maxTitleLength ? .red : secondaryTextColor)
             }
         }
-        .padding(.horizontal, 16)
     }
     
     // MARK: - 付費內容切換（靠右對齊）
@@ -363,18 +363,12 @@ struct MediumStyleEditor: View {
     
     // MARK: - 富文本編輯器
     private var richTextEditor: some View {
-        RichTextView(attributedText: $attributedContent, height: $editorHeight)
-            .frame(maxWidth: .infinity)
-            .frame(height: max(editorHeight, 44)) // 使用精確的高度控制
+        RichTextView(attributedText: $attributedContent)
             .background(backgroundColor)
             .onChange(of: attributedContent) { _, newValue in
                 hasTypingActivity = true
                 updateWordCount()
                 scheduleAutoSave()
-                // 觸發視圖重新計算動態高度
-            }
-            .onChange(of: title) { _, _ in
-                // 當標題改變時也重新計算高度（觸發dynamicMinHeight重新計算）
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowPhotoPicker"))) { _ in
                 showPhotoPicker = true

@@ -5,7 +5,6 @@ import PhotosUI
 // MARK: - RichTextView (Medium/Notion 風格)
 struct RichTextView: UIViewRepresentable {
     @Binding var attributedText: NSAttributedString
-    @Binding var height: CGFloat
     @State private var selectedImages: [PhotosPickerItem] = []
     @State private var showPhotoPicker = false
     
@@ -30,17 +29,6 @@ struct RichTextView: UIViewRepresentable {
     func updateUIView(_ uiView: UITextView, context: Context) {
         if uiView.attributedText != attributedText {
             uiView.attributedText = attributedText
-        }
-        
-        // 計算實際所需高度並回拋給 SwiftUI
-        DispatchQueue.main.async {
-            let targetWidth = uiView.bounds.width > 0 ? uiView.bounds.width : UIScreen.main.bounds.width - 32
-            let size = uiView.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude))
-            let newHeight = max(size.height, 44) // 最小44pt確保可編輯
-            
-            if abs(self.height - newHeight) > 0.5 {
-                self.height = newHeight
-            }
         }
     }
     
@@ -125,18 +113,9 @@ struct RichTextView: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             self.textView = textView
             
-            // 防抖動更新並重新計算高度
+            // 簡單的防抖動更新
             DispatchQueue.main.async {
                 self.parent.attributedText = textView.attributedText
-                
-                // 立即重新計算高度
-                let targetWidth = textView.bounds.width > 0 ? textView.bounds.width : UIScreen.main.bounds.width - 32
-                let size = textView.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude))
-                let newHeight = max(size.height, 44)
-                
-                if abs(self.parent.height - newHeight) > 0.5 {
-                    self.parent.height = newHeight
-                }
             }
         }
         
@@ -298,15 +277,6 @@ struct RichTextView: UIViewRepresentable {
             }
             
             textView.attributedText = mutableText
-            
-            // 插入圖片後立即重新計算高度
-            let targetWidth = textView.bounds.width > 0 ? textView.bounds.width : UIScreen.main.bounds.width - 32
-            let size = textView.sizeThatFits(CGSize(width: targetWidth, height: .greatestFiniteMagnitude))
-            let newHeight = max(size.height, 44)
-            
-            if abs(parent.height - newHeight) > 0.5 {
-                parent.height = newHeight
-            }
         }
         
         @objc func dismissKeyboard() {
