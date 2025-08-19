@@ -170,8 +170,10 @@ struct MediumStyleEditor: View {
             )
         }
         .onAppear {
-            // 初始化 draft
-            currentDraft = createDraftFromCurrentState()
+            // 如果 currentDraft 還沒有被初始化（新草稿情況），創建一個新的
+            if currentDraft.title.isEmpty && currentDraft.bodyMD.isEmpty {
+                currentDraft = createDraftFromCurrentState()
+            }
             updateWordCount()
             setupAutoSave()
         }
@@ -609,16 +611,21 @@ struct MediumStyleEditor: View {
     
     // MARK: - 草稿創建
     private func createDraftFromCurrentState() -> ArticleDraft {
-        var draft = ArticleDraft()
+        // 使用現有的 currentDraft 作為基礎，保持 ID 和創建時間
+        var draft = currentDraft
         draft.title = title
         draft.subtitle = nil
         draft.bodyMD = attributedContent.string
         draft.isFree = !isPaidContent
+        draft.isPaid = isPaidContent
         draft.category = selectedSubtopic
         draft.keywords = keywords
-        draft.createdAt = Date()
         draft.updatedAt = Date()
-        print("📝 創建草稿，初始關鍵字: \(keywords)")
+        // 只有在是新草稿時才更新創建時間
+        if draft.createdAt.timeIntervalSinceNow > -1 {
+            draft.createdAt = Date()
+        }
+        print("📝 更新草稿 ID: \(draft.id)，關鍵字: \(keywords)")
         return draft
     }
     
@@ -1070,6 +1077,10 @@ struct RichTextPreviewView: UIViewRepresentable {
         textView.showsVerticalScrollIndicator = false
         textView.showsHorizontalScrollIndicator = false
         
+        // 關鍵修復：確保文字不會溢出容器
+        textView.textContainer.widthTracksTextView = true
+        textView.textContainer.size = CGSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        
         // 設置默認字體作為備選，但不覆蓋 NSAttributedString 的格式
         textView.font = UIFont.systemFont(ofSize: 17)
         textView.textColor = UIColor.label
@@ -1094,26 +1105,30 @@ struct RichTextPreviewView: UIViewRepresentable {
         let processedText = processImagesForPreview(trimmedText)
         uiView.attributedText = processedText
         
-        // 精確計算並設置內容高度
+        // 精確計算並設置內容高度和寬度
         DispatchQueue.main.async {
-            // 設置UITextView的寬度約束
-            let targetWidth = uiView.frame.width > 0 ? uiView.frame.width : UIScreen.main.bounds.width - 32
-            
-            // 計算實際所需的高度
-            let constraintSize = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
-            let contentSize = uiView.sizeThatFits(constraintSize)
-            
-            // 設置UITextView的高度約束
-            uiView.frame.size.height = max(contentSize.height, 1) // 最小高度為1避免為0
-            
-            print("🔍 目標寬度: \(targetWidth), 計算高度: \(contentSize.height)")
-            
-            // 確保佈局更新
-            uiView.setNeedsLayout()
-            uiView.layoutIfNeeded()
-            
-            // 通知SwiftUI更新
-            uiView.invalidateIntrinsicContentSize()
+            if uiView.bounds.width > 0 {
+                // 設定文字容器的最大寬度，避免文字溢出
+                let availableWidth = uiView.bounds.width - uiView.textContainerInset.left - uiView.textContainerInset.right
+                uiView.textContainer.size.width = availableWidth
+                
+                // 計算實際所需的高度
+                let constraintSize = CGSize(width: availableWidth, height: .greatestFiniteMagnitude)
+                let contentSize = uiView.sizeThatFits(constraintSize)
+                
+                // 設置UITextView的高度約束
+                uiView.frame.size.height = max(contentSize.height, 1) // 最小高度為1避免為0
+                
+                print("🔍 可用寬度: \(availableWidth), 計算高度: \(contentSize.height)")
+                
+                // 強制重新佈局
+                uiView.layoutManager.ensureLayout(for: uiView.textContainer)
+                uiView.setNeedsLayout()
+                uiView.layoutIfNeeded()
+                
+                // 通知SwiftUI更新
+                uiView.invalidateIntrinsicContentSize()
+            }
         }
         
         print("🔍 updateUIView - uiView.attributedText.length: \(uiView.attributedText?.length ?? 0)")
