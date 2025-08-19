@@ -154,6 +154,7 @@ struct MediumStyleEditor: View {
                         
                         // 富文本編輯器
                         richTextEditor
+                            .padding(.horizontal, 16)
                     }
                 }
             }
@@ -258,7 +259,7 @@ struct MediumStyleEditor: View {
     // MARK: - 自定義導航欄
     private var customNavigationBar: some View {
         HStack(spacing: 16) {
-            // 關閉按鈕
+            // 關閉按鈕 - 增強視覺效果
             Button(action: { 
                 if hasUnsavedChanges {
                     showSaveDraftAlert = true
@@ -268,7 +269,10 @@ struct MediumStyleEditor: View {
             }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(textColor)
+                    .foregroundColor(.primary)
+                    .frame(width: 32, height: 32)
+                    .background(Color.gray.opacity(0.15))
+                    .clipShape(Circle())
             }
             
             Spacer()
@@ -299,6 +303,12 @@ struct MediumStyleEditor: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(backgroundColor)
+        .overlay(
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(.gray.opacity(0.3)),
+            alignment: .bottom
+        )
     }
     
     // MARK: - 標題輸入區域
