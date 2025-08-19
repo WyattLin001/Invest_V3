@@ -60,6 +60,12 @@ struct RichTextView: UIViewRepresentable {
         return coordinator
     }
     
+    // 暴露重置圖片計數器的方法
+    func resetImageCounter() {
+        // 通過 NotificationCenter 來通知重置
+        NotificationCenter.default.post(name: NSNotification.Name("ResetImageCounter"), object: nil)
+    }
+    
     // MARK: - Apple-like 工具列
     private func createToolbar(for textView: UITextView, coordinator: Coordinator) -> UIToolbar {
         let toolbar = UIToolbar()
@@ -109,6 +115,12 @@ struct RichTextView: UIViewRepresentable {
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: RichTextView
         weak var textView: UITextView?
+        private var imageCounter = 0
+        
+        // 重置圖片計數器（當文檔被清空或重新開始時）
+        func resetImageCounter() {
+            imageCounter = 0
+        }
         
         init(_ parent: RichTextView) {
             self.parent = parent
@@ -128,12 +140,40 @@ struct RichTextView: UIViewRepresentable {
                 object: nil
             )
             
+            // 添加帶來源標註的圖片插入通知
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handleInsertImageWithAttribution),
+                name: NSNotification.Name("InsertImageWithAttribution"),
+                object: nil
+            )
+            
+            // 添加重置圖片計數器通知
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handleResetImageCounter),
+                name: NSNotification.Name("ResetImageCounter"),
+                object: nil
+            )
         }
         
         @objc private func handleInsertImage(_ notification: Foundation.Notification) {
             if let image = notification.object as? UIImage {
                 insertImagePlaceholder(image: image)
             }
+        }
+        
+        @objc private func handleInsertImageWithAttribution(_ notification: Foundation.Notification) {
+            guard let data = notification.object as? [String: Any],
+                  let image = data["image"] as? UIImage,
+                  let imageId = data["imageId"] as? String else { return }
+            
+            let attribution = data["attribution"] as? ImageAttribution
+            insertImageWithCaptionPlaceholder(image: image, imageId: imageId, attribution: attribution)
+        }
+        
+        @objc private func handleResetImageCounter(_ notification: Foundation.Notification) {
+            resetImageCounter()
         }
         
         
@@ -448,6 +488,101 @@ struct RichTextView: UIViewRepresentable {
             NotificationCenter.default.post(name: NSNotification.Name("ShowPhotoPicker"), object: nil)
         }
         
+        // 創建圖片標籤（用於編輯器）
+        private func createImageCaptionForEditor(imageIndex: Int, imageId: String, attribution: ImageAttribution?) -> NSAttributedString {
+            let sourceText = attribution?.displayText ?? "未知"
+            let captionText = "\n圖片\(imageIndex)[來源：\(sourceText)]"
+            
+            // 設置標籤樣式，與預覽模式一致
+            let captionAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 13, weight: .regular),
+                .foregroundColor: UIColor.systemGray2,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.alignment = .center
+                    style.paragraphSpacing = 4
+                    style.paragraphSpacingBefore = 4
+                    return style
+                }()
+            ]
+            
+            return NSAttributedString(string: captionText, attributes: captionAttributes)
+        }
+        
+        // 插入帶標籤的圖片
+        func insertImageWithCaptionPlaceholder(image: UIImage, imageId: String, attribution: ImageAttribution?) {
+            guard let textView = textView else { return }
+            
+            // 增加圖片計數器
+            imageCounter += 1
+            
+            let selectedRange = textView.selectedRange
+            let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
+            
+            // 創建 attachment 並設置統一的圖片尺寸
+            let attachment = NSTextAttachment()
+            ImageSizeConfiguration.configureAttachment(attachment, with: image)
+            
+            // 準備插入的內容
+            let attachmentString = NSAttributedString(attachment: attachment)
+            let imageCaption = createImageCaptionForEditor(imageIndex: imageCounter, imageId: imageId, attribution: attribution)
+            let insertionIndex = selectedRange.location + selectedRange.length
+            
+            // 創建正常段落屬性（用於圖片後的換行）
+            let normalAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 17),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 0
+                    return style
+                }()
+            ]
+            
+            // 插入圖片、標籤和必要的格式
+            if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
+                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 標籤 + 後續換行
+                let beforeNewline = NSAttributedString(string: "\n")
+                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                
+                mutableText.insert(beforeNewline, at: insertionIndex)
+                mutableText.insert(attachmentString, at: insertionIndex + 1)
+                mutableText.insert(imageCaption, at: insertionIndex + 2)
+                mutableText.insert(afterNewline, at: insertionIndex + 3)
+                
+                // 設置游標在標籤後的換行符後面
+                textView.selectedRange = NSRange(location: insertionIndex + 4, length: 0)
+            } else {
+                // 開頭位置或前面已有換行：只插入圖片 + 標籤 + 後續換行
+                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                
+                mutableText.insert(attachmentString, at: insertionIndex)
+                mutableText.insert(imageCaption, at: insertionIndex + 1)
+                mutableText.insert(afterNewline, at: insertionIndex + 2)
+                
+                // 設置游標在標籤後的換行符後面
+                textView.selectedRange = NSRange(location: insertionIndex + 3, length: 0)
+            }
+            
+            // 更新文字內容
+            textView.attributedText = mutableText
+            
+            // 設置後續輸入的屬性為正常格式
+            textView.typingAttributes = normalAttributes
+            
+            // 強制觸發佈局更新，確保圖片和標籤立即顯示
+            DispatchQueue.main.async {
+                textView.invalidateIntrinsicContentSize()
+                textView.setNeedsLayout()
+                textView.layoutIfNeeded()
+                
+                // 觸發 SwiftUI 更新
+                if let customTextView = textView as? CustomTextView {
+                    customTextView.invalidateIntrinsicContentSize()
+                }
+            }
+        }
         
         func insertImagePlaceholder(image: UIImage) {
             guard let textView = textView else { return }

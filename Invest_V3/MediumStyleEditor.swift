@@ -407,16 +407,10 @@ struct MediumStyleEditor: View {
             print("✅ 已為圖片 \(imageId) 設置來源標註: \(attribution.displayText)")
         }
         
-        // 通知 RichTextView 插入圖片
+        // 通知 RichTextView 插入圖片（優先使用帶標註版本）
         NotificationCenter.default.post(
             name: NSNotification.Name("InsertImageWithAttribution"),
             object: ["image": image, "imageId": imageId, "attribution": attribution as Any]
-        )
-        
-        // 如果 RichTextView 不支持新的通知，使用舊的方式
-        NotificationCenter.default.post(
-            name: NSNotification.Name("InsertImage"),
-            object: image
         )
     }
     
