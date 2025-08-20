@@ -489,6 +489,33 @@ struct RichTextView: UIViewRepresentable {
         }
         
         // 創建圖片標籤（用於編輯器）
+        // 創建優化的圖片以確保立即顯示
+        private func createOptimizedImage(from image: UIImage, targetSize: CGSize) -> UIImage {
+            // 如果圖片已經是合適的尺寸，直接返回
+            if abs(image.size.width - targetSize.width) < 1.0 && abs(image.size.height - targetSize.height) < 1.0 {
+                return image
+            }
+            
+            // 使用 UIGraphicsImageRenderer 創建優化的圖片
+            let renderer = UIGraphicsImageRenderer(size: targetSize)
+            let optimizedImage = renderer.image { context in
+                // 設置高品質插值
+                context.cgContext.interpolationQuality = .high
+                // 繪製圖片到目標尺寸
+                image.draw(in: CGRect(origin: .zero, size: targetSize))
+            }
+            
+            // 強制解碼圖片以確保立即可用
+            let format = UIGraphicsImageRendererFormat()
+            format.opaque = false
+            format.scale = UIScreen.main.scale
+            
+            let finalRenderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+            return finalRenderer.image { _ in
+                optimizedImage.draw(in: CGRect(origin: .zero, size: targetSize))
+            }
+        }
+        
         private func createImageCaptionForEditor(imageIndex: Int, imageId: String, attribution: ImageAttribution?) -> NSAttributedString {
             let sourceText = attribution?.displayText ?? "未知"
             let captionText = "\n圖片\(imageIndex)[來源：\(sourceText)]"
@@ -534,21 +561,20 @@ struct RichTextView: UIViewRepresentable {
             let selectedRange = textView.selectedRange
             let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
             
-            // 創建 attachment 並使用 ImageSizeConfiguration 來正確配置
+            // 創建 attachment 並直接設置圖片，避免載入延遲
             let attachment = NSTextAttachment()
             
-            // 使用統一的配置方法，確保圖片正確設置和立即顯示
-            ImageSizeConfiguration.configureAttachment(attachment, with: image)
+            // 計算顯示尺寸
+            let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
             
-            // 額外確保圖片已正確設置（雙重保險）
-            if attachment.image == nil {
-                attachment.image = image
-                let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
-                attachment.bounds = CGRect(origin: .zero, size: displaySize)
-                print("🔧 備用圖片設置 - 顯示尺寸: \(displaySize)")
-            }
+            // 創建已解碼和優化的圖片以確保立即顯示
+            let optimizedImage = createOptimizedImage(from: image, targetSize: displaySize)
             
-            print("🖼️ 配置圖片附件 - 原始尺寸: \(image.size), 最終尺寸: \(attachment.bounds.size)")
+            // 直接設置圖片和尺寸，確保立即可用
+            attachment.image = optimizedImage
+            attachment.bounds = CGRect(origin: .zero, size: displaySize)
+            
+            print("🖼️ 配置圖片附件 - 原始尺寸: \(image.size), 最終尺寸: \(attachment.bounds.size), 圖片已設置: \(attachment.image != nil)")
             
             // 準備插入的內容
             let attachmentString = NSAttributedString(attachment: attachment)
@@ -646,9 +672,13 @@ struct RichTextView: UIViewRepresentable {
             let selectedRange = textView.selectedRange
             let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
             
-            // 創建 attachment 並設置統一的圖片尺寸
+            // 創建 attachment 並直接設置優化的圖片
             let attachment = NSTextAttachment()
-            ImageSizeConfiguration.configureAttachment(attachment, with: image)
+            let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
+            let optimizedImage = createOptimizedImage(from: image, targetSize: displaySize)
+            
+            attachment.image = optimizedImage
+            attachment.bounds = CGRect(origin: .zero, size: displaySize)
             
             // 調試信息
             ImageSizeConfiguration.logSizeInfo(
