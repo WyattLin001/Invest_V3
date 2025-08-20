@@ -3,6 +3,7 @@ import UIKit
 import PhotosUI
 import Auth
 import SupabaseStorage
+import MarkdownUI
 
 
 // MARK: - Medium 風格編輯器
@@ -1170,7 +1171,7 @@ struct PreviewSheet: View {
 }
 
 // MARK: - 富文本預覽視圖
-struct RichTextPreviewView: UIViewRepresentable {
+struct RichTextPreviewView: View {
     let attributedText: NSAttributedString
     
     init(attributedText: NSAttributedString) {
@@ -1185,391 +1186,93 @@ struct RichTextPreviewView: UIViewRepresentable {
         ])
     }
     
-    func makeUIView(context: Context) -> UITextView {
-        let textView = CustomTextView()
-        textView.isEditable = false
-        textView.isSelectable = false // 防止圖片點擊交互
-        textView.font = UIFont.systemFont(ofSize: 17)
-        textView.backgroundColor = UIColor.clear
-        textView.textColor = UIColor.label
-        textView.isScrollEnabled = false
-        // 完全復制 RichTextView 的 inset 設定
-        textView.textContainerInset = UIEdgeInsets(top: 16, left: 0, bottom: 8, right: 0)
-        textView.textContainer.lineFragmentPadding = 0
-        
-        // 完全復制 RichTextView 的 textContainer 設定
-        textView.textContainer.widthTracksTextView = true
-        textView.textContainer.maximumNumberOfLines = 0
-        textView.textContainer.lineBreakMode = .byWordWrapping
-        textView.textContainer.size = CGSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
-        
-        textView.adjustsFontForContentSizeCategory = true
-        textView.showsVerticalScrollIndicator = false
-        textView.showsHorizontalScrollIndicator = false
-        
-        // 設置內容壓縮阻力和內容擁抱優先級，確保高度自適應
-        textView.setContentCompressionResistancePriority(.required, for: .vertical)
-        textView.setContentHuggingPriority(.required, for: .vertical)
-        
-        print("🔍 預覽 makeUIView - textView created with frame: \(textView.frame)")
-        
-        return textView
+    // 將 NSAttributedString 轉換為 Markdown
+    private var markdownContent: String {
+        return MediumStyleEditor.convertAttributedStringToMarkdown(attributedText)
     }
     
-    func updateUIView(_ uiView: UITextView, context: Context) {
-        print("🔍 updateUIView - attributedText.length: \(attributedText.length)")
-        print("🔍 updateUIView - attributedText.string: '\(attributedText.string.prefix(100))'")
-        
-        // 移除尾部空白和換行符
-        let trimmedText = trimTrailingWhitespace(attributedText)
-        
-        // 處理本地圖片顯示
-        let processedText = processImagesForPreview(trimmedText)
-        uiView.attributedText = processedText
-        
-        // 立即強制佈局，確保圖片渲染
-        forceImmediateImageRendering(in: uiView)
-        
-        // 精確計算並設置內容高度和寬度 - 完全復制 RichTextView 邏輯
-        DispatchQueue.main.async {
-            if uiView.bounds.width > 0 {
-                // 使用與 RichTextView 完全相同的寬度計算邏輯
-                let availableWidth = uiView.bounds.width - uiView.textContainerInset.left - uiView.textContainerInset.right
-                uiView.textContainer.size.width = availableWidth
-                uiView.textContainer.maximumNumberOfLines = 0
-                uiView.textContainer.lineBreakMode = .byWordWrapping
-                
-                // 強制重新佈局 - 與 RichTextView 完全一致
-                uiView.layoutManager.ensureLayout(for: uiView.textContainer)
-                uiView.setNeedsLayout()
-                uiView.layoutIfNeeded()
-                
-                // 再次強制圖片渲染（延遲確保）
-                self.forceImmediateImageRendering(in: uiView)
-                
-                print("🔍 預覽視圖 bounds.width: \(uiView.bounds.width)")
-                print("🔍 預覽視圖 textContainerInset: \(uiView.textContainerInset)")
-                print("🔍 預覽視圖 計算可用寬度: \(availableWidth)")
-                
-                // 通知SwiftUI更新
-                uiView.invalidateIntrinsicContentSize()
-            }
-        }
-        
-        print("🔍 updateUIView - uiView.attributedText.length: \(uiView.attributedText?.length ?? 0)")
-    }
-    
-    // 強制立即渲染圖片附件
-    private func forceImmediateImageRendering(in textView: UITextView) {
-        guard let attributedText = textView.attributedText else { return }
-        
-        // 強制觸發所有圖片附件的渲染
-        let range = NSRange(location: 0, length: attributedText.length)
-        
-        // 方法1: 強制佈局管理器處理所有附件
-        textView.layoutManager.invalidateDisplay(forCharacterRange: range)
-        textView.layoutManager.ensureLayout(for: textView.textContainer)
-        
-        // 方法2: 強制重新繪製
-        textView.setNeedsDisplay()
-        textView.layoutIfNeeded()
-        
-        // 方法3: 遍歷所有附件並強制觸發渲染
-        attributedText.enumerateAttribute(.attachment, in: range) { value, attachmentRange, _ in
-            if let attachment = value as? NSTextAttachment, let image = attachment.image {
-                // 觸發附件的渲染回調
-                textView.layoutManager.invalidateDisplay(forCharacterRange: attachmentRange)
-                
-                // 確保圖片數據完整
-                if attachment.bounds == .zero {
-                    let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
-                    attachment.bounds = CGRect(origin: .zero, size: displaySize)
-                }
-                
-                print("🎯 強制渲染圖片附件在位置 \(attachmentRange.location)，尺寸: \(attachment.bounds.size)")
-            }
-        }
-        
-        // 方法4: 再次強制佈局確保生效
-        DispatchQueue.main.async {
-            textView.layoutManager.ensureLayout(for: textView.textContainer)
-            textView.setNeedsDisplay()
-        }
-    }
-    
-    // 處理圖片以便在預覽中正確顯示
-    private func processImagesForPreview(_ originalText: NSAttributedString) -> NSAttributedString {
-        let mutableText = NSMutableAttributedString(attributedString: originalText)
-        var imageCount = 0
-        var insertionOffset = 0 // 追蹤由於插入標籤而產生的偏移量
-        
-        // 遍歷所有附件，確保圖片能正確顯示並添加標籤
-        originalText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: originalText.length)) { value, range, _ in
-            if let attachment = value as? NSTextAttachment {
-                var processedImage: UIImage? = attachment.image
-                
-                // 檢查並修復圖片初始化問題
-                if attachment.image == nil {
-                    print("⚠️ 發現空的圖片 attachment，嘗試修復...")
-                    
-                    // 檢查是否有設置的 bounds，如果有，創建一個占位符圖片
-                    if attachment.bounds != .zero {
-                        let size = attachment.bounds.size
-                        processedImage = createValidImageForAttachment(size: size)
-                        attachment.image = processedImage
-                        print("🔧 為空attachment創建占位符圖片，尺寸: \(size)")
-                    } else {
-                        // 如果連 bounds 都沒有，使用默認尺寸
-                        let defaultSize = CGSize(width: 300, height: 200)
-                        processedImage = createValidImageForAttachment(size: defaultSize)
-                        attachment.image = processedImage
-                        attachment.bounds = CGRect(origin: .zero, size: defaultSize)
-                        print("🔧 為空attachment創建默認占位符圖片，尺寸: \(defaultSize)")
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !markdownContent.isEmpty {
+                Markdown(markdownContent)
+                    .markdownTextStyle {
+                        FontSize(.em(1.0))
                     }
-                } else {
-                    // 即使有圖片，也要檢查是否是"載入中"的占位符圖片
-                    if isLoadingPlaceholderImage(attachment.image!) {
-                        print("⚠️ 發現載入中占位符圖片，替換為實際內容...")
-                        let size = attachment.bounds.size != .zero ? attachment.bounds.size : CGSize(width: 300, height: 200)
-                        processedImage = createValidImageForAttachment(size: size)
-                        attachment.image = processedImage
-                        if attachment.bounds == .zero {
-                            attachment.bounds = CGRect(origin: .zero, size: size)
-                        }
-                        print("🔧 替換載入中占位符，尺寸: \(size)")
-                    }
-                }
-                
-                // 使用統一的圖片尺寸配置
-                if let image = processedImage {
-                    ImageSizeConfiguration.configureAttachment(attachment, with: image)
-                    
-                    // 調試信息
-                    ImageSizeConfiguration.logSizeInfo(
-                        originalSize: image.size,
-                        displaySize: attachment.bounds.size,
-                        context: "預覽"
-                    )
-                    
-                    // 增加圖片計數
-                    imageCount += 1
-                    
-                    // 計算插入位置（需要考慮之前插入的標籤造成的偏移）
-                    let insertionPosition = range.location + range.length + insertionOffset
-                    
-                    // 檢查是否已經有圖片標籤（編輯器中已經添加的）
-                    let searchLength = min(50, mutableText.length - insertionPosition)
-                    let searchRange = NSRange(location: insertionPosition, length: searchLength)
-                    let existingText = mutableText.string
-                    let textToCheck = (existingText as NSString).substring(with: searchRange)
-                    let hasExistingCaption = textToCheck.contains("圖片") && textToCheck.contains("[來源：")
-                    
-                    // 只有當沒有現有標籤時才添加新標籤
-                    if !hasExistingCaption {
-                        // 創建圖片標籤
-                        let caption = createImageCaption(imageIndex: imageCount, image: image)
-                        
-                        // 在圖片後插入標籤
-                        mutableText.insert(caption, at: insertionPosition)
-                        
-                        // 更新偏移量
-                        insertionOffset += caption.length
-                    }
-                } else {
-                    print("❌ 無法為attachment設置圖片")
-                }
+                    .modifier(MarkdownHeadingStyleModifier())
+                    .modifier(MarkdownBlockStyleModifier())
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+            } else {
+                Text("無內容")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding()
             }
         }
-        
-        // 處理完圖片後，清理HTML標籤（特別是color標籤）
-        cleanupHtmlTags(in: mutableText)
-        
-        // 強制所有圖片附件立即生效
-        forceImageAttachmentsInitialization(in: mutableText)
-        
-        return mutableText
-    }
-    
-    // 強制初始化所有圖片附件，確保立即顯示
-    private func forceImageAttachmentsInitialization(in attributedText: NSMutableAttributedString) {
-        attributedText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedText.length)) { value, range, _ in
-            if let attachment = value as? NSTextAttachment {
-                // 強制觸發圖片渲染
-                if let image = attachment.image {
-                    // 重新設置圖片確保立即生效
-                    let tempImage = image
-                    attachment.image = nil
-                    attachment.image = tempImage
-                    
-                    // 確保bounds正確設置
-                    if attachment.bounds == .zero {
-                        let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
-                        attachment.bounds = CGRect(origin: .zero, size: displaySize)
-                    }
-                    
-                    print("🔄 強制重新初始化圖片附件，尺寸: \(attachment.bounds.size)")
-                }
-            }
+        .onAppear {
+            print("🔍 MarkdownPreview - 內容長度: \(markdownContent.count)")
+            print("🔍 MarkdownPreview - 內容預覽: \(markdownContent.prefix(200))")
         }
-    }
-    
-    // 創建圖片標籤
-    private func createImageCaption(imageIndex: Int, image: UIImage) -> NSAttributedString {
-        // 嘗試獲取圖片的來源信息
-        let imageId = ImageUtils.generateImageId(from: image)
-        let attribution = ImageAttributionManager.shared.getAttribution(for: imageId)
-        
-        // 構建標籤文字 - 減少多餘的換行符
-        let sourceText = attribution?.displayText ?? "未知"
-        let captionText = "\n圖片\(imageIndex)[來源：\(sourceText)]"
-        
-        // 設置標籤樣式
-        let captionAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 13, weight: .regular),
-            .foregroundColor: UIColor.systemGray2,
-            .paragraphStyle: {
-                let style = NSMutableParagraphStyle()
-                style.alignment = .center
-                style.paragraphSpacing = 4
-                style.paragraphSpacingBefore = 4
-                return style
-            }()
-        ]
-        
-        return NSAttributedString(string: captionText, attributes: captionAttributes)
-    }
-    
-    // 檢測是否為載入中的占位符圖片
-    private func isLoadingPlaceholderImage(_ image: UIImage) -> Bool {
-        // 檢測圖片是否包含"載入中"相關的特徵
-        // 方法1: 檢查圖片尺寸是否為標準占位符尺寸
-        let standardPlaceholderSizes = [
-            CGSize(width: 200, height: 100),  // createPlaceholderImage的默認尺寸
-            CGSize(width: 300, height: 200),  // 其他可能的占位符尺寸
-        ]
-        
-        for size in standardPlaceholderSizes {
-            if abs(image.size.width - size.width) < 1 && abs(image.size.height - size.height) < 1 {
-                // 進一步檢查：嘗試檢測圖片是否為純色或簡單圖形
-                if isSimplePlaceholderPattern(image) {
-                    return true
-                }
-            }
-        }
-        
-        return false
-    }
-    
-    // 檢測是否為簡單的占位符模式（純色背景等）
-    private func isSimplePlaceholderPattern(_ image: UIImage) -> Bool {
-        guard let cgImage = image.cgImage else { return false }
-        
-        // 如果圖片很小，很可能是占位符
-        if cgImage.width < 400 && cgImage.height < 300 {
-            // 簡單啟發式：占位符圖片通常顏色變化不大
-            return true
-        }
-        
-        return false
-    }
-    
-    // 創建有效的圖片用於attachment（非載入中占位符）
-    private func createValidImageForAttachment(size: CGSize) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { context in
-            // 創建漸層背景而不是純色，看起來更像真實圖片
-            let colorSpace = CGColorSpaceCreateDeviceRGB()
-            let colors = [UIColor.systemGray5.cgColor, UIColor.systemGray4.cgColor]
-            guard let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: [0.0, 1.0]) else {
-                // 如果漸層創建失敗，使用純色
-                UIColor.systemGray4.setFill()
-                context.fill(CGRect(origin: .zero, size: size))
-                return
-            }
-            
-            // 繪製漸層
-            context.cgContext.drawLinearGradient(
-                gradient,
-                start: CGPoint.zero,
-                end: CGPoint(x: 0, y: size.height),
-                options: []
-            )
-            
-            // 添加邊框
-            UIColor.systemGray3.setStroke()
-            context.cgContext.setLineWidth(1)
-            context.cgContext.stroke(CGRect(origin: .zero, size: size))
-            
-            // 在中心添加圖片圖標
-            let iconSize: CGFloat = min(size.width, size.height) * 0.3
-            let iconRect = CGRect(
-                x: (size.width - iconSize) / 2,
-                y: (size.height - iconSize) / 2,
-                width: iconSize,
-                height: iconSize
-            )
-            
-            // 繪製圖片圖標
-            UIColor.systemGray2.setFill()
-            context.cgContext.fillEllipse(in: iconRect)
-        }
-    }
-    
-    // 清理HTML標籤（特別是color標籤）
-    private func cleanupHtmlTags(in mutableText: NSMutableAttributedString) {
-        let string = mutableText.string
-        
-        // 移除各種HTML標籤
-        let htmlTagPatterns = [
-            "</color>",
-            "<color[^>]*>",
-            "</?span[^>]*>",
-            "</?div[^>]*>",
-            "</?p[^>]*>",
-            "</?br[^>]*>?"
-        ]
-        
-        var processedString = string
-        for pattern in htmlTagPatterns {
-            do {
-                let regex = try NSRegularExpression(pattern: pattern, options: .caseInsensitive)
-                processedString = regex.stringByReplacingMatches(
-                    in: processedString,
-                    options: [],
-                    range: NSRange(location: 0, length: processedString.count),
-                    withTemplate: ""
-                )
-            } catch {
-                print("⚠️ 清理HTML標籤時發生錯誤: \(error.localizedDescription)")
-            }
-        }
-        
-        // 如果字符串有變化，更新NSMutableAttributedString
-        if processedString != string {
-            let range = NSRange(location: 0, length: mutableText.length)
-            mutableText.replaceCharacters(in: range, with: processedString)
-            print("🧹 已清理HTML標籤，原長度: \(string.count), 清理後: \(processedString.count)")
-        }
-    }
-    
-    // 移除NSAttributedString尾部的空白字符和換行符
-    private func trimTrailingWhitespace(_ attributedString: NSAttributedString) -> NSAttributedString {
-        let mutableString = NSMutableAttributedString(attributedString: attributedString)
-        let string = mutableString.string
-        
-        // 從末尾開始移除空白字符和換行符
-        let trimmedString = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        if trimmedString.count < string.count {
-            // 計算需要刪除的範圍
-            let deleteRange = NSRange(location: trimmedString.count, length: string.count - trimmedString.count)
-            mutableString.deleteCharacters(in: deleteRange)
-        }
-        
-        return mutableString
     }
     
     // MARK: - Markdown 轉換
+    
+    /// 將 NSAttributedString 轉換為 Markdown 字符串（用於預覽）
+    static func convertAttributedStringToMarkdown(_ attributedString: NSAttributedString) -> String {
+        let string = attributedString.string
+        var markdownContent = ""
+        var currentIndex = 0
+        
+        // 處理富文本內容
+        attributedString.enumerateAttributes(in: NSRange(location: 0, length: attributedString.length), options: []) { attributes, range, _ in
+            let substring = (string as NSString).substring(with: range)
+            
+            // 處理圖片附件
+            if let attachment = attributes[.attachment] as? NSTextAttachment {
+                // 將圖片轉換為Markdown語法
+                markdownContent += "\n![圖片](placeholder)\n"
+                print("🔄 轉換圖片附件為Markdown語法")
+            } else {
+                // 處理文本內容
+                var processedText = substring
+                
+                // 檢查字體屬性
+                if let font = attributes[.font] as? UIFont {
+                    // 處理標題
+                    if font.pointSize > 25 {
+                        // H1
+                        processedText = "# " + processedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    } else if font.pointSize > 20 {
+                        // H2
+                        processedText = "## " + processedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    } else if font.pointSize > 17 {
+                        // H3
+                        processedText = "### " + processedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                    
+                    // 處理粗體
+                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) && font.pointSize <= 17 {
+                        processedText = "**" + processedText + "**"
+                    }
+                }
+                
+                markdownContent += processedText
+            }
+            
+            currentIndex = range.location + range.length
+        }
+        
+        // 清理多餘的換行符
+        let cleanedMarkdown = markdownContent
+            .replacingOccurrences(of: "\n\n\n+", with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        print("🔄 轉換完成，Markdown長度: \(cleanedMarkdown.count)")
+        return cleanedMarkdown
+    }
     
     /// 將 Markdown 文本轉換為 NSAttributedString
     static func convertMarkdownToAttributedString(_ markdown: String) -> NSAttributedString {
