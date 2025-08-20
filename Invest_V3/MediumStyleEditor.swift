@@ -1398,6 +1398,95 @@ struct RichTextPreviewView: View {
         ])
     }
     
+    /// 處理富文本格式（包括顏色和粗體）
+    private static func processRichText(_ text: String) -> NSAttributedString {
+        // 首先處理顏色標籤
+        let colorProcessed = processColorTags(text)
+        // 然後處理粗體
+        return processBoldText(colorProcessed)
+    }
+    
+    /// 處理顏色標籤，支持兩種格式：<color:#hex>text</color> 和 <span style="color:#hex">text</span>
+    private static func processColorTags(_ text: String) -> NSAttributedString {
+        let mutableResult = NSMutableAttributedString()
+        // 首先清理孤立的色彩標籤
+        var remainingText = cleanupOrphanedColorTags(text)
+        
+        // 基礎屬性
+        let normalAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 16),
+            .foregroundColor: UIColor.label
+        ]
+        
+        // 處理簡化格式和HTML格式，使用非貪婪匹配
+        let patterns = [
+            "<color:(#[0-9A-Fa-f]{6})>(.*?)</color>",
+            "<span style=\"color:(#[0-9A-Fa-f]{6})\">(.*?)</span>"
+        ]
+        
+        var foundMatch = false
+        for pattern in patterns {
+            do {
+                let regex = try NSRegularExpression(pattern: pattern, options: [])
+                let matches = regex.matches(in: remainingText, options: [], range: NSRange(location: 0, length: remainingText.count))
+                
+                if let firstMatch = matches.first {
+                    foundMatch = true
+                    
+                    // 添加匹配前的文本
+                    if firstMatch.range.location > 0 {
+                        let beforeText = (remainingText as NSString).substring(with: NSRange(location: 0, length: firstMatch.range.location))
+                        mutableResult.append(NSAttributedString(string: beforeText, attributes: normalAttributes))
+                    }
+                    
+                    // 處理匹配的顏色文本
+                    let hexColor = (remainingText as NSString).substring(with: firstMatch.range(at: 1))
+                    let coloredText = (remainingText as NSString).substring(with: firstMatch.range(at: 2))
+                    
+                    var colorAttributes = normalAttributes
+                    if let color = UIColor(hex: hexColor) {
+                        colorAttributes[.foregroundColor] = color
+                    }
+                    mutableResult.append(NSAttributedString(string: coloredText, attributes: colorAttributes))
+                    
+                    // 遞歸處理剩餘文本
+                    let afterMatchIndex = firstMatch.range.location + firstMatch.range.length
+                    if afterMatchIndex < remainingText.count {
+                        let afterText = (remainingText as NSString).substring(from: afterMatchIndex)
+                        mutableResult.append(processColorTags(afterText))
+                    }
+                    
+                    return mutableResult
+                }
+            } catch {
+                print("❌ 顏色標籤處理失敗: \(error)")
+            }
+        }
+        
+        // 如果沒有找到顏色標籤，返回普通文本
+        return NSAttributedString(string: remainingText, attributes: normalAttributes)
+    }
+    
+    /// 清理孤立的顏色標籤（沒有對應開始標籤的結束標籤）
+    private static func cleanupOrphanedColorTags(_ text: String) -> String {
+        var cleanedText = text
+        
+        // 移除孤立的 </color> 標籤
+        cleanedText = cleanedText.replacingOccurrences(of: "</color>", with: "")
+        
+        // 移除孤立的 </span> 標籤
+        let orphanedColorClosingTags = [
+            "</color>",
+            "</span>"
+        ]
+        
+        for tag in orphanedColorClosingTags {
+            cleanedText = cleanedText.replacingOccurrences(of: tag, with: "")
+        }
+        
+        return cleanedText
+    }
+    
     /// 處理粗體格式 **text**，保持現有的顏色和其他屬性
     private static func processBoldText(_ attributedText: NSAttributedString) -> NSAttributedString {
         let text = attributedText.string
