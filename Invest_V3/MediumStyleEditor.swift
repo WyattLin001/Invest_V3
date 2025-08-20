@@ -1093,6 +1093,62 @@ struct MediumStyleEditor: View {
         
         return (min(1.0, score), suggestions)
     }
+    
+    // MARK: - Markdown 轉換
+    
+    /// 將 NSAttributedString 轉換為 Markdown 字符串（用於預覽）
+    internal static func convertAttributedStringToMarkdownForPreview(_ attributedString: NSAttributedString) -> String {
+        let string = attributedString.string
+        var markdownContent = ""
+        var currentIndex = 0
+        
+        // 處理富文本內容
+        attributedString.enumerateAttributes(in: NSRange(location: 0, length: attributedString.length), options: []) { attributes, range, _ in
+            let substring = (string as NSString).substring(with: range)
+            
+            // 處理圖片附件
+            if let attachment = attributes[.attachment] as? NSTextAttachment {
+                // 將圖片轉換為Markdown語法
+                markdownContent += "\n![圖片](placeholder)\n"
+                print("🔄 轉換圖片附件為Markdown語法")
+            } else {
+                // 處理文本內容
+                var processedText = substring
+                
+                // 檢查字體屬性
+                if let font = attributes[.font] as? UIFont {
+                    // 處理標題
+                    if font.pointSize > 25 {
+                        // H1
+                        processedText = "# " + processedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    } else if font.pointSize > 20 {
+                        // H2
+                        processedText = "## " + processedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    } else if font.pointSize > 17 {
+                        // H3
+                        processedText = "### " + processedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                    
+                    // 處理粗體
+                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) && font.pointSize <= 17 {
+                        processedText = "**" + processedText + "**"
+                    }
+                }
+                
+                markdownContent += processedText
+            }
+            
+            currentIndex = range.location + range.length
+        }
+        
+        // 清理多餘的換行符
+        let cleanedMarkdown = markdownContent
+            .replacingOccurrences(of: "\n\n\n+", with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        print("🔄 轉換完成，Markdown長度: \(cleanedMarkdown.count)")
+        return cleanedMarkdown
+    }
 }
 
 // MARK: - 預覽 Sheet
@@ -1167,62 +1223,6 @@ struct PreviewSheet: View {
                 }
             }
         }
-    }
-    
-    // MARK: - Markdown 轉換
-    
-    /// 將 NSAttributedString 轉換為 Markdown 字符串（用於預覽）
-    internal static func convertAttributedStringToMarkdownForPreview(_ attributedString: NSAttributedString) -> String {
-        let string = attributedString.string
-        var markdownContent = ""
-        var currentIndex = 0
-        
-        // 處理富文本內容
-        attributedString.enumerateAttributes(in: NSRange(location: 0, length: attributedString.length), options: []) { attributes, range, _ in
-            let substring = (string as NSString).substring(with: range)
-            
-            // 處理圖片附件
-            if let attachment = attributes[.attachment] as? NSTextAttachment {
-                // 將圖片轉換為Markdown語法
-                markdownContent += "\n![圖片](placeholder)\n"
-                print("🔄 轉換圖片附件為Markdown語法")
-            } else {
-                // 處理文本內容
-                var processedText = substring
-                
-                // 檢查字體屬性
-                if let font = attributes[.font] as? UIFont {
-                    // 處理標題
-                    if font.pointSize > 25 {
-                        // H1
-                        processedText = "# " + processedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    } else if font.pointSize > 20 {
-                        // H2
-                        processedText = "## " + processedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    } else if font.pointSize > 17 {
-                        // H3
-                        processedText = "### " + processedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    }
-                    
-                    // 處理粗體
-                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) && font.pointSize <= 17 {
-                        processedText = "**" + processedText + "**"
-                    }
-                }
-                
-                markdownContent += processedText
-            }
-            
-            currentIndex = range.location + range.length
-        }
-        
-        // 清理多餘的換行符
-        let cleanedMarkdown = markdownContent
-            .replacingOccurrences(of: "\n\n\n+", with: "\n\n", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        print("🔄 轉換完成，Markdown長度: \(cleanedMarkdown.count)")
-        return cleanedMarkdown
     }
 }
 
@@ -1323,19 +1323,10 @@ struct RichTextPreviewView: View {
                 mutableText.append(listText)
                 mutableText.append(NSAttributedString(string: "\n"))
                 
-            } else if trimmedLine.hasPrefix("![") {
-                // 圖片處理：![alt text](image_url)
-                if let imageAttachment = processImageMarkdown(trimmedLine) {
-                    mutableText.append(NSAttributedString(attachment: imageAttachment))
-                    mutableText.append(NSAttributedString(string: "\n"))
-                }
             } else if !trimmedLine.isEmpty {
-                // 一般段落，處理粗體格式、顏色和內聯圖片
-                let processedText = processRichText(trimmedLine)
-                mutableText.append(processedText)
-                mutableText.append(NSAttributedString(string: "\n"))
-            } else {
-                // 空行
+                // 普通段落 - 支持內聯格式
+                let processedLine = processRichText(trimmedLine)
+                mutableText.append(processedLine)
                 mutableText.append(NSAttributedString(string: "\n"))
             }
         }
@@ -1343,25 +1334,27 @@ struct RichTextPreviewView: View {
         return mutableText
     }
     
-    /// 為處理過的內聯格式文本應用標題屬性
-    private static func applyHeadingAttributes(_ attributedText: NSAttributedString, fontSize: CGFloat, weight: UIFont.Weight) -> NSAttributedString {
-        let mutableText = NSMutableAttributedString(attributedString: attributedText)
+    /// 應用標題屬性
+    private static func applyHeadingAttributes(_ text: NSAttributedString, fontSize: CGFloat, weight: UIFont.Weight) -> NSAttributedString {
+        let mutableText = NSMutableAttributedString(attributedString: text)
         let fullRange = NSRange(location: 0, length: mutableText.length)
         
-        // 設置統一的標題字體大小和粗細，保持其他屬性（如顏色）
-        mutableText.enumerateAttribute(.font, in: fullRange) { value, range, _ in
-            let newFont = UIFont.systemFont(ofSize: fontSize, weight: weight)
-            mutableText.addAttribute(.font, value: newFont, range: range)
+        mutableText.enumerateAttributes(in: fullRange) { attributes, range, _ in
+            var newAttributes = attributes
+            // 設置標題字體，保持其他屬性（如顏色）
+            let font = UIFont.systemFont(ofSize: fontSize, weight: weight)
+            newAttributes[.font] = font
+            mutableText.setAttributes(newAttributes, range: range)
         }
         
         return mutableText
     }
     
-    /// 為處理過的內聯格式文本應用列表屬性
+    /// 應用列表屬性
     private static func applyListAttributes(_ attributedText: NSAttributedString, prefix: String) -> NSAttributedString {
         let mutableText = NSMutableAttributedString()
         
-        // 添加列表前綴
+        // 創建前綴（編號或項目符號）
         let prefixAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 17),
             .foregroundColor: UIColor.label,
@@ -1397,208 +1390,15 @@ struct RichTextPreviewView: View {
     }
     
     /// 處理 Markdown 圖片格式 ![alt](url) 並創建 NSTextAttachment
-    private static func processImageMarkdown(_ line: String) -> NSTextAttachment? {
-        let pattern = "!\\[([^\\]]*)\\]\\(([^\\)]+)\\)"
-        
-        do {
-            let regex = try NSRegularExpression(pattern: pattern, options: [])
-            let range = NSRange(location: 0, length: line.count)
-            
-            if let match = regex.firstMatch(in: line, options: [], range: range) {
-                let urlRange = match.range(at: 2)
-                let urlString = (line as NSString).substring(with: urlRange)
-                
-                // 創建文本附件
-                let attachment = NSTextAttachment()
-                
-                // 設置佔位符圖片
-                let placeholderImage = createPlaceholderImage(with: "📷 載入中...")
-                ImageSizeConfiguration.configureAttachment(attachment, with: placeholderImage)
-                
-                // 異步加載實際圖片
-                Task {
-                    await loadImageForAttachment(attachment, from: urlString)
-                }
-                
-                return attachment
-            }
-        } catch {
-            print("❌ 圖片 Markdown 解析失敗: \(error)")
-        }
-        
-        return nil
-    }
-    
-    /// 創建佔位符圖片
-    private static func createPlaceholderImage(with text: String) -> UIImage {
-        let size = CGSize(width: 200, height: 100)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        
-        return renderer.image { context in
-            // 背景色
-            UIColor.systemGray5.setFill()
-            context.fill(CGRect(origin: .zero, size: size))
-            
-            // 邊框
-            UIColor.systemGray3.setStroke()
-            context.stroke(CGRect(origin: .zero, size: size))
-            
-            // 文字
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16),
-                .foregroundColor: UIColor.systemGray
-            ]
-            
-            let textSize = text.size(withAttributes: attributes)
-            let textRect = CGRect(
-                x: (size.width - textSize.width) / 2,
-                y: (size.height - textSize.height) / 2,
-                width: textSize.width,
-                height: textSize.height
-            )
-            
-            text.draw(in: textRect, withAttributes: attributes)
-        }
-    }
-    
-    /// 異步加載圖片並更新附件
-    private static func loadImageForAttachment(_ attachment: NSTextAttachment, from urlString: String) async {
-        guard let url = URL(string: urlString) else {
-            print("❌ 無效的圖片 URL: \(urlString)")
-            return
-        }
-        
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            
-            if let image = UIImage(data: data) {
-                await MainActor.run {
-                    // 使用統一的圖片尺寸配置
-                    ImageSizeConfiguration.configureAttachment(attachment, with: image)
-                    
-                    // 發送通知以更新顯示
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("ImageLoadedForDraft"),
-                        object: attachment
-                    )
-                }
-            } else {
-                print("❌ 無法解析圖片數據: \(urlString)")
-                await MainActor.run {
-                    let errorImage = createPlaceholderImage(with: "❌ 載入失敗")
-                    ImageSizeConfiguration.configureAttachment(attachment, with: errorImage)
-                }
-            }
-        } catch {
-            print("❌ 圖片載入失敗: \(error.localizedDescription)")
-            await MainActor.run {
-                let errorImage = createPlaceholderImage(with: "❌ 載入失敗")
-                ImageSizeConfiguration.configureAttachment(attachment, with: errorImage)
-            }
-        }
-    }
-    
-    /// 處理文本中的富文本格式（粗體、顏色等）
-    private static func processRichText(_ text: String) -> NSAttributedString {
-        // 首先處理 HTML 顏色標籤
-        let colorProcessedText = processColorTags(text)
-        // 然後處理粗體
-        return processBoldText(colorProcessedText)
-    }
-    
-    /// 清理孤立的顏色標籤（沒有對應開始標籤的結束標籤）
-    private static func cleanupOrphanedColorTags(_ text: String) -> String {
-        var cleanedText = text
-        
-        // 移除孤立的 </color> 標籤
-        cleanedText = cleanedText.replacingOccurrences(of: "</color>", with: "")
-        
-        // 移除孤立的 </span> 標籤（如果前面沒有對應的 <span style="color:..."> 開始標籤）
-        do {
-            // 找到所有的 </span> 標籤位置
-            let closingSpanPattern = "</span>"
-            let openingSpanPattern = "<span style=\"color:(#[0-9A-Fa-f]{6})\">"
-            
-            // 使用更安全的方法：只移除明顯孤立的色彩相關標籤
-            let orphanedColorClosingTags = [
-                "</color>",
-                "</span>" // 簡化處理，假設所有 </span> 都是顏色相關的（根據應用上下文）
-            ]
-            
-            for tag in orphanedColorClosingTags {
-                cleanedText = cleanedText.replacingOccurrences(of: tag, with: "")
-            }
-            
-        } catch {
-            print("⚠️ 清理孤立標籤時發生錯誤: \(error)")
-        }
-        
-        return cleanedText
-    }
-    
-    /// 處理顏色標籤，支持兩種格式：<color:#hex>text</color> 和 <span style="color:#hex">text</span>
-    private static func processColorTags(_ text: String) -> NSAttributedString {
-        let mutableResult = NSMutableAttributedString()
-        // 首先清理孤立的色彩標籤
-        var remainingText = cleanupOrphanedColorTags(text)
-        
-        // 基礎屬性
-        let normalAttributes: [NSAttributedString.Key: Any] = [
+    private static func processImageMarkdown(_ markdown: String) -> NSAttributedString {
+        // 這裡可以處理圖片markdown語法，目前返回佔位文字
+        return NSAttributedString(string: "[圖片]", attributes: [
             .font: UIFont.systemFont(ofSize: 16),
-            .foregroundColor: UIColor.label
-        ]
-        
-        // 處理簡化格式和HTML格式，使用非貪婪匹配
-        let patterns = [
-            "<color:(#[0-9A-Fa-f]{6})>(.*?)</color>",
-            "<span style=\"color:(#[0-9A-Fa-f]{6})\">(.*?)</span>"
-        ]
-        
-        var foundMatch = false
-        for pattern in patterns {
-            do {
-                let regex = try NSRegularExpression(pattern: pattern, options: [])
-                let matches = regex.matches(in: remainingText, options: [], range: NSRange(location: 0, length: remainingText.count))
-                
-                if let firstMatch = matches.first {
-                    foundMatch = true
-                    
-                    // 添加匹配前的文本
-                    if firstMatch.range.location > 0 {
-                        let beforeText = (remainingText as NSString).substring(with: NSRange(location: 0, length: firstMatch.range.location))
-                        mutableResult.append(NSAttributedString(string: beforeText, attributes: normalAttributes))
-                    }
-                    
-                    // 處理匹配的顏色文本
-                    let hexColor = (remainingText as NSString).substring(with: firstMatch.range(at: 1))
-                    let coloredText = (remainingText as NSString).substring(with: firstMatch.range(at: 2))
-                    
-                    var colorAttributes = normalAttributes
-                    if let color = UIColor(hex: hexColor) {
-                        colorAttributes[.foregroundColor] = color
-                    }
-                    mutableResult.append(NSAttributedString(string: coloredText, attributes: colorAttributes))
-                    
-                    // 遞歸處理剩餘文本
-                    let afterMatchIndex = firstMatch.range.location + firstMatch.range.length
-                    if afterMatchIndex < remainingText.count {
-                        let afterText = (remainingText as NSString).substring(from: afterMatchIndex)
-                        mutableResult.append(processColorTags(afterText))
-                    }
-                    
-                    return mutableResult
-                }
-            } catch {
-                print("❌ 顏色標籤處理失敗: \(error)")
-            }
-        }
-        
-        // 如果沒有找到顏色標籤，返回普通文本
-        return NSAttributedString(string: remainingText, attributes: normalAttributes)
+            .foregroundColor: UIColor.systemBlue
+        ])
     }
     
-    
-    /// 處理文本中的粗體格式 **text**，保持現有的顏色和其他屬性
+    /// 處理粗體格式 **text**，保持現有的顏色和其他屬性
     private static func processBoldText(_ attributedText: NSAttributedString) -> NSAttributedString {
         let text = attributedText.string
         let finalText = NSMutableAttributedString(attributedString: attributedText)
@@ -1610,8 +1410,8 @@ struct RichTextPreviewView: View {
             let matches = regex.matches(in: text, options: [], range: range).reversed() // 從後往前處理避免範圍變化
             
             for match in matches {
-                let boldRange = match.range(at: 1)
-                let boldText = (text as NSString).substring(with: boldRange)
+                let boldTextRange = match.range(at: 1)
+                let boldText = (text as NSString).substring(with: boldTextRange)
                 
                 // 獲取原有的屬性
                 var existingAttributes = finalText.attributes(at: match.range.location, effectiveRange: nil)
