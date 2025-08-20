@@ -1227,6 +1227,9 @@ struct RichTextPreviewView: UIViewRepresentable {
         let processedText = processImagesForPreview(trimmedText)
         uiView.attributedText = processedText
         
+        // 立即強制佈局，確保圖片渲染
+        forceImmediateImageRendering(in: uiView)
+        
         // 精確計算並設置內容高度和寬度 - 完全復制 RichTextView 邏輯
         DispatchQueue.main.async {
             if uiView.bounds.width > 0 {
@@ -1241,6 +1244,9 @@ struct RichTextPreviewView: UIViewRepresentable {
                 uiView.setNeedsLayout()
                 uiView.layoutIfNeeded()
                 
+                // 再次強制圖片渲染（延遲確保）
+                self.forceImmediateImageRendering(in: uiView)
+                
                 print("🔍 預覽視圖 bounds.width: \(uiView.bounds.width)")
                 print("🔍 預覽視圖 textContainerInset: \(uiView.textContainerInset)")
                 print("🔍 預覽視圖 計算可用寬度: \(availableWidth)")
@@ -1251,6 +1257,44 @@ struct RichTextPreviewView: UIViewRepresentable {
         }
         
         print("🔍 updateUIView - uiView.attributedText.length: \(uiView.attributedText?.length ?? 0)")
+    }
+    
+    // 強制立即渲染圖片附件
+    private func forceImmediateImageRendering(in textView: UITextView) {
+        guard let attributedText = textView.attributedText else { return }
+        
+        // 強制觸發所有圖片附件的渲染
+        let range = NSRange(location: 0, length: attributedText.length)
+        
+        // 方法1: 強制佈局管理器處理所有附件
+        textView.layoutManager.invalidateDisplay(forCharacterRange: range)
+        textView.layoutManager.ensureLayout(for: textView.textContainer)
+        
+        // 方法2: 強制重新繪製
+        textView.setNeedsDisplay()
+        textView.layoutIfNeeded()
+        
+        // 方法3: 遍歷所有附件並強制觸發渲染
+        attributedText.enumerateAttribute(.attachment, in: range) { value, attachmentRange, _ in
+            if let attachment = value as? NSTextAttachment, let image = attachment.image {
+                // 觸發附件的渲染回調
+                textView.layoutManager.invalidateDisplay(forCharacterRange: attachmentRange)
+                
+                // 確保圖片數據完整
+                if attachment.bounds == .zero {
+                    let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
+                    attachment.bounds = CGRect(origin: .zero, size: displaySize)
+                }
+                
+                print("🎯 強制渲染圖片附件在位置 \(attachmentRange.location)，尺寸: \(attachment.bounds.size)")
+            }
+        }
+        
+        // 方法4: 再次強制佈局確保生效
+        DispatchQueue.main.async {
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            textView.setNeedsDisplay()
+        }
     }
     
     // 處理圖片以便在預覽中正確顯示
@@ -1264,34 +1308,35 @@ struct RichTextPreviewView: UIViewRepresentable {
             if let attachment = value as? NSTextAttachment {
                 var processedImage: UIImage? = attachment.image
                 
-                // 如果 attachment 沒有圖片，嘗試創建一個占位符或使用默認尺寸
+                // 檢查並修復圖片初始化問題
                 if attachment.image == nil {
                     print("⚠️ 發現空的圖片 attachment，嘗試修復...")
                     
                     // 檢查是否有設置的 bounds，如果有，創建一個占位符圖片
                     if attachment.bounds != .zero {
-                        // 使用現有的 bounds 創建一個灰色占位符
                         let size = attachment.bounds.size
-                        let renderer = UIGraphicsImageRenderer(size: size)
-                        let placeholderImage = renderer.image { context in
-                            context.cgContext.setFillColor(UIColor.systemGray4.cgColor)
-                            context.cgContext.fill(CGRect(origin: .zero, size: size))
-                        }
-                        attachment.image = placeholderImage
-                        processedImage = placeholderImage
+                        processedImage = createValidImageForAttachment(size: size)
+                        attachment.image = processedImage
                         print("🔧 為空attachment創建占位符圖片，尺寸: \(size)")
                     } else {
                         // 如果連 bounds 都沒有，使用默認尺寸
                         let defaultSize = CGSize(width: 300, height: 200)
-                        let renderer = UIGraphicsImageRenderer(size: defaultSize)
-                        let placeholderImage = renderer.image { context in
-                            context.cgContext.setFillColor(UIColor.systemGray4.cgColor)
-                            context.cgContext.fill(CGRect(origin: .zero, size: defaultSize))
-                        }
-                        attachment.image = placeholderImage
+                        processedImage = createValidImageForAttachment(size: defaultSize)
+                        attachment.image = processedImage
                         attachment.bounds = CGRect(origin: .zero, size: defaultSize)
-                        processedImage = placeholderImage
                         print("🔧 為空attachment創建默認占位符圖片，尺寸: \(defaultSize)")
+                    }
+                } else {
+                    // 即使有圖片，也要檢查是否是"載入中"的占位符圖片
+                    if isLoadingPlaceholderImage(attachment.image!) {
+                        print("⚠️ 發現載入中占位符圖片，替換為實際內容...")
+                        let size = attachment.bounds.size != .zero ? attachment.bounds.size : CGSize(width: 300, height: 200)
+                        processedImage = createValidImageForAttachment(size: size)
+                        attachment.image = processedImage
+                        if attachment.bounds == .zero {
+                            attachment.bounds = CGRect(origin: .zero, size: size)
+                        }
+                        print("🔧 替換載入中占位符，尺寸: \(size)")
                     }
                 }
                 
@@ -1339,7 +1384,33 @@ struct RichTextPreviewView: UIViewRepresentable {
         // 處理完圖片後，清理HTML標籤（特別是color標籤）
         cleanupHtmlTags(in: mutableText)
         
+        // 強制所有圖片附件立即生效
+        forceImageAttachmentsInitialization(in: mutableText)
+        
         return mutableText
+    }
+    
+    // 強制初始化所有圖片附件，確保立即顯示
+    private func forceImageAttachmentsInitialization(in attributedText: NSMutableAttributedString) {
+        attributedText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedText.length)) { value, range, _ in
+            if let attachment = value as? NSTextAttachment {
+                // 強制觸發圖片渲染
+                if let image = attachment.image {
+                    // 重新設置圖片確保立即生效
+                    let tempImage = image
+                    attachment.image = nil
+                    attachment.image = tempImage
+                    
+                    // 確保bounds正確設置
+                    if attachment.bounds == .zero {
+                        let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
+                        attachment.bounds = CGRect(origin: .zero, size: displaySize)
+                    }
+                    
+                    print("🔄 強制重新初始化圖片附件，尺寸: \(attachment.bounds.size)")
+                }
+            }
+        }
     }
     
     // 創建圖片標籤
@@ -1366,6 +1437,82 @@ struct RichTextPreviewView: UIViewRepresentable {
         ]
         
         return NSAttributedString(string: captionText, attributes: captionAttributes)
+    }
+    
+    // 檢測是否為載入中的占位符圖片
+    private func isLoadingPlaceholderImage(_ image: UIImage) -> Bool {
+        // 檢測圖片是否包含"載入中"相關的特徵
+        // 方法1: 檢查圖片尺寸是否為標準占位符尺寸
+        let standardPlaceholderSizes = [
+            CGSize(width: 200, height: 100),  // createPlaceholderImage的默認尺寸
+            CGSize(width: 300, height: 200),  // 其他可能的占位符尺寸
+        ]
+        
+        for size in standardPlaceholderSizes {
+            if abs(image.size.width - size.width) < 1 && abs(image.size.height - size.height) < 1 {
+                // 進一步檢查：嘗試檢測圖片是否為純色或簡單圖形
+                if isSimplePlaceholderPattern(image) {
+                    return true
+                }
+            }
+        }
+        
+        return false
+    }
+    
+    // 檢測是否為簡單的占位符模式（純色背景等）
+    private func isSimplePlaceholderPattern(_ image: UIImage) -> Bool {
+        guard let cgImage = image.cgImage else { return false }
+        
+        // 如果圖片很小，很可能是占位符
+        if cgImage.width < 400 && cgImage.height < 300 {
+            // 簡單啟發式：占位符圖片通常顏色變化不大
+            return true
+        }
+        
+        return false
+    }
+    
+    // 創建有效的圖片用於attachment（非載入中占位符）
+    private func createValidImageForAttachment(size: CGSize) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { context in
+            // 創建漸層背景而不是純色，看起來更像真實圖片
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let colors = [UIColor.systemGray5.cgColor, UIColor.systemGray4.cgColor]
+            guard let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: [0.0, 1.0]) else {
+                // 如果漸層創建失敗，使用純色
+                UIColor.systemGray4.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                return
+            }
+            
+            // 繪製漸層
+            context.cgContext.drawLinearGradient(
+                gradient,
+                start: CGPoint.zero,
+                end: CGPoint(x: 0, y: size.height),
+                options: []
+            )
+            
+            // 添加邊框
+            UIColor.systemGray3.setStroke()
+            context.cgContext.setLineWidth(1)
+            context.cgContext.stroke(CGRect(origin: .zero, size: size))
+            
+            // 在中心添加圖片圖標
+            let iconSize: CGFloat = min(size.width, size.height) * 0.3
+            let iconRect = CGRect(
+                x: (size.width - iconSize) / 2,
+                y: (size.height - iconSize) / 2,
+                width: iconSize,
+                height: iconSize
+            )
+            
+            // 繪製圖片圖標
+            UIColor.systemGray2.setFill()
+            context.cgContext.fillEllipse(in: iconRect)
+        }
     }
     
     // 清理HTML標籤（特別是color標籤）
