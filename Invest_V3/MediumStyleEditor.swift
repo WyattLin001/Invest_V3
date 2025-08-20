@@ -1262,8 +1262,41 @@ struct RichTextPreviewView: UIViewRepresentable {
         // 遍歷所有附件，確保圖片能正確顯示並添加標籤
         originalText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: originalText.length)) { value, range, _ in
             if let attachment = value as? NSTextAttachment {
+                var processedImage: UIImage? = attachment.image
+                
+                // 如果 attachment 沒有圖片，嘗試創建一個占位符或使用默認尺寸
+                if attachment.image == nil {
+                    print("⚠️ 發現空的圖片 attachment，嘗試修復...")
+                    
+                    // 檢查是否有設置的 bounds，如果有，創建一個占位符圖片
+                    if attachment.bounds != .zero {
+                        // 使用現有的 bounds 創建一個灰色占位符
+                        let size = attachment.bounds.size
+                        let renderer = UIGraphicsImageRenderer(size: size)
+                        let placeholderImage = renderer.image { context in
+                            context.cgContext.setFillColor(UIColor.systemGray4.cgColor)
+                            context.cgContext.fill(CGRect(origin: .zero, size: size))
+                        }
+                        attachment.image = placeholderImage
+                        processedImage = placeholderImage
+                        print("🔧 為空attachment創建占位符圖片，尺寸: \(size)")
+                    } else {
+                        // 如果連 bounds 都沒有，使用默認尺寸
+                        let defaultSize = CGSize(width: 300, height: 200)
+                        let renderer = UIGraphicsImageRenderer(size: defaultSize)
+                        let placeholderImage = renderer.image { context in
+                            context.cgContext.setFillColor(UIColor.systemGray4.cgColor)
+                            context.cgContext.fill(CGRect(origin: .zero, size: defaultSize))
+                        }
+                        attachment.image = placeholderImage
+                        attachment.bounds = CGRect(origin: .zero, size: defaultSize)
+                        processedImage = placeholderImage
+                        print("🔧 為空attachment創建默認占位符圖片，尺寸: \(defaultSize)")
+                    }
+                }
+                
                 // 使用統一的圖片尺寸配置
-                if let image = attachment.image {
+                if let image = processedImage {
                     ImageSizeConfiguration.configureAttachment(attachment, with: image)
                     
                     // 調試信息
@@ -1297,9 +1330,14 @@ struct RichTextPreviewView: UIViewRepresentable {
                         // 更新偏移量
                         insertionOffset += caption.length
                     }
+                } else {
+                    print("❌ 無法為attachment設置圖片")
                 }
             }
         }
+        
+        // 處理完圖片後，清理HTML標籤（特別是color標籤）
+        cleanupHtmlTags(in: mutableText)
         
         return mutableText
     }
@@ -1328,6 +1366,43 @@ struct RichTextPreviewView: UIViewRepresentable {
         ]
         
         return NSAttributedString(string: captionText, attributes: captionAttributes)
+    }
+    
+    // 清理HTML標籤（特別是color標籤）
+    private func cleanupHtmlTags(in mutableText: NSMutableAttributedString) {
+        let string = mutableText.string
+        
+        // 移除各種HTML標籤
+        let htmlTagPatterns = [
+            "</color>",
+            "<color[^>]*>",
+            "</?span[^>]*>",
+            "</?div[^>]*>",
+            "</?p[^>]*>",
+            "</?br[^>]*>?"
+        ]
+        
+        var processedString = string
+        for pattern in htmlTagPatterns {
+            do {
+                let regex = try NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+                processedString = regex.stringByReplacingMatches(
+                    in: processedString,
+                    options: [],
+                    range: NSRange(location: 0, length: processedString.count),
+                    withTemplate: ""
+                )
+            } catch {
+                print("⚠️ 清理HTML標籤時發生錯誤: \(error.localizedDescription)")
+            }
+        }
+        
+        // 如果字符串有變化，更新NSMutableAttributedString
+        if processedString != string {
+            let range = NSRange(location: 0, length: mutableText.length)
+            mutableText.replaceCharacters(in: range, with: processedString)
+            print("🧹 已清理HTML標籤，原長度: \(string.count), 清理後: \(processedString.count)")
+        }
     }
     
     // 移除NSAttributedString尾部的空白字符和換行符
