@@ -1108,9 +1108,18 @@ struct MediumStyleEditor: View {
             
             // 處理圖片附件
             if let attachment = attributes[.attachment] as? NSTextAttachment {
-                // 將圖片轉換為Markdown語法
-                markdownContent += "\n![圖片](placeholder)\n"
-                print("🔄 轉換圖片附件為Markdown語法")
+                // 對於預覽，我們需要處理圖片附件
+                if let image = attachment.image,
+                   let imageData = image.pngData() {
+                    let base64String = imageData.base64EncodedString()
+                    let dataURL = "data:image/png;base64,\(base64String)"
+                    markdownContent += "\n![圖片](\(dataURL))\n"
+                    print("🔄 轉換圖片附件為base64 Markdown語法")
+                } else {
+                    // 如果無法獲取圖片數據，跳過圖片顯示
+                    markdownContent += "\n*[圖片]*\n"
+                    print("🔄 圖片附件無法轉換，使用文字占位符")
+                }
             } else {
                 // 處理文本內容
                 var processedText = substring
