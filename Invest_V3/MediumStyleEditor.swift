@@ -1168,55 +1168,6 @@ struct PreviewSheet: View {
             }
         }
     }
-}
-
-// MARK: - 富文本預覽視圖
-struct RichTextPreviewView: View {
-    let attributedText: NSAttributedString
-    
-    init(attributedText: NSAttributedString) {
-        self.attributedText = attributedText
-    }
-    
-    // 兼容舊版本的字符串初始化器
-    init(content: String) {
-        self.attributedText = NSAttributedString(string: content, attributes: [
-            .font: UIFont.systemFont(ofSize: 17),
-            .foregroundColor: UIColor.label
-        ])
-    }
-    
-    // 將 NSAttributedString 轉換為 Markdown
-    private var markdownContent: String {
-        return MediumStyleEditor.convertAttributedStringToMarkdownForPreview(attributedText)
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if !markdownContent.isEmpty {
-                Markdown(markdownContent)
-                    .markdownTextStyle {
-                        FontSize(.em(1.0))
-                    }
-                    .modifier(MarkdownHeadingStyleModifier())
-                    .modifier(MarkdownBlockStyleModifier())
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 16)
-                    .padding(.bottom, 8)
-            } else {
-                Text("無內容")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
-            }
-        }
-        .onAppear {
-            print("🔍 MarkdownPreview - 內容長度: \(markdownContent.count)")
-            print("🔍 MarkdownPreview - 內容預覽: \(markdownContent.prefix(200))")
-        }
-    }
     
     // MARK: - Markdown 轉換
     
@@ -1272,6 +1223,55 @@ struct RichTextPreviewView: View {
         
         print("🔄 轉換完成，Markdown長度: \(cleanedMarkdown.count)")
         return cleanedMarkdown
+    }
+}
+
+// MARK: - 富文本預覽視圖
+struct RichTextPreviewView: View {
+    let attributedText: NSAttributedString
+    
+    init(attributedText: NSAttributedString) {
+        self.attributedText = attributedText
+    }
+    
+    // 兼容舊版本的字符串初始化器
+    init(content: String) {
+        self.attributedText = NSAttributedString(string: content, attributes: [
+            .font: UIFont.systemFont(ofSize: 17),
+            .foregroundColor: UIColor.label
+        ])
+    }
+    
+    // 將 NSAttributedString 轉換為 Markdown
+    private var markdownContent: String {
+        return MediumStyleEditor.convertAttributedStringToMarkdownForPreview(attributedText)
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !markdownContent.isEmpty {
+                Markdown(markdownContent)
+                    .markdownTextStyle {
+                        FontSize(.em(1.0))
+                    }
+                    .modifier(MarkdownHeadingStyleModifier())
+                    .modifier(MarkdownBlockStyleModifier())
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+            } else {
+                Text("無內容")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding()
+            }
+        }
+        .onAppear {
+            print("🔍 MarkdownPreview - 內容長度: \(markdownContent.count)")
+            print("🔍 MarkdownPreview - 內容預覽: \(markdownContent.prefix(200))")
+        }
     }
     
     /// 將 Markdown 文本轉換為 NSAttributedString
