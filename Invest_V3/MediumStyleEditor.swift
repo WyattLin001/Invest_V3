@@ -1221,7 +1221,7 @@ struct RichTextPreviewView: View {
     // MARK: - Markdown 轉換
     
     /// 將 NSAttributedString 轉換為 Markdown 字符串（用於預覽）
-    static func convertAttributedStringToMarkdown(_ attributedString: NSAttributedString) -> String {
+    internal static func convertAttributedStringToMarkdown(_ attributedString: NSAttributedString) -> String {
         let string = attributedString.string
         var markdownContent = ""
         var currentIndex = 0
