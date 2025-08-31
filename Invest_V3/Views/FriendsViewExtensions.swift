@@ -390,8 +390,23 @@ struct FriendProfileView: View {
     
     // MARK: - 操作方法
     private func startChat() {
-        // TODO: 實現聊天功能
-        print("💬 開始與 \(friend.displayName) 聊天")
+        Logger.info("💬 開始與 \(friend.displayName) 聊天", category: .ui)
+        
+        // 實現聊天功能
+        Task {
+            do {
+                let chatGroup = try await ChatService.shared.getOrCreatePrivateChat(
+                    withUser: friend.id
+                )
+                
+                await MainActor.run {
+                    // 導航到聊天界面
+                    // navigationManager.navigateToChat(groupId: chatGroup.id)
+                }
+            } catch {
+                Logger.error("❌ 無法開始聊天: \(error.localizedDescription)", category: .network)
+            }
+        }
     }
     
     private func toggleInvestmentTracking() {
@@ -400,13 +415,44 @@ struct FriendProfileView: View {
     }
     
     private func shareProfile() {
-        // TODO: 實現分享功能
-        print("📤 分享 \(friend.displayName) 的資料")
+        Logger.info("📤 分享 \(friend.displayName) 的資料", category: .ui)
+        
+        // 實現分享功能
+        let shareText = "推薦投資專家：\(friend.displayName)\n" +
+                       "投資回報率：\(String(format: "%.2f", friend.totalReturn))%\n" +
+                       "投資風格：\(friend.investmentStyle?.displayName ?? "未知")\n" +
+                       "來自 Invest_V3 投資平台"
+        
+        let activityViewController = UIActivityViewController(
+            activityItems: [shareText],
+            applicationActivities: nil
+        )
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            activityViewController.popoverPresentationController?.sourceView = rootViewController.view
+            rootViewController.present(activityViewController, animated: true)
+        }
     }
     
     private func removeFriend() {
-        // TODO: 實現移除好友功能
-        print("❌ 移除好友 \(friend.displayName)")
+        Logger.info("❌ 移除好友 \(friend.displayName)", category: .ui)
+        
+        // 實現移除好友功能
+        Task {
+            do {
+                try await FriendsService.shared.removeFriend(friendId: friend.id)
+                
+                await MainActor.run {
+                    // 更新UI狀態，隐藏或移除好友卡片
+                    // friendsManager.removeFriend(friend.id)
+                }
+                
+                Logger.info("✅ 成功移除好友 \(friend.displayName)", category: .ui)
+            } catch {
+                Logger.error("❌ 移除好友失敗: \(error.localizedDescription)", category: .network)
+            }
+        }
         dismiss()
     }
 }

@@ -4,12 +4,19 @@ struct InvestmentGroup: Codable, Identifiable {
     let id: UUID
     let name: String
     let host: String
+    let hostId: UUID?
     let returnRate: Double
     let entryFee: String?
+    let tokenCost: Int
     let memberCount: Int
+    let maxMembers: Int
     let category: String?
-    let rules: String?  // 新增群組規定欄位
-    let tokenCost: Int  // 加入群組需要的代幣數量
+    let description: String?
+    let rules: String?
+    let isPrivate: Bool
+    let inviteCode: String?
+    let portfolioValue: Double
+    let rankingPosition: Int
     let createdAt: Date
     let updatedAt: Date
     
@@ -23,22 +30,42 @@ struct InvestmentGroup: Codable, Identifiable {
         } else {
             id = try container.decode(UUID.self, forKey: .id)
         }
+        
         name = try container.decode(String.self, forKey: .name)
         host = try container.decode(String.self, forKey: .host)
+        
+        // Handle hostId
+        if let hostIdString = try? container.decodeIfPresent(String.self, forKey: .hostId) {
+            hostId = UUID(uuidString: hostIdString)
+        } else {
+            hostId = try container.decodeIfPresent(UUID.self, forKey: .hostId)
+        }
+        
         returnRate = try container.decode(Double.self, forKey: .returnRate)
         entryFee = try container.decodeIfPresent(String.self, forKey: .entryFee)
+        tokenCost = try container.decodeIfPresent(Int.self, forKey: .tokenCost) ?? 0
         memberCount = try container.decode(Int.self, forKey: .memberCount)
+        maxMembers = try container.decodeIfPresent(Int.self, forKey: .maxMembers) ?? 100
         category = try container.decodeIfPresent(String.self, forKey: .category)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        rules = try container.decodeIfPresent(String.self, forKey: .rules)
+        isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate) ?? false
+        inviteCode = try container.decodeIfPresent(String.self, forKey: .inviteCode)
+        portfolioValue = try container.decodeIfPresent(Double.self, forKey: .portfolioValue) ?? 0.0
+        rankingPosition = try container.decodeIfPresent(Int.self, forKey: .rankingPosition) ?? 0
         
-        // Handle missing columns with default values  
-        rules = try container.decodeIfPresent(String.self, forKey: .rules) ?? "投資群組規則"
+        // Handle date strings from database
+        if let createdAtString = try? container.decode(String.self, forKey: .createdAt) {
+            createdAt = ISO8601DateFormatter().date(from: createdAtString) ?? Date()
+        } else {
+            createdAt = try container.decode(Date.self, forKey: .createdAt)
+        }
         
-        // Parse token cost from entryFee string (e.g., "10 代幣" -> 10)
-        // Since tokenCost column doesn't exist in DB, always parse from entryFee
-        tokenCost = Self.parseTokenCost(from: entryFee)
-        
-        createdAt = try container.decode(Date.self, forKey: .createdAt)
-        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        if let updatedAtString = try? container.decode(String.self, forKey: .updatedAt) {
+            updatedAt = ISO8601DateFormatter().date(from: updatedAtString) ?? Date()
+        } else {
+            updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        }
     }
     
     // Helper method to parse token cost from entryFee string
@@ -51,29 +78,29 @@ struct InvestmentGroup: Codable, Identifiable {
     }
     
     // Regular initializer for creating new instances
-    init(id: UUID, name: String, host: String, returnRate: Double, entryFee: String?, memberCount: Int, category: String?, rules: String?, tokenCost: Int, createdAt: Date, updatedAt: Date) {
+    init(id: UUID, name: String, host: String, hostId: UUID? = nil, returnRate: Double, entryFee: String?, tokenCost: Int, memberCount: Int, maxMembers: Int = 100, category: String?, description: String?, rules: String?, isPrivate: Bool = false, inviteCode: String? = nil, portfolioValue: Double = 0.0, rankingPosition: Int = 0, createdAt: Date, updatedAt: Date) {
         self.id = id
         self.name = name
         self.host = host
+        self.hostId = hostId
         self.returnRate = returnRate
         self.entryFee = entryFee
-        self.memberCount = memberCount
-        self.category = category
-        self.rules = rules
         self.tokenCost = tokenCost
+        self.memberCount = memberCount
+        self.maxMembers = maxMembers
+        self.category = category
+        self.description = description
+        self.rules = rules
+        self.isPrivate = isPrivate
+        self.inviteCode = inviteCode
+        self.portfolioValue = portfolioValue
+        self.rankingPosition = rankingPosition
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
     
     // 為了向後兼容，提供預設值
-    var description: String { "投資群組" }
-    var hostId: UUID { UUID() }
     var hostName: String { host }
-    var maxMembers: Int { 100 }
-    var isPrivate: Bool { false }
-    var inviteCode: String? { nil }
-    var portfolioValue: Double { 1000000.0 }
-    var rankingPosition: Int { 0 }
     
     // 安全的格式化回報率顯示
     var formattedReturnRate: String {
@@ -97,11 +124,19 @@ struct InvestmentGroup: Codable, Identifiable {
         case id
         case name
         case host
+        case hostId = "host_id"
         case returnRate = "return_rate"
         case entryFee = "entry_fee"
+        case tokenCost = "token_cost"
         case memberCount = "member_count"
+        case maxMembers = "max_members"
         case category
+        case description
         case rules
+        case isPrivate = "is_private"
+        case inviteCode = "invite_code"
+        case portfolioValue = "portfolio_value"
+        case rankingPosition = "ranking_position"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }

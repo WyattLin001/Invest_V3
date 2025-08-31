@@ -730,8 +730,8 @@ struct SettingsView: View {
     
     // MARK: - User ID Management
     private func getCurrentUserName() -> String {
-        if let currentUser = SupabaseService.shared.getCurrentUser() {
-            return currentUser.username
+        if let currentUser = ServiceCoordinator.shared.core.getCurrentUser() {
+            return currentUser.email ?? "Unknown"
         }
         return viewModel.userId
     }

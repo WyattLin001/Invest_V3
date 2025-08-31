@@ -337,12 +337,18 @@ struct FriendsView: View {
                     ))
                     .frame(width: 60, height: 60)
                 
-                if let avatarUrl = friend.avatarUrl {
-                    // TODO: 實現頭像載入
-                    Text(String(friend.displayName.prefix(1)))
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                if let avatarUrl = friend.avatarUrl, let url = URL(string: avatarUrl) {
+                    // 實現頭像載入
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Text(String(friend.displayName.prefix(1)))
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                    }
                 } else {
                     Text(String(friend.displayName.prefix(1)))
                         .font(.title)
@@ -506,12 +512,20 @@ struct FriendsView: View {
                     .fill(Color.systemTertiaryBackground)
                     .frame(width: 50, height: 50)
                 
-                if let avatarUrl = friend.avatarUrl {
-                    // TODO: 實現頭像載入
-                    Text(String(friend.displayName.prefix(1)))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                if let avatarUrl = friend.avatarUrl, let url = URL(string: avatarUrl) {
+                    // 實現頭像載入
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .clipShape(Circle())
+                    } placeholder: {
+                        Text(String(friend.displayName.prefix(1)))
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                    }
+                    .frame(width: 50, height: 50)
                 } else {
                     Text(String(friend.displayName.prefix(1)))
                         .font(.title2)
@@ -1278,7 +1292,7 @@ struct FriendsView: View {
                 }
             }
             
-            if let description = group.description {
+            if let description = group.description, !description.isEmpty {
                 Text(description)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -1293,7 +1307,8 @@ struct FriendsView: View {
                 Spacer()
                 
                 Button("加入討論") {
-                    // TODO: 實現加入群組功能
+                    // 實現加入群組功能
+                    joinGroupDiscussion(group)
                 }
                 .font(.caption)
                 .foregroundColor(.brandGreen)
@@ -1344,23 +1359,115 @@ struct FriendsView: View {
     
     // MARK: - 好友操作
     private func startChatWithFriend(_ friend: Friend) {
-        // TODO: 實現聊天功能
-        print("💬 開始與 \(friend.displayName) 聊天")
+        Logger.info("💬 開始與 \(friend.displayName) 聊天", category: .ui)
+        
+        // 實現聊天功能
+        Task {
+            do {
+                // 檢查是否已有聊天群組或創建私人聊天
+                let chatGroup = try await ChatService.shared.getOrCreatePrivateChat(
+                    withUser: friend.id
+                )
+                
+                await MainActor.run {
+                    // 導航到聊天界面
+                    // navigationManager.navigateToChat(groupId: chatGroup.id)
+                }
+            } catch {
+                Logger.error("❌ 無法開始聊天: \(error.localizedDescription)", category: .network)
+            }
+        }
     }
     
     private func trackFriendInvestment(_ friend: Friend) {
-        // TODO: 實現追蹤投資功能
-        print("📈 追蹤 \(friend.displayName) 的投資")
+        Logger.info("📈 追蹤 \(friend.displayName) 的投資", category: .ui)
+        
+        // 實現追蹤投資功能
+        Task {
+            do {
+                try await FriendsService.shared.followUserInvestments(
+                    userId: friend.id
+                )
+                
+                await MainActor.run {
+                    // 更新UI狀態，顯示已追蹤
+                    // friend.isTracking = true
+                }
+                
+                Logger.info("✅ 成功追蹤 \(friend.displayName) 的投資", category: .ui)
+            } catch {
+                Logger.error("❌ 追蹤投資失敗: \(error.localizedDescription)", category: .network)
+            }
+        }
     }
     
     private func shareFriend(_ friend: Friend) {
-        // TODO: 實現分享功能
-        print("📤 分享 \(friend.displayName) 的資料")
+        Logger.info("📤 分享 \(friend.displayName) 的資料", category: .ui)
+        
+        // 實現分享功能
+        let shareText = "推薦投資專家：\(friend.displayName)\n" +
+                       "投資回報率：\(String(format: "%.2f", friend.totalReturn))%\n" +
+                       "投資風格：\(friend.investmentStyle?.displayName ?? "未知")\n" +
+                       "來自 Invest_V3 投資平台"
+        
+        let activityViewController = UIActivityViewController(
+            activityItems: [shareText],
+            applicationActivities: nil
+        )
+        
+        // 在適當的視窗中呈現分享界面
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            activityViewController.popoverPresentationController?.sourceView = rootViewController.view
+            rootViewController.present(activityViewController, animated: true)
+        }
     }
     
     private func removeFriend(_ friend: Friend) {
-        // TODO: 實現移除好友功能
-        print("❌ 移除好友 \(friend.displayName)")
+        Logger.info("❌ 移除好友 \(friend.displayName)", category: .ui)
+        
+        // 實現移除好友功能
+        Task {
+            do {
+                try await FriendsService.shared.removeFriend(friendId: friend.id)
+                
+                await MainActor.run {
+                    // 從好友列表中移除
+                    if let index = friends.firstIndex(where: { $0.id == friend.id }) {
+                        friends.remove(at: index)
+                    }
+                }
+                
+                Logger.info("✅ 成功移除好友 \(friend.displayName)", category: .ui)
+            } catch {
+                Logger.error("❌ 移除好友失敗: \(error.localizedDescription)", category: .network)
+            }
+        }
+    }
+    
+    private func joinGroupDiscussion(_ group: FriendGroup) {
+        Logger.info("🏠 加入群組討論: \(group.name)", category: .ui)
+        
+        // 實現加入群組功能
+        Task {
+            do {
+                try await SupabaseService.shared.joinGroup(group.id)
+                
+                await MainActor.run {
+                    // 導航到群組聊天室
+                    // navigationManager.navigateToGroupChat(groupId: group.id)
+                }
+                
+                Logger.info("✅ 成功加入群組 \(group.name)", category: .ui)
+            } catch {
+                Logger.error("❌ 加入群組失敗: \(error.localizedDescription)", category: .network)
+                
+                await MainActor.run {
+                    // 顯示錯誤提示
+                    // showError("無法加入群組: \(error.localizedDescription)")
+                }
+            }
+        }
     }
     
     // MARK: - 自動刷新
