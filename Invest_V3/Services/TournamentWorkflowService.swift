@@ -76,7 +76,7 @@ class TournamentWorkflowService: ObservableObject {
     
     // MARK: - 1. 建賽事功能
     func createTournament(_ parameters: TournamentCreationParameters) async throws -> Tournament {
-        print("🏆 開始創建錦標賽: \(parameters.name)")
+        Logger.info("開始創建錦標賽: \(parameters.name)", category: .tournament)
         
         isProcessing = true
         errorMessage = nil
@@ -133,19 +133,19 @@ class TournamentWorkflowService: ObservableObject {
             currentWorkflow = workflow
             successMessage = "錦標賽 '\(parameters.name)' 創建成功！"
             
-            print("✅ 錦標賽創建成功: \(tournamentId)")
+            Logger.info("錦標賽創建成功: \(tournamentId)", category: .tournament)
             return tournament
             
         } catch {
             errorMessage = "創建錦標賽失敗: \(error.localizedDescription)"
-            print("❌ 錦標賽創建失敗: \(error)")
+            Logger.error("錦標賽創建失敗: \(error)", category: .tournament)
             throw error
         }
     }
     
     // MARK: - 2. 參賽功能
     func joinTournament(tournamentId: UUID, userId: UUID = UUID()) async throws {
-        print("👤 用戶 \(userId) 嘗試加入錦標賽 \(tournamentId)")
+        Logger.info("用戶 \(userId) 嘗試加入錦標賽 \(tournamentId)", category: .tournament)
         
         isProcessing = true
         errorMessage = nil
@@ -183,7 +183,7 @@ class TournamentWorkflowService: ObservableObject {
                 )
                 switch result {
                 case .success(_):
-                    print("✅ 入場費已扣除: \(tournament.entryFee)")
+                    Logger.debug("入場費已扣除: \(tournament.entryFee)", category: .tournament)
                 case .failure(_):
                     throw TournamentWorkflowError.insufficientFunds("代幣不足，無法支付入場費")
                 }
@@ -229,7 +229,7 @@ class TournamentWorkflowService: ObservableObject {
             )
             switch portfolioResult {
             case .success(_):
-                print("✅ 投資組合初始化成功")
+                Logger.debug("投資組合初始化成功", category: .tournament)
             case .failure(let error):
                 throw TournamentWorkflowError.invalidState("投資組合初始化失敗: \(error.localizedDescription)")
             }
@@ -238,20 +238,18 @@ class TournamentWorkflowService: ObservableObject {
             try await supabaseService.updateTournamentParticipantCount(tournamentId: tournamentId, increment: 1)
             
             successMessage = "成功加入錦標賽！"
-            print("✅ 用戶成功加入錦標賽")
-            
-            print("✅ 用戶成功加入錦標賽")
+            Logger.info("用戶成功加入錦標賽", category: .tournament)
             
         } catch {
             errorMessage = "加入錦標賽失敗: \(error.localizedDescription)"
-            print("❌ 加入錦標賽失敗: \(error)")
+            Logger.error("加入錦標賽失敗: \(error)", category: .tournament)
             throw error
         }
     }
     
     // MARK: - 3. 強化錦標賽交易功能（新版本）
     func executeTournamentTrade(_ request: TournamentTradeRequest) async throws -> TournamentTradeRecord {
-        print("💰 執行錦標賽交易: \(request.symbol) \(request.side.rawValue) \(request.quantity)@\(request.price)")
+        Logger.info("執行錦標賽交易: \(request.symbol) \(request.side.rawValue) \(request.quantity)@\(request.price)", category: .trading)
         
         isProcessing = true
         errorMessage = nil
@@ -302,12 +300,12 @@ class TournamentWorkflowService: ObservableObject {
                 throw error
             }
             
-            print("✅ 錦標賽交易執行成功")
+            Logger.info("錦標賽交易執行成功", category: .trading)
             return tradeRecord
             
         } catch {
             errorMessage = "交易執行失敗: \(error.localizedDescription)"
-            print("❌ 交易執行失敗: \(error)")
+            Logger.error("交易執行失敗: \(error)", category: .trading)
             throw error
         }
     }
@@ -321,7 +319,7 @@ class TournamentWorkflowService: ObservableObject {
         quantity: Double,
         price: Double
     ) async throws -> TournamentTrade {
-        print("💰 執行錦標賽交易: \(symbol) \(action.rawValue) \(quantity)@\(price)")
+        Logger.info("執行錦標賽交易: \(symbol) \(action.rawValue) \(quantity)@\(price)", category: .trading)
         
         isProcessing = true
         errorMessage = nil
@@ -369,20 +367,20 @@ class TournamentWorkflowService: ObservableObject {
             }
             
             successMessage = "交易執行成功！"
-            print("✅ 錦標賽交易執行成功")
+            Logger.info("錦標賽交易執行成功", category: .trading)
             
             return trade
             
         } catch {
             errorMessage = "交易執行失敗: \(error.localizedDescription)"
-            print("❌ 錦標賽交易失敗: \(error)")
+            Logger.error("錦標賽交易失敗: \(error)", category: .trading)
             throw error
         }
     }
     
     // MARK: - 4. 實時排行榜更新
     func updateLiveRankings(tournamentId: UUID) async throws -> [TournamentRanking] {
-        print("📊 更新錦標賽排行榜: \(tournamentId)")
+        Logger.debug("更新錦標賽排行榜: \(tournamentId)", category: .tournament)
         
         do {
             // 獲取所有參與者的最新投資組合
@@ -394,7 +392,7 @@ class TournamentWorkflowService: ObservableObject {
                     let wallet = try await walletService.getWallet(tournamentId: tournamentId, userId: member.userId)
                     portfolios.append(wallet)
                 } catch {
-                    print("❌ 獲取成員 \(member.userId) 的錢包失敗: \(error)")
+                    Logger.error("獲取成員 \(member.userId) 的錢包失敗: \(error)", category: .tournament)
                 }
             }
             
@@ -476,18 +474,18 @@ class TournamentWorkflowService: ObservableObject {
                 throw error
             }
             
-            print("✅ 排行榜更新完成，共 \(rankings.count) 位參與者")
+            Logger.info("排行榜更新完成，共 \(rankings.count) 位參與者", category: .tournament)
             return rankings
             
         } catch {
-            print("❌ 排行榜更新失敗: \(error)")
+            Logger.error("排行榜更新失敗: \(error)", category: .tournament)
             throw error
         }
     }
     
     // MARK: - 5. 賽事結算功能
     func settleTournament(tournamentId: UUID) async throws -> [TournamentResult] {
-        print("🏁 開始錦標賽結算: \(tournamentId)")
+        Logger.info("開始錦標賽結算: \(tournamentId)", category: .tournament)
         
         isProcessing = true
         errorMessage = nil
@@ -510,7 +508,7 @@ class TournamentWorkflowService: ObservableObject {
             try await supabaseService.updateTournamentStatus(tournamentId: tournamentId, status: .finished)
             
             // 鎖定所有交易（簡化實現）
-            print("🔒 鎖定錦標賽交易: \(tournamentId)")
+            Logger.debug("鎖定錦標賽交易: \(tournamentId)", category: .tournament)
             
             // 生成最終排行榜
             let finalRankings = try await updateLiveRankings(tournamentId: tournamentId)
@@ -535,13 +533,13 @@ class TournamentWorkflowService: ObservableObject {
             await generateSettlementReport(tournament: tournament, results: results)
             
             successMessage = "錦標賽結算完成！"
-            print("✅ 錦標賽結算完成")
+            Logger.info("錦標賽結算完成", category: .tournament)
             
             return results
             
         } catch {
             errorMessage = "錦標賽結算失敗: \(error.localizedDescription)"
-            print("❌ 錦標賽結算失敗: \(error)")
+            Logger.error("錦標賽結算失敗: \(error)", category: .tournament)
             
             // 恢復錦標賽狀態
             do {
@@ -549,7 +547,7 @@ class TournamentWorkflowService: ObservableObject {
                     try await supabaseService.updateTournamentStatus(tournamentId: tournamentId, status: tournament.status)
                 }
             } catch {
-                print("恢復錦標賽狀態失敗: \(error)")
+                Logger.error("恢復錦標賽狀態失敗: \(error)", category: .tournament)
             }
             
             throw error
@@ -559,7 +557,7 @@ class TournamentWorkflowService: ObservableObject {
     // MARK: - 輔助方法
     
     private func initializeTournamentServices(for tournamentId: UUID) async {
-        print("🚀 初始化錦標賽服務: \(tournamentId)")
+        Logger.debug("初始化錦標賽服務: \(tournamentId)", category: .tournament)
         // 服務初始化邏輯在各自的服務類中處理
     }
     
@@ -653,7 +651,7 @@ class TournamentWorkflowService: ObservableObject {
             // 基本檢查 - 簡化版本，暫時跳過詳細規則檢查
             // 未來可以添加更詳細的規則檢查邏輯
         } catch {
-            print("檢查交易規則時發生錯誤: \(error)")
+            Logger.warning("檢查交易規則時發生錯誤: \(error)", category: .trading)
         }
         
         // 檢查交易時間（簡化版本）
@@ -693,7 +691,7 @@ class TournamentWorkflowService: ObservableObject {
         do {
             _ = try await updateLiveRankings(tournamentId: tournamentId)
         } catch {
-            print("⚠️ 交易後排名更新失敗: \(error)")
+            Logger.warning("交易後排名更新失敗: \(error)", category: .tournament)
         }
     }
     
@@ -752,14 +750,14 @@ class TournamentWorkflowService: ObservableObject {
             await walletService.addTokens(userId: userId, amount: Int(reward.amount))
         case .cash, .title, .achievement:
             // 其他獎勵類型的處理邏輯
-            print("🏆 [TournamentWorkflow] 分發 \(reward.type.rawValue) 獎勵: \(reward.amount)")
+            Logger.debug("分發 \(reward.type.rawValue) 獎勵: \(reward.amount)", category: .tournament)
             break
         }
     }
     
     private func generateSettlementReport(tournament: Tournament, results: [TournamentResult]) async {
         // 生成結算報告的邏輯
-        print("📄 生成錦標賽結算報告...")
+        Logger.debug("生成錦標賽結算報告", category: .tournament)
         // 可以保存到數據庫或發送通知給參與者
     }
 }

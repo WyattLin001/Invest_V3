@@ -323,23 +323,23 @@ class TournamentPortfolioManager: ObservableObject {
     
     /// 初始化錦標賽投資組合（V2.0 架構）
     func initializePortfolio(for tournament: Tournament, userId: UUID, userName: String) async -> Bool {
-        print("🏆 [TournamentPortfolioManager] V2.0 初始化錦標賽投資組合: \(tournament.name)")
+        Logger.info("初始化錦標賽投資組合: \(tournament.name)", category: .tournament)
         
         // 檢查是否已存在
         if tournamentPortfolios[tournament.id] != nil {
-            print("⚠️ 錦標賽投資組合已存在")
+            Logger.warning("錦標賽投資組合已存在", category: .tournament)
             return true
         }
         
         // 驗證錦標賽狀態
         guard tournament.status == .enrolling || tournament.status == .ongoing else {
-            print("❌ 錦標賽狀態不允許加入: \(tournament.status)")
+            Logger.error("錦標賽狀態不允許加入: \(tournament.status)", category: .tournament)
             return false
         }
         
         // 檢查參賽人數限制
         guard tournament.currentParticipants < tournament.maxParticipants else {
-            print("❌ 錦標賽參賽人數已滿")
+            Logger.error("錦標賽參賽人數已滿", category: .tournament)
             return false
         }
         
@@ -352,7 +352,7 @@ class TournamentPortfolioManager: ObservableObject {
         
         guard case .success(let wallet) = walletResult else {
             if case .failure(let error) = walletResult {
-                print("❌ 創建锦標賽錢包失敗: \(error)")
+                Logger.error("創建锦標賽錢包失敗: \(error)", category: .tournament)
                 self.error = error.localizedDescription
             }
             return false
@@ -384,7 +384,7 @@ class TournamentPortfolioManager: ObservableObject {
         tournamentPortfolios[tournament.id] = newPortfolio
         saveTournamentPortfolios()
         
-        print("✅ V2.0 錦標賽投資組合初始化成功 - 初始資金: \(wallet.initialBalance)")
+        Logger.info("錦標賽投資組合初始化成功 - 初始資金: \(wallet.initialBalance)", category: .tournament)
         return true
     }
     
@@ -407,7 +407,7 @@ class TournamentPortfolioManager: ObservableObject {
     func removePortfolio(for tournamentId: UUID) {
         tournamentPortfolios.removeValue(forKey: tournamentId)
         saveTournamentPortfolios()
-        print("🗑️ [TournamentPortfolioManager] 已刪除錦標賽投資組合: \(tournamentId)")
+        Logger.debug("已刪除錦標賽投資組合: \(tournamentId)", category: .tournament)
     }
     
     /// 執行錦標賽交易（使用 V2.0 架構）
@@ -421,11 +421,11 @@ class TournamentPortfolioManager: ObservableObject {
         price: Double
     ) async -> Bool {
         
-        print("🔄 [TournamentPortfolioManager] V2.0 執行錦標賽交易: \(action), \(symbol), 股數: \(shares)")
+        Logger.info("執行錦標賽交易: \(action), \(symbol), 股數: \(shares)", category: .trading)
         
         // 步驟1：基本驗證
         guard let portfolio = tournamentPortfolios[tournamentId] else {
-            print("❌ 找不到錦標賽投資組合")
+            Logger.error("找不到錦標賽投資組合", category: .tournament)
             return false
         }
         
@@ -449,7 +449,7 @@ class TournamentPortfolioManager: ObservableObject {
         
         switch result {
         case .success(let trade):
-            print("✅ [TournamentPortfolioManager] 交易執行成功: \(trade.id)")
+            Logger.info("交易執行成功: \(trade.id)", category: .trading)
             
             // 步驟4：更新本地投資組合快取
             await refreshPortfolioFromServices(tournamentId: tournamentId)
@@ -462,7 +462,7 @@ class TournamentPortfolioManager: ObservableObject {
             return true
             
         case .failure(let error):
-            print("❌ [TournamentPortfolioManager] 交易失敗: \(error.localizedDescription)")
+            Logger.error("交易失敗: \(error.localizedDescription)", category: .trading)
             self.error = error.localizedDescription
             return false
         }
@@ -512,9 +512,9 @@ class TournamentPortfolioManager: ObservableObject {
             tournamentPortfolios[tournamentId] = updatedPortfolio
             saveTournamentPortfolios()
             
-            print("✅ [TournamentPortfolioManager] 投資組合已從服務更新")
+            Logger.debug("投資組合已從服務更新", category: .tournament)
         } catch {
-            print("❌ [TournamentPortfolioManager] 刷新投資組合失敗: \(error)")
+            Logger.error("刷新投資組合失敗: \(error)", category: .tournament)
         }
     }
     
@@ -531,11 +531,11 @@ class TournamentPortfolioManager: ObservableObject {
                 // Note: PerformanceMetrics is immutable, ranking info is maintained separately
                 // Consider storing ranking info in a separate service or using a different approach
                 
-                print("📊 [TournamentPortfolioManager] 排名已更新: \(rankInfo.currentRank)")
+                Logger.debug("排名已更新: \(rankInfo.currentRank)", category: .tournament)
                 // Ranking data is now handled by TournamentRankingService
             }
         case .failure(let error):
-            print("❌ [TournamentPortfolioManager] 獲取排名失敗: \(error)")
+            Logger.error("獲取排名失敗: \(error)", category: .tournament)
         }
     }
     
@@ -557,7 +557,7 @@ class TournamentPortfolioManager: ObservableObject {
     func updatePerformanceMetrics(for tournamentId: UUID) async {
         guard let portfolio = tournamentPortfolios[tournamentId] else { return }
         
-        print("📊 [TournamentPortfolioManager] V2.0 更新績效指標: \(tournamentId)")
+        Logger.debug("更新績效指標: \(tournamentId)", category: .performance)
         
         // 使用 WalletService 獲取最新數據
         do {
@@ -587,9 +587,9 @@ class TournamentPortfolioManager: ObservableObject {
             tournamentPortfolios[tournamentId] = updatedPortfolio
             saveTournamentPortfolios()
             
-            print("✅ [TournamentPortfolioManager] 績效指標已更新")
+            Logger.debug("績效指標已更新", category: .performance)
         } catch {
-            print("❌ [TournamentPortfolioManager] 更新績效指標失敗: \(error)")
+            Logger.error("更新績效指標失敗: \(error)", category: .performance)
         }
     }
     
@@ -601,7 +601,7 @@ class TournamentPortfolioManager: ObservableObject {
         case .success(let leaderboard):
             return leaderboard
         case .failure(let error):
-            print("❌ [TournamentPortfolioManager] 獲取排名失敗: \(error)")
+            Logger.error("獲取排名失敗: \(error)", category: .tournament)
             return []
         }
     }
@@ -617,7 +617,7 @@ class TournamentPortfolioManager: ObservableObject {
         case .success(let rankInfo):
             return rankInfo.currentRank
         case .failure(let error):
-            print("❌ [TournamentPortfolioManager] 獲取用戶排名失敗: \(error)")
+            Logger.error("獲取用戶排名失敗: \(error)", category: .tournament)
             return nil
         }
     }
@@ -637,7 +637,7 @@ class TournamentPortfolioManager: ObservableObject {
             let positions = try positionsResult.get()
             return positionService.calculatePortfolioStatistics(positions: positions)
         } catch {
-            print("❌ [TournamentPortfolioManager] 獲取統計資訊失敗: \(error)")
+            Logger.error("獲取統計資訊失敗: \(error)", category: .tournament)
             return nil
         }
     }
@@ -653,7 +653,7 @@ class TournamentPortfolioManager: ObservableObject {
             )
             return walletService.analyzeWallet(wallet: wallet)
         } catch {
-            print("❌ [TournamentPortfolioManager] 獲取錢包分析失敗: \(error)")
+            Logger.error("獲取錢包分析失敗: \(error)", category: .tournament)
             return nil
         }
     }
@@ -674,7 +674,7 @@ class TournamentPortfolioManager: ObservableObject {
         case .success(let history):
             return history
         case .failure(let error):
-            print("❌ [TournamentPortfolioManager] 獲取錢包歷史失敗: \(error)")
+            Logger.error("獲取錢包歷史失敗: \(error)", category: .tournament)
             return []
         }
     }
@@ -689,7 +689,7 @@ class TournamentPortfolioManager: ObservableObject {
         case .success(let stats):
             return stats
         case .failure(let error):
-            print("❌ [TournamentPortfolioManager] 獲取錦標賽統計失敗: \(error)")
+            Logger.error("獲取錦標賽統計失敗: \(error)", category: .tournament)
             return nil
         }
     }
@@ -700,10 +700,10 @@ class TournamentPortfolioManager: ObservableObject {
         
         switch result {
         case .success(let count):
-            print("✅ [TournamentPortfolioManager] 每日快照已生成: \(count) 個")
+            Logger.info("每日快照已生成: \(count) 個", category: .tournament)
             return true
         case .failure(let error):
-            print("❌ [TournamentPortfolioManager] 生成快照失敗: \(error)")
+            Logger.error("生成快照失敗: \(error)", category: .tournament)
             return false
         }
     }
@@ -715,7 +715,7 @@ class TournamentPortfolioManager: ObservableObject {
             let data = try JSONEncoder().encode(tournamentPortfolios)
             UserDefaults.standard.set(data, forKey: "tournament_portfolios")
         } catch {
-            print("❌ 保存錦標賽投資組合失敗: \(error)")
+            Logger.error("保存錦標賽投資組合失敗: \(error)", category: .general)
         }
     }
     
@@ -724,17 +724,17 @@ class TournamentPortfolioManager: ObservableObject {
         
         do {
             tournamentPortfolios = try JSONDecoder().decode([UUID: TournamentPortfolio].self, from: data)
-            print("✅ 載入錦標賽投資組合: \(tournamentPortfolios.count) 個")
+            Logger.debug("載入錦標賽投資組合: \(tournamentPortfolios.count) 個", category: .general)
         } catch {
-            print("❌ 載入錦標賽投資組合失敗: \(error)")
+            Logger.error("載入錦標賽投資組合失敗: \(error)", category: .general)
             
             // 版本不匹配或數據損壞時清除舊數據
             if error.localizedDescription.contains("cash_balance") || 
                error.localizedDescription.contains("keyNotFound") {
-                print("🔄 [TournamentPortfolioManager] 檢測到版本不匹配，清除舊投資組合數據")
+                Logger.warning("檢測到版本不匹配，清除舊投資組合數據", category: .general)
                 UserDefaults.standard.removeObject(forKey: "tournament_portfolios")
                 tournamentPortfolios = [:]
-                print("✅ [TournamentPortfolioManager] 舊數據已清除，重新初始化")
+                Logger.debug("舊數據已清除，重新初始化", category: .general)
             }
         }
     }
@@ -745,7 +745,7 @@ class TournamentPortfolioManager: ObservableObject {
     func forceRefreshAllRankings() async {
         await rankingService.recalculateAllActiveRankings()
         await updateRankingsFromService()
-        print("✅ [TournamentPortfolioManager] 所有排名已強制更新")
+        Logger.debug("所有排名已強制更新", category: .tournament)
     }
     
     /// 獲取錦標賽成員（V2.0）
@@ -753,7 +753,7 @@ class TournamentPortfolioManager: ObservableObject {
         do {
             return try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
         } catch {
-            print("❌ [TournamentPortfolioManager] 獲取錦標賽成員失敗: \(error)")
+            Logger.error("獲取錦標賽成員失敗: \(error)", category: .tournament)
             return []
         }
     }
@@ -779,7 +779,7 @@ class TournamentPortfolioManager: ObservableObject {
                 fees: fees
             )
         } catch {
-            print("❌ [TournamentPortfolioManager] 檢查交易能力失敗: \(error)")
+            Logger.error("檢查交易能力失敗: \(error)", category: .trading)
             return nil
         }
     }

@@ -42,6 +42,8 @@ extension Color {
     
     /// 分隔線/邊框
     static let gray300 = Color(light: "#D1D1D6", dark: "#48484A")
+    static let borderPrimary = gray300
+    static let backgroundPrimary = gray50
     
     /// 背景 Layer 4 - 四級背景 (重複定義，保持一致)
     static let gray400 = Color(light: "#C7C7CC", dark: "#58585A")

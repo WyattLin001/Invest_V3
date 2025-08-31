@@ -57,7 +57,7 @@ class TournamentSimulationService: ObservableObject {
     
     /// 開始投資模擬（主要入口點）
     func startInvestmentSimulation() async -> Bool {
-        print("🚀 [TournamentSimulationService] 開始投資模擬")
+        Logger.info("開始投資模擬", category: .tournament)
         
         isLoading = true
         simulationStatus = .initializing
@@ -71,11 +71,11 @@ class TournamentSimulationService: ObservableObject {
                 return false
             }
             
-            print("✅ 用戶身份驗證成功: \(currentUser.username)")
+            Logger.debug("用戶身份驗證成功: \(currentUser.username)", category: .auth)
             
             // Step 2: 載入可用錦標賽
             let tournaments = await loadAvailableTournaments()
-            print("📋 找到 \(tournaments.count) 個可參加的錦標賽")
+            Logger.info("找到 \(tournaments.count) 個可參加的錦標賽", category: .tournament)
             
             // Step 3: 初始化用戶的錦標賽投資組合
             let initializationResults = await initializeUserTournamentPortfolios(
@@ -94,14 +94,14 @@ class TournamentSimulationService: ObservableObject {
             
             simulationStatus = .ready
             
-            print("✅ 投資模擬初始化完成")
-            print("📊 用戶參與錦標賽數量: \(initializationResults.successful)")
-            print("❌ 初始化失敗數量: \(initializationResults.failed)")
+            Logger.info("投資模擬初始化完成", category: .tournament)
+            Logger.debug("用戶參與錦標賽數量: \(initializationResults.successful)", category: .tournament)
+            Logger.warning("初始化失敗數量: \(initializationResults.failed)", category: .tournament)
             
             return true
             
         } catch {
-            print("❌ 投資模擬初始化失敗: \(error)")
+            Logger.error("投資模擬初始化失敗: \(error)", category: .tournament)
             simulationStatus = .error(error.localizedDescription)
             return false
         }
@@ -173,7 +173,7 @@ class TournamentSimulationService: ObservableObject {
         price: Double
     ) async -> Bool {
         
-        print("🔄 [TournamentSimulationService] 執行錦標賽交易")
+        Logger.info("執行錦標賽交易", category: .trading)
         
         // 執行交易
         let success = await portfolioManager.executeTrade(
@@ -192,9 +192,9 @@ class TournamentSimulationService: ObservableObject {
             // 同步到後端
             await syncTradingRecordToBackend(tournamentId: tournamentId)
             
-            print("✅ 錦標賽交易執行成功")
+            Logger.info("錦標賽交易執行成功", category: .trading)
         } else {
-            print("❌ 錦標賽交易執行失敗")
+            Logger.error("錦標賽交易執行失敗", category: .trading)
         }
         
         return success
@@ -206,10 +206,10 @@ class TournamentSimulationService: ObservableObject {
     private func verifyUserIdentity() async -> UserProfile? {
         do {
             let user = try await supabaseService.getCurrentUserAsync()
-            print("🔍 驗證用戶身份: \(user.username)")
+            Logger.debug("驗證用戶身份: \(user.username)", category: .auth)
             return user
         } catch {
-            print("❌ 用戶身份驗證失敗: \(error)")
+            Logger.error("用戶身份驗證失敗: \(error)", category: .auth)
             return nil
         }
     }
@@ -225,10 +225,10 @@ class TournamentSimulationService: ObservableObject {
                 self.currentTournaments = tournaments
             }
             
-            print("📋 載入錦標賽成功: \(tournaments.count) 個")
+            Logger.debug("載入錦標賽成功: \(tournaments.count) 個", category: .tournament)
             return tournaments
         } catch {
-            print("❌ 載入錦標賽失敗: \(error)")
+            Logger.error("載入錦標賽失敗: \(error)", category: .tournament)
             await MainActor.run {
                 self.currentTournaments = []
             }
@@ -248,7 +248,7 @@ class TournamentSimulationService: ObservableObject {
         for tournament in tournaments {
             // 檢查用戶是否已參與此錦標賽
             if userTournamentStatus[tournament.id]?.isParticipating == true {
-                print("⚠️ 用戶已參與錦標賽: \(tournament.name)")
+                Logger.warning("用戶已參與錦標賽: \(tournament.name)", category: .tournament)
                 continue
             }
             
@@ -269,10 +269,10 @@ class TournamentSimulationService: ObservableObject {
                     lastActivityAt: Date()
                 )
                 successful += 1
-                print("✅ 錦標賽投資組合初始化成功: \(tournament.name)")
+                Logger.debug("錦標賽投資組合初始化成功: \(tournament.name)", category: .tournament)
             } else {
                 failed += 1
-                print("❌ 錦標賽投資組合初始化失敗: \(tournament.name)")
+                Logger.error("錦標賽投資組合初始化失敗: \(tournament.name)", category: .tournament)
             }
         }
         
@@ -284,9 +284,9 @@ class TournamentSimulationService: ObservableObject {
     private func syncInvestmentStatusToBackend(userId: UUID) async {
         do {
             try await supabaseService.syncUserTournamentStatus(userId: userId, status: userTournamentStatus)
-            print("✅ 投資狀況同步到後端成功")
+            Logger.debug("投資狀況同步到後端成功", category: .network)
         } catch {
-            print("❌ 投資狀況同步失敗: \(error)")
+            Logger.error("投資狀況同步失敗: \(error)", category: .network)
         }
     }
     
@@ -300,16 +300,16 @@ class TournamentSimulationService: ObservableObject {
             await rankingSystem.calculateAndUpdateRankings(for: tournament.id)
         }
         
-        print("✅ 所有錦標賽排名和績效更新完成")
+        Logger.debug("所有錦標賽排名和績效更新完成", category: .performance)
     }
     
     /// 載入用戶交易歷史和績效數據
     private func loadUserTradingHistoryAndPerformance(userId: UUID) async {
         do {
             let tradingHistory = try await supabaseService.fetchUserTournamentTradingHistory(userId: userId)
-            print("📊 載入交易歷史成功: \(tradingHistory.count) 筆記錄")
+            Logger.debug("載入交易歷史成功: \(tradingHistory.count) 筆記錄", category: .general)
         } catch {
-            print("❌ 載入交易歷史失敗: \(error)")
+            Logger.error("載入交易歷史失敗: \(error)", category: .general)
         }
     }
     
@@ -317,9 +317,9 @@ class TournamentSimulationService: ObservableObject {
     private func syncTradingRecordToBackend(tournamentId: UUID) async {
         do {
             try await supabaseService.syncTournamentTradingRecord(tournamentId: tournamentId)
-            print("✅ 交易記錄同步成功")
+            Logger.debug("交易記錄同步成功", category: .network)
         } catch {
-            print("❌ 交易記錄同步失敗: \(error)")
+            Logger.error("交易記錄同步失敗: \(error)", category: .network)
         }
     }
     
@@ -330,7 +330,7 @@ class TournamentSimulationService: ObservableObject {
             let data = try JSONEncoder().encode(userTournamentStatus)
             UserDefaults.standard.set(data, forKey: "user_tournament_status")
         } catch {
-            print("❌ 保存用戶錦標賽狀態失敗: \(error)")
+            Logger.error("保存用戶錦標賽狀態失敗: \(error)", category: .general)
         }
     }
     
@@ -339,9 +339,9 @@ class TournamentSimulationService: ObservableObject {
         
         do {
             userTournamentStatus = try JSONDecoder().decode([UUID: TournamentUserStatus].self, from: data)
-            print("✅ 載入用戶錦標賽狀態: \(userTournamentStatus.count) 個")
+            Logger.debug("載入用戶錦標賽狀態: \(userTournamentStatus.count) 個", category: .general)
         } catch {
-            print("❌ 載入用戶錦標賽狀態失敗: \(error)")
+            Logger.error("載入用戶錦標賽狀態失敗: \(error)", category: .general)
         }
     }
 }

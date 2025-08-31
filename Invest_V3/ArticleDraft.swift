@@ -16,6 +16,7 @@ struct ArticleDraft: Identifiable, Codable {
     var isFree: Bool = true          // 兼容性屬性
     var isUnlisted: Bool = false     // unlisted vs. public
     var publication: Publication?    // optional host publication
+    var coverImageURL: String?       // 封面圖片 URL
     var createdAt: Date = Date()     // 創建時間
     var updatedAt: Date = Date()     // 更新時間
     
@@ -35,6 +36,7 @@ struct ArticleDraft: Identifiable, Codable {
         isFree: Bool = true,
         isUnlisted: Bool = false,
         publication: Publication? = nil,
+        coverImageURL: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -50,6 +52,7 @@ struct ArticleDraft: Identifiable, Codable {
         self.isFree = isFree
         self.isUnlisted = isUnlisted
         self.publication = publication
+        self.coverImageURL = coverImageURL
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -143,6 +146,18 @@ struct ArticleDraft: Identifiable, Codable {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: updatedAt, relativeTo: Date())
+    }
+    
+    /// Check if draft has a cover image
+    var hasCoverImage: Bool {
+        return coverImageURL != nil && !coverImageURL!.isEmpty
+    }
+    
+    /// Get safe cover image URL
+    var safeCoverImageURL: URL? {
+        guard let urlString = coverImageURL,
+              !urlString.isEmpty else { return nil }
+        return URL(string: urlString)
     }
 }
 

@@ -1543,47 +1543,6 @@ struct ChatBubbleView: View {
     }
 }
 
-// MARK: - 禮物選項視圖
-struct GiftOptionView: View {
-    let gift: GiftItem
-    let isAffordable: Bool
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 8) {
-                Text(gift.icon)
-                    .font(.system(size: 28))
-                
-                Text(gift.name)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(isAffordable ? .gray900 : .gray400)
-                    .multilineTextAlignment(.center)
-                
-                Text("\(Int(gift.price)) 金幣")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(isAffordable ? .brandGreen : .gray400)
-                
-                Text("= \(TokenSystem.formatCurrency(Double(gift.price * 100)))")
-                    .font(.caption)
-                    .foregroundColor(.gray500)
-            }
-            .frame(maxWidth: .infinity, minHeight: 100)
-            .padding(12)
-            .background(isAffordable ? Color(.systemGray6) : Color(.systemGray5))
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(isAffordable ? Color.brandGreen : Color.gray300, lineWidth: isAffordable ? 2 : 1)
-            )
-            .scaleEffect(isAffordable ? 1.0 : 0.95)
-            .opacity(isAffordable ? 1.0 : 0.6)
-        }
-        .disabled(!isAffordable)
-    }
-}
 
 // MARK: - 帶數量選擇的禮物視圖
 enum GiftAction {
@@ -1677,27 +1636,6 @@ struct GiftOptionViewWithQuantity: View {
     }
 }
 
-// MARK: - 資訊行視圖
-struct InfoRow: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(.body)
-                .foregroundColor(.gray600)
-            
-            Spacer()
-            
-            Text(value)
-                .font(.body)
-                .fontWeight(.medium)
-                .foregroundColor(.gray900)
-        }
-        .padding(.vertical, 4)
-    }
-}
 
 
 // MARK: - 捐贈排行榜行組件

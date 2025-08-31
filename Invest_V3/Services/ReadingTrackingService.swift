@@ -297,7 +297,7 @@ extension SupabaseService {
             .eq("user_id", value: userId.uuidString)
             .eq("article_id", value: articleId.uuidString)
             .gte("created_at", value: today.toISOString())
-            .lt("created_at", value: tomorrow.toISOString())
+            .lte("created_at", value: tomorrow.toISOString())
             .limit(1)
             .execute()
             .value

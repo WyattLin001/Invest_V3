@@ -899,7 +899,8 @@ struct PerformanceShareSheet: View {
                 
                 // 分享按鈕
                 Button("分享到社群媒體") {
-                    // TODO: 實現分享邏輯
+                    // 實現分享邏輯
+                    sharePerformanceToSocial()
                 }
                 .font(.headline)
                 .foregroundColor(.white)
@@ -919,6 +920,37 @@ struct PerformanceShareSheet: View {
                     }
                 }
             }
+        }
+    }
+    
+    // MARK: - 社群分享功能
+    private func sharePerformanceToSocial() {
+        Logger.info("📤 分享投資績效到社群媒體", category: .ui)
+        
+        let totalReturn = performanceData.totalReturn
+        let totalAssets = 0.0 // TODO: Get from portfolio service
+        
+        let shareText = """
+        📈 我的投資績效報告
+        
+        💰 總資產: \(TradingService.shared.formatCurrency(totalAssets))
+        📊 總回報率: \(String(format: "%+.2f", totalReturn))%
+        🎯 投資策略: 多元化配置
+        
+        來自 Invest_V3 投資平台
+        #投資理財 #資產管理 #投資績效
+        """
+        
+        let activityViewController = UIActivityViewController(
+            activityItems: [shareText],
+            applicationActivities: nil
+        )
+        
+        // 在適當的視窗中呈現分享界面
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            activityViewController.popoverPresentationController?.sourceView = rootViewController.view
+            rootViewController.present(activityViewController, animated: true)
         }
     }
 }

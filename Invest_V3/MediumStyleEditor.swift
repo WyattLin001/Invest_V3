@@ -32,7 +32,8 @@ struct MediumStyleEditor: View {
     @State private var wordCount: Int = 0
     @State private var readingTime: Int = 0
     @State private var userChoseNotToSave = false // 追蹤用戶是否選擇不保存
-    
+    @State private var showToast = false
+    @State private var toastMessage = ""
     
     private let onComplete: (() -> Void)?
     
@@ -102,14 +103,7 @@ struct MediumStyleEditor: View {
         // 設置最小250pt，最大不超過計算值
         let result = max(250, min(idealHeight, maxHeight))
         
-        // 調試日誌
-        print("🔍 動態高度計算:")
-        print("   內容高度: \(contentHeight)pt")
-        print("   屏幕高度: \(screenHeight)pt")
-        print("   可用高度: \(availableHeight)pt")
-        print("   理想高度: \(idealHeight)pt")
-        print("   最大高度: \(maxHeight)pt")
-        print("   最終結果: \(result)pt")
+        Logger.debug("動態高度計算: 內容=\(contentHeight)pt, 螢幕=\(screenHeight)pt, 結果=\(result)pt", category: .ui)
         
         return result
     }
@@ -123,12 +117,7 @@ struct MediumStyleEditor: View {
         let contentHeight = attributedContent.string.calculateTextHeight(width: screenWidth, font: font)
         let totalHeight = titleHeight + contentHeight + 40 // 加上間距
         
-        // 調試日誌
-        print("📏 內容高度估算:")
-        print("   標題: '\(title.prefix(20))' -> \(titleHeight)pt")
-        print("   內容: '\(attributedContent.string.prefix(20))' -> \(contentHeight)pt")
-        print("   間距: 40pt")
-        print("   總計: \(totalHeight)pt")
+        Logger.debug("內容高度估算: 標題=\(titleHeight)pt, 內容=\(contentHeight)pt, 總計=\(totalHeight)pt", category: .ui)
         
         return totalHeight
     }
@@ -210,11 +199,11 @@ struct MediumStyleEditor: View {
             if isShowing {
                 // 打開設定頁面時，從當前狀態創建 draft
                 currentDraft = createDraftFromCurrentState()
-                print("🔄 打開設定頁面，創建 draft，關鍵字: \(currentDraft.keywords)")
+                Logger.debug("打開設定頁面，創建 draft，關鍵字: \(currentDraft.keywords)", category: .editor)
             } else {
                 // 關閉設定頁面時，同步關鍵字回編輯器
                 keywords = currentDraft.keywords
-                print("🔄 關閉設定頁面，同步關鍵字: \(currentDraft.keywords)")
+                Logger.debug("關閉設定頁面，同步關鍵字: \(currentDraft.keywords)", category: .editor)
             }
         }
         .sheet(isPresented: $showPreview) {
@@ -234,20 +223,20 @@ struct MediumStyleEditor: View {
             titleCharacterCount = newValue.count
         }
         .onChange(of: selectedPhotosPickerItems) { oldItems, newItems in
-            print("📸 onChange 觸發 - 舊: \(oldItems.count), 新: \(newItems.count)")
+            Logger.debug("圖片選擇器變更 - 舊: \(oldItems.count), 新: \(newItems.count)", category: .editor)
             
             // 只處理新增的項目
             guard !newItems.isEmpty, newItems.count > oldItems.count else { 
-                print("📸 沒有新項目，跳過處理")
+                Logger.debug("沒有新項目，跳過處理", category: .editor)
                 return 
             }
             
             guard let item = newItems.last else { 
-                print("📸 沒有找到最新項目")
+                Logger.warning("找不到最新項目", category: .editor)
                 return 
             }
             
-            print("📸 開始處理圖片...")
+            Logger.info("開始處理圖片", category: .editor)
             
             Task {
                 await processSelectedImageWithAttribution(item)
@@ -290,8 +279,7 @@ struct MediumStyleEditor: View {
             
             // 預覽按鈕
             Button("預覽") {
-                print("🔍 預覽按鈕點擊，attributedContent.length: \(attributedContent.length)")
-                print("🔍 標題: '\(title)'")
+                Logger.info("使用者點擊預覽 - 內容長度: \(attributedContent.length), 標題: '\(title)'", category: .ui)
                 showPreview = true
             }
             .font(.system(size: 16, weight: .medium))
@@ -435,7 +423,7 @@ struct MediumStyleEditor: View {
         // 如果有標註，保存到管理器
         if let attribution = attribution {
             ImageAttributionManager.shared.setAttribution(for: imageId, attribution: attribution)
-            print("✅ 已為圖片 \(imageId) 設置來源標註: \(attribution.displayText)")
+            Logger.info("已為圖片 \(imageId) 設置來源標註: \(attribution.displayText)", category: .editor)
         }
         
         // 通知 RichTextView 插入圖片（優先使用帶標註版本）
@@ -470,7 +458,7 @@ struct MediumStyleEditor: View {
         }
         
         await MainActor.run {
-            print("📸 成功處理圖片：\(fileName)")
+            Logger.info("成功處理圖片：\(fileName)", category: .editor)
             self.pendingImage = image
             self.showImageAttributionPicker = true
             // 處理完成後清空選擇
@@ -500,7 +488,7 @@ struct MediumStyleEditor: View {
         }
         
         await MainActor.run {
-            print("📸 成功處理圖片：\(fileName)")
+            Logger.info("成功處理圖片：\(fileName)", category: .editor)
             insertImage(image)
             // 處理完成後清空選擇
             selectedPhotosPickerItems.removeAll()
@@ -533,8 +521,10 @@ struct MediumStyleEditor: View {
     // 顯示圖片錯誤提示
     private func showImageError(_ message: String) async {
         await MainActor.run {
-            print("❌ 圖片錯誤：\(message)")
-            // TODO: 可以添加 Toast 或 Alert 來顯示用戶友好的錯誤訊息
+            Logger.error("圖片錯誤：\(message)", category: .editor)
+            // 顯示用戶友好的錯誤訊息
+            toastMessage = "圖片處理失敗：\(message)"
+            showToast = true
             selectedPhotosPickerItems.removeAll()
         }
     }
@@ -594,29 +584,29 @@ struct MediumStyleEditor: View {
                 // 添加時間戳確保文件名唯一，避免重複上傳錯誤
                 let timestamp = Int(Date().timeIntervalSince1970)
                 let fileName = "\(imageId)_\(timestamp).jpg"
-                print("📸 嘗試上傳圖片: \(fileName)，大小: \(data.count) bytes")
+                Logger.info("🖼️ 開始上傳圖片: \(fileName)，大小: \(data.count) bytes", category: .editor)
                 
                 do {
                     // 根據圖片數據檢測內容類型
                     let contentType = detectContentType(from: data)
                     let url = try await SupabaseService.shared.uploadArticleImageWithContentType(data, fileName: fileName, contentType: contentType)
-                    print("✅ 圖片上傳成功: \(url)")
+                    Logger.info("✅ 圖片上傳成功: \(url)", category: .editor)
                     
                     // 檢查是否有來源標註
                     if let attribution = ImageAttributionManager.shared.getAttribution(for: imageId) {
                         // 使用 EnhancedImageInserter 來生成帶標註的 Markdown
-                        print("📝 為圖片 \(imageId) 生成帶標註的 Markdown: \(attribution.displayText)")
+                        Logger.debug("為圖片 \(imageId) 生成帶標註的 Markdown: \(attribution.displayText)", category: .editor)
                         markdown += EnhancedImageInserter.insertImageWithAttribution(
                             imageUrl: url,
                             attribution: attribution,
                             altText: ""
                         )
                     } else {
-                        print("ℹ️ 圖片 \(imageId) 沒有來源標註，使用默認格式")
+                        Logger.debug("圖片 \(imageId) 沒有來源標註，使用默認格式", category: .editor)
                         markdown += "![](\(url))"
                     }
                 } catch {
-                    print("❌ 圖片上傳失敗: \(error.localizedDescription)")
+                    Logger.error("❌ 圖片上傳失敗: \(error.localizedDescription)", category: .editor)
                     // 如果上傳失敗，插入本地佔位符
                     markdown += "![圖片上傳失敗]"
                 }
@@ -679,14 +669,9 @@ struct MediumStyleEditor: View {
                 }
             }
             
-            // 處理顏色 - 只對非默認顏色添加HTML標籤
-            if let color = attrs[.foregroundColor] as? UIColor {
-                if !color.isEqual(UIColor.label) && !color.isEqual(UIColor.black) && !color.isEqual(UIColor.systemBlue) {
-                    let hexColor = color.hexString
-                    // 簡化HTML輸出，使用更短的格式
-                    formattedText = "<color:\(hexColor)>\(formattedText)</color>"
-                }
-            }
+            // 跳過顏色處理 - 顏色標籤在載入時會造成顯示問題
+            // 如果需要保存顏色信息，應該使用更兼容的格式
+            // 目前先移除顏色標籤以確保內容乾淨
             
             result += formattedText
         }
@@ -711,7 +696,7 @@ struct MediumStyleEditor: View {
         if draft.createdAt.timeIntervalSinceNow > -1 {
             draft.createdAt = Date()
         }
-        print("📝 更新草稿 ID: \(draft.id)，保留格式，關鍵字: \(keywords)")
+        Logger.debug("更新草稿 ID: \(draft.id)，保留格式，關鍵字: \(keywords)", category: .editor)
         return draft
     }
     
@@ -770,20 +755,35 @@ struct MediumStyleEditor: View {
         // 保存草稿到本地或 Supabase
         var draft = createDraftFromCurrentState()
         Task {
-            draft.bodyMD = await convertAttributedContentToMarkdown()
+            do {
+                draft.bodyMD = await convertAttributedContentToMarkdown()
+                let savedDraft = try await SupabaseService.shared.saveDraft(draft)
+                await MainActor.run {
+                    currentDraft = savedDraft
+                    toastMessage = "草稿已保存"
+                    showToast = true
+                    isAutoSaving = false
+                }
+                Logger.info("草稿保存成功: \(draft.title)", category: .editor)
+            } catch {
+                await MainActor.run {
+                    toastMessage = "草稿保存失敗：\(error.localizedDescription)"
+                    showToast = true
+                    isAutoSaving = false
+                }
+                Logger.error("草稿保存失敗: \(error.localizedDescription)", category: .editor)
+            }
         }
-        // TODO: 實現草稿保存邏輯
-        print("保存草稿: \(draft.title)")
     }
     
     private func publishArticle() {
         guard !title.isEmpty else {
-            print("❌ 標題不能為空")
+            Logger.warning("標題不能為空，無法發佈文章", category: .editor)
             return
         }
         
         guard attributedContent.length > 0 else {
-            print("❌ 內容不能為空")
+            Logger.warning("內容不能為空，無法發佈文章", category: .editor)
             return
         }
         
@@ -808,7 +808,7 @@ struct MediumStyleEditor: View {
             } catch {
                 await MainActor.run {
                     isPublishing = false
-                    print("❌ 發布失敗: \(error)")
+                    Logger.error("發佈文章失敗: \(error.localizedDescription)", category: .editor)
                 }
             }
         }
@@ -942,7 +942,7 @@ struct MediumStyleEditor: View {
                 await MainActor.run {
                     lastAutoSaveTime = Date()
                     showSaveSuccess = true
-                    print("✅ 草稿自動保存成功")
+                    Logger.info("✅ 草稿自動保存成功", category: .editor)
                     
                     // 2秒後隱藏成功提示
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
@@ -954,7 +954,7 @@ struct MediumStyleEditor: View {
             }
         } catch {
             if !silent {
-                print("❌ 草稿自動保存失敗: \(error.localizedDescription)")
+                Logger.error("草稿自動保存失敗: \(error.localizedDescription)", category: .editor)
             }
         }
         
@@ -972,7 +972,7 @@ struct MediumStyleEditor: View {
     /// 手動保存草稿
     private func saveDraft() async {
         guard !title.isEmpty else {
-            print("❌ 標題不能為空")
+            Logger.warning("標題不能為空，無法保存草稿", category: .editor)
             return
         }
         
@@ -1114,15 +1114,29 @@ struct MediumStyleEditor: View {
                     let base64String = imageData.base64EncodedString()
                     let dataURL = "data:image/png;base64,\(base64String)"
                     markdownContent += "\n![圖片](\(dataURL))\n"
-                    print("🔄 轉換圖片附件為base64 Markdown語法")
+                    Logger.debug("轉換圖片附件為 base64 Markdown 語法", category: .editor)
                 } else {
-                    // 如果無法獲取圖片數據，跳過圖片顯示
-                    markdownContent += "\n*[圖片]*\n"
-                    print("🔄 圖片附件無法轉換，使用文字占位符")
+                    // 如果無法獲取圖片數據，使用圖片占位符
+                    markdownContent += "\n![圖片](placeholder)\n"
+                    Logger.debug("圖片附件無法轉換，使用占位符", category: .editor)
                 }
             } else {
                 // 處理文本內容
                 var processedText = substring
+                
+                // 檢查並過濾圖片標題文字（避免重複顯示）
+                let imagePattern = #"圖片\s*\d*\s*\[來源：[^\]]*\]"#
+                if processedText.range(of: imagePattern, options: .regularExpression) != nil {
+                    // 跳過圖片標題文字，因為圖片本身已經處理
+                    return
+                }
+                
+                // 移除所有 color 標籤
+                processedText = processedText.replacingOccurrences(
+                    of: #"</?color[^>]*>"#, 
+                    with: "", 
+                    options: .regularExpression
+                )
                 
                 // 檢查字體屬性
                 if let font = attributes[.font] as? UIFont {
@@ -1144,18 +1158,21 @@ struct MediumStyleEditor: View {
                     }
                 }
                 
-                markdownContent += processedText
+                // 只添加非空的處理過的文本
+                if !processedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    markdownContent += processedText
+                }
             }
             
             currentIndex = range.location + range.length
         }
         
-        // 清理多餘的換行符
+        // 清理多餘的換行符和空白
         let cleanedMarkdown = markdownContent
-            .replacingOccurrences(of: "\n\n\n+", with: "\n\n", options: .regularExpression)
+            .replacingOccurrences(of: #"\n\n+"#, with: "\n\n", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         
-        print("🔄 轉換完成，Markdown長度: \(cleanedMarkdown.count)")
+        Logger.debug("Markdown 轉換完成，長度: \(cleanedMarkdown.count)", category: .editor)
         return cleanedMarkdown
     }
 }
@@ -1278,8 +1295,7 @@ struct RichTextPreviewView: View {
             }
         }
         .onAppear {
-            print("🔍 MarkdownPreview - 內容長度: \(markdownContent.count)")
-            print("🔍 MarkdownPreview - 內容預覽: \(markdownContent.prefix(200))")
+            Logger.debug("MarkdownPreview 載入 - 內容長度: \(markdownContent.count)", category: .ui)
         }
     }
     
@@ -1331,6 +1347,42 @@ struct RichTextPreviewView: View {
                 let listText = applyListAttributes(processedContent, prefix: numberPrefix)
                 mutableText.append(listText)
                 mutableText.append(NSAttributedString(string: "\n"))
+                
+            } else if trimmedLine.hasPrefix("![") && trimmedLine.contains("](") {
+                // 圖片markdown處理 - 格式: ![alt](url)
+                let imagePattern = #"!\[(.*?)\]\((.*?)\)"#
+                do {
+                    let regex = try NSRegularExpression(pattern: imagePattern, options: [])
+                    let matches = regex.matches(in: trimmedLine, range: NSRange(trimmedLine.startIndex..., in: trimmedLine))
+                    
+                    if let match = matches.first,
+                       match.numberOfRanges >= 3 {
+                        // 提取URL
+                        let urlRange = Range(match.range(at: 2), in: trimmedLine)!
+                        let imageUrl = String(trimmedLine[urlRange])
+                        
+                        // 創建圖片佔位符 - 在加載draft時不實際加載圖片
+                        let placeholderText = "圖片"
+                        let placeholderAttributes: [NSAttributedString.Key: Any] = [
+                            .font: UIFont.systemFont(ofSize: 16),
+                            .foregroundColor: UIColor.systemGray,
+                            .backgroundColor: UIColor.systemGray6
+                        ]
+                        let placeholderString = NSAttributedString(string: placeholderText, attributes: placeholderAttributes)
+                        mutableText.append(placeholderString)
+                        mutableText.append(NSAttributedString(string: "\n"))
+                    } else {
+                        // 如果無法解析，當作普通文本處理
+                        let processedLine = processRichText(trimmedLine)
+                        mutableText.append(processedLine)
+                        mutableText.append(NSAttributedString(string: "\n"))
+                    }
+                } catch {
+                    // 正則表達式錯誤，當作普通文本處理
+                    let processedLine = processRichText(trimmedLine)
+                    mutableText.append(processedLine)
+                    mutableText.append(NSAttributedString(string: "\n"))
+                }
                 
             } else if !trimmedLine.isEmpty {
                 // 普通段落 - 支持內聯格式
@@ -1468,7 +1520,7 @@ struct RichTextPreviewView: View {
                     return mutableResult
                 }
             } catch {
-                print("❌ 顏色標籤處理失敗: \(error)")
+                Logger.error("顏色標籤處理失敗: \(error.localizedDescription)", category: .editor)
             }
         }
         

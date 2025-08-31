@@ -264,7 +264,7 @@ class HomeViewModel: ObservableObject {
             let groupName = group?.name ?? "群組"
             let tokenCost = group?.tokenCost ?? 0
             
-            try await SupabaseService.shared.joinGroup(groupId)
+            try await ServiceCoordinator.shared.groups.joinGroup(groupId: groupId)
             print("✅ Joined group: \(groupId)")
             
             // 重新載入已加入群組列表
@@ -332,7 +332,7 @@ class HomeViewModel: ObservableObject {
     // MARK: - 刷新已加入群組
     func refreshJoinedGroups() async {
         do {
-            let joinedGroups = try await SupabaseService.shared.fetchUserJoinedGroups()
+            let joinedGroups = try await ServiceCoordinator.shared.groups.getUserGroups()
             self.joinedIds = Set(joinedGroups.map { $0.id })
         } catch {
             print("❌ 獲取已加入群組失敗: \(error)")

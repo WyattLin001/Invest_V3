@@ -8,6 +8,7 @@
 
 import SwiftUI
 import Charts
+import UIKit
 
 struct TournamentPerformanceView: View {
     let tournamentPortfolio: TournamentPortfolio

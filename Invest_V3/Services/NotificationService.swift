@@ -48,7 +48,7 @@ class NotificationService: NSObject, ObservableObject {
 
             // 2. 印出目前權限狀態
             let settings = await notificationCenter.notificationSettings()
-            print("🔍 [NotificationService] 現在通知授權狀態: \(settings.authorizationStatus.rawValue)")
+            Logger.info("📱 現在通知授權狀態: \(settings.authorizationStatus.rawValue)", category: .general)
 
             // 3. 若授權成功，註冊 remote 通知（不能少）
             if granted {
@@ -67,7 +67,7 @@ class NotificationService: NSObject, ObservableObject {
             return granted
 
         } catch {
-            print("❌ [NotificationService] 請求推播權限失敗: \(error)")
+            Logger.error("請求推播權限失敗: \(error.localizedDescription)", category: .general)
             await MainActor.run {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     self.isAuthorized = false
@@ -95,10 +95,7 @@ class NotificationService: NSObject, ObservableObject {
                     )
                 }
                 
-                print("📱 [NotificationService] 權限狀態: \(settings.authorizationStatus.rawValue)")
-                print("📱 [NotificationService] Alert設定: \(settings.alertSetting.rawValue)")
-                print("📱 [NotificationService] Sound設定: \(settings.soundSetting.rawValue)")
-                print("📱 [NotificationService] Badge設定: \(settings.badgeSetting.rawValue)")
+                Logger.debug("📱 權限狀態: \(settings.authorizationStatus.rawValue), Alert: \(settings.alertSetting.rawValue), Sound: \(settings.soundSetting.rawValue), Badge: \(settings.badgeSetting.rawValue)", category: .general)
             }
         }
     }
@@ -107,7 +104,7 @@ class NotificationService: NSObject, ObservableObject {
     private func handleAuthorizationStatusChange(from wasAuthorized: Bool, to isAuthorized: Bool, settings: UNNotificationSettings) {
         if !wasAuthorized && isAuthorized {
             // 用戶剛授權了推播通知
-            print("✅ [NotificationService] 用戶授權了推播通知")
+            Logger.info("用戶授權了推播通知", category: .general)
             Task {
                 // 重新註冊遠程推播
                 await MainActor.run {
@@ -116,7 +113,7 @@ class NotificationService: NSObject, ObservableObject {
             }
         } else if wasAuthorized && !isAuthorized {
             // 用戶取消了推播通知授權
-            print("⚠️ [NotificationService] 用戶取消了推播通知授權")
+            Logger.warning("用戶取消了推播通知授權", category: .general)
             self.deviceToken = nil
         }
     }
@@ -160,7 +157,7 @@ class NotificationService: NSObject, ObservableObject {
         let tokenString = tokenData.map { String(format: "%02.2hhx", $0) }.joined()
         self.deviceToken = tokenString
         
-        print("✅ [NotificationService] Device Token: \(tokenString)")
+        Logger.info("✅ Device Token 設定成功", category: .general)
         
         // 儲存到後端
         Task {
@@ -172,7 +169,7 @@ class NotificationService: NSObject, ObservableObject {
     private func saveDeviceTokenToBackend(_ token: String) async {
         // 先獲取用戶信息
         guard let user = try? await supabaseService.client.auth.user() else {
-            print("⚠️ [NotificationService] 用戶未登入，無法儲存 Device Token")
+            Logger.warning("用戶未登入，無法儲存 Device Token", category: .general)
             return
         }
         
@@ -193,17 +190,17 @@ class NotificationService: NSObject, ObservableObject {
                 ], onConflict: "user_id,device_token")
                 .execute()
             
-            print("✅ [NotificationService] Device Token 儲存成功 (用戶: \(user.id.uuidString.prefix(8))...)")
+            Logger.info("✅ Device Token 儲存成功", category: .general)
             
         } catch {
             // 檢查是否仍然是重複鍵值錯誤
             if let postgrestError = error as? NSError,
                postgrestError.localizedDescription.contains("23505") {
-                print("⚠️ [NotificationService] Device Token 已存在，嘗試更新現有記錄")
+                Logger.warning("Device Token 已存在，嘗試更新現有記錄", category: .general)
                 // 嘗試直接更新現有記錄
                 await updateExistingDeviceToken(token, for: user)
             } else {
-                print("❌ [NotificationService] 儲存 Device Token 失敗: \(error)")
+                Logger.error("儲存 Device Token 失敗: \(error.localizedDescription)", category: .network)
             }
         }
     }
@@ -226,10 +223,10 @@ class NotificationService: NSObject, ObservableObject {
                 .eq("device_token", value: token)
                 .execute()
             
-            print("✅ [NotificationService] Device Token 更新成功 (用戶: \(user.id.uuidString.prefix(8))...)")
+            Logger.info("✅ Device Token 更新成功", category: .general)
             
         } catch {
-            print("❌ [NotificationService] 更新 Device Token 也失敗: \(error)")
+            Logger.error("更新 Device Token 也失敗: \(error.localizedDescription)", category: .network)
         }
     }
     
@@ -262,9 +259,9 @@ class NotificationService: NSObject, ObservableObject {
         
         do {
             try await notificationCenter.add(request)
-            print("✅ [NotificationService] 本地通知已排程: \(title)")
+            Logger.info("本地通知已排程: \(title)", category: .general)
         } catch {
-            print("❌ [NotificationService] 發送本地通知失敗: \(error)")
+            Logger.error("發送本地通知失敗: \(error.localizedDescription)", category: .general)
         }
     }
     
@@ -291,11 +288,11 @@ class NotificationService: NSObject, ObservableObject {
             // 從 count 屬性獲取數量
             await MainActor.run {
                 self.unreadCount = result.count ?? 0
-                print("✅ [NotificationService] 載入未讀數量: \(self.unreadCount)")
+                Logger.debug("載入未讀數量: \(self.unreadCount)", category: .general)
             }
             
         } catch {
-            print("❌ [NotificationService] 載入未讀通知數量失敗: \(error)")
+            Logger.error("載入未讀通知數量失敗: \(error.localizedDescription)", category: .general)
             await MainActor.run {
                 self.unreadCount = 0
             }
@@ -317,7 +314,7 @@ class NotificationService: NSObject, ObservableObject {
             await loadUnreadCount()
             
         } catch {
-            print("❌ [NotificationService] 標記通知已讀失敗: \(error)")
+            Logger.error("標記通知已讀失敗: \(error.localizedDescription)", category: .general)
         }
     }
     
@@ -332,7 +329,7 @@ class NotificationService: NSObject, ObservableObject {
             UIApplication.shared.applicationIconBadgeNumber = 0
         }
         
-        print("✅ [NotificationService] 已清除所有通知")
+        Logger.info("已清除所有通知", category: .general)
     }
     
     // MARK: - 通知類型管理
@@ -352,7 +349,7 @@ class NotificationService: NSObject, ObservableObject {
             } else if let user = try? await supabaseService.client.auth.user() {
                 targetUserId = user.id.uuidString
             } else {
-                print("⚠️ [NotificationService] 無法確定目標用戶，跳過創建通知記錄")
+                Logger.warning("無法確定目標用戶，跳過創建通知記錄", category: .general)
                 return
             }
             
@@ -384,7 +381,7 @@ class NotificationService: NSObject, ObservableObject {
                 .insert(notificationInsert)
                 .execute()
             
-            print("✅ [NotificationService] 通知記錄已創建: \(type.rawValue)")
+            Logger.info("通知記錄已創建: \(type.rawValue)", category: .general)
             
             // 更新未讀數量
             if userId == nil { // 只有當前用戶才更新未讀數量
@@ -392,7 +389,7 @@ class NotificationService: NSObject, ObservableObject {
             }
             
         } catch {
-            print("❌ [NotificationService] 創建通知記錄失敗: \(error)")
+            Logger.error("創建通知記錄失敗: \(error.localizedDescription)", category: .general)
         }
     }
     
@@ -500,7 +497,7 @@ class NotificationService: NSObject, ObservableObject {
     ) async -> Bool {
         do {
             guard let currentUser = try? await supabaseService.client.auth.user() else {
-                print("⚠️ [NotificationService] 用戶未登入，無法發送推播")
+                Logger.warning("用戶未登入，無法發送推播", category: .general)
                 return false
             }
             
@@ -516,15 +513,15 @@ class NotificationService: NSObject, ObservableObject {
             let response = try await supabaseService.client.functions
                 .invoke("send-push-notification")
             
-            print("✅ [NotificationService] 推播通知請求已發送")
+            Logger.info("推播通知請求已發送", category: .general)
             return true
             
         } catch {
             // 檢查是否為Edge Function不存在的錯誤
             if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
-                print("⚠️ [NotificationService] Edge Function 'send-push-notification' 不存在，跳過推播通知")
+                Logger.warning("Edge Function 'send-push-notification' 不存在，跳過推播通知", category: .general)
             } else {
-                print("❌ [NotificationService] 發送推播通知異常: \(error)")
+                Logger.error("發送推播通知異常: \(error.localizedDescription)", category: .network)
             }
             return false
         }
@@ -540,7 +537,7 @@ class NotificationService: NSObject, ObservableObject {
     ) async -> Bool {
         do {
             guard let currentUser = try? await supabaseService.client.auth.user() else {
-                print("⚠️ [NotificationService] 用戶未登入，無法發送批量推播")
+                Logger.warning("用戶未登入，無法發送批量推播", category: .general)
                 return false
             }
             
@@ -556,15 +553,15 @@ class NotificationService: NSObject, ObservableObject {
             let response = try await supabaseService.client.functions
                 .invoke("send-bulk-notifications")
             
-            print("✅ [NotificationService] 批量推播請求已發送")
+            Logger.info("批量推播請求已發送", category: .general)
             return true
             
         } catch {
             // 檢查是否為Edge Function不存在的錯誤
             if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
-                print("⚠️ [NotificationService] Edge Function 'send-bulk-notifications' 不存在，跳過批量推播")
+                Logger.warning("Edge Function 'send-bulk-notifications' 不存在，跳過批量推播", category: .general)
             } else {
-                print("❌ [NotificationService] 發送批量推播異常: \(error)")
+                Logger.error("發送批量推播異常: \(error.localizedDescription)", category: .network)
             }
             return false
         }
@@ -585,16 +582,16 @@ class NotificationService: NSObject, ObservableObject {
                 .invoke("manage-user-preferences")
             
             // 簡化響應處理
-            print("✅ [NotificationService] 用戶偏好請求已發送")
+            Logger.debug("用戶偏好請求已發送", category: .general)
             return [:]
             
         } catch {
             // 檢查是否為Edge Function不存在的錯誤
             if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
-                print("⚠️ [NotificationService] Edge Function 'manage-user-preferences' 不存在，返回預設偏好")
+                Logger.warning("Edge Function 'manage-user-preferences' 不存在，返回預設偏好", category: .general)
                 return ["notifications_enabled": true] // 返回預設偏好
             } else {
-                print("❌ [NotificationService] 獲取推播偏好失敗: \(error)")
+                Logger.error("獲取推播偏好失敗: \(error.localizedDescription)", category: .network)
             }
             return nil
         }
@@ -614,15 +611,15 @@ class NotificationService: NSObject, ObservableObject {
             let response = try await supabaseService.client.functions
                 .invoke("manage-user-preferences")
             
-            print("✅ [NotificationService] 推播偏好更新請求已發送")
+            Logger.debug("推播偏好更新請求已發送", category: .general)
             return true
             
         } catch {
             // 檢查是否為Edge Function不存在的錯誤
             if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
-                print("⚠️ [NotificationService] Edge Function 'manage-user-preferences' 不存在，跳過偏好更新")
+                Logger.warning("Edge Function 'manage-user-preferences' 不存在，跳過偏好更新", category: .general)
             } else {
-                print("❌ [NotificationService] 更新推播偏好異常: \(error)")
+                Logger.error("更新推播偏好異常: \(error.localizedDescription)", category: .network)
             }
             return false
         }
@@ -644,16 +641,16 @@ class NotificationService: NSObject, ObservableObject {
                 .invoke("notification-analytics")
             
             // 簡化響應處理  
-            print("✅ [NotificationService] 分析數據請求已發送")
+            Logger.info(" 分析數據請求已發送", category: .general)
             return [:]
             
         } catch {
             // 檢查是否為Edge Function不存在的錯誤
             if error.localizedDescription.contains("404") || error.localizedDescription.contains("not found") {
-                print("⚠️ [NotificationService] Edge Function 'notification-analytics' 不存在，返回模擬分析數據")
+                Logger.warning(" Edge Function 'notification-analytics' 不存在，返回模擬分析數據", category: .general)
                 return ["total_notifications": 0, "delivery_rate": 1.0] // 返回模擬數據
             } else {
-                print("❌ [NotificationService] 獲取推播分析失敗: \(error)")
+                Logger.error(" 獲取推播分析失敗: \(error)")
             }
             return nil
         }
@@ -663,12 +660,12 @@ class NotificationService: NSObject, ObservableObject {
     
     /// 測試推播通知功能
     func testNotificationSystem() async {
-        print("🧪 [NotificationService] 開始測試推播通知系統")
+        Logger.info("🧪 開始測試推播通知系統", category: .general)
         
         // 1. 檢查權限狀態
         let settings = await getNotificationSettings()
-        print("📱 權限狀態: \(settings.authorizationStatus.rawValue)")
-        print("📱 Device Token: \(deviceToken ?? "未設置")")
+        Logger.info("📱 權限狀態: \(settings.authorizationStatus.rawValue)")
+        Logger.info("📱 Device Token: \(deviceToken ?? "未設置")")
         
         // 2. 測試本地通知
         await sendLocalNotification(
@@ -681,7 +678,7 @@ class NotificationService: NSObject, ObservableObject {
         
         // 3. 測試推播偏好獲取
         let preferences = await getUserPushPreferences()
-        print("📱 用戶推播偏好: \(preferences ?? [:])")
+        Logger.info("📱 用戶推播偏好: \(preferences ?? [:])")
         
         // 4. 測試設備 Token 註冊
         if let token = deviceToken {
@@ -697,7 +694,7 @@ class NotificationService: NSObject, ObservableObject {
                 category: "SYSTEM_ALERT",
                 data: ["test": true, "timestamp": Date().timeIntervalSince1970]
             )
-            print("📱 遠程推播測試結果: \(success ? "成功" : "失敗")")
+            Logger.info("📱 遠程推播測試結果: \(success ? "成功" : "失敗")")
         }
         
         // 6. 創建測試通知記錄
@@ -708,7 +705,7 @@ class NotificationService: NSObject, ObservableObject {
             data: ["test": true, "completed_at": ISO8601DateFormatter().string(from: Date())]
         )
         
-        print("✅ [NotificationService] 推播通知系統測試完成")
+        Logger.info(" 推播通知系統測試完成", category: .general)
     }
     
     /// 獲取系統診斷信息
@@ -750,7 +747,7 @@ class NotificationService: NSObject, ObservableObject {
         do {
             // 嘗試查詢 device_tokens 表來測試 Supabase 連接
             guard let user = try? await supabaseService.client.auth.user() else {
-                print("⚠️ [NotificationService] 用戶未登入，無法檢查後端連接")
+                Logger.warning(" 用戶未登入，無法檢查後端連接", category: .general)
                 return false
             }
             
@@ -761,10 +758,10 @@ class NotificationService: NSObject, ObservableObject {
                 .limit(1)
                 .execute()
             
-            print("✅ [NotificationService] 後端連接檢查完成")
+            Logger.info(" 後端連接檢查完成", category: .general)
             return true
         } catch {
-            print("❌ [NotificationService] 後端連接檢查失敗: \(error)")
+            Logger.error(" 後端連接檢查失敗: \(error)")
             return false
         }
     }
@@ -780,7 +777,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        print("📱 [NotificationService] 前景收到通知: \(notification.request.content.title)")
+        Logger.info("📱 前景收到通知: \(notification.request.content.title)")
         
         // 在前景也顯示通知
         completionHandler([.alert, .sound, .badge])
@@ -793,7 +790,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
-        print("📱 [NotificationService] 用戶點擊通知: \(userInfo)")
+        Logger.info("📱 用戶點擊通知: \(userInfo)")
         
         // 處理不同類型的通知點擊
         if let type = userInfo["type"] as? String {
@@ -824,7 +821,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
                 }
                 
             default:
-                print("⚠️ [NotificationService] 未知的通知類型: \(type)")
+                Logger.warning(" 未知的通知類型: \(type)")
             }
         }
     }
@@ -837,12 +834,12 @@ extension NotificationService: UNUserNotificationCenterDelegate {
             self.isAuthorized = false
             self.deviceToken = nil
         }
-        print("❌ [NotificationService] 推播註冊失敗處理完成")
+        Logger.error(" 推播註冊失敗處理完成", category: .general)
     }
     
     /// 處理遠程推播通知
     func handleRemoteNotification(_ userInfo: [AnyHashable: Any]) async {
-        print("📱 [NotificationService] 處理遠程推播通知: \(userInfo)")
+        Logger.info("📱 處理遠程推播通知: \(userInfo)")
         
         // 解析通知類型
         if let typeString = userInfo["type"] as? String,
@@ -866,7 +863,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     
     /// 處理帶完成回調的遠程推播通知
     func handleRemoteNotificationWithCompletion(_ userInfo: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
-        print("📱 [NotificationService] 處理背景遠程推播通知: \(userInfo)")
+        Logger.info("📱 處理背景遠程推播通知: \(userInfo)")
         
         await handleRemoteNotification(userInfo)
         
@@ -878,7 +875,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     
     private func navigateToChat(groupId: String) async {
         // 通過 NotificationCenter 觸發導航到聊天群組
-        print("📱 [NotificationService] 導航到聊天群組: \(groupId)")
+        Logger.info("📱 導航到聊天群組: \(groupId)")
         
         // 轉換 groupId 為 UUID（如果需要）
         if let uuid = UUID(uuidString: groupId) {
@@ -902,7 +899,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     
     private func navigateToRanking() async {
         // 通過 NotificationCenter 觸發導航到排行榜
-        print("📱 [NotificationService] 導航到排行榜")
+        Logger.info("📱 導航到排行榜", category: .general)
         await MainActor.run {
             NotificationCenter.default.post(
                 name: NSNotification.Name("NavigateToRanking"),
@@ -913,7 +910,7 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     
     private func navigateToStock(symbol: String) async {
         // 通過 NotificationCenter 觸發導航到股票詳情
-        print("📱 [NotificationService] 導航到股票: \(symbol)")
+        Logger.info("📱 導航到股票: \(symbol)")
         await MainActor.run {
                 NotificationCenter.default.post(
                     name: NSNotification.Name("NavigateToStock"),

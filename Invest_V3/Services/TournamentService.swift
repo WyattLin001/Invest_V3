@@ -8,6 +8,8 @@
 import Foundation
 import Combine
 
+// Logger import is not needed since Logger.swift is in the same module
+
 // MARK: - API Response Models (moved to SupabaseService.swift to avoid duplication)
 
 // MARK: - API Error Types
@@ -105,14 +107,14 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 self.error = nil
             }
             
-            print("✅ [TournamentService] 成功獲取並處理 \(tournaments.count) 個錦標賽（UTC標準化）")
+            Logger.info("成功獲取並處理 \(tournaments.count) 個錦標賽（UTC標準化）", category: .tournament)
             return tournaments
         } catch {
             let apiError = handleError(error)
             await MainActor.run {
                 self.error = apiError
             }
-            print("❌ [TournamentService] 獲取錦標賽失敗: \(error.localizedDescription)")
+            Logger.error("獲取錦標賽失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
@@ -125,10 +127,10 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             // 應用UTC時區標準化和狀態更新
             let tournament = rawTournament.needsStatusUpdate ? rawTournament.withUpdatedStatus() : rawTournament
             
-            print("✅ [TournamentService] 成功獲取錦標賽詳情: \(tournament.name)（狀態：\(tournament.status.displayName)）")
+            Logger.info("成功獲取錦標賽詳情: \(tournament.name)（狀態：\(tournament.status.displayName)）", category: .tournament)
             return tournament
         } catch {
-            print("❌ [TournamentService] 獲取錦標賽詳情失敗: \(error.localizedDescription)")
+            Logger.error("獲取錦標賽詳情失敗: \(error.localizedDescription)", category: .tournament)
             // Return nil instead of throwing for not found cases
             if let nsError = error as NSError?, nsError.code == 404 {
                 return nil
@@ -153,11 +155,11 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 participants[index] = updateParticipantRank(participant: participant, newRank: index + 1)
             }
             
-            print("✅ [TournamentService] 成功獲取並排序 \(participants.count) 個參與者")
+            Logger.debug("成功獲取並排序 \(participants.count) 個參與者", category: .tournament)
             return participants
         } catch {
             let apiError = handleError(error)
-            print("❌ [TournamentService] 獲取錦標賽參與者失敗: \(error.localizedDescription)")
+            Logger.error("獲取錦標賽參與者失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
@@ -229,11 +231,11 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     func fetchTournamentActivities(tournamentId: UUID) async throws -> [TournamentActivity] {
         do {
             let activities = try await supabaseService.fetchTournamentActivities(tournamentId: tournamentId)
-            print("✅ [TournamentService] 成功獲取 \(activities.count) 個活動記錄")
+            Logger.debug("成功獲取 \(activities.count) 個活動記錄", category: .tournament)
             return activities
         } catch {
             let apiError = handleError(error)
-            print("❌ [TournamentService] 獲取錦標賽活動失敗: \(error.localizedDescription)")
+            Logger.error("獲取錦標賽活動失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
@@ -259,7 +261,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             )
             
             guard portfolioInitialized else {
-                print("❌ 初始化錦標賽投資組合失敗")
+                Logger.error("初始化錦標賽投資組合失敗", category: .tournament)
                 throw TournamentAPIError.unknown
             }
             
@@ -271,9 +273,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                     tournamentId: tournamentId,
                     initialBalance: initialBalance
                 )
-                print("✅ [TournamentService] 後端統一投資組合創建成功")
+                Logger.debug("後端統一投資組合創建成功", category: .database)
             } catch {
-                print("⚠️ [TournamentService] 後端投資組合創建失敗，但本地投資組合已創建: \(error)")
+                Logger.warning("後端投資組合創建失敗，但本地投資組合已創建: \(error)", category: .database)
                 // 不拋出錯誤，因為本地投資組合已創建，可以繼續使用
             }
             
@@ -281,7 +283,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             let success = try await supabaseService.joinTournament(tournamentId: tournamentId)
             
             if success {
-                print("✅ [TournamentService] 成功加入錦標賽並初始化投資組合")
+                Logger.info("成功加入錦標賽並初始化投資組合", category: .tournament)
                 
                 // 重新載入錦標賽數據以更新參與者數量
                 await loadTournaments()
@@ -301,7 +303,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             
         } catch {
             let apiError = handleError(error)
-            print("❌ [TournamentService] 加入錦標賽失敗: \(error.localizedDescription)")
+            Logger.error("加入錦標賽失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
@@ -311,7 +313,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         do {
             // 步驟1：檢查是否有投資組合
             guard portfolioManager.hasPortfolio(for: tournamentId) else {
-                print("⚠️ 沒有找到錦標賽投資組合")
+                Logger.warning("沒有找到錦標賽投資組合", category: .tournament)
                 // 仍然嘗試從後端離開
                 return try await supabaseService.leaveTournament(tournamentId: tournamentId)
             }
@@ -330,27 +332,27 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                             userId: currentUser.id,
                             tournamentId: tournamentId
                         )
-                        print("✅ [TournamentService] 後端統一投資組合清理成功")
+                        Logger.debug("後端統一投資組合清理成功", category: .database)
                     } catch {
-                        print("⚠️ [TournamentService] 後端投資組合清理失敗: \(error)")
+                        Logger.warning("後端投資組合清理失敗: \(error)", category: .database)
                         // 不影響主要流程，因為錦標賽已離開
                     }
                 }
                 
-                print("✅ [TournamentService] 成功離開錦標賽並清理投資組合")
+                Logger.info("成功離開錦標賽並清理投資組合", category: .tournament)
                 
                 // 重新載入錦標賽數據以更新參與者數量
                 await loadTournaments()
                 
                 return true
             } else {
-                print("❌ [TournamentService] 後端離開錦標賽失敗")
+                Logger.error("後端離開錦標賽失敗", category: .tournament)
                 return false
             }
             
         } catch {
             let apiError = handleError(error)
-            print("❌ [TournamentService] 離開錦標賽失敗: \(error.localizedDescription)")
+            Logger.error("離開錦標賽失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
@@ -373,11 +375,11 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 rankingHistory: [],
                 achievements: []
             )
-            print("✅ [TournamentService] 成功獲取個人績效數據")
+            Logger.debug("成功獲取個人績效數據", category: .tournament)
             return performance
         } catch {
             let apiError = handleError(error)
-            print("❌ [TournamentService] 獲取個人績效數據失敗: \(error.localizedDescription)")
+            Logger.error("獲取個人績效數據失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
@@ -423,11 +425,11 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
             }
             
-            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個精選錦標賽（UTC標準化）")
+            Logger.info("成功獲取 \(tournaments.count) 個精選錦標賽（UTC標準化）", category: .tournament)
             return tournaments
         } catch {
             let apiError = handleError(error)
-            print("❌ [TournamentService] 獲取精選錦標賽失敗: \(error.localizedDescription)")
+            Logger.error("獲取精選錦標賽失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
@@ -442,11 +444,11 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
             }
             
-            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個 \(type.displayName) 錦標賽（UTC標準化）")
+            Logger.info("成功獲取 \(tournaments.count) 個 \(type.displayName) 錦標賽（UTC標準化）", category: .tournament)
             return tournaments
         } catch {
             let apiError = handleError(error)
-            print("❌ [TournamentService] 獲取錦標賽類型失敗: \(error.localizedDescription)")
+            Logger.error("獲取錦標賽類型失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
@@ -461,18 +463,18 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 tournament.needsStatusUpdate ? tournament.withUpdatedStatus() : tournament
             }
             
-            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個 \(status.displayName) 錦標賽（UTC標準化）")
+            Logger.info("成功獲取 \(tournaments.count) 個 \(status.displayName) 錦標賽（UTC標準化）", category: .tournament)
             return tournaments
         } catch {
             let apiError = handleError(error)
-            print("❌ [TournamentService] 獲取錦標賽狀態失敗: \(error.localizedDescription)")
+            Logger.error("獲取錦標賽狀態失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
     
     /// 獲取活躍/進行中的錦標賽
     func getActiveTournaments() async throws -> [Tournament] {
-        print("🔍 [TournamentService] 開始獲取活躍錦標賽")
+        Logger.debug("開始獲取活躍錦標賽", category: .tournament)
         
         do {
             let rawTournaments = try await supabaseService.fetchTournaments()
@@ -485,11 +487,11 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 return updatedTournament.status == .ongoing ? updatedTournament : nil
             }
             
-            print("✅ [TournamentService] 成功獲取 \(tournaments.count) 個活躍錦標賽")
+            Logger.info("成功獲取 \(tournaments.count) 個活躍錦標賽", category: .tournament)
             return tournaments
         } catch {
             let apiError = handleError(error)
-            print("❌ [TournamentService] 獲取活躍錦標賽失敗: \(error.localizedDescription)")
+            Logger.error("獲取活躍錦標賽失敗: \(error.localizedDescription)", category: .tournament)
             throw apiError
         }
     }
@@ -510,7 +512,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     
     /// 開始即時更新（包含UTC時區處理）
     private func startRealtimeUpdates() async {
-        print("📊 [TournamentService] 開始即時更新（UTC時區標準化）")
+        Logger.info("開始即時更新（UTC時區標準化）", category: .performance)
         
         // 停止現有的計時器
         stopRealtimeUpdates()
@@ -527,7 +529,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             self.realtimeConnected = true
         }
         
-        print("📊 [TournamentService] 即時更新已啟動，刷新間隔: \(refreshInterval)秒")
+        Logger.debug("即時更新已啟動，刷新間隔: \(refreshInterval)秒", category: .performance)
     }
     
     /// 停止即時更新
@@ -535,7 +537,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         refreshTimer?.invalidate()
         refreshTimer = nil
         realtimeConnected = false
-        print("📊 [TournamentService] 即時更新已停止")
+        Logger.debug("即時更新已停止", category: .performance)
     }
     
     /// 刷新錦標賽數據（UTC時區標準化）
@@ -552,12 +554,12 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 self.tournaments = tournaments
                 self.error = nil
             }
-            print("📊 [TournamentService] 自動刷新錦標賽數據成功（UTC標準化）")
+            Logger.debug("自動刷新錦標賽數據成功（UTC標準化）", category: .performance)
         } catch {
             await MainActor.run {
                 self.error = handleError(error)
             }
-            print("❌ [TournamentService] 自動刷新錦標賽數據失敗: \(error.localizedDescription)")
+            Logger.error("自動刷新錦標賽數據失敗: \(error.localizedDescription)", category: .performance)
         }
     }
     
@@ -569,7 +571,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     
     /// 重新連接即時更新
     func reconnectRealtime() async {
-        print("📊 [TournamentService] 重新連接即時更新")
+        Logger.info("重新連接即時更新", category: .performance)
         await startRealtimeUpdates()
     }
     
@@ -583,11 +585,11 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         }
         
         if !transitionTournaments.isEmpty {
-            print("⚡️ [TournamentService] 發現 \(transitionTournaments.count) 個錦標賽處於狀態轉換點")
+            Logger.info("發現 \(transitionTournaments.count) 個錦標賽處於狀態轉換點", category: .tournament)
             
             for tournament in transitionTournaments {
                 if let reminder = tournament.transitionReminder {
-                    print("⏰ [TournamentService] \(tournament.name): \(reminder)")
+                    Logger.debug("\(tournament.name): \(reminder)", category: .tournament)
                 }
             }
         }
@@ -608,7 +610,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             self.tournaments = updatedTournaments
         }
         
-        print("🔄 [TournamentService] 強制更新了 \(updatedTournaments.count) 個錦標賽的狀態")
+        Logger.debug("強制更新了 \(updatedTournaments.count) 個錦標賽的狀態", category: .tournament)
     }
     
     // MARK: - 錦標賽投資組合整合方法
@@ -660,14 +662,14 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             await portfolioManager.updatePerformanceMetrics(for: portfolio.tournamentId)
         }
         
-        print("📊 [TournamentService] 已刷新 \(allPortfolios.count) 個錦標賽投資組合績效")
+        Logger.debug("已刷新 \(allPortfolios.count) 個錦標賽投資組合績效", category: .performance)
     }
     
     deinit {
         // 在 deinit 中無法調用 @MainActor 方法，需要直接清理
         refreshTimer?.invalidate()
         refreshTimer = nil
-        print("📊 [TournamentService] 服務已釋放，即時更新已停止")
+        Logger.debug("服務已釋放，即時更新已停止", category: .performance)
     }
     
     // MARK: - Status Monitor Integration
@@ -700,9 +702,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
                 }
             }
             
-            print("✅ [TournamentService] 錦標賽保存成功: \(tournament.name)")
+            Logger.info("錦標賽保存成功: \(tournament.name)", category: .database)
         } catch {
-            print("❌ [TournamentService] 保存錦標賽失敗: \(error)")
+            Logger.error("保存錦標賽失敗: \(error)", category: .database)
             throw error
         }
     }
@@ -721,7 +723,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             let members = try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
             return members.first { $0.userId == userId }
         } catch {
-            print("❌ [TournamentService] 獲取成員資格失敗: \(error)")
+            Logger.error("獲取成員資格失敗: \(error)", category: .tournament)
             throw error
         }
     }
@@ -757,9 +759,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             )
             
             try await saveTournament(updatedTournament)
-            print("✅ [TournamentService] 參與者數量已增加: \(updatedTournament.currentParticipants)")
+            Logger.debug("參與者數量已增加: \(updatedTournament.currentParticipants)", category: .tournament)
         } catch {
-            print("❌ [TournamentService] 增加參與者數量失敗: \(error)")
+            Logger.error("增加參與者數量失敗: \(error)", category: .tournament)
             throw error
         }
     }
@@ -795,9 +797,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
             )
             
             try await saveTournament(updatedTournament)
-            print("✅ [TournamentService] 錦標賽狀態已更新: \(status.displayName)")
+            Logger.info("錦標賽狀態已更新: \(status.displayName)", category: .tournament)
         } catch {
-            print("❌ [TournamentService] 更新錦標賽狀態失敗: \(error)")
+            Logger.error("更新錦標賽狀態失敗: \(error)", category: .tournament)
             throw error
         }
     }
@@ -807,7 +809,7 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
         do {
             return try await supabaseService.fetchTournamentMembers(tournamentId: tournamentId)
         } catch {
-            print("❌ [TournamentService] 獲取成員列表失敗: \(error)")
+            Logger.error("獲取成員列表失敗: \(error)", category: .tournament)
             throw error
         }
     }
@@ -816,9 +818,9 @@ class TournamentService: ObservableObject, TournamentServiceProtocol {
     func createMember(_ member: TournamentMember) async throws {
         do {
             try await supabaseService.createTournamentMember(member)
-            print("✅ [TournamentService] 錦標賽成員創建成功")
+            Logger.debug("錦標賽成員創建成功", category: .tournament)
         } catch {
-            print("❌ [TournamentService] 創建錦標賽成員失敗: \(error)")
+            Logger.error("創建錦標賽成員失敗: \(error)", category: .tournament)
             throw error
         }
     }

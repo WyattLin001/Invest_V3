@@ -3,11 +3,31 @@ import UIKit
 import Supabase
 import Auth
 
+// Import custom Logger utility
+import os
+
 /// 用戶在群組中的角色
 enum UserRole: String, CaseIterable {
     case host = "host"
     case member = "member"
     case none = "none"
+}
+
+/// 用戶違規記錄結構
+struct UserViolation: Codable {
+    let id: UUID
+    let userId: UUID
+    let violationType: String
+    let createdAt: Date
+    let isActive: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case violationType = "violation_type"
+        case createdAt = "created_at"
+        case isActive = "is_active"
+    }
 }
 
 @MainActor
@@ -21,7 +41,7 @@ class SupabaseService: ObservableObject {
         
         // 如果在 Preview 模式，創建安全的模擬客戶端
         if isPreviewMode {
-            print("🔍 SupabaseService.client: Using Preview mode client")
+            Logger.debug("Using Preview mode client", category: .database)
             return SupabaseClient(
                 supabaseURL: URL(string: "https://preview.supabase.co")!,
                 supabaseKey: "preview-key"
@@ -29,21 +49,20 @@ class SupabaseService: ObservableObject {
         }
         
         guard let client = SupabaseManager.shared.client else {
-            print("❌ SupabaseService.client accessed before initialization")
-            print("💡 確保在App啟動時調用 SupabaseManager.shared.initialize()")
+            Logger.error("SupabaseService.client accessed before initialization. 確保在App啟動時調用 SupabaseManager.shared.initialize()", category: .database)
             
             // 嘗試立即初始化
             Task {
                 do {
                     try await SupabaseManager.shared.initialize()
-                    print("✅ SupabaseManager 緊急初始化成功")
+                    Logger.info("SupabaseManager 緊急初始化成功", category: .database)
                 } catch {
-                    print("❌ SupabaseManager 緊急初始化失敗: \(error)")
+                    Logger.error("SupabaseManager 緊急初始化失敗: \(error.localizedDescription)", category: .database)
                 }
             }
             
             // 嘗試立即同步初始化 - 使用正確的 URL
-            print("⚠️ 使用緊急客戶端實例 - 正式環境")
+            Logger.warning("使用緊急客戶端實例 - 正式環境", category: .database)
             guard let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co") else {
                 fatalError("Invalid Supabase URL")
             }
@@ -60,7 +79,7 @@ class SupabaseService: ObservableObject {
     public func getCurrentUser() -> UserProfile? {
         // 檢查是否在 Preview 模式
         if SupabaseManager.isPreview {
-            print("🔍 [SupabaseService] Preview 模式 - 返回模擬用戶")
+            Logger.debug("Preview 模式 - 返回模擬用戶", category: .auth)
             return createMockUser()
         }
         
@@ -80,7 +99,7 @@ class SupabaseService: ObservableObject {
         if let session = client.auth.currentSession,
            let userId = UUID(uuidString: session.user.id.uuidString) {
             // 返回一個基本的用戶資料（這種情況下可能需要重新獲取完整資料）
-            print("⚠️ Session exists but no UserProfile in UserDefaults. User ID: \(userId)")
+            Logger.warning("Session exists but no UserProfile in UserDefaults. User ID: \(userId)", category: .auth)
         }
         
         return nil
@@ -234,12 +253,67 @@ class SupabaseService: ObservableObject {
     func fetchInvestmentGroups() async throws -> [InvestmentGroup] {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [InvestmentGroup] = try await client
+        let response: PostgrestResponse<Data> = try await client
             .from("investment_groups")
             .select()
             .execute()
-            .value
-        return response
+        
+        // Manual JSON parsing to avoid decoder issues
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse investment groups response", category: .database)
+            return []
+        }
+        
+        return jsonObject.compactMap { groupData -> InvestmentGroup? in
+            // Parse required fields
+            guard let idString = groupData["id"] as? String,
+                  let groupId = UUID(uuidString: idString),
+                  let name = groupData["name"] as? String,
+                  let host = groupData["host"] as? String,
+                  let memberCount = groupData["member_count"] as? Int,
+                  let createdAtString = groupData["created_at"] as? String,
+                  let updatedAtString = groupData["updated_at"] as? String,
+                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+                return nil
+            }
+            
+            // Parse optional fields
+            let hostIdString = groupData["host_id"] as? String
+            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
+            let returnRate = groupData["return_rate"] as? Double ?? 0.0
+            let entryFee = groupData["entry_fee"] as? String
+            let tokenCost = groupData["token_cost"] as? Int ?? 0
+            let maxMembers = groupData["max_members"] as? Int ?? 100
+            let category = groupData["category"] as? String
+            let description = groupData["description"] as? String
+            let rules = groupData["rules"] as? String
+            let isPrivate = groupData["is_private"] as? Bool ?? false
+            let inviteCode = groupData["invite_code"] as? String
+            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
+            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
+            
+            return InvestmentGroup(
+                id: groupId,
+                name: name,
+                host: host,
+                hostId: hostId,
+                returnRate: returnRate,
+                entryFee: entryFee,
+                tokenCost: tokenCost,
+                memberCount: memberCount,
+                maxMembers: maxMembers,
+                category: category,
+                description: description,
+                rules: rules,
+                isPrivate: isPrivate,
+                inviteCode: inviteCode,
+                portfolioValue: portfolioValue,
+                rankingPosition: rankingPosition,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            )
+        }
     }
     
     // MARK: - Search Functions
@@ -255,15 +329,71 @@ class SupabaseService: ObservableObject {
         let searchQuery = query.lowercased()
         
         // 搜尋群組名稱、主持人、分類或描述包含關鍵字的群組
-        let response: [InvestmentGroup] = try await client
+        let response: PostgrestResponse<Data> = try await client
             .from("investment_groups")
             .select()
             .or("name.ilike.%\(searchQuery)%,host.ilike.%\(searchQuery)%,category.ilike.%\(searchQuery)%")
             .execute()
-            .value
         
-        print("🔍 [SupabaseService] 搜尋群組 '\(query)': 找到 \(response.count) 個結果")
-        return response
+        // Manual JSON parsing to avoid decoder issues
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse search response", category: .database)
+            return []
+        }
+        
+        let groups = jsonObject.compactMap { groupData -> InvestmentGroup? in
+            // Parse required fields
+            guard let idString = groupData["id"] as? String,
+                  let groupId = UUID(uuidString: idString),
+                  let name = groupData["name"] as? String,
+                  let host = groupData["host"] as? String,
+                  let memberCount = groupData["member_count"] as? Int,
+                  let createdAtString = groupData["created_at"] as? String,
+                  let updatedAtString = groupData["updated_at"] as? String,
+                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+                return nil
+            }
+            
+            // Parse optional fields
+            let hostIdString = groupData["host_id"] as? String
+            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
+            let returnRate = groupData["return_rate"] as? Double ?? 0.0
+            let entryFee = groupData["entry_fee"] as? String
+            let tokenCost = groupData["token_cost"] as? Int ?? 0
+            let maxMembers = groupData["max_members"] as? Int ?? 100
+            let category = groupData["category"] as? String
+            let description = groupData["description"] as? String
+            let rules = groupData["rules"] as? String
+            let isPrivate = groupData["is_private"] as? Bool ?? false
+            let inviteCode = groupData["invite_code"] as? String
+            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
+            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
+            
+            return InvestmentGroup(
+                id: groupId,
+                name: name,
+                host: host,
+                hostId: hostId,
+                returnRate: returnRate,
+                entryFee: entryFee,
+                tokenCost: tokenCost,
+                memberCount: memberCount,
+                maxMembers: maxMembers,
+                category: category,
+                description: description,
+                rules: rules,
+                isPrivate: isPrivate,
+                inviteCode: inviteCode,
+                portfolioValue: portfolioValue,
+                rankingPosition: rankingPosition,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            )
+        }
+        
+        Logger.debug("搜尋群組: \(groups.count) 結果", category: .database)
+        return groups
     }
     
     /// 搜尋用戶檔案
@@ -285,7 +415,7 @@ class SupabaseService: ObservableObject {
             .execute()
             .value
         
-        print("🔍 [SupabaseService] 搜尋用戶 '\(query)': 找到 \(response.count) 個結果")
+        Logger.debug("搜尋用戶: \(response.count) 結果", category: .database)
         return response
     }
     
@@ -309,7 +439,7 @@ class SupabaseService: ObservableObject {
             .execute()
             .value
         
-        print("🔍 [SupabaseService] 搜尋文章 '\(query)': 找到 \(response.count) 個結果")
+        Logger.debug("搜尋文章: \(response.count) 結果", category: .database)
         return response
     }
     
@@ -323,7 +453,7 @@ class SupabaseService: ObservableObject {
         let users = try await usersTask  
         let articles = try await articlesTask
         
-        print("🔍 [SupabaseService] 綜合搜尋 '\(query)': \(groups.count) 群組, \(users.count) 用戶, \(articles.count) 文章")
+        Logger.info("綜合搜尋結果: \(groups.count) 群組, \(users.count) 用戶, \(articles.count) 文章", category: .database)
         
         return (groups: groups, users: users, articles: articles)
     }
@@ -331,18 +461,66 @@ class SupabaseService: ObservableObject {
     func fetchInvestmentGroup(id: UUID) async throws -> InvestmentGroup {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: [InvestmentGroup] = try await client
+        let response: PostgrestResponse<Data> = try await client
             .from("investment_groups")
             .select()
             .eq("id", value: id)
             .execute()
-            .value
         
-        guard let group = response.first else {
+        // Manual JSON parsing to avoid decoder issues
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]],
+              let groupData = jsonObject.first else {
             throw SupabaseError.dataNotFound
         }
         
-        return group
+        // Parse required fields
+        guard let idString = groupData["id"] as? String,
+              let groupId = UUID(uuidString: idString),
+              let name = groupData["name"] as? String,
+              let host = groupData["host"] as? String,
+              let memberCount = groupData["member_count"] as? Int,
+              let createdAtString = groupData["created_at"] as? String,
+              let updatedAtString = groupData["updated_at"] as? String,
+              let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+              let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+            throw SupabaseError.decodingError
+        }
+        
+        // Parse optional fields
+        let hostIdString = groupData["host_id"] as? String
+        let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
+        let returnRate = groupData["return_rate"] as? Double ?? 0.0
+        let entryFee = groupData["entry_fee"] as? String
+        let tokenCost = groupData["token_cost"] as? Int ?? 0
+        let maxMembers = groupData["max_members"] as? Int ?? 100
+        let category = groupData["category"] as? String
+        let description = groupData["description"] as? String
+        let rules = groupData["rules"] as? String
+        let isPrivate = groupData["is_private"] as? Bool ?? false
+        let inviteCode = groupData["invite_code"] as? String
+        let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
+        let rankingPosition = groupData["ranking_position"] as? Int ?? 0
+        
+        return InvestmentGroup(
+            id: groupId,
+            name: name,
+            host: host,
+            hostId: hostId,
+            returnRate: returnRate,
+            entryFee: entryFee,
+            tokenCost: tokenCost,
+            memberCount: memberCount,
+            maxMembers: maxMembers,
+            category: category,
+            description: description,
+            rules: rules,
+            isPrivate: isPrivate,
+            inviteCode: inviteCode,
+            portfolioValue: portfolioValue,
+            rankingPosition: rankingPosition,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
     }
     
     func createInvestmentGroup(
@@ -359,7 +537,8 @@ class SupabaseService: ObservableObject {
         }
         
         let groupId = UUID()
-        print("🚀 開始創建群組，ID: \(groupId)")
+        Logger.info("開始創建群組", category: .database)
+        
         
         // 簡化的群組資料結構
         struct DatabaseGroup: Codable {
@@ -376,7 +555,7 @@ class SupabaseService: ObservableObject {
         
         // 獲取主持人的投資回報率
         let hostReturnRate = await getHostReturnRate(userId: currentUser.id)
-        print("📊 主持人 \(currentUser.displayName) 的回報率: \(hostReturnRate)%")
+        Logger.debug("主持人回報率: \(hostReturnRate)%", category: .database)
         
         let entryFeeString = entryFee > 0 ? "\(entryFee) 代幣" : nil
         let dateFormatter = ISO8601DateFormatter()
@@ -396,19 +575,17 @@ class SupabaseService: ObservableObject {
         
         // Insert into database with detailed error handling
         do {
-            print("📝 準備插入群組資料到 investment_groups 表格...")
-            print("📊 群組資料: \(dbGroup)")
+            Logger.debug("插入群組資料到 investment_groups", category: .database)
             
             let result = try await self.client
                 .from("investment_groups")
                 .insert(dbGroup)
                 .execute()
             
-            print("✅ 成功插入群組資料")
+            Logger.info("群組資料插入成功", category: .database)
             
         } catch {
-            print("❌ 插入群組資料失敗: \(error)")
-            print("❌ 錯誤詳情: \(error.localizedDescription)")
+            Logger.error("插入群組資料失敗: \(error.localizedDescription)", category: .database)
             
             // 提供更具體的錯誤信息
             if error.localizedDescription.contains("404") {
@@ -423,21 +600,26 @@ class SupabaseService: ObservableObject {
             id: groupId,
             name: name,
             host: currentUser.displayName,
+            hostId: currentUser.id,
             returnRate: hostReturnRate,
             entryFee: entryFeeString,
-            memberCount: 1,
-            category: category,
-            rules: rules,
             tokenCost: entryFee,
+            memberCount: 1,
+            maxMembers: 100,
+            category: category,
+            description: nil,
+            rules: rules,
+            isPrivate: false,
+            inviteCode: nil,
+            portfolioValue: 0.0,
+            rankingPosition: 0,
             createdAt: Date(),
             updatedAt: Date()
         )
         
         // 將創建者自動加入群組成員表（不增加成員計數，因為創建時已設為1）
         do {
-            print("👥 準備將創建者加入群組成員...")
-            print("   - 群組 ID: \(groupId)")
-            print("   - 用戶 ID: \(currentUser.id)")
+            Logger.debug("將創建者加入群組成員", category: .database)
             
             // 直接插入成員記錄，不調用會增加計數的 joinGroup 函數
             struct GroupMemberInsert: Codable {
@@ -469,14 +651,13 @@ class SupabaseService: ObservableObject {
                 .insert(memberData)
                 .execute()
             
-            print("✅ 成功將創建者加入群組成員")
+            Logger.debug("創建者加入群組成員成功", category: .database)
         } catch {
-            print("⚠️ 將創建者加入群組成員失敗: \(error.localizedDescription)")
-            print("❌ 詳細錯誤: \(error)")
+            Logger.warning("將創建者加入群組成員失敗: \(error.localizedDescription)", category: .database)
             // 繼續返回群組，但記錄錯誤
         }
         
-        print("✅ 成功創建群組: \(name), 入會費: \(entryFee) 代幣, 主持人回報率: \(hostReturnRate)%")
+        Logger.info("成功創建群組: \(name)", category: .database)
         return group
     }
     
@@ -501,15 +682,15 @@ class SupabaseService: ObservableObject {
                 .value
             
             if let tradingUser = tradingUsers.first {
-                print("📈 找到主持人交易績效: \(tradingUser.cumulativeReturn)%")
+                Logger.debug("主持人交易績效: \(tradingUser.cumulativeReturn)%", category: .database)
                 return tradingUser.cumulativeReturn
             }
             
-            print("⚠️ 未找到主持人交易記錄，使用預設回報率")
+            Logger.debug("未找到主持人交易記錄，使用預設回報率", category: .database)
             return 0.0
             
         } catch {
-            print("❌ 獲取主持人回報率失敗: \(error), 使用預設值")
+            Logger.warning("獲取主持人回報率失敗: \(error.localizedDescription)", category: .database)
             return 0.0
         }
     }
@@ -685,11 +866,11 @@ class SupabaseService: ObservableObject {
             } else {
                 // 如果資料庫中沒有名字，使用 email 或一個預設值
                 senderName = authUser.email ?? "神秘用戶"
-                print("⚠️ 無法從 'user_profiles' 獲取用戶名，使用備用名稱: \(senderName)")
+                Logger.warning("無法從 user_profiles 獲取用戶名", category: .database)
             }
         } catch {
             senderName = authUser.email ?? "神秘用戶"
-            print("⚠️ 查詢 'user_profiles' 失敗: \(error.localizedDescription)，使用備用名稱: \(senderName)")
+            Logger.warning("查詢 user_profiles 失敗: \(error.localizedDescription)", category: .database)
         }
 
         // 3. 確保用戶是群組成員
@@ -738,7 +919,7 @@ class SupabaseService: ObservableObject {
         // 7. 將角色賦予返回的訊息對象
         message.userRole = userRole
         
-        print("✅ 訊息發送成功: '\(content)' by \(senderName) in group \(groupId)")
+        Logger.info("訊息發送成功", category: .database)
         return message
     }
     
@@ -763,9 +944,9 @@ class SupabaseService: ObservableObject {
         
         // 如果用戶不是群組成員，則自動加入
         if existingMembers.isEmpty {
-            print("🔄 用戶 \(userId) 不是群組 \(groupId) 的成員，自動加入...")
+            Logger.debug("用戶不是群組成員，自動加入", category: .database)
             try await joinGroup(groupId: groupId, userId: userId)
-            print("✅ 用戶已自動加入群組")
+            Logger.debug("用戶已自動加入群組", category: .database)
         }
     }
     
@@ -808,13 +989,69 @@ class SupabaseService: ObservableObject {
             return []
         }
         
-        // 獲取群組詳細信息
-        let groups: [InvestmentGroup] = try await client
+        // 獲取群組詳細信息 - 使用手動解析避免decoder問題
+        let response: PostgrestResponse<Data> = try await client
             .from("investment_groups")
             .select()
             .in("id", values: groupIds.map { $0.uuidString })
             .execute()
-            .value
+        
+        // 手動解析JSON避免自動decoder問題
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse groups response", category: .database)
+            return []
+        }
+        
+        let groups = jsonObject.compactMap { groupData -> InvestmentGroup? in
+            // Parse required fields
+            guard let idString = groupData["id"] as? String,
+                  let groupId = UUID(uuidString: idString),
+                  let name = groupData["name"] as? String,
+                  let host = groupData["host"] as? String,
+                  let memberCount = groupData["member_count"] as? Int,
+                  let createdAtString = groupData["created_at"] as? String,
+                  let updatedAtString = groupData["updated_at"] as? String,
+                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+                return nil
+            }
+            
+            // Parse optional fields
+            let hostIdString = groupData["host_id"] as? String
+            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
+            let returnRate = groupData["return_rate"] as? Double ?? 0.0
+            let entryFee = groupData["entry_fee"] as? String
+            let tokenCost = groupData["token_cost"] as? Int ?? 0
+            let maxMembers = groupData["max_members"] as? Int ?? 100
+            let category = groupData["category"] as? String
+            let description = groupData["description"] as? String
+            let rules = groupData["rules"] as? String
+            let isPrivate = groupData["is_private"] as? Bool ?? false
+            let inviteCode = groupData["invite_code"] as? String
+            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
+            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
+            
+            return InvestmentGroup(
+                id: groupId,
+                name: name,
+                host: host,
+                hostId: hostId,
+                returnRate: returnRate,
+                entryFee: entryFee,
+                tokenCost: tokenCost,
+                memberCount: memberCount,
+                maxMembers: maxMembers,
+                category: category,
+                description: description,
+                rules: rules,
+                isPrivate: isPrivate,
+                inviteCode: inviteCode,
+                portfolioValue: portfolioValue,
+                rankingPosition: rankingPosition,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            )
+        }
         
         return groups
     }
@@ -823,21 +1060,72 @@ class SupabaseService: ObservableObject {
     func findAndJoinGroupById(groupId: String) async throws -> InvestmentGroup? {
         try await SupabaseManager.shared.ensureInitialized()
         
-        // 直接查找群組
-        let groups: [InvestmentGroup] = try await client
+        // 直接查找群組 - 使用手動解析
+        let response: PostgrestResponse<Data> = try await client
             .from("investment_groups")
             .select()
             .eq("id", value: groupId)
             .limit(1)
             .execute()
-            .value
         
-        guard let group = groups.first else {
-            print("❌ 群組 \(groupId) 不存在")
+        // Manual JSON parsing to avoid decoder issues
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]],
+              let groupData = jsonObject.first else {
+            Logger.warning("群組不存在: \(groupId)", category: .database)
             return nil
         }
         
-        print("✅ 找到群組: \(group.name)")
+        // Parse required fields
+        guard let idString = groupData["id"] as? String,
+              let foundGroupId = UUID(uuidString: idString),
+              let name = groupData["name"] as? String,
+              let host = groupData["host"] as? String,
+              let memberCount = groupData["member_count"] as? Int,
+              let createdAtString = groupData["created_at"] as? String,
+              let updatedAtString = groupData["updated_at"] as? String,
+              let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+              let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+            Logger.warning("無法解析群組資料", category: .database)
+            return nil
+        }
+        
+        // Parse optional fields
+        let hostIdString = groupData["host_id"] as? String
+        let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
+        let returnRate = groupData["return_rate"] as? Double ?? 0.0
+        let entryFee = groupData["entry_fee"] as? String
+        let tokenCost = groupData["token_cost"] as? Int ?? 0
+        let maxMembers = groupData["max_members"] as? Int ?? 100
+        let category = groupData["category"] as? String
+        let description = groupData["description"] as? String
+        let rules = groupData["rules"] as? String
+        let isPrivate = groupData["is_private"] as? Bool ?? false
+        let inviteCode = groupData["invite_code"] as? String
+        let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
+        let rankingPosition = groupData["ranking_position"] as? Int ?? 0
+        
+        let group = InvestmentGroup(
+            id: foundGroupId,
+            name: name,
+            host: host,
+            hostId: hostId,
+            returnRate: returnRate,
+            entryFee: entryFee,
+            tokenCost: tokenCost,
+            memberCount: memberCount,
+            maxMembers: maxMembers,
+            category: category,
+            description: description,
+            rules: rules,
+            isPrivate: isPrivate,
+            inviteCode: inviteCode,
+            portfolioValue: portfolioValue,
+            rankingPosition: rankingPosition,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+        
+        Logger.debug("找到群組: \(group.name)", category: .database)
         
         // 獲取當前用戶
         guard let currentUser = getCurrentUser() else {
@@ -847,10 +1135,10 @@ class SupabaseService: ObservableObject {
         // 直接加入群組成員（跳過代幣扣除以避免交易約束問題）
         if let groupUUID = UUID(uuidString: groupId) {
             try await joinGroup(groupId: groupUUID, userId: currentUser.id)
-            print("✅ 成功加入群組: \(group.name)")
+            Logger.info("成功加入群組: \(group.name)", category: .database)
             return group
         } else {
-            print("❌ 無效的群組 ID 格式")
+            Logger.error("無效的群組 ID 格式", category: .database)
             return nil
         }
     }
@@ -911,7 +1199,7 @@ class SupabaseService: ObservableObject {
             .eq("id", value: groupId.uuidString)
             .execute()
         
-        print("✅ 成功退出群組: \(groupId)")
+        Logger.info("成功退出群組", category: .database)
     }
     
     func joinGroup(groupId: UUID, userId: UUID) async throws {
@@ -945,14 +1233,14 @@ class SupabaseService: ObservableObject {
         )
         
         do {
-            print("👥 準備將主持人加入群組成員...")
+            Logger.debug("將主持人加入群組成員", category: .database)
             try await self.client
                 .from("group_members")
                 .insert(memberData)
                 .execute()
-            print("✅ 成功加入群組成員")
+            Logger.debug("成功加入群組成員", category: .database)
         } catch {
-            print("❌ 加入群組成員失敗: \(error)")
+            Logger.error("加入群組成員失敗: \(error.localizedDescription)", category: .database)
             
             if error.localizedDescription.contains("404") {
                 throw SupabaseError.unknown("group_members 表格不存在或權限不足")
@@ -979,7 +1267,7 @@ class SupabaseService: ObservableObject {
             .eq("id", value: groupId.uuidString)
             .execute()
         
-        print("✅ 成功加入群組: \(groupId)")
+        Logger.info("成功加入群組", category: .database)
     }
     
     /// 加入群組（從 HomeViewModel 調用）
@@ -1010,20 +1298,20 @@ class SupabaseService: ObservableObject {
             // 創建投資組合（保留原有功能）
             do {
                 let _ = try await createPortfolio(groupId: groupId, userId: currentUser.id)
-                print("✅ 成功創建投資組合")
+                Logger.info("投資組合創建成功", category: .database)
             } catch {
                 if error.localizedDescription.contains("404") {
-                    print("❌ portfolios 表不存在，請在 Supabase SQL Editor 中執行 CREATE_PORTFOLIOS_TABLE.sql")
+                    Logger.error("portfolios 表不存在", category: .database)
                     throw SupabaseError.unknown("❌ 數據庫配置錯誤：portfolios 表不存在\n\n請在 Supabase SQL Editor 中執行 CREATE_PORTFOLIOS_TABLE.sql 腳本來創建必要的表格。")
                 }
-                print("⚠️ 創建投資組合失敗，但群組已成功加入: \(error.localizedDescription)")
+                Logger.warning("創建投資組合失敗，但群組已成功加入: \(error.localizedDescription)", category: .database)
                 // 不拋出錯誤，因為加入群組已經成功
             }
             
-            print("✅ [joinGroup] \(message)")
+            Logger.info("[joinGroup] \(message)", category: .database)
             
         } catch {
-            print("❌ 加入群組失敗: \(error.localizedDescription)")
+            Logger.error("加入群組失敗: \(error.localizedDescription)", category: .database)
             throw error
         }
     }
@@ -1032,17 +1320,8 @@ class SupabaseService: ObservableObject {
     func fetchGroupHostId(groupId: UUID) async throws -> UUID {
         try await SupabaseManager.shared.ensureInitialized()
         
-        let groups: [InvestmentGroup] = try await client
-            .from("investment_groups")
-            .select()
-            .eq("id", value: groupId.uuidString)
-            .limit(1)
-            .execute()
-            .value
-        
-        guard let group = groups.first else {
-            throw SupabaseError.unknown("群組不存在")
-        }
+        // Use the already-fixed fetchInvestmentGroup method
+        let group = try await fetchInvestmentGroup(id: groupId)
         
         // 通過 host 名稱查找主持人的 user ID
         let hostProfile = try? await fetchUserProfileByDisplayName(group.host)
@@ -1149,6 +1428,7 @@ class SupabaseService: ObservableObject {
             let category: String
             let isFree: Bool
             let keywords: [String]
+            let coverImageURL: String?
             let sharesCount: Int
             let createdAt: Date
             let updatedAt: Date
@@ -1163,6 +1443,7 @@ class SupabaseService: ObservableObject {
                 case category
                 case isFree = "is_free"
                 case keywords
+                case coverImageURL = "cover_image_url"
                 case sharesCount = "shares_count"
                 case createdAt = "created_at"
                 case updatedAt = "updated_at"
@@ -1182,6 +1463,7 @@ class SupabaseService: ObservableObject {
             category: draft.category,
             isFree: draft.isFree,
             keywords: draft.keywords,
+            coverImageURL: draft.coverImageURL,
             sharesCount: 0,
             createdAt: draft.createdAt,
             updatedAt: Date()
@@ -1215,6 +1497,7 @@ class SupabaseService: ObservableObject {
             let keywords: [String]
             let isFree: Bool
             let isUnlisted: Bool
+            let coverImageURL: String?
             let authorId: String
             let createdAt: Date
             let updatedAt: Date
@@ -1228,6 +1511,7 @@ class SupabaseService: ObservableObject {
                 case keywords
                 case isFree = "is_free"
                 case isUnlisted = "is_unlisted"
+                case coverImageURL = "cover_image_url"
                 case authorId = "author_id"
                 case createdAt = "created_at"
                 case updatedAt = "updated_at"
@@ -1243,6 +1527,7 @@ class SupabaseService: ObservableObject {
             keywords: draft.keywords,
             isFree: draft.isFree,
             isUnlisted: draft.isUnlisted,
+            coverImageURL: draft.coverImageURL,
             authorId: currentUser.id.uuidString,
             createdAt: draft.createdAt,
             updatedAt: Date()
@@ -1346,7 +1631,7 @@ class SupabaseService: ObservableObject {
             .eq("id", value: articleId.uuidString)
             .execute()
         
-        print("✅ [SupabaseService] 文章狀態已更新: \(articleId) -> \(status.displayName)")
+        Logger.info("文章狀態已更新: \(status.displayName)", category: .database)
     }
     
     
@@ -1414,7 +1699,7 @@ class SupabaseService: ObservableObject {
         } catch let error {
             // 如果是重複文件錯誤，嘗試使用 upsert 選項覆蓋
             if error.localizedDescription.contains("already exists") {
-                print("⚠️ 文件已存在，使用 upsert 選項覆蓋: \(fileName)")
+                Logger.warning("文件已存在，使用 upsert 選項覆蓋: \(fileName)", category: .network)
                 try await client.storage
                     .from("article-images")
                     .upload(path: path, file: imageData, options: FileOptions(contentType: contentType, upsert: true))
@@ -1473,7 +1758,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.notAuthenticated
         }
         
-        print("❤️ 準備按讚文章: \(articleId)")
+        Logger.debug("準備按讚文章", category: .database)
         
         // 檢查是否已經按讚
         let existingLikes: [ArticleLike] = try await client
@@ -1485,7 +1770,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard existingLikes.isEmpty else {
-            print("ℹ️ 用戶已經按讚過此文章")
+            Logger.debug("用戶已經按讚過此文章", category: .database)
             return
         }
         
@@ -1513,7 +1798,7 @@ class SupabaseService: ObservableObject {
             .insert(likeData)
             .execute()
         
-        print("✅ 按讚成功")
+        Logger.info("按讚成功", category: .database)
     }
     
     /// 取消按讚文章
@@ -1522,7 +1807,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.notAuthenticated
         }
         
-        print("💔 準備取消按讚文章: \(articleId)")
+        Logger.debug("準備取消按讚文章", category: .database)
         
         try await client
             .from("article_likes")
@@ -1531,7 +1816,7 @@ class SupabaseService: ObservableObject {
             .eq("user_id", value: currentUser.id.uuidString)
             .execute()
         
-        print("✅ 取消按讚成功")
+        Logger.info("取消按讚成功", category: .database)
     }
     
     /// 獲取文章互動統計
@@ -1584,7 +1869,7 @@ class SupabaseService: ObservableObject {
     
     /// 獲取文章留言列表
     func fetchArticleComments(articleId: UUID) async throws -> [ArticleComment] {
-        print("💬 獲取文章留言: \(articleId)")
+        Logger.debug("獲取文章留言", category: .database)
         
         let comments: [ArticleComment] = try await client
             .from("article_comments")
@@ -1594,7 +1879,7 @@ class SupabaseService: ObservableObject {
             .execute()
             .value
         
-        print("✅ 獲取到 \(comments.count) 條留言")
+        Logger.debug("獲取到 \(comments.count) 條留言", category: .database)
         return comments
     }
     
@@ -1604,7 +1889,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.notAuthenticated
         }
         
-        print("💬 準備新增留言到文章: \(articleId)")
+        Logger.debug("準備新增留言到文章", category: .database)
         
         struct ArticleCommentInsert: Codable {
             let articleId: String
@@ -1635,7 +1920,7 @@ class SupabaseService: ObservableObject {
             .execute()
             .value
         
-        print("✅ 留言新增成功")
+        Logger.info("留言新增成功", category: .database)
         return newComment
     }
     
@@ -1645,7 +1930,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.notAuthenticated
         }
         
-        print("📤 準備分享文章 \(articleId) 到群組 \(groupName)")
+        Logger.debug("準備分享文章到群組", category: .database)
         
         // 檢查是否已經分享過
         let existingShares: [ArticleShare] = try await client
@@ -1658,7 +1943,7 @@ class SupabaseService: ObservableObject {
             .value
         
         guard existingShares.isEmpty else {
-            print("ℹ️ 已經分享過此文章到此群組")
+            Logger.debug("已經分享過此文章到此群組", category: .database)
             return
         }
         
@@ -1691,14 +1976,14 @@ class SupabaseService: ObservableObject {
             .insert(shareData)
             .execute()
         
-        print("✅ 分享成功")
+        Logger.info("分享成功", category: .database)
     }
     
     // MARK: - Trending Keywords & Article Search
     
     /// 獲取熱門關鍵字（前5個最常用的關鍵字）
     func fetchTrendingKeywords() async throws -> [String] {
-        print("🔥 準備獲取熱門關鍵字")
+        Logger.debug("準備獲取熱門關鍵字", category: .database)
         
         do {
             // 創建專門用於關鍵字查詢的輕量級模型
@@ -1727,7 +2012,7 @@ class SupabaseService: ObservableObject {
             
             // 如果沒有關鍵字數據，返回預設熱門關鍵字
             if keywordCount.isEmpty {
-                print("ℹ️ 沒有關鍵字數據，使用預設熱門關鍵字")
+                Logger.debug("沒有關鍵字數據，使用預設熱門關鍵字", category: .database)
                 return ["股票", "投資", "市場分析", "基金", "風險管理"]
             }
             
@@ -1738,11 +2023,11 @@ class SupabaseService: ObservableObject {
                 .map { $0.key }
             
             let result = Array(trendingKeywords)
-            print("✅ 獲取熱門關鍵字成功: \(result)")
+            Logger.info("獲取熱門關鍵字成功: \(result.count) 個", category: .database)
             return result
             
         } catch {
-            print("⚠️ 獲取關鍵字失敗，使用預設關鍵字: \(error)")
+            Logger.warning("獲取關鍵字失敗，使用預設關鍵字: \(error.localizedDescription)", category: .database)
             // 發生錯誤時返回預設關鍵字
             return ["股票", "投資", "市場分析", "基金", "風險管理"]
         }
@@ -1750,7 +2035,7 @@ class SupabaseService: ObservableObject {
     
     /// 根據關鍵字篩選文章
     func fetchArticlesByKeyword(_ keyword: String) async throws -> [Article] {
-        print("🔍 根據關鍵字篩選文章: \(keyword)")
+        Logger.debug("根據關鍵字篩選文章", category: .database)
         
         if keyword == "全部" {
             // 如果選擇"全部"，返回所有文章
@@ -1769,7 +2054,7 @@ class SupabaseService: ObservableObject {
             article.summary.localizedCaseInsensitiveContains(keyword)
         }
         
-        print("✅ 根據關鍵字 '\(keyword)' 篩選到 \(filteredArticles.count) 篇文章")
+        Logger.debug("篩選到 \(filteredArticles.count) 篇文章", category: .database)
         return filteredArticles
     }
     
@@ -1781,7 +2066,7 @@ class SupabaseService: ObservableObject {
     
     /// 根據 ID 獲取單一文章
     func fetchArticleById(_ id: UUID) async throws -> Article {
-        print("📰 根據 ID 獲取文章: \(id)")
+        Logger.debug("根據 ID 獲取文章", category: .database)
         
         let articles: [Article] = try await client
             .from("articles")
@@ -1796,7 +2081,7 @@ class SupabaseService: ObservableObject {
             ])
         }
         
-        print("✅ 成功獲取文章: \(article.title)")
+        Logger.debug("成功獲取文章: \(article.title)", category: .database)
         return article
     }
     
@@ -1804,7 +2089,7 @@ class SupabaseService: ObservableObject {
     
     /// 根據時間週期獲取文章點讚排行榜
     func fetchArticleLikesRanking(period: RankingPeriod, limit: Int = 3) async throws -> [ArticleLikesRanking] {
-        print("📊 開始獲取文章點讚排行榜: \(period.rawValue)")
+        Logger.debug("獲取文章點讚排行榜: \(period.rawValue)", category: .database)
         
         do {
             // 計算時間範圍
@@ -1813,7 +2098,7 @@ class SupabaseService: ObservableObject {
             // 如果是 Preview 模式，返回測試資料
             #if DEBUG
             if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
-                print("🔍 Preview 模式：返回測試排行榜資料")
+                Logger.debug("Preview 模式：返回測試排行榜資料", category: .database)
                 return ArticleLikesRanking.createTestData(for: period)
             }
             #endif
@@ -1846,11 +2131,11 @@ class SupabaseService: ObservableObject {
                 )
             }
             
-            print("✅ 成功獲取 \(rankings.count) 篇文章的點讚排行榜")
+            Logger.info("成功獲取 \(rankings.count) 篇文章的點讚排行榜", category: .database)
             return rankings
             
         } catch {
-            print("❌ 獲取文章點讚排行榜失敗: \(error)")
+            Logger.error("獲取文章點讚排行榜失敗: \(error.localizedDescription)", category: .database)
             // 錯誤時返回空陣列或測試資料
             #if DEBUG
             return ArticleLikesRanking.createTestData(for: period)
@@ -2222,13 +2507,7 @@ class SupabaseService: ObservableObject {
     func insertPortfolioTransaction(_ transaction: PortfolioTransaction) async throws {
         try await SupabaseManager.shared.ensureInitializedAsync()
         
-        print("📝 [SupabaseService] 插入投資組合交易記錄")
-        print("   - 交易ID: \(transaction.id)")
-        print("   - 用戶ID: \(transaction.userId)")
-        print("   - 錦標賽ID: \(transaction.tournamentId?.uuidString ?? "nil")")
-        print("   - 股票: \(transaction.symbol)")
-        print("   - 動作: \(transaction.action)")
-        print("   - 金額: \(transaction.amount)")
+        Logger.debug("插入投資組合交易記錄: \(transaction.symbol) \(transaction.action)", category: .database)
         
         // 準備插入數據
         struct TransactionInsert: Codable {
@@ -2260,7 +2539,7 @@ class SupabaseService: ObservableObject {
             .insert(insertData)
             .execute()
         
-        print("✅ [SupabaseService] 投資組合交易記錄已成功插入到 portfolio_transactions 表")
+        Logger.info("投資組合交易記錄已成功插入", category: .database)
     }
     
     // MARK: - Wallet and Transactions (Legacy - for reference only)
@@ -2284,7 +2563,7 @@ class SupabaseService: ObservableObject {
             return result + Double(transaction.amount)
         }
         
-        print("✅ [SupabaseService] 錢包餘額: \(balance) 代幣 (基於 \(response.count) 筆交易)")
+        Logger.debug("錢包餘額: \(balance) 代幣 (基於 \(response.count) 筆交易)", category: .database)
         return balance
     }
     
@@ -2296,8 +2575,14 @@ class SupabaseService: ObservableObject {
         
         let currentUser = try await getCurrentUserAsync()
         
-        // TODO: 這裡應該要加上權限檢查，只有群組主持人才可以刪除
-        // For now, we allow the user to delete their own group's messages
+        // 權限檢查：只有群組主持人才可以刪除聊天記錄
+        let groupDetails = try await GroupService.shared.getGroupDetails(groupId: groupId)
+        guard groupDetails.host == (currentUser.displayName ?? "匿名主持人") else {
+            Logger.error("❌ 權限不足：只有群組主持人才能清除聊天記錄", category: .database)
+            throw DatabaseError.unauthorized("只有群組主持人才能執行此操作")
+        }
+        
+        Logger.debug("🧹 群組主持人正在清除聊天記錄", category: .database)
         
         try await client
             .from("chat_messages")
@@ -2305,7 +2590,7 @@ class SupabaseService: ObservableObject {
             .eq("group_id", value: groupId)
             .execute()
         
-        print("✅ [SupabaseService] 已清除群組 \(groupId) 的聊天記錄")
+        Logger.info("已清除群組聊天記錄", category: .database)
     }
     
     func createTipTransaction(recipientId: UUID, amount: Double, groupId: UUID) async throws -> WalletTransaction {
@@ -2373,7 +2658,7 @@ class SupabaseService: ObservableObject {
             throw SupabaseError.unknown("Failed to create tip transaction")
         }
         
-        print("✅ [SupabaseService] 抖內交易創建成功: \(Int(amount)) 代幣 (\(Int(amountInNTD)) NTD)")
+        Logger.info("抖內交易創建成功: \(Int(amount)) 代幣", category: .database)
         return transaction
     }
     
@@ -2452,7 +2737,7 @@ class SupabaseService: ObservableObject {
         // 扣除用戶餘額 (amount 已經是金幣數量)
         try await updateWalletBalance(delta: -Int(amount))
         
-        print("✅ [SupabaseService] 群組抖內處理完成: \(currentUser.displayName) 抖內 \(Int(amount)) 代幣給主持人 \(group.host)")
+        Logger.info("群組抖內處理完成: \(currentUser.displayName) 抖內 \(Int(amount)) 代幣給主持人 \(group.host)", category: .database)
     }
     
     
@@ -2507,7 +2792,7 @@ class SupabaseService: ObservableObject {
             .insert(revenueData)
             .execute()
         
-        print("✅ [SupabaseService] 創作者收益記錄創建成功: \(revenueType.displayName) \(amount) 金幣")
+        Logger.info("創作者收益記錄創庺成功: \(revenueType.displayName) \(amount) 金幣", category: .database)
     }
     
     /// 獲取創作者總收益統計
@@ -2541,7 +2826,7 @@ class SupabaseService: ObservableObject {
                              stats.groupEntryFeeEarnings + stats.groupTipEarnings
         stats.withdrawableAmount = stats.totalEarnings // 目前全部可提領
         
-        print("✅ [SupabaseService] 創作者收益統計載入成功: 總計 \(stats.totalEarnings) 金幣")
+        Logger.info("創作者收益統計載入成功: 總計 \(stats.totalEarnings) 金幣", category: .database)
         return stats
     }
     
@@ -2608,9 +2893,7 @@ class SupabaseService: ObservableObject {
             .eq("creator_id", value: creatorId.uuidString)
             .execute()
         
-        print("✅ [SupabaseService] 已清理提領用戶的收益記錄")
-        
-        print("✅ [SupabaseService] 提領處理成功: \(amount) 金幣已轉入錢包")
+        Logger.info("提領處理成功: \(amount) 金幣已轉入錢包", category: .database)
     }
     
     /// 處理群組入會費收入 (當有人加入付費群組時)
@@ -2633,7 +2916,7 @@ class SupabaseService: ObservableObject {
                 description: "群組入會費收入來自 \(newMemberProfile?.displayName ?? "新成員")"
             )
             
-            print("✅ [SupabaseService] 群組入會費收益記錄完成: 主持人 \(group.host) 獲得 \(entryFee) 金幣")
+            Logger.info("群組入會費收益記錄完成: 主持人 \(group.host) 獲得 \(entryFee) 金幣", category: .database)
         }
     }
     
@@ -2689,7 +2972,7 @@ class SupabaseService: ObservableObject {
         }
         
         let message = "成功加入群組「\(group.name)」！已扣除 \(entryFee) 代幣入會費"
-        print("✅ [SupabaseService] \(message)")
+        Logger.info("\(message)", category: .database)
         return message
     }
     
@@ -2796,7 +3079,7 @@ class SupabaseService: ObservableObject {
         }
         
         let resultMessage = "成功在群組「\(group.name)」內抖內 \(tipAmount) 代幣！"
-        print("✅ [SupabaseService] \(resultMessage)")
+        Logger.info("\(resultMessage)", category: .database)
         return resultMessage
     }
     
@@ -3121,19 +3404,19 @@ class SupabaseService: ObservableObject {
     /// 獲取當前用戶在群組中的角色
     func fetchUserRole(groupId: UUID) async throws -> UserRole {
         guard let currentUser = getCurrentUser() else {
-            print("❌ [fetchUserRole] 無法獲取當前用戶")
+            Logger.error("無法獲取當前用戶", category: .auth)
             throw SupabaseError.notAuthenticated
         }
         
-        print("🔍 [fetchUserRole] 檢查用戶 \(currentUser.displayName) 在群組 \(groupId) 中的角色")
+        Logger.debug("檢查用戶在群組中的角色", category: .database)
         
         do {
             let roleString = try await fetchUserRole(userId: currentUser.id, groupId: groupId)
             let role = UserRole(rawValue: roleString) ?? .none
-            print("✅ [fetchUserRole] 用戶角色: \(roleString) -> \(role)")
+            Logger.debug("用戶角色: \(roleString) -> \(role)", category: .database)
             return role
         } catch {
-            print("❌ [fetchUserRole] 獲取角色失敗: \(error)")
+            Logger.error("獲取角色失敗: \(error.localizedDescription)", category: .database)
             throw error
         }
     }
@@ -3494,7 +3777,7 @@ class SupabaseService: ObservableObject {
             NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
         }
         
-        print("✅ 錢包餘額更新成功: \(currentBalance) → \(newBalance) (變化: \(delta))")
+        Logger.info("錢包餘額更新成功: \(currentBalance) → \(newBalance)", category: .database)
     }
     
     /// 獲取用戶交易記錄
@@ -3516,7 +3799,7 @@ class SupabaseService: ObservableObject {
             .execute()
             .value
         
-        print("✅ [SupabaseService] 成功載入 \(response.count) 筆交易記錄 (第 \(offset/limit + 1) 頁)")
+        Logger.debug("載入 \(response.count) 筆交易記錄 (第 \(offset/limit + 1) 頁)", category: .database)
         return response
     }
     
@@ -3600,7 +3883,7 @@ class SupabaseService: ObservableObject {
             NotificationCenter.default.post(name: NSNotification.Name("WalletBalanceUpdated"), object: nil)
         }
         
-        print("✅ 成功扣除 \(amount) 代幣，餘額: \(currentBalance) → \(newBalance)")
+        Logger.info("成功扣除 \(amount) 代幣，餘額: \(currentBalance) → \(newBalance)", category: .database)
     }
     
     // MARK: - Subscription Management
@@ -3696,7 +3979,7 @@ class SupabaseService: ObservableObject {
             .insert(subscriptionData)
             .execute()
         
-        print("✅ 訂閱成功: 用戶 \(userId) 訂閱作者 \(authorId)，費用 \(subscriptionFee) 代幣")
+        Logger.info("訂閱成功: 用戶 \(userId) 訂閱作者 \(authorId)", category: .database)
     }
     
     /// 記錄付費文章閱讀
@@ -3720,7 +4003,7 @@ class SupabaseService: ObservableObject {
         
         // 如果已經記錄過，就不再重複記錄
         guard existingViews.isEmpty else {
-            print("ℹ️ 文章 \(articleId) 已經記錄過閱讀，跳過重複記錄")
+            Logger.debug("文章已經記錄過閱讀，跳過重複記錄", category: .database)
             return
         }
         
@@ -3754,7 +4037,7 @@ class SupabaseService: ObservableObject {
             .insert(viewRecord)
             .execute()
         
-        print("✅ 付費文章閱讀記錄成功: 用戶 \(userId) 閱讀文章 \(articleId)")
+        Logger.info("付費文章閱讀記錄成功", category: .database)
     }
     
     /// 檢查今日免費文章閱讀數量
@@ -3776,7 +4059,7 @@ class SupabaseService: ObservableObject {
             .eq("user_id", value: userId)
             .eq("is_paid", value: false)
             .gte("viewed_at", value: today)
-            .lt("viewed_at", value: tomorrow)
+            .lte("viewed_at", value: tomorrow)
             .execute()
             .value
         
@@ -3804,7 +4087,7 @@ class SupabaseService: ObservableObject {
         
         // 如果已經記錄過，就不再重複記錄
         guard existingViews.isEmpty else {
-            print("ℹ️ 文章 \(articleId) 已經記錄過閱讀，跳過重複記錄")
+            Logger.debug("文章已經記錄過閱讀，跳過重複記錄", category: .database)
             return
         }
         
@@ -3838,7 +4121,7 @@ class SupabaseService: ObservableObject {
             .insert(viewRecord)
             .execute()
         
-        print("✅ 免費文章閱讀記錄成功: 用戶 \(userId) 閱讀文章 \(articleId)")
+        Logger.info("免費文章閱讀記錄成功", category: .database)
     }
     
     /// 檢查是否可以閱讀免費文章（每日限制3篇）
@@ -4025,8 +4308,7 @@ class SupabaseService: ObservableObject {
             paymentMethod: "wallet"
         )
         
-        print("✅ 平台會員訂閱成功: 用戶 \(currentUser.id) 訂閱 \(subscriptionType)，費用 \(amount) 代幣")
-        print("✅ 錢包餘額更新: \(currentBalance) → \(newBalance) (變化: -\(amount))")
+        Logger.info("平台會員訂閱成功: 用戶 \(currentUser.id) 訂閱 \(subscriptionType)", category: .database)
         
         return subscription
     }
@@ -4041,7 +4323,7 @@ class SupabaseService: ObservableObject {
         
         // 檢查是否為文章作者 - 作者看自己的文章不計入付費閱讀
         if currentUser.id == authorId {
-            print("ℹ️ 作者看自己的文章，不記錄付費閱讀")
+            Logger.debug("作者看自己的文章，不記錄付費閱讀", category: .database)
             return
         }
         
@@ -4060,12 +4342,12 @@ class SupabaseService: ObservableObject {
             .eq("user_id", value: currentUser.id.uuidString)
             .eq("article_id", value: articleId.uuidString)
             .gte("read_date", value: ISO8601DateFormatter().string(from: today))
-            .lt("read_date", value: ISO8601DateFormatter().string(from: tomorrow))
+            .lte("read_date", value: ISO8601DateFormatter().string(from: tomorrow))
             .execute()
             .value
         
         if !existingReads.isEmpty {
-            print("ℹ️ 文章 \(articleId) 今日已經記錄過閱讀，跳過重複記錄")
+            Logger.debug("文章今日已經記錄過閱讀，跳過重複記錄", category: .database)
             return
         }
         
@@ -4110,7 +4392,7 @@ class SupabaseService: ObservableObject {
             .execute()
             .value
         
-        print("✅ 平台會員文章閱讀記錄成功: 用戶 \(currentUser.id) 閱讀文章 \(articleId)")
+        Logger.info("平台會員文章閱讀記錄成功", category: .database)
     }
     
     /// 創建錢包交易記錄
@@ -4164,7 +4446,7 @@ class SupabaseService: ObservableObject {
             .insert(transactionData)
             .execute()
         
-        print("✅ [SupabaseService] 錢包交易記錄創建成功: \(type) \(amount) 代幣")
+        Logger.debug("錢包交易記錄創建成功: \(type) \(amount) 代幣", category: .database)
     }
     
     /// 驗證作者是否存在於數據庫中
@@ -4396,7 +4678,7 @@ class SupabaseService: ObservableObject {
             try await client
                 .from("investment_groups")
                 .delete()
-                .lt("created_at", value: "2025-07-19T00:00:00")
+                .lte("created_at", value: "2025-07-19T00:00:00")
                 .execute()
             
             print("✅ [SupabaseService] 所有測試群組已清理完成")
@@ -5492,16 +5774,72 @@ extension SupabaseService {
             throw SupabaseError.notAuthenticated
         }
         
-        // 查詢用戶為主持人的群組
-        let response: [InvestmentGroup] = try await client
+        // 查詢用戶為主持人的群組 - 使用手動解析
+        let response: PostgrestResponse<Data> = try await client
             .from("investment_groups")
             .select()
             .eq("host_id", value: currentUser.id.uuidString)
             .execute()
-            .value
         
-        print("✅ [SupabaseService] 獲取用戶主持的群組: \(response.count) 個")
-        return response
+        // Manual JSON parsing to avoid decoder issues
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse user hosted groups response", category: .database)
+            return []
+        }
+        
+        let groups = jsonObject.compactMap { groupData -> InvestmentGroup? in
+            // Parse required fields
+            guard let idString = groupData["id"] as? String,
+                  let groupId = UUID(uuidString: idString),
+                  let name = groupData["name"] as? String,
+                  let host = groupData["host"] as? String,
+                  let memberCount = groupData["member_count"] as? Int,
+                  let createdAtString = groupData["created_at"] as? String,
+                  let updatedAtString = groupData["updated_at"] as? String,
+                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+                return nil
+            }
+            
+            // Parse optional fields
+            let hostIdString = groupData["host_id"] as? String
+            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
+            let returnRate = groupData["return_rate"] as? Double ?? 0.0
+            let entryFee = groupData["entry_fee"] as? String
+            let tokenCost = groupData["token_cost"] as? Int ?? 0
+            let maxMembers = groupData["max_members"] as? Int ?? 100
+            let category = groupData["category"] as? String
+            let description = groupData["description"] as? String
+            let rules = groupData["rules"] as? String
+            let isPrivate = groupData["is_private"] as? Bool ?? false
+            let inviteCode = groupData["invite_code"] as? String
+            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
+            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
+            
+            return InvestmentGroup(
+                id: groupId,
+                name: name,
+                host: host,
+                hostId: hostId,
+                returnRate: returnRate,
+                entryFee: entryFee,
+                tokenCost: tokenCost,
+                memberCount: memberCount,
+                maxMembers: maxMembers,
+                category: category,
+                description: description,
+                rules: rules,
+                isPrivate: isPrivate,
+                inviteCode: inviteCode,
+                portfolioValue: portfolioValue,
+                rankingPosition: rankingPosition,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            )
+        }
+        
+        print("✅ [SupabaseService] 獲取用戶主持的群組: \(groups.count) 個")
+        return groups
     }
     
     /// 獲取特定用戶在群組中的捐贈統計
@@ -5565,7 +5903,7 @@ extension SupabaseService {
         
         do {
             // 查詢用戶表獲取總用戶數
-            let response: PostgrestResponse = try await client
+            let response: PostgrestResponse<Data> = try await client
                 .from("user_profiles")
                 .select("id", head: false, count: .exact)
                 .execute()
@@ -5699,15 +6037,29 @@ extension SupabaseService {
     func checkAuthorViolations(authorId: UUID) async throws -> Bool {
         try SupabaseManager.shared.ensureInitialized()
         
-        print("⚠️ [SupabaseService] 檢查作者違規記錄: \(authorId)")
+        Logger.debug("⚠️ 檢查作者違規記錄: \(authorId)", category: .database)
         
         do {
-            // 檢查是否存在違規記錄表
-            // 目前暫時返回 false（無違規），因為我們還沒有實現違規記錄系統
-            // TODO: 實現違規記錄檢查機制
+            // 實現違規記錄檢查機制
+            let violationResponse = try await client
+                .from("user_violations")
+                .select("id, violation_type, created_at, is_active")
+                .eq("user_id", value: authorId)
+                .eq("is_active", value: true)
+                .execute()
             
-            print("✅ [SupabaseService] 違規記錄檢查完成: 無違規")
-            return false
+            let violations = try JSONDecoder().decode([UserViolation].self, from: violationResponse.data)
+            
+            // 檢查是否有有效的違規記錄
+            let hasActiveViolations = !violations.isEmpty
+            
+            if hasActiveViolations {
+                Logger.warning("⚠️ 發現作者有效違規記錄: \(violations.count) 筆", category: .database)
+            } else {
+                Logger.debug("✅ 違規記錄檢查完成: 無違規", category: .database)
+            }
+            
+            return hasActiveViolations
             
         } catch {
             print("❌ [SupabaseService] 檢查違規記錄失敗: \(error)")
@@ -6667,24 +7019,90 @@ extension SupabaseService {
         let friendIds = try await getFriendIds(userId: currentUser.id)
         let pendingRequestIds = try await getPendingRequestIds(userId: currentUser.id)
         
-        let searchResults = profiles.map { profile in
-            FriendSearchResult(
-                id: UUID(uuidString: profile.id) ?? UUID(),
-                userId: profile.id,
-                userName: profile.username,
-                displayName: profile.displayName,
-                avatarUrl: profile.avatarUrl,
-                bio: profile.bio,
-                investmentStyle: InvestmentStyle(rawValue: profile.investmentStyle ?? ""),
-                performanceScore: profile.performanceScore ?? 0.0,
-                totalReturn: profile.totalReturn ?? 0.0,
-                mutualFriendsCount: 0, // TODO: 實現共同好友計算
-                isAlreadyFriend: friendIds.contains(profile.id),
-                hasPendingRequest: pendingRequestIds.contains(profile.id)
-            )
+        let searchResults = await withTaskGroup(of: FriendSearchResult.self) { group in
+            var results: [FriendSearchResult] = []
+            
+            for profile in profiles {
+                group.addTask {
+                    // 計算共同好友數量
+                    let mutualCount = await self.calculateMutualFriendsCount(
+                        currentUserId: currentUser.id.uuidString,
+                        targetUserId: profile.id
+                    )
+                    
+                    return FriendSearchResult(
+                        id: UUID(uuidString: profile.id) ?? UUID(),
+                        userId: profile.id,
+                        userName: profile.username,
+                        displayName: profile.displayName,
+                        avatarUrl: profile.avatarUrl,
+                        bio: profile.bio,
+                        investmentStyle: InvestmentStyle(rawValue: profile.investmentStyle ?? ""),
+                        performanceScore: profile.performanceScore ?? 0.0,
+                        totalReturn: profile.totalReturn ?? 0.0,
+                        mutualFriendsCount: mutualCount,
+                        isAlreadyFriend: friendIds.contains(profile.id),
+                        hasPendingRequest: pendingRequestIds.contains(profile.id)
+                    )
+                }
+            }
+            
+            for await result in group {
+                results.append(result)
+            }
+            
+            return results
         }
         
         return searchResults
+    }
+    
+    /// 計算兩個用戶之間的共同好友數量
+    private func calculateMutualFriendsCount(currentUserId: String, targetUserId: String) async -> Int {
+        do {
+            // 獲取當前用戶的好友列表
+            let currentUserFriendsResponse = try await client
+                .from("friendships")
+                .select("friend_id")
+                .eq("user_id", value: currentUserId)
+                .eq("status", value: "accepted")
+                .execute()
+            
+            let currentUserFriends = try JSONDecoder().decode([FriendshipResponse].self, from: currentUserFriendsResponse.data)
+            
+            let currentFriendIds = Set(currentUserFriends.map { $0.friendId })
+            
+            // 獲取目標用戶的好友列表
+            let targetUserFriendsResponse = try await client
+                .from("friendships")
+                .select("friend_id")
+                .eq("user_id", value: targetUserId)
+                .eq("status", value: "accepted")
+                .execute()
+            
+            let targetUserFriends = try JSONDecoder().decode([FriendshipResponse].self, from: targetUserFriendsResponse.data)
+            
+            let targetFriendIds = Set(targetUserFriends.map { $0.friendId })
+            
+            // 計算交集
+            let mutualFriends = currentFriendIds.intersection(targetFriendIds)
+            
+            Logger.debug("🤝 計算共同好友: \(currentUserId) 和 \(targetUserId) 有 \(mutualFriends.count) 個共同好友", category: .database)
+            
+            return mutualFriends.count
+            
+        } catch {
+            Logger.error("❌ 計算共同好友失敗: \(error.localizedDescription)", category: .database)
+            return 0
+        }
+    }
+    
+    struct FriendshipResponse: Codable {
+        let friendId: String
+        
+        enum CodingKeys: String, CodingKey {
+            case friendId = "friend_id"
+        }
     }
     
     /// 發送好友請求
@@ -6928,7 +7346,7 @@ extension SupabaseService {
 
 // MARK: - Friends System Database Models
 
-struct FriendshipResponse: Codable {
+public struct FriendshipResponse: Codable {
     let id: String
     let userId: String
     let friendId: String
@@ -7006,7 +7424,7 @@ struct FriendRequestUpdate: Codable {
     let status: FriendRequest.FriendRequestStatus
 }
 
-struct UserProfileResponse: Codable {
+public struct UserProfileResponse: Codable {
     let id: String
     let username: String
     let displayName: String

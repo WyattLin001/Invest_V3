@@ -681,43 +681,6 @@ struct TradeInfoView: View {
 }
 
 // MARK: - 統計卡片組件
-struct StatisticCard: View {
-    let title: String
-    let value: String
-    let icon: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(color)
-                .frame(width: 24, height: 24)
-            
-            VStack(spacing: 2) {
-                Text(value)
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                
-                Text(title)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 8)
-        .background(Color.surfaceSecondary)
-        .cornerRadius(DesignTokens.cornerRadius)
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignTokens.cornerRadius)
-                .stroke(color.opacity(0.2), lineWidth: 1)
-        )
-    }
-}
 
 // MARK: - 增強持股卡片組件
 struct EnhancedHoldingCard: View {

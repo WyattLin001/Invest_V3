@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @State private var selectedTab = 0  // 預設選中首頁 (0)

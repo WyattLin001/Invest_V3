@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - FAQ數據模型
 struct FAQItem: Identifiable {
@@ -760,8 +761,9 @@ struct EnhancedFAQCard: View {
                         HStack(spacing: DesignTokens.spacingMD) {
                             // 有幫助按鈕
                             Button(action: {
-                                // TODO: 記錄有幫助的反饋
-                                print("FAQ 有幫助: \(faq.id)")
+                                // 記錄有幫助的反饋
+                                Logger.info("使用者認為 FAQ 有幫助: \(faq.id)", category: .ui)
+                                // 可以在此處添加統計或分析邏輯
                             }) {
                                 HStack(spacing: 4) {
                                     Image(systemName: "hand.thumbsup")
@@ -778,8 +780,9 @@ struct EnhancedFAQCard: View {
                             
                             // 無幫助按鈕
                             Button(action: {
-                                // TODO: 記錄無幫助的反饋
-                                print("FAQ 無幫助: \(faq.id)")
+                                // 記錄無幫助的反饋
+                                Logger.warning("使用者認為 FAQ 無幫助: \(faq.id)", category: .ui)
+                                // 可以在此處觸發反饋收集機制
                             }) {
                                 HStack(spacing: 4) {
                                     Image(systemName: "hand.thumbsdown")
@@ -910,28 +913,6 @@ struct FAQContactSupportView: View {
     @State private var message = ""
     @State private var userEmail = ""
     
-    enum ContactMethod: String, CaseIterable {
-        case inApp = "應用內客服"
-        case email = "電子郵件"
-        case phone = "客服專線"
-        
-        var icon: String {
-            switch self {
-            case .inApp: return "bubble.left.and.bubble.right.fill"
-            case .email: return "envelope.fill"
-            case .phone: return "phone.fill"
-            }
-        }
-        
-        var description: String {
-            switch self {
-            case .inApp: return "即時回覆，最快速的解決方案"
-            case .email: return "24小時內回覆，適合詳細問題"
-            case .phone: return "工作日 9:00-18:00，專業客服"
-            }
-        }
-    }
-    
     var body: some View {
         NavigationView {
             VStack(spacing: DesignTokens.spacingLG) {
@@ -975,8 +956,9 @@ struct FAQContactSupportView: View {
                 // 底部按鈕
                 VStack(spacing: DesignTokens.spacingSM) {
                     Button(action: {
-                        // TODO: 處理聯繫客服邏輯
-                        print("聯繫客服: \(selectedContactMethod.rawValue)")
+                        // 處理聯繫客服邏輯
+                        Logger.info("使用者選擇聯繫客服：\(selectedContactMethod.rawValue)", category: .ui)
+                        handleContactSupport(method: selectedContactMethod)
                         dismiss()
                     }) {
                         Text("開始聯繫")
@@ -1002,7 +984,7 @@ struct FAQContactSupportView: View {
 
 // MARK: - 聯繫方式卡片
 struct FAQContactMethodCard: View {
-    let method: FAQContactSupportView.ContactMethod
+    let method: ContactMethod
     let isSelected: Bool
     let action: () -> Void
     
@@ -1442,6 +1424,23 @@ private let faqData: [FAQItem] = [
         category: .technical
     )
 ]
+
+// MARK: - Support Functions
+private func handleContactSupport(method: ContactMethod) {
+    switch method {
+    case .phone:
+        if let url = URL(string: "tel:0800-123-456") {
+            UIApplication.shared.open(url)
+        }
+    case .email:
+        if let url = URL(string: "mailto:support@投資v3.com") {
+            UIApplication.shared.open(url)
+        }
+    case .inApp:
+        // 開啟應用內聯繫功能
+        Logger.info("開啟應用內聯繫功能", category: .ui)
+    }
+}
 
 #Preview {
     FAQView(initialCategory: .popular)

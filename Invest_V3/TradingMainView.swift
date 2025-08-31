@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct TradingMainView: View {
     @ObservedObject private var tradingService = TradingService.shared

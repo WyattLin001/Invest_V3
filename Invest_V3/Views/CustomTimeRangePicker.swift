@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - 自定義時間範圍
 struct CustomTimeRange: Equatable {

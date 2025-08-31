@@ -94,12 +94,19 @@ class GroupService: ObservableObject {
                 id: groupId,
                 name: name,
                 host: currentUser.displayName ?? "匿名主持人",
+                hostId: currentUser.id,
                 returnRate: returnRate,
                 entryFee: entryFee,
-                memberCount: 1,
-                category: category,
-                rules: nil,
                 tokenCost: 0,
+                memberCount: 1,
+                maxMembers: 100,
+                category: category,
+                description: nil,
+                rules: nil,
+                isPrivate: false,
+                inviteCode: nil,
+                portfolioValue: 0.0,
+                rankingPosition: 0,
                 createdAt: now,
                 updatedAt: now
             )
@@ -240,12 +247,19 @@ class GroupService: ObservableObject {
             id: groupId,
             name: groupData.name,
             host: groupData.host,
+            hostId: groupData.hostId.flatMap { UUID(uuidString: $0) },
             returnRate: groupData.returnRate,
             entryFee: groupData.entryFee,
-            memberCount: groupData.memberCount,
-            category: groupData.category,
-            rules: nil,
             tokenCost: 0,
+            memberCount: groupData.memberCount,
+            maxMembers: 100,
+            category: groupData.category,
+            description: groupData.description,
+            rules: nil,
+            isPrivate: groupData.isPrivate ?? false,
+            inviteCode: nil,
+            portfolioValue: 0.0,
+            rankingPosition: 0,
             createdAt: createdDate,
             updatedAt: lastActivityDate
         )
@@ -261,25 +275,54 @@ class GroupService: ObservableObject {
         let currentUser = try await SupabaseService.shared.getCurrentUserAsync()
         Logger.info("📋 獲取用戶群組列表", category: .database)
         
-        let response: PostgrestResponse<Data> = try await client
+        // First get the group IDs that the user is a member of
+        let membershipResponse: PostgrestResponse<Data> = try await client
             .from("group_members")
-            .select("""
-                group_id,
-                investment_groups:group_id (
-                    id, name, host, host_id, return_rate, entry_fee, 
-                    token_cost, member_count, max_members, category, 
-                    description, rules, is_private, invite_code,
-                    portfolio_value, ranking_position, created_at, updated_at
-                )
-            """)
+            .select("group_id")
             .eq("user_id", value: currentUser.id.uuidString)
             .execute()
         
-        // 解析響應並轉換為InvestmentGroup對象
-        let groups = try parseGroupsFromResponse(response)
+        // Debug: Log the raw membership response
+        if let membershipString = String(data: membershipResponse.data, encoding: .utf8) {
+            Logger.debug("Raw membership response: \(membershipString)", category: .database)
+        }
         
-        Logger.info("✅ 獲取到 \(groups.count) 個群組", category: .database)
-        return groups
+        // Parse the group IDs
+        guard let membershipJson = try? JSONSerialization.jsonObject(with: membershipResponse.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse membership response", category: .database)
+            return []
+        }
+        
+        let groupIds = membershipJson.compactMap { membership in
+            (membership["group_id"] as? String).flatMap { UUID(uuidString: $0) }
+        }
+        
+        guard !groupIds.isEmpty else {
+            Logger.info("用戶沒有加入任何群組", category: .database)
+            return []
+        }
+        
+        // Now fetch the actual group details
+        let groupsResponse: PostgrestResponse<Data> = try await client
+            .from("investment_groups")
+            .select("*")
+            .in("id", values: groupIds.map { $0.uuidString })
+            .execute()
+        
+        // Debug: Log the raw groups response
+        if let groupsString = String(data: groupsResponse.data, encoding: .utf8) {
+            Logger.debug("Raw groups response: \(groupsString)", category: .database)
+        }
+        
+        // Parse groups using manual JSON parsing - with error handling
+        do {
+            let groups = try parseGroupsDirectFromResponse(groupsResponse)
+            Logger.info("✅ 獲取到 \(groups.count) 個群組", category: .database)
+            return groups
+        } catch {
+            Logger.error("❌ 解析群組資料失敗: \(error)", category: .database)
+            throw error
+        }
     }
     
     /// 搜尋公開群組
@@ -298,7 +341,7 @@ class GroupService: ObservableObject {
         // TODO: Implement search filtering when PostgrestTransformBuilder methods are available
         
         let response: PostgrestResponse<Data> = try await searchQuery.execute()
-        let groups = try parseGroupsFromResponse(response)
+        let groups = try parseGroupsDirectFromResponse(response)
         
         Logger.info("✅ 搜尋完成，找到 \(groups.count) 個群組", category: .database)
         return groups
@@ -429,20 +472,154 @@ class GroupService: ObservableObject {
     }
     
     private func parseGroupsFromResponse(_ response: PostgrestResponse<Data>) throws -> [InvestmentGroup] {
-        struct GroupMembershipResponse: Codable {
-            let groupId: String
-            let investmentGroups: InvestmentGroup?
-            
-            enum CodingKeys: String, CodingKey {
-                case groupId = "group_id"
-                case investmentGroups = "investment_groups"
-            }
+        // First, let's log what we actually received to debug the issue
+        if let jsonString = String(data: response.data, encoding: .utf8) {
+            Logger.debug("Raw response data: \(jsonString)", category: .database)
         }
         
-        let membershipResponses = try JSONDecoder().decode([GroupMembershipResponse].self, from: response.data)
+        // Parse the response as raw JSON to handle the nested structure
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse groups response as JSON array", category: .database)
+            return []
+        }
         
-        return membershipResponses.compactMap { membership in
-            return membership.investmentGroups
+        Logger.debug("Parsed \(jsonObject.count) membership records", category: .database)
+        
+        return jsonObject.compactMap { membershipData in
+            Logger.debug("Processing membership data: \(membershipData.keys)", category: .database)
+            
+            // Handle different possible structures for investment_groups
+            var groupData: [String: Any]?
+            
+            if let singleGroup = membershipData["investment_groups"] as? [String: Any] {
+                // Single group object
+                groupData = singleGroup
+            } else if let groupArray = membershipData["investment_groups"] as? [[String: Any]], let firstGroup = groupArray.first {
+                // Array of groups - take the first one
+                groupData = firstGroup
+                Logger.warning("Received array of groups, using first group", category: .database)
+            } else {
+                Logger.warning("Unable to extract group data from membership: \(membershipData)", category: .database)
+                return nil
+            }
+            
+            guard let validGroupData = groupData else {
+                return nil
+            }
+            
+            // Parse all required fields from the nested group data
+            guard let idString = validGroupData["id"] as? String,
+                  let groupId = UUID(uuidString: idString),
+                  let name = validGroupData["name"] as? String,
+                  let host = validGroupData["host"] as? String,
+                  let memberCount = validGroupData["member_count"] as? Int,
+                  let createdAtString = validGroupData["created_at"] as? String,
+                  let updatedAtString = validGroupData["updated_at"] as? String,
+                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+                Logger.warning("Missing required fields in group data: \(validGroupData.keys)", category: .database)
+                return nil
+            }
+            
+            // Parse optional fields with defaults
+            let hostIdString = validGroupData["host_id"] as? String
+            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
+            let returnRate = validGroupData["return_rate"] as? Double ?? 0.0
+            let entryFee = validGroupData["entry_fee"] as? String
+            let tokenCost = validGroupData["token_cost"] as? Int ?? 0
+            let maxMembers = validGroupData["max_members"] as? Int ?? 100
+            let category = validGroupData["category"] as? String
+            let description = validGroupData["description"] as? String
+            let rules = validGroupData["rules"] as? String
+            let isPrivate = validGroupData["is_private"] as? Bool ?? false
+            let inviteCode = validGroupData["invite_code"] as? String
+            let portfolioValue = validGroupData["portfolio_value"] as? Double ?? 0.0
+            let rankingPosition = validGroupData["ranking_position"] as? Int ?? 0
+            
+            Logger.debug("Successfully parsed group: \(name)", category: .database)
+            
+            return InvestmentGroup(
+                id: groupId,
+                name: name,
+                host: host,
+                hostId: hostId,
+                returnRate: returnRate,
+                entryFee: entryFee,
+                tokenCost: tokenCost,
+                memberCount: memberCount,
+                maxMembers: maxMembers,
+                category: category,
+                description: description,
+                rules: rules,
+                isPrivate: isPrivate,
+                inviteCode: inviteCode,
+                portfolioValue: portfolioValue,
+                rankingPosition: rankingPosition,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            )
+        }
+    }
+    
+    private func parseGroupsDirectFromResponse(_ response: PostgrestResponse<Data>) throws -> [InvestmentGroup] {
+        // Parse the direct investment_groups table response
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse direct groups response as JSON array", category: .database)
+            return []
+        }
+        
+        Logger.debug("Parsing \(jsonObject.count) groups directly from investment_groups table", category: .database)
+        
+        return jsonObject.compactMap { groupData in
+            // Parse all required fields
+            guard let idString = groupData["id"] as? String,
+                  let groupId = UUID(uuidString: idString),
+                  let name = groupData["name"] as? String,
+                  let host = groupData["host"] as? String,
+                  let memberCount = groupData["member_count"] as? Int,
+                  let createdAtString = groupData["created_at"] as? String,
+                  let updatedAtString = groupData["updated_at"] as? String,
+                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+                Logger.warning("Missing required fields in group data: \(groupData.keys)", category: .database)
+                return nil
+            }
+            
+            // Parse optional fields with defaults
+            let hostIdString = groupData["host_id"] as? String
+            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
+            let returnRate = groupData["return_rate"] as? Double ?? 0.0
+            let entryFee = groupData["entry_fee"] as? String
+            let tokenCost = groupData["token_cost"] as? Int ?? 0
+            let maxMembers = groupData["max_members"] as? Int ?? 100
+            let category = groupData["category"] as? String
+            let description = groupData["description"] as? String
+            let rules = groupData["rules"] as? String
+            let isPrivate = groupData["is_private"] as? Bool ?? false
+            let inviteCode = groupData["invite_code"] as? String
+            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
+            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
+            
+            return InvestmentGroup(
+                id: groupId,
+                name: name,
+                host: host,
+                hostId: hostId,
+                returnRate: returnRate,
+                entryFee: entryFee,
+                tokenCost: tokenCost,
+                memberCount: memberCount,
+                maxMembers: maxMembers,
+                category: category,
+                description: description,
+                rules: rules,
+                isPrivate: isPrivate,
+                inviteCode: inviteCode,
+                portfolioValue: portfolioValue,
+                rankingPosition: rankingPosition,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            )
         }
     }
     

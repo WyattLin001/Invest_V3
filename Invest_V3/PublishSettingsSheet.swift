@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import PhotosUI
 
 // MARK: - Action enum sent back to the caller
 
@@ -24,7 +25,7 @@ struct PublishSettingsSheet: View {
     // MARK: - Local state
     @State private var newTag: String = ""
     @State private var showTagLimitAlert = false
-    @State private var coverImageURL: String?
+    @State private var selectedCoverImage: PhotosPickerItem?
     @State private var showingImagePicker = false
     @State private var selectedPublication: Publication?
     @State private var customSlug: String = ""
@@ -178,8 +179,8 @@ struct PublishSettingsSheet: View {
                 .font(.headline)
                 .foregroundColor(textColor)
             
-            if let coverImageURL = coverImageURL {
-                AsyncImage(url: URL(string: coverImageURL)) { image in
+            if draft.hasCoverImage, let imageUrl = draft.safeCoverImageURL {
+                AsyncImage(url: imageUrl) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -195,24 +196,40 @@ struct PublishSettingsSheet: View {
                 .clipped()
                 .cornerRadius(DesignTokens.cornerRadius)
                 .overlay(
-                    Button("更換") {
-                        showingImagePicker = true
+                    HStack(spacing: 8) {
+                        PhotosPicker(
+                            selection: $selectedCoverImage,
+                            matching: .images
+                        ) {
+                            Text("更換")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, DesignTokens.spacingSM)
+                                .padding(.vertical, 4)
+                                .background(Color.black.opacity(0.7))
+                                .cornerRadius(DesignTokens.cornerRadiusSM)
+                        }
+                        
+                        Button("移除") {
+                            draft.coverImageURL = nil
+                        }
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, DesignTokens.spacingSM)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.7))
+                        .cornerRadius(DesignTokens.cornerRadiusSM)
                     }
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, DesignTokens.spacingSM)
-                    .padding(.vertical, 4)
-                    .background(Color.black.opacity(0.7))
-                    .cornerRadius(DesignTokens.cornerRadiusSM)
                     .padding(DesignTokens.spacingSM),
                     alignment: .topTrailing
                 )
             } else {
-                Button(action: { 
-                    // 模擬圖片選擇
-                    coverImageURL = "https://images.pexels.com/photos/261763/pexels-photo-261763.jpeg?auto=compress&cs=tinysrgb&w=800"
-                }) {
+                PhotosPicker(
+                    selection: $selectedCoverImage,
+                    matching: .images
+                ) {
                     VStack(spacing: DesignTokens.spacingSM) {
                         Image(systemName: "camera.fill")
                             .font(.title2)
@@ -221,6 +238,10 @@ struct PublishSettingsSheet: View {
                         Text("添加封面圖片")
                             .font(.subheadline)
                             .foregroundColor(.gray600)
+                        
+                        Text("推薦尺寸: 1200×630 像素")
+                            .font(.caption)
+                            .foregroundColor(.gray500)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 150)
@@ -232,6 +253,12 @@ struct PublishSettingsSheet: View {
                     )
                 }
                 .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .photosPicker(isPresented: $showingImagePicker, selection: $selectedCoverImage, matching: .images)
+        .onChange(of: selectedCoverImage) { _, newItem in
+            Task {
+                await processCoverImage(newItem)
             }
         }
     }
@@ -561,7 +588,7 @@ struct PublishSettingsSheet: View {
     // MARK: - Quality Score Calculation
     private func calculateQualityScore() {
         var score: Double = 0.0
-        let totalCriteria = 8.0
+        let totalCriteria = 9.0 // Increased to include cover image
         
         // Title check (20%)
         if !draft.title.isEmpty {
@@ -582,6 +609,11 @@ struct PublishSettingsSheet: View {
             if draft.keywords.count >= 3 { score += 0.2 }
         }
         
+        // Cover image check (10%)
+        if draft.hasCoverImage {
+            score += 0.9
+        }
+        
         // Subtitle check (10%)
         if let subtitle = draft.subtitle, !subtitle.isEmpty {
             score += 0.8
@@ -593,19 +625,89 @@ struct PublishSettingsSheet: View {
         // Custom slug check (5%)
         if !draft.slug.isEmpty { score += 0.4 }
         
-        // Structure check - paragraphs (10%)
+        // Structure check - paragraphs (5%)
         let paragraphs = draft.bodyMD.components(separatedBy: "\n\n").filter { !$0.isEmpty }
         if paragraphs.count >= 2 {
-            score += 0.8
-            if paragraphs.count >= 4 { score += 0.2 }
+            score += 0.4
+            if paragraphs.count >= 4 { score += 0.1 }
         }
         
-        // Length balance (10%)
+        // Length balance (5%)
         if contentLength >= 200 && contentLength <= 2000 {
-            score += 0.8
+            score += 0.4
         }
         
         qualityScore = min(1.0, score / totalCriteria)
+    }
+    
+    // MARK: - Cover Image Processing
+    private func processCoverImage(_ item: PhotosPickerItem?) async {
+        guard let item = item else { return }
+        
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                print("❌ 無法載入圖片數據")
+                return
+            }
+            
+            guard let image = UIImage(data: data) else {
+                print("❌ 無法處理圖片數據")
+                return
+            }
+            
+            // 壓縮圖片以節省空間
+            let maxSize: CGFloat = 1200
+            let resizedImage = resizeImage(image, targetSize: maxSize)
+            
+            guard let compressedData = resizedImage.jpegData(compressionQuality: 0.8) else {
+                print("❌ 圖片壓縮失敗")
+                return
+            }
+            
+            // 生成唯一文件名
+            let timestamp = Int(Date().timeIntervalSince1970)
+            let fileName = "cover_\(draft.id.uuidString.prefix(8))_\(timestamp).jpg"
+            
+            // 上傳到 Supabase
+            let imageUrl = try await SupabaseService.shared.uploadArticleImageWithContentType(
+                compressedData, 
+                fileName: fileName, 
+                contentType: "image/jpeg"
+            )
+            
+            await MainActor.run {
+                draft.coverImageURL = imageUrl
+                selectedCoverImage = nil
+                print("✅ 封面圖片上傳成功: \(imageUrl)")
+            }
+            
+        } catch {
+            await MainActor.run {
+                print("❌ 封面圖片處理失敗: \(error.localizedDescription)")
+                selectedCoverImage = nil
+            }
+        }
+    }
+    
+    private func resizeImage(_ image: UIImage, targetSize: CGFloat) -> UIImage {
+        let size = image.size
+        let widthRatio = targetSize / size.width
+        let heightRatio = targetSize / size.height
+        let ratio = min(widthRatio, heightRatio)
+        
+        // 如果圖片已經小於目標尺寸，直接返回
+        if ratio >= 1.0 {
+            return image
+        }
+        
+        let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
+        
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
+        image.draw(in: CGRect(origin: .zero, size: newSize))
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return newImage ?? image
     }
 }
 

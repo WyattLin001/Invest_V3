@@ -120,7 +120,7 @@ struct PortfolioView: View {
             print("🏆 [PortfolioView] Tournament mode active - loading tournament portfolio data")
             
             if let tournamentId = tournamentStateManager.getCurrentTournamentIdDebug(),
-               let currentUser = SupabaseService.shared.getCurrentUser() {
+               let currentUser = ServiceCoordinator.shared.core.getCurrentUser() {
                 
                 do {
                     // 使用統一的 PortfolioService 載入錦標賽投資組合
@@ -163,7 +163,7 @@ struct PortfolioView: View {
             print("📊 [PortfolioView] 一般模式 - 載入一般投資組合")
             
             // 嘗試使用統一的 PortfolioService
-            if let currentUser = SupabaseService.shared.getCurrentUser() {
+            if let currentUser = ServiceCoordinator.shared.core.getCurrentUser() {
                 do {
                     let generalPortfolio = try await PortfolioService.shared.fetchUserPortfolio(
                         userId: currentUser.id,

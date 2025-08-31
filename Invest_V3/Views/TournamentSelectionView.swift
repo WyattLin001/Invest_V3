@@ -66,8 +66,9 @@ struct TournamentSelectionView: View {
     
     // MARK: - 狀態事件通知區域
     
-    // FIXME: statusMonitor service needs to be properly injected
-    /*
+    // 狀態監控服務已修復，使用EnvironmentObject注入
+    @EnvironmentObject private var statusMonitor: TournamentStatusMonitor
+    
     private var statusEventsSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
@@ -80,7 +81,6 @@ struct TournamentSelectionView: View {
         .padding(.vertical, 8)
         .background(.blue.opacity(0.05))
     }
-    */
     
     // MARK: - 主要內容區域
     

@@ -57,7 +57,7 @@ class SettingsViewModel: ObservableObject {
             
         } catch {
             errorMessage = "載入資料失敗: \(error.localizedDescription)"
-            print("SettingsViewModel loadData error: \(error)")
+            Logger.error("設定頁面載入資料失敗: \(error.localizedDescription)", category: .ui)
         }
         
         isLoading = false
@@ -68,7 +68,7 @@ class SettingsViewModel: ObservableObject {
         do {
             // 獲取當前用戶
             guard let currentUser = supabaseService.getCurrentUser() else {
-                print("⚠️ [SettingsViewModel] 用戶未登入，使用預設資料")
+                Logger.warning("用戶未登入，使用預設資料", category: .ui)
                 // 使用預設資料作為備選
                 self.userProfile = UserProfile(
                     id: UUID(),
@@ -101,10 +101,10 @@ class SettingsViewModel: ObservableObject {
                 }
             }
             
-            print("✅ [SettingsViewModel] 成功載入用戶資料: \(fetchedProfile.displayName)")
+            Logger.info("成功載入用戶資料: \(fetchedProfile.displayName)", category: .network)
             
         } catch {
-            print("⚠️ [SettingsViewModel] 載入用戶資料失敗: \(error)")
+            Logger.error("載入用戶資料失敗: \(error.localizedDescription)", category: .network)
             // 使用預設資料作為備選
             self.userProfile = UserProfile(
                 id: UUID(),
@@ -155,9 +155,9 @@ class SettingsViewModel: ObservableObject {
                 self?.isLoadingAvatar = false
                 
                 if image != nil {
-                    print("✅ [SettingsViewModel] 成功載入頭像（透過快取服務）")
+                    Logger.info("成功載入頭像（透過快取服務）", category: .network)
                 } else {
-                    print("❌ [SettingsViewModel] 載入頭像失敗")
+                    Logger.warning("載入頭像失敗", category: .network)
                 }
             }
         }
@@ -202,7 +202,7 @@ class SettingsViewModel: ObservableObject {
                 self.errorMessage = "處理圖片時發生錯誤: \(error.localizedDescription)"
                 self.isUploadingAvatar = false
                 self.uploadProgress = 0.0
-                print("❌ [SettingsViewModel] 圖片處理失敗: \(error)")
+                Logger.error("圖片處理失敗: \(error.localizedDescription)", category: .ui)
             }
         }
     }
@@ -227,7 +227,7 @@ class SettingsViewModel: ObservableObject {
             
         } catch {
             errorMessage = "處理圖片時發生錯誤: \(error.localizedDescription)"
-            print("❌ [SettingsViewModel] 圖片處理失敗: \(error)")
+            Logger.error("圖片處理失敗: \(error.localizedDescription)", category: .ui)
         }
     }
     
@@ -292,8 +292,7 @@ class SettingsViewModel: ObservableObject {
                 return
             }
             
-            print("✅ [SettingsViewModel] 頭像已處理，大小: \(imageData.count) bytes")
-            print("✅ [SettingsViewModel] 圖片尺寸: \(image.size)")
+            Logger.info("頭像已處理，大小: \(imageData.count) bytes，尺寸: \(image.size)", category: .ui)
             
             // 實際上傳到 Supabase Storage
             await MainActor.run { self.uploadProgress = 0.8 }
@@ -309,9 +308,9 @@ class SettingsViewModel: ObservableObject {
                     self.isUploadingAvatar = false
                 }
                 
-                print("✅ [SettingsViewModel] 頭像上傳成功: \(avatarUrl)")
+                Logger.info("頭像上傳成功: \(avatarUrl)", category: .network)
             } catch {
-                print("⚠️ [SettingsViewModel] 頭像上傳失敗，僅保存本地: \(error)")
+                Logger.warning("頭像上傳失敗，僅保存本地: \(error.localizedDescription)", category: .network)
                 await MainActor.run {
                     self.errorMessage = "頭像上傳失敗: \(error.localizedDescription)"
                     self.isUploadingAvatar = false
@@ -325,7 +324,7 @@ class SettingsViewModel: ObservableObject {
                 self.isUploadingAvatar = false
                 self.uploadProgress = 0.0
             }
-            print("❌ [SettingsViewModel] 頭像上傳失敗: \(error)")
+            Logger.error("頭像上傳失敗: \(error.localizedDescription)", category: .network)
         }
     }
     
@@ -354,14 +353,14 @@ class SettingsViewModel: ObservableObject {
                 self.userProfile = updatedProfile
             }
             
-            print("✅ [SettingsViewModel] 用戶頭像URL已更新: \(avatarUrl)")
-            print("✅ [SettingsViewModel] 後端同步成功")
+            Logger.info("用戶頭像URL已更新: \(avatarUrl)", category: .network)
+            Logger.info("後端同步成功", category: .network)
             
         } catch {
             await MainActor.run {
                 self.errorMessage = "更新用戶頭像失敗: \(error.localizedDescription)"
             }
-            print("❌ [SettingsViewModel] 頭像URL更新失敗: \(error)")
+            Logger.error("頭像URL更新失敗: \(error.localizedDescription)", category: .network)
         }
     }
     
@@ -372,7 +371,7 @@ class SettingsViewModel: ObservableObject {
             self.userProfile?.displayName = displayName
             self.userProfile?.bio = bio
             
-            print("更新個人資料")
+            Logger.info("更新個人資料", category: .ui)
             
         } catch {
             errorMessage = "更新個人資料失敗: \(error.localizedDescription)"
@@ -383,7 +382,7 @@ class SettingsViewModel: ObservableObject {
     func signOut() async {
         do {
             // 實際實現會調用 AuthenticationService
-            print("登出")
+            Logger.info("用戶登出", category: .ui)
             
         } catch {
             errorMessage = "登出失敗: \(error.localizedDescription)"
@@ -423,7 +422,7 @@ class SettingsViewModel: ObservableObject {
     private func syncNotificationSettings() async {
         do {
             guard let user = try? await supabaseService.client.auth.user() else {
-                print("⚠️ [SettingsViewModel] 用戶未登入，將設定保存到本地")
+                Logger.warning("用戶未登入，將設定保存到本地", category: .ui)
                 saveNotificationSettingsLocally()
                 return
             }
@@ -459,14 +458,14 @@ class SettingsViewModel: ObservableObject {
                 .upsert(notificationSettings)
                 .execute()
             
-            print("✅ [SettingsViewModel] 通知設定已同步到後端")
+            Logger.info("通知設定已同步到後端", category: .network)
             
             // 同時保存到本地作為備份
             saveNotificationSettingsLocally()
             
         } catch {
             errorMessage = "同步通知設定失敗: \(error.localizedDescription)"
-            print("❌ [SettingsViewModel] 通知設定同步失敗: \(error)")
+            Logger.error("通知設定同步失敗: \(error.localizedDescription)", category: .network)
             
             // 失敗時保存到本地
             saveNotificationSettingsLocally()
@@ -483,7 +482,7 @@ class SettingsViewModel: ObservableObject {
         ]
         
         UserDefaults.standard.set(settings, forKey: "notification_settings")
-        print("✅ [SettingsViewModel] 通知設定已保存到本地")
+        Logger.debug("通知設定已保存到本地", category: .ui)
     }
     
     // MARK: - 載入通知設定
@@ -517,19 +516,19 @@ class SettingsViewModel: ObservableObject {
                         self.investmentNotificationsEnabled = setting["investment_notifications_enabled"] ?? true
                     }
                     
-                    print("✅ [SettingsViewModel] 已從後端載入通知設定")
+                    Logger.info("已從後端載入通知設定", category: .network)
                 } else {
                     // 後端沒有設定，使用本地設定或預設值
                     loadNotificationSettingsLocally()
                 }
             } catch {
-                print("❌ [SettingsViewModel] JSON 解析失敗: \(error)")
+                Logger.error("JSON 解析失敗: \(error.localizedDescription)", category: .network)
                 loadNotificationSettingsLocally()
             }
             
         } catch {
-            print("❌ [SettingsViewModel] 載入通知設定失敗: \(error)")
-            print("ℹ️ [SettingsViewModel] 使用預設通知設定")
+            Logger.error("載入通知設定失敗: \(error.localizedDescription)", category: .network)
+            Logger.info("使用預設通知設定", category: .ui)
             loadNotificationSettingsLocally()
         }
     }
@@ -542,10 +541,10 @@ class SettingsViewModel: ObservableObject {
             chatNotificationsEnabled = settings["chat_notifications_enabled"] as? Bool ?? true
             investmentNotificationsEnabled = settings["investment_notifications_enabled"] as? Bool ?? true
             
-            print("✅ [SettingsViewModel] 已從本地載入通知設定")
+            Logger.debug("已從本地載入通知設定", category: .ui)
         } else {
             // 使用預設值
-            print("ℹ️ [SettingsViewModel] 使用預設通知設定")
+            Logger.debug("使用預設通知設定", category: .ui)
         }
     }
     
@@ -558,9 +557,9 @@ class SettingsViewModel: ObservableObject {
             await MainActor.run {
                 self.friends = friendsList
             }
-            print("✅ [SettingsViewModel] 已載入 \(friendsList.count) 位好友")
+            Logger.info("已載入 \(friendsList.count) 位好友", category: .network)
         } catch {
-            print("❌ [SettingsViewModel] 載入好友列表失敗: \(error)")
+            Logger.error("載入好友列表失敗: \(error.localizedDescription)", category: .network)
             await MainActor.run {
                 self.friends = []
             }

@@ -230,23 +230,57 @@ struct SearchResultRowView: View {
         switch result.type {
         case .group:
             if let groupId = result.relatedId, let uuid = UUID(uuidString: groupId) {
-                print("🔍 導航到群組: \(uuid)")
-                // TODO: 實現群組導航邏輯
-                // NavigationManager.shared.navigateToGroup(uuid)
+                Logger.info("🔍 導航到群組: \(uuid)", category: .ui)
+                // 實現群組導航邏輯
+                Task {
+                    do {
+                        let group = try await ServiceCoordinator.shared.groups.getGroupDetails(groupId: uuid)
+                        await MainActor.run {
+                            // 使用NavigationLink的方式或推送到群組詳細頁面
+                            // 這裡應該觸發導航狀態更新
+                        }
+                    } catch {
+                        Logger.error("❌ 無法載入群組詳細資料: \(error.localizedDescription)", category: .network)
+                    }
+                }
             }
             
         case .user:
             if let userId = result.relatedId {
-                print("🔍 導航到用戶檔案: \(userId)")
-                // TODO: 實現用戶檔案導航邏輯
-                // NavigationManager.shared.navigateToUserProfile(userId)
+                Logger.info("🔍 導航到用戶檔案: \(userId)", category: .ui)
+                // 實現用戶檔案導航邏輯
+                Task {
+                    do {
+                        if let uuid = UUID(uuidString: userId) {
+                            let userProfile = try await ServiceCoordinator.shared.core.getUserProfile(userId: uuid)
+                            await MainActor.run {
+                                // 導航到用戶檔案頁面
+                                // 可能需要設置導航狀態或使用NavigationLink
+                            }
+                        }
+                    } catch {
+                        Logger.error("❌ 無法載入用戶檔案: \(error.localizedDescription)", category: .network)
+                    }
+                }
             }
             
         case .article:
             if let articleId = result.relatedId {
-                print("🔍 導航到文章: \(articleId)")
-                // TODO: 實現文章導航邏輯
-                // NavigationManager.shared.navigateToArticle(articleId)
+                Logger.info("🔍 導航到文章: \(articleId)", category: .ui)
+                // 實現文章導航邏輯
+                Task {
+                    do {
+                        if let uuid = UUID(uuidString: articleId) {
+                            let article = try await ServiceCoordinator.shared.articles.getArticleById(uuid)
+                            await MainActor.run {
+                                // 導航到文章詳細頁面
+                                // 可以透過NavigationLink或狀態更新來實現
+                            }
+                        }
+                    } catch {
+                        Logger.error("❌ 無法載入文章: \(error.localizedDescription)", category: .network)
+                    }
+                }
             }
         }
     }

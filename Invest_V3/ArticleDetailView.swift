@@ -145,6 +145,11 @@ struct ArticleDetailView: View {
                 .font(.largeTitle.bold())
                 .multilineTextAlignment(.leading)
 
+            // 封面圖片
+            if article.hasCoverImage, let imageUrl = article.safeCoverImageUrl {
+                coverImageView(imageUrl: imageUrl)
+            }
+
             // 作者資訊區塊
             authorInfoBlock
             
@@ -175,6 +180,27 @@ struct ArticleDetailView: View {
             Spacer(minLength: 100)
         }
         .padding()
+    }
+    
+    // MARK: - 封面圖片視圖
+    private func coverImageView(imageUrl: URL) -> some View {
+        AsyncImage(url: imageUrl) { image in
+            image
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        } placeholder: {
+            Rectangle()
+                .fill(Color.gray200)
+                .overlay(
+                    ProgressView()
+                        .tint(.brandGreen)
+                )
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 250)
+        .clipped()
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
     }
     
     // MARK: - 文章分類和狀態視圖
@@ -616,12 +642,19 @@ struct ArticleDetailView: View {
                         id: UUID(),
                         name: "模擬投資群組",
                         host: "測試主持人",
+                        hostId: nil,
                         returnRate: 15.5,
                         entryFee: "10 代幣",
-                        memberCount: 10,
-                        category: "股票投資",
-                        rules: "投資群組規則",
                         tokenCost: 10,
+                        memberCount: 10,
+                        maxMembers: 100,
+                        category: "股票投資",
+                        description: "用於預覽的模擬投資群組",
+                        rules: "投資群組規則",
+                        isPrivate: false,
+                        inviteCode: nil,
+                        portfolioValue: 0.0,
+                        rankingPosition: 0,
                         createdAt: Date(),
                         updatedAt: Date()
                     )
@@ -632,7 +665,7 @@ struct ArticleDetailView: View {
         #endif
         
         do {
-            let groups = try await SupabaseService.shared.fetchUserJoinedGroups()
+            let groups = try await ServiceCoordinator.shared.groups.getUserGroups()
             await MainActor.run {
                 self.availableGroups = groups
             }
@@ -947,8 +980,8 @@ struct ShareGroupRowView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                if !group.description.isEmpty {
-                    Text(group.description)
+                if let description = group.description, !description.isEmpty {
+                    Text(description)
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(2)
@@ -1094,7 +1127,8 @@ struct MarkdownBlockStyleModifier: ViewModifier {
             .markdownBlockStyle(\.image) { configuration in
                 VStack(spacing: 8) {
                     configuration.label
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: min(UIScreen.main.bounds.width - 32, 600), maxHeight: 400)
+                        .aspectRatio(contentMode: .fit)
                         .clipped()
                         .cornerRadius(8)
                         .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)

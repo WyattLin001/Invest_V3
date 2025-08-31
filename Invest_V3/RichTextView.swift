@@ -491,28 +491,44 @@ struct RichTextView: UIViewRepresentable {
         // 創建圖片標籤（用於編輯器）
         // 創建優化的圖片以確保立即顯示
         private func createOptimizedImage(from image: UIImage, targetSize: CGSize) -> UIImage {
-            // 如果圖片已經是合適的尺寸，直接返回
+            // 如果圖片已經是合適的尺寸，確保它已解碼
             if abs(image.size.width - targetSize.width) < 1.0 && abs(image.size.height - targetSize.height) < 1.0 {
-                return image
+                return forceDecodeImage(image)
             }
             
-            // 使用 UIGraphicsImageRenderer 創建優化的圖片
-            let renderer = UIGraphicsImageRenderer(size: targetSize)
+            // 創建優化和解碼的圖片
+            let format = UIGraphicsImageRendererFormat()
+            format.opaque = false
+            format.scale = UIScreen.main.scale
+            format.prefersExtendedRange = false
+            
+            let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
             let optimizedImage = renderer.image { context in
-                // 設置高品質插值
-                context.cgContext.interpolationQuality = .high
+                // 設置高品質插值和優化渲染
+                let cgContext = context.cgContext
+                cgContext.interpolationQuality = .high
+                cgContext.setShouldAntialias(true)
+                cgContext.setAllowsAntialiasing(true)
+                
                 // 繪製圖片到目標尺寸
                 image.draw(in: CGRect(origin: .zero, size: targetSize))
             }
             
-            // 強制解碼圖片以確保立即可用
+            return optimizedImage
+        }
+        
+        // 強制解碼圖片確保立即可用
+        private func forceDecodeImage(_ image: UIImage) -> UIImage {
+            guard let cgImage = image.cgImage else { return image }
+            
             let format = UIGraphicsImageRendererFormat()
             format.opaque = false
-            format.scale = UIScreen.main.scale
+            format.scale = image.scale
             
-            let finalRenderer = UIGraphicsImageRenderer(size: targetSize, format: format)
-            return finalRenderer.image { _ in
-                optimizedImage.draw(in: CGRect(origin: .zero, size: targetSize))
+            let renderer = UIGraphicsImageRenderer(size: image.size, format: format)
+            return renderer.image { context in
+                let cgContext = context.cgContext
+                cgContext.draw(cgImage, in: CGRect(origin: .zero, size: image.size))
             }
         }
         
@@ -610,59 +626,77 @@ struct RichTextView: UIViewRepresentable {
             ]
             
             // 插入圖片、標籤和必要的格式
+            var finalCursorPosition: Int
+            
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
-                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 標籤 + 強制左對齊換行
+                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 標籤 + 兩個換行確保用戶輸入在新行
                 let beforeNewline = NSAttributedString(string: "\n")
-                let resetAlignmentNewline = NSAttributedString(string: "\n\u{200B}", attributes: extraResetAttributes) // 零寬度空格確保左對齊
+                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
                 mutableText.insert(attachmentString, at: insertionIndex + 1)
                 mutableText.insert(imageCaption, at: insertionIndex + 2)
-                mutableText.insert(resetAlignmentNewline, at: insertionIndex + 3)
+                mutableText.insert(afterNewline, at: insertionIndex + 3)
+                mutableText.insert(userInputNewline, at: insertionIndex + 4)
                 
-                // 設置游標在左對齊換行符後面
-                textView.selectedRange = NSRange(location: insertionIndex + 4, length: 0)
+                finalCursorPosition = insertionIndex + 5
             } else {
-                // 開頭位置或前面已有換行：只插入圖片 + 標籤 + 強制左對齊換行
-                let resetAlignmentNewline = NSAttributedString(string: "\n\u{200B}", attributes: extraResetAttributes) // 零寬度空格確保左對齊
+                // 開頭位置或前面已有換行：插入圖片 + 標籤 + 兩個換行確保用戶輸入在新行
+                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
                 mutableText.insert(attachmentString, at: insertionIndex)
                 mutableText.insert(imageCaption, at: insertionIndex + 1)
-                mutableText.insert(resetAlignmentNewline, at: insertionIndex + 2)
+                mutableText.insert(afterNewline, at: insertionIndex + 2)
+                mutableText.insert(userInputNewline, at: insertionIndex + 3)
                 
-                // 設置游標在左對齊換行符後面
-                textView.selectedRange = NSRange(location: insertionIndex + 3, length: 0)
+                finalCursorPosition = insertionIndex + 4
             }
             
             // 更新文字內容
             textView.attributedText = mutableText
             
+            // 設置游標位置（在更新內容後）
+            textView.selectedRange = NSRange(location: finalCursorPosition, length: 0)
+            
             // 設置後續輸入的屬性為正常格式（明確左對齊）
-            textView.typingAttributes = extraResetAttributes
+            textView.typingAttributes = normalAttributes
             
-            // 立即強制佈局更新，確保圖片和標籤立即顯示
-            // 同步操作確保立即生效
-            textView.layoutManager.ensureLayout(for: textView.textContainer)
-            textView.setNeedsDisplay()
-            textView.layoutIfNeeded()
-            
-            // 異步進行額外的佈局確保
+            // 確保立即顯示圖片和標籤
             DispatchQueue.main.async {
-                // 強制重新計算所有的 attachment 顯示
-                let range = NSRange(location: 0, length: textView.textStorage.length)
-                textView.layoutManager.invalidateDisplay(forCharacterRange: range)
-                textView.layoutManager.invalidateLayout(forCharacterRange: range, actualCharacterRange: nil)
-                textView.layoutManager.ensureLayout(for: textView.textContainer)
+                // 重新設置游標位置確保正確
+                textView.selectedRange = NSRange(location: finalCursorPosition, length: 0)
                 
-                // 觸發 SwiftUI 更新
+                // 強制重新計算布局
+                let textStorage = textView.textStorage
+                let layoutManager = textView.layoutManager
+                let textContainer = textView.textContainer
+                
+                // 無效化並重新計算layout
+                let fullRange = NSRange(location: 0, length: textStorage.length)
+                layoutManager.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
+                layoutManager.invalidateDisplay(forCharacterRange: fullRange)
+                layoutManager.ensureLayout(for: textContainer)
+                
+                // 確保文本容器大小正確
+                textContainer.size = CGSize(
+                    width: textView.frame.width - textView.textContainerInset.left - textView.textContainerInset.right,
+                    height: CGFloat.greatestFiniteMagnitude
+                )
+                
+                // 觸發重新繪製
+                textView.setNeedsDisplay()
+                textView.setNeedsLayout()
+                textView.layoutIfNeeded()
+                
+                // 通知SwiftUI更新
                 textView.invalidateIntrinsicContentSize()
                 if let customTextView = textView as? CustomTextView {
                     customTextView.invalidateIntrinsicContentSize()
                 }
                 
-                // 強制重新繪製
-                textView.setNeedsDisplay()
-                textView.layoutIfNeeded()
+                print("🖼️ 圖片插入完成，游標位置: \(textView.selectedRange.location)")
             }
         }
         

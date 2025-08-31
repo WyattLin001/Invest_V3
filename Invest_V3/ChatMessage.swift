@@ -16,6 +16,19 @@ struct ChatMessage: Codable, Identifiable {
     var isCommand: Bool { isInvestmentCommand }  // 為了兼容性添加
     var isHost: Bool { userRole == "host" }  // 檢查是否為主持人
     
+    // Computed property for message type based on content
+    var messageType: String {
+        if isInvestmentCommand {
+            return "system"
+        }
+        // For now, assume all other messages are text
+        // In the future, this could be expanded to detect image/file types
+        return "text"
+    }
+    
+    // Computed property for timestamp compatibility
+    var timestamp: Date { createdAt }
+    
     enum CodingKeys: String, CodingKey {
         case id
         case groupId = "group_id"

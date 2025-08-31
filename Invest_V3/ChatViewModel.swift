@@ -51,7 +51,7 @@ class ChatViewModel: ObservableObject {
         didSet {
             // 確保 currentBalance 始終是有效數值
             if currentBalance.isNaN || !currentBalance.isFinite || currentBalance < 0 {
-                print("⚠️ [ChatViewModel] 檢測到無效 currentBalance 值: \(currentBalance)，重置為 0")
+                Logger.warning("檢測到無效 currentBalance 值: \(currentBalance)，重置為 0", category: .ui)
                 currentBalance = 0.0
             }
         }
@@ -144,7 +144,7 @@ class ChatViewModel: ObservableObject {
         if let subscription = chatSubscription {
             supabaseService.unsubscribeFromGroupMessages(channel: subscription)
         }
-        print("🔄 [ChatViewModel] 已清理所有資源")
+        Logger.info("已清理所有聊天資源", category: .ui)
     }
 
     // MARK: - Setup
@@ -161,7 +161,7 @@ class ChatViewModel: ObservableObject {
             await MainActor.run {
                 let groupCount = joinedGroups.count
                 let balanceText = String(format: "%.0f", currentBalance)
-                print("💬 聊天頁面載入完成: \(groupCount)個群組, \(balanceText)代幣")
+                Logger.info("💬 聊天頁面載入完成: \(groupCount)個群組, \(balanceText)代幣", category: .ui)
             }
         }
         
@@ -198,7 +198,7 @@ class ChatViewModel: ObservableObject {
         }
         
         self.diagnosticInfo = diagnosticResults.joined(separator: "\n")
-        // 診斷完成（靜默）
+        Logger.debug("診斷檢查完成", category: .network)
     }
     
     // MARK: - Data Loading & Actions
@@ -206,12 +206,12 @@ class ChatViewModel: ObservableObject {
     func loadJoinedGroups(forceReload: Bool = false) async {
         isLoadingGroups = true
         do {
-            let groups = try await supabaseService.fetchUserJoinedGroups()
+            let groups = try await ServiceCoordinator.shared.groups.getUserGroups()
             self.joinedGroups = groups
             self.filterGroups()
             self.isLoadingGroups = false
             
-            // 群組載入完成（靜默）
+            Logger.debug("已載入 \(groups.count) 個群組", category: .network)
         } catch {
             handleError(error, context: "載入群組失敗")
             self.joinedGroups = [] // 改為空陣列，不使用假資料
@@ -238,15 +238,15 @@ class ChatViewModel: ObservableObject {
         Task {
             do {
                 self.groupDetails = try await supabaseService.fetchGroupDetails(groupId: groupId)
-                print("✅ [ChatViewModel] 群組詳情載入成功")
+                Logger.info("群組詳情載入成功", category: .network)
                 
                 // 載入實際成員數
                 let memberCount = try await supabaseService.fetchGroupMemberCount(groupId: groupId)
                 self.actualMemberCount = memberCount
-                print("✅ [ChatViewModel] 群組成員數載入成功: \(memberCount)")
+                Logger.info("群組成員數載入成功: \(memberCount)", category: .network)
                 
             } catch {
-                print("⚠️ [ChatViewModel] 載入群組詳情時發生問題: \(error.localizedDescription)")
+                Logger.warning("載入群組詳情時發生問題: \(error.localizedDescription)", category: .network)
                 // 這個錯誤不影響聊天功能，所以不顯示給用戶
             }
         }
@@ -262,9 +262,9 @@ class ChatViewModel: ObservableObject {
                 let balanceDouble = Double(walletBalance)
                 if balanceDouble.isFinite && !balanceDouble.isNaN && balanceDouble >= 0 {
                     self.currentBalance = balanceDouble
-                    // 餘額載入成功（靜默）
+                    Logger.debug("錢包餘額載入成功: \(balanceDouble)", category: .network)
                 } else {
-                    print("⚠️ [ChatViewModel] 獲取到無效餘額: \(walletBalance)，使用預設值")
+                    Logger.warning("獲取到無效餘額: \(walletBalance)，使用預設值", category: .network)
                     self.currentBalance = 5280.0
                 }
                 
@@ -296,7 +296,7 @@ class ChatViewModel: ObservableObject {
                 self.lastMessageContent = ""
                 self.isSendingMessage = false
                 
-                print("✅ [發送訊息] 訊息發送成功: \(content)")
+                Logger.info("✅ 訊息發送成功", category: .network)
                 
             } catch {
                 handleError(error, context: "發送訊息失敗")
@@ -312,13 +312,13 @@ class ChatViewModel: ObservableObject {
     
     func performTip(amount: Double, giftItem: GiftItem? = nil, quantity: Int = 1) {
         guard let groupId = selectedGroupId else { 
-            print("❌ [抖內] 沒有選中的群組")
+            Logger.warning("沒有選中的群組，無法抖內", category: .ui)
             handleError(nil, context: "請先選擇群組")
             return 
         }
         
         guard let selectedGroup = selectedGroup else {
-            print("❌ [抖內] 群組資料不完整")
+            Logger.warning("群組資料不完整，無法抖內", category: .ui)
             handleError(nil, context: "群組資料載入中，請稍後再試")
             return
         }
@@ -338,7 +338,7 @@ class ChatViewModel: ObservableObject {
             return
         }
         
-        print("🎁 [抖內] 開始執行抖內: \(amount) 金幣給群組 \(selectedGroup.name)")
+        Logger.info("🎁 開始執行抖內: \(amount) 金幣給群組 \(selectedGroup.name)", category: .ui)
         
         // 觸發動畫 - 專業級多階段動畫效果
         // 使用對應的禮物圖標，如果沒有指定則使用預設
@@ -389,7 +389,7 @@ class ChatViewModel: ObservableObject {
                 if newBalance.isFinite && !newBalance.isNaN && newBalance >= 0 {
                     self.currentBalance = newBalance
                 } else {
-                    print("⚠️ [ChatViewModel] 計算新餘額時出現問題，重新載入餘額")
+                    Logger.warning("計算新餘額時出現問題，重新載入餘額", category: .ui)
                     loadWalletBalance()
                 }
                 
@@ -417,7 +417,7 @@ class ChatViewModel: ObservableObject {
                 
                 // 顯示成功反饋
                 showSuccessMessage("抖內成功！🎉 感謝您的支持！")
-                print("✅ [抖內] 抖內成功完成")
+                Logger.info("✅ 抖內成功完成", category: .ui)
                 
             } catch {
                 handleError(error, context: "抖內失敗")
@@ -457,9 +457,9 @@ class ChatViewModel: ObservableObject {
             // 切換到該群組
             selectGroup(group)
             
-            print("✅ 已切換到群組: \(group.name)")
+            Logger.info("✅ 已切換到群組: \(group.name)", category: .ui)
         } else {
-            print("⚠️ 找不到群組 ID: \(groupId)")
+            Logger.warning("找不到群組 ID: \(groupId)", category: .ui)
         }
     }
     
@@ -470,11 +470,11 @@ class ChatViewModel: ObservableObject {
     }
     
     func selectGroup(groupId: UUID) async {
-        print("🔍 透過 ID 選擇群組: \(groupId)")
+        Logger.debug("透過 ID 選擇群組: \(groupId)", category: .ui)
         
         // 先檢查已載入的群組中是否有這個 ID
         if let group = joinedGroups.first(where: { $0.id == groupId }) {
-            print("✅ 在已載入群組中找到: \(group.name)")
+            Logger.info("在已載入群組中找到: \(group.name)", category: .ui)
             await MainActor.run {
                 selectGroup(group)
             }
@@ -482,16 +482,16 @@ class ChatViewModel: ObservableObject {
         }
         
         // 如果沒找到，嘗試重新載入群組列表
-        print("🔄 重新載入群組列表以尋找群組...")
+        Logger.debug("重新載入群組列表以尋找群組", category: .ui)
         await loadJoinedGroups()
         
         if let group = joinedGroups.first(where: { $0.id == groupId }) {
-            print("✅ 重新載入後找到群組: \(group.name)")
+            Logger.info("重新載入後找到群組: \(group.name)", category: .ui)
             await MainActor.run {
                 selectGroup(group)
             }
         } else {
-            print("❌ 無法找到群組 ID: \(groupId)")
+            Logger.warning("無法找到群組 ID: \(groupId)", category: .ui)
         }
     }
     
@@ -513,10 +513,10 @@ class ChatViewModel: ObservableObject {
             do {
                 let userRole = try await supabaseService.fetchUserRole(groupId: groupId)
                 self.isCurrentUserHost = (userRole == .host)
-                print("👑 [權限檢查] 用戶角色: \(userRole), 是否為主持人: \(self.isCurrentUserHost)")
+                Logger.info("👑 用戶角色: \(userRole), 是否為主持人: \(self.isCurrentUserHost)", category: .ui)
             } catch {
                 self.isCurrentUserHost = false
-                print("❌ [權限檢查] 無法獲取用戶角色: \(error.localizedDescription)")
+                Logger.error("無法獲取用戶角色: \(error.localizedDescription)", category: .ui)
             }
         }
     }
@@ -531,7 +531,7 @@ class ChatViewModel: ObservableObject {
         messagePollingTimer?.invalidate()
         
         // 使用定時器進行訊息同步（每 3 秒檢查一次新訊息）
-        print("🔄 [訊息同步] 開始定時器同步，群組: \(groupId)")
+        Logger.debug("開始定時器同步 - 群組: \(groupId)", category: .network)
         messagePollingTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] timer in
             guard let self = self else { 
                 timer.invalidate()
@@ -563,11 +563,11 @@ class ChatViewModel: ObservableObject {
             if !newMessages.isEmpty {
                 await MainActor.run {
                     self.messages.append(contentsOf: newMessages)
-                    print("🔄 [定時更新] 添加 \(newMessages.count) 則新訊息")
+                    Logger.info("添加 \(newMessages.count) 則新訊息", category: .network)
                 }
             }
         } catch {
-            print("❌ [定時更新] 重新載入訊息失敗: \(error)")
+            Logger.error("重新載入訊息失敗: \(error.localizedDescription)", category: .network)
         }
     }
     
@@ -585,7 +585,7 @@ class ChatViewModel: ObservableObject {
         // 停止訊息輪詢計時器
         messagePollingTimer?.invalidate()
         messagePollingTimer = nil
-        print("🔄 [訊息同步] 已停止定時器同步")
+        Logger.debug("已停止訊息定時器同步", category: .network)
     }
     
     func filterGroups() {
@@ -604,16 +604,16 @@ class ChatViewModel: ObservableObject {
     
     private func createMockGroups() -> [InvestmentGroup] {
         return [
-            InvestmentGroup(id: UUID(), name: "科技股投資俱樂部", host: "張投資", returnRate: 15.5, entryFee: "10 代幣", memberCount: 25, category: "科技股", rules: "專注於台灣科技股，禁止投機短線操作，每日最多交易3次", tokenCost: 10, createdAt: Date(), updatedAt: Date()),
-            InvestmentGroup(id: UUID(), name: "價值投資學院", host: "李分析師", returnRate: 12.3, entryFee: "20 代幣", memberCount: 18, category: "價值投資", rules: "長期持有策略，最少持股期間30天，重視基本面分析", tokenCost: 20, createdAt: Date(), updatedAt: Date()),
-            InvestmentGroup(id: UUID(), name: "AI科技前瞻", host: "林未來", returnRate: 22.1, entryFee: "50 代幣", memberCount: 8, category: "科技股", rules: "專注AI、半導體相關股票，需定期分享投資心得", tokenCost: 50, createdAt: Date(), updatedAt: Date())
+            InvestmentGroup(id: UUID(), name: "科技股投資俱樂部", host: "張投資", hostId: nil, returnRate: 15.5, entryFee: "10 代幣", tokenCost: 10, memberCount: 25, maxMembers: 100, category: "科技股", description: "專業台灣科技股投資討論群組", rules: "專注於台灣科技股，禁止投機短線操作，每日最多交易3次", isPrivate: false, inviteCode: nil, portfolioValue: 0.0, rankingPosition: 0, createdAt: Date(), updatedAt: Date()),
+            InvestmentGroup(id: UUID(), name: "價值投資學院", host: "李分析師", hostId: nil, returnRate: 12.3, entryFee: "20 代幣", tokenCost: 20, memberCount: 18, maxMembers: 100, category: "價值投資", description: "深度價值投資分析與學習社群", rules: "長期持有策略，最少持股期間30天，重視基本面分析", isPrivate: false, inviteCode: nil, portfolioValue: 0.0, rankingPosition: 0, createdAt: Date(), updatedAt: Date()),
+            InvestmentGroup(id: UUID(), name: "AI科技前瞻", host: "林未來", hostId: nil, returnRate: 22.1, entryFee: "50 代幣", tokenCost: 50, memberCount: 8, maxMembers: 100, category: "科技股", description: "AI與半導體投資機會專業分析", rules: "專注AI、半導體相關股票，需定期分享投資心得", isPrivate: false, inviteCode: nil, portfolioValue: 0.0, rankingPosition: 0, createdAt: Date(), updatedAt: Date())
         ]
     }
     
     // For Debug Panel
     func fullResetAndResync() {
         // This is a placeholder for more complex logic if needed
-        print("🔄 [DEBUG] Performing full reset and resync...")
+        Logger.debug("執行完整重設和重新同步", category: .debug)
         Task {
             await loadJoinedGroups()
         }
@@ -627,7 +627,7 @@ class ChatViewModel: ObservableObject {
             let friendList = try await supabaseService.fetchFriendList()
             await MainActor.run {
                 self.friends = friendList
-                print("✅ [好友] 載入 \(friendList.count) 位好友")
+                Logger.info("載入 \(friendList.count) 位好友", category: .network)
             }
         } catch {
             await MainActor.run {
@@ -658,7 +658,7 @@ class ChatViewModel: ObservableObject {
                 for friendId in selectedFriendIds {
                     try await supabaseService.createInvitationByUserId(groupId: groupId, inviteeId: friendId)
                 }
-                print("✅ [邀請] 成功邀請 \(selectedFriendIds.count) 位好友")
+                Logger.info("成功邀請 \(selectedFriendIds.count) 位好友", category: .network)
                 
             case .email:
                 // 發送 Email 邀請
@@ -669,7 +669,7 @@ class ChatViewModel: ObservableObject {
                     return
                 }
                 try await supabaseService.createInvitation(groupId: groupId, email: inviteEmail)
-                print("✅ [邀請] 邀請發送成功: \(inviteEmail)")
+                Logger.info("邀請發送成功: \(inviteEmail)", category: .network)
             }
             
             await MainActor.run {
@@ -697,7 +697,7 @@ class ChatViewModel: ObservableObject {
                 try await supabaseService.leaveGroup(groupId: groupId)
                 
                 await MainActor.run {
-                    print("✅ 成功退出群組")
+                    Logger.info("成功退出群組", category: .ui)
                     
                     // 清除當前選中的群組
                     selectedGroupId = nil
@@ -823,7 +823,7 @@ class ChatViewModel: ObservableObject {
                 loadChatMessages(for: groupId)
                 
             } catch {
-                print("❌ 發送交易通知失敗: \(error)")
+                Logger.error("發送交易通知失敗: \(error.localizedDescription)", category: .network)
             }
         }
     }
@@ -833,7 +833,7 @@ class ChatViewModel: ObservableObject {
     /// 載入群組捐贈排行榜
     func loadDonationLeaderboard() {
         guard let groupId = selectedGroupId else { 
-            print("❌ [排行榜] 沒有選中的群組")
+            Logger.warning("沒有選中的群組，無法載入排行榜", category: .ui)
             return 
         }
         
@@ -844,10 +844,10 @@ class ChatViewModel: ObservableObject {
                 let leaderboard = try await supabaseService.fetchGroupDonationLeaderboard(groupId: groupId)
                 self.donationLeaderboard = leaderboard
                 self.isLoadingLeaderboard = false
-                print("✅ [排行榜] 載入捐贈排行榜成功: \(leaderboard.count) 位捐贈者")
+                Logger.info("載入捐贈排行榜成功: \(leaderboard.count) 位捐贈者", category: .network)
             } catch {
                 self.isLoadingLeaderboard = false
-                print("❌ [排行榜] 載入失敗: \(error.localizedDescription)")
+                Logger.error("載入排行榜失敗: \(error.localizedDescription)", category: .network)
             }
         }
     }
@@ -954,7 +954,7 @@ class ChatViewModel: ObservableObject {
             }
         }
         
-        print("❌ [ChatViewModel] \(errorMessage)")
+        Logger.error("ChatViewModel 錯誤: \(errorMessage)", category: .ui)
     }
     
     /// 顯示成功反饋
@@ -970,7 +970,7 @@ class ChatViewModel: ObservableObject {
             }
         }
         
-        print("✅ [ChatViewModel] \(message)")
+        Logger.info("ChatViewModel 成功: \(message)", category: .ui)
     }
 
 } 

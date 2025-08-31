@@ -99,7 +99,7 @@ class TournamentStateManager: ObservableObject {
                 try await Task.sleep(nanoseconds: 1_000_000_000) // 延遲1秒
                 await refreshUserTournamentStatus()
             } catch {
-                print("❌ [TournamentStateManager] 初始化同步失敗: \(error)")
+                Logger.error("初始化同步失敗: \(error)", category: .tournament)
             }
         }
     }
@@ -114,7 +114,7 @@ class TournamentStateManager: ObservableObject {
         joinError = nil
         
         do {
-            print("🏆 [TournamentStateManager] 開始加入錦標賽: \(tournament.name)")
+            Logger.info("開始加入錦標賽: \(tournament.name)", category: .tournament)
             
             // 使用 SupabaseService 進行真實的錦標賽加入
             let success = try await SupabaseService.shared.joinTournament(tournamentId: tournament.id)
@@ -151,14 +151,14 @@ class TournamentStateManager: ObservableObject {
                 // 持久化狀態
                 persistTournamentState()
                 
-                print("✅ [TournamentStateManager] 成功加入錦標賽: \(tournament.name)")
+                Logger.info("成功加入錦標賽: \(tournament.name)", category: .tournament)
             } else {
                 joinError = "加入錦標賽失敗"
-                print("❌ [TournamentStateManager] 加入錦標賽失敗")
+                Logger.error("加入錦標賽失敗", category: .tournament)
             }
             
         } catch {
-            print("❌ [TournamentStateManager] 加入錦標賽失敗: \(error.localizedDescription)")
+            Logger.error("加入錦標賽失敗: \(error.localizedDescription)", category: .tournament)
             joinError = "加入錦標賽失敗：\(error.localizedDescription)"
         }
         
@@ -168,7 +168,7 @@ class TournamentStateManager: ObservableObject {
     /// 離開錦標賽（僅切換到一般模式，不退出錦標賽）
     func leaveTournament() async {
         let previousTournamentId = currentTournamentContext?.tournament.id
-        print("🏆 [TournamentStateManager] 切換到一般模式 (從錦標賽 \(previousTournamentId?.uuidString ?? "無"))")
+        Logger.info("切換到一般模式", category: .tournament)
         
         // 僅清除當前錦標賽上下文，但保留報名狀態
         await MainActor.run {
@@ -185,19 +185,19 @@ class TournamentStateManager: ObservableObject {
                     "tournamentName": "一般模式"
                 ]
             )
-            print("📤 [TournamentStateManager] 已發送 TournamentContextChanged 通知: 一般模式")
+            Logger.debug("已發送 TournamentContextChanged 通知: 一般模式", category: .tournament)
         }
         
         // 持久化狀態（保留已報名的錦標賽）
         persistTournamentState()
         
-        print("✅ [TournamentStateManager] 已切換到一般模式")
+        Logger.debug("已切換到一般模式", category: .tournament)
     }
     
     /// 完全退出錦標賽（真正離開）
     func exitTournament(_ tournamentId: UUID) async {
         do {
-            print("🏆 [TournamentStateManager] 開始退出錦標賽")
+            Logger.info("開始退出錦標賽", category: .tournament)
             
             // 使用 SupabaseService 進行真實的錦標賽離開
             let success = try await SupabaseService.shared.leaveTournament(tournamentId: tournamentId)
@@ -216,13 +216,13 @@ class TournamentStateManager: ObservableObject {
                 // 持久化狀態
                 persistTournamentState()
                 
-                print("✅ [TournamentStateManager] 成功退出錦標賽")
+                Logger.info("成功退出錦標賽", category: .tournament)
             } else {
-                print("❌ [TournamentStateManager] 退出錦標賽失敗")
+                Logger.error("退出錦標賽失敗", category: .tournament)
             }
             
         } catch {
-            print("❌ [TournamentStateManager] 退出錦標賽失敗: \(error.localizedDescription)")
+            Logger.error("退出錦標賽失敗: \(error.localizedDescription)", category: .tournament)
             joinError = "退出錦標賽失敗：\(error.localizedDescription)"
         }
     }
@@ -246,7 +246,7 @@ class TournamentStateManager: ObservableObject {
         persistTournamentState()
         
         if let portfolio = portfolio {
-            print("📊 [TournamentStateManager] 投資組合已更新，總價值: \(portfolio.totalPortfolioValue)")
+            Logger.debug("投資組合已更新，總價值: \(portfolio.totalPortfolioValue)", category: .tournament)
         }
     }
     
@@ -269,7 +269,7 @@ class TournamentStateManager: ObservableObject {
         persistTournamentState()
         
         if let performance = performance {
-            print("📈 [TournamentStateManager] 績效指標已更新，總回報: \(performance.totalReturn)")
+            Logger.debug("績效指標已更新，總回報: \(performance.totalReturn)", category: .performance)
         }
     }
     
@@ -291,7 +291,7 @@ class TournamentStateManager: ObservableObject {
         currentTournamentContext = updatedContext
         persistTournamentState()
         
-        print("🏅 [TournamentStateManager] 排名已更新: #\(rank)")
+        Logger.debug("排名已更新: #\(rank)", category: .tournament)
     }
     
     /// 獲取當前錦標賽名稱（用於UI顯示）
@@ -312,7 +312,7 @@ class TournamentStateManager: ObservableObject {
     /// 獲取當前錦標賽 ID（調試版本）
     func getCurrentTournamentIdDebug() -> UUID? {
         let tournamentId = currentTournamentContext?.tournament.id
-        print("🔍 [TournamentStateManager] getCurrentTournamentId(): \(tournamentId?.uuidString ?? "nil")")
+        Logger.debug("getCurrentTournamentId(): \(tournamentId?.uuidString ?? "nil")", category: .tournament)
         return tournamentId
     }
     
@@ -333,21 +333,21 @@ class TournamentStateManager: ObservableObject {
     
     /// 更新錦標賽上下文（切換錦標賽時使用）
     func updateTournamentContext(_ tournament: Tournament) async {
-        print("🔄 [TournamentStateManager] 切換到錦標賽: \(tournament.name) (ID: \(tournament.id))")
+        Logger.info("切換到錦標賽: \(tournament.name)", category: .tournament)
         
         // 創建參與者資料
         let participant = createParticipantForTournament(tournament)
         
         // 獲取錦標賽專用投資組合，如果不存在則創建
         var portfolio = portfolioManager.getPortfolio(for: tournament.id)
-        print("🔍 [TournamentStateManager] 錦標賽投資組合狀態: \(portfolio != nil ? "存在" : "不存在")")
+        Logger.debug("錦標賽投資組合狀態: \(portfolio != nil ? "存在" : "不存在")", category: .tournament)
         
         // 如果投資組合不存在，為錦標賽創建投資組合
         if portfolio == nil {
-            print("🔄 [TournamentStateManager] 為錦標賽 \(tournament.name) 創建投資組合")
+            Logger.info("為錦標賽 \(tournament.name) 創建投資組合", category: .tournament)
             
             guard let currentUser = SupabaseService.shared.getCurrentUser() else {
-                print("❌ [TournamentStateManager] 無法獲取當前用戶，無法創建投資組合")
+                Logger.error("無法獲取當前用戶，無法創建投資組合", category: .tournament)
                 return
             }
             
@@ -359,9 +359,9 @@ class TournamentStateManager: ObservableObject {
             
             if portfolioInitialized {
                 portfolio = portfolioManager.getPortfolio(for: tournament.id)
-                print("✅ [TournamentStateManager] 錦標賽投資組合創建成功")
+                Logger.debug("錦標賽投資組合創建成功", category: .tournament)
             } else {
-                print("❌ [TournamentStateManager] 錦標賽投資組合創建失敗")
+                Logger.error("錦標賽投資組合創建失敗", category: .tournament)
             }
         }
         
@@ -379,7 +379,7 @@ class TournamentStateManager: ObservableObject {
         // 更新狀態
         await MainActor.run {
             let previousTournamentId = currentTournamentContext?.tournament.id
-            print("🔄 [TournamentStateManager] 從錦標賽 \(previousTournamentId?.uuidString ?? "無") 切換到 \(tournament.id.uuidString)")
+            Logger.debug("從錦標賽切換到 \(tournament.id.uuidString)", category: .tournament)
             
             currentTournamentContext = context
             isParticipatingInTournament = true
@@ -394,10 +394,6 @@ class TournamentStateManager: ObservableObject {
                 "tournamentName": tournament.name
             ]
             
-            print("📤 [TournamentStateManager] 準備發送通知:")
-            print("   - 通知名稱: \(notificationName.rawValue)")
-            print("   - 錦標賽ID: \(tournament.id.uuidString)")
-            print("   - 錦標賽名稱: \(tournament.name)")
             
             NotificationCenter.default.post(
                 name: notificationName,
@@ -405,18 +401,18 @@ class TournamentStateManager: ObservableObject {
                 userInfo: userInfo
             )
             
-            print("📤 [TournamentStateManager] 已發送 TournamentContextChanged 通知: \(tournament.id.uuidString)")
+            Logger.debug("已發送 TournamentContextChanged 通知", category: .tournament)
             
             // 延遲檢查是否有監聽器
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                print("🔍 [TournamentStateManager] 通知發送後檢查 - 當前錦標賽ID: \(self.getCurrentTournamentId()?.uuidString ?? "nil")")
+                Logger.debug("通知發送後檢查 - 當前錦標賽ID: \(self.getCurrentTournamentId()?.uuidString ?? "nil")", category: .tournament)
             }
         }
         
         // 持久化狀態
         persistTournamentState()
         
-        print("✅ [TournamentStateManager] 已切換到錦標賽: \(tournament.name) (ID: \(tournament.id.uuidString))")
+        Logger.info("已切換到錦標賽: \(tournament.name)", category: .tournament)
     }
     
     // MARK: - 私有方法
@@ -438,10 +434,10 @@ class TournamentStateManager: ObservableObject {
         if let updatedTournament = tournaments.first(where: { $0.id == currentContext.tournament.id }) {
             // 檢查是否處於狀態轉換點
             if updatedTournament.isAtTransitionPoint {
-                print("⚡️ [TournamentStateManager] 錦標賽 \(updatedTournament.name) 處於狀態轉換點")
+                Logger.info("錦標賽 \(updatedTournament.name) 處於狀態轉換點", category: .tournament)
                 
                 if let reminder = updatedTournament.transitionReminder {
-                    print("⏰ [TournamentStateManager] 轉換提醒: \(reminder)")
+                    Logger.debug("轉換提醒: \(reminder)", category: .tournament)
                     // 可以在此處發送用戶通知
                 }
             }
@@ -462,7 +458,7 @@ class TournamentStateManager: ObservableObject {
             currentTournamentContext = updatedContext
             participationState = updatedContext.state
             
-            print("🔄 [TournamentStateManager] 錦標賽狀態已更新: \(finalTournament.name) -> \(finalTournament.status.displayName)")
+            Logger.debug("錦標賽狀態已更新: \(finalTournament.name) -> \(finalTournament.status.displayName)", category: .tournament)
         }
     }
     
@@ -520,7 +516,7 @@ class TournamentStateManager: ObservableObject {
             
             // 檢查錦標賽是否存在
             guard let tournament = updatedTournament else {
-                print("⚠️ [TournamentStateManager] 錦標賽不存在，無法刷新上下文")
+                Logger.warning("錦標賽不存在，無法刷新上下文", category: .tournament)
                 return
             }
             
@@ -548,10 +544,10 @@ class TournamentStateManager: ObservableObject {
             
             currentTournamentContext = updatedContext
             
-            print("🔄 [TournamentStateManager] 錦標賽上下文已刷新")
+            Logger.debug("錦標賽上下文已刷新", category: .tournament)
             
         } catch {
-            print("❌ [TournamentStateManager] 刷新錦標賽上下文失敗: \(error)")
+            Logger.error("刷新錦標賽上下文失敗: \(error)", category: .tournament)
         }
     }
     
@@ -577,9 +573,9 @@ class TournamentStateManager: ObservableObject {
             let data = try encoder.encode(persistentData)
             UserDefaults.standard.set(data, forKey: "CurrentTournamentContext")
             
-            print("💾 [TournamentStateManager] 錦標賽狀態已持久化")
+            Logger.debug("錦標賽狀態已持久化", category: .general)
         } catch {
-            print("❌ [TournamentStateManager] 持久化錦標賽狀態失敗: \(error.localizedDescription)")
+            Logger.error("持久化錦標賽狀態失敗: \(error.localizedDescription)", category: .general)
         }
     }
     
@@ -597,7 +593,7 @@ class TournamentStateManager: ObservableObject {
             isParticipatingInTournament = persistentData.participationState != .none
             enrolledTournaments = persistentData.enrolledTournaments
             
-            print("💾 [TournamentStateManager] 已載入持久化的錦標賽狀態: \(persistentData.tournamentName)")
+            Logger.debug("已載入持久化的錦標賽狀態: \(persistentData.tournamentName)", category: .general)
             
             // 從數據庫同步實際的報名狀態
             Task {
@@ -605,14 +601,14 @@ class TournamentStateManager: ObservableObject {
             }
             
         } catch {
-            print("❌ [TournamentStateManager] 載入持久化錦標賽狀態失敗: \(error.localizedDescription)")
+            Logger.error("載入持久化錦標賽狀態失敗: \(error.localizedDescription)", category: .general)
             clearPersistedTournamentState()
         }
     }
     
     /// 從API同步用戶錦標賽狀態
     private func syncEnrolledTournamentsFromDatabase() async {
-        print("🔄 [TournamentStateManager] 開始從API同步用戶錦標賽狀態")
+        Logger.debug("開始從API同步用戶錦標賽狀態", category: .network)
         
         do {
             // 使用測試用戶ID - 實際應從AuthenticationService獲取
@@ -620,7 +616,7 @@ class TournamentStateManager: ObservableObject {
             
             // 從Flask API獲取用戶錦標賽
             guard let url = URL(string: "http://localhost:5002/api/user-tournaments?user_id=\(testUserId)") else {
-                print("❌ [TournamentStateManager] 無效的API URL")
+                Logger.error("無效的API URL", category: .network)
                 return
             }
             
@@ -628,7 +624,7 @@ class TournamentStateManager: ObservableObject {
             
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
-                print("❌ [TournamentStateManager] API請求失敗: \(response)")
+                Logger.error("API請求失敗: \(response)", category: .network)
                 return
             }
             
@@ -690,23 +686,21 @@ class TournamentStateManager: ObservableObject {
                         }
                     }
                     
-                    print("✅ [TournamentStateManager] 同步成功: 用戶參與 \(tournaments.count) 個錦標賽")
+                    Logger.info("同步成功: 用戶參與 \(tournaments.count) 個錦標賽", category: .network)
                     tournaments.forEach { tournament in
-                        print("   - \(tournament.name) (ID: \(tournament.id))")
                     }
                 } else {
                     isParticipatingInTournament = false
                     participationState = .none
                     currentTournamentContext = nil
-                    print("ℹ️ [TournamentStateManager] 用戶未參與任何錦標賽")
+                    Logger.info("用戶未參與任何錦標賽", category: .tournament)
                 }
                 
-                print("🔄 [TournamentStateManager] 同步狀態：從 \(previousCount) 個更新為 \(enrolledTournaments.count) 個錦標賽")
-                print("   參與狀態: \(isParticipatingInTournament ? "是" : "否")")
+                Logger.debug("同步狀態：從 \(previousCount) 個更新為 \(enrolledTournaments.count) 個錦標賽", category: .tournament)
             }
             
         } catch {
-            print("❌ [TournamentStateManager] API同步失敗: \(error)")
+            Logger.error("API同步失敗: \(error)", category: .network)
             
             // API失敗時使用本地數據作為備援
             await MainActor.run {
@@ -719,7 +713,7 @@ class TournamentStateManager: ObservableObject {
     
     private func clearPersistedTournamentState() {
         UserDefaults.standard.removeObject(forKey: "CurrentTournamentContext")
-        print("🗑️ [TournamentStateManager] 已清除持久化的錦標賽狀態")
+        Logger.debug("已清除持久化的錦標賽狀態", category: .general)
     }
 }
 

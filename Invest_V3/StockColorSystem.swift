@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 // MARK: - 主題自適應顏色工具
 struct ThemeAdaptiveColor {
