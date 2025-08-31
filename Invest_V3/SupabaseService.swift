@@ -483,7 +483,7 @@ class SupabaseService: ObservableObject {
               let updatedAtString = groupData["updated_at"] as? String,
               let createdAt = ISO8601DateFormatter().date(from: createdAtString),
               let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
-            throw SupabaseError.decodingError
+            throw SupabaseError.dataCorrupted
         }
         
         // Parse optional fields
