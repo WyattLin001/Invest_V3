@@ -3597,16 +3597,63 @@ class SupabaseService: ObservableObject {
             return []
         }
         
-        // 查詢通過 Email 或 user_id 的邀請
-        let invitations: [GroupInvitation] = try await client
+        // 查詢通過 Email 或 user_id 的邀請 - 使用手動 JSON 解析
+        let response: PostgrestResponse<Data> = try await client
             .from("group_invitations")
-            .select()
+            .select("*, user_profiles!inviter_id(display_name)")
             .or("invitee_email.eq.\(currentUser.email),invitee_id.eq.\(currentUser.id.uuidString)")
             .eq("status", value: "pending")
             .execute()
-            .value
         
-        return invitations
+        return try parseInvitationsFromResponse(response)
+    }
+    
+    private func parseInvitationsFromResponse(_ response: PostgrestResponse<Data>) throws -> [GroupInvitation] {
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse invitations response as JSON array", category: .database)
+            return []
+        }
+        
+        return jsonObject.compactMap { invitationData in
+            guard let idString = invitationData["id"] as? String,
+                  let invitationId = UUID(uuidString: idString),
+                  let groupIdString = invitationData["group_id"] as? String,
+                  let groupId = UUID(uuidString: groupIdString),
+                  let inviterIdString = invitationData["inviter_id"] as? String,
+                  let inviterId = UUID(uuidString: inviterIdString),
+                  let statusString = invitationData["status"] as? String,
+                  let status = InvitationStatus(rawValue: statusString),
+                  let createdAtString = invitationData["created_at"] as? String,
+                  let expiresAtString = invitationData["expires_at"] as? String,
+                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+                  let expiresAt = ISO8601DateFormatter().date(from: expiresAtString) else {
+                Logger.warning("Missing required fields in invitation data", category: .database)
+                return nil
+            }
+            
+            // Extract inviter name from nested user_profiles data
+            let inviterName: String
+            if let userProfiles = invitationData["user_profiles"] as? [String: Any],
+               let displayName = userProfiles["display_name"] as? String {
+                inviterName = displayName
+            } else {
+                inviterName = "未知用戶"
+            }
+            
+            // Handle optional invitee email
+            let inviteeEmail = invitationData["invitee_email"] as? String ?? ""
+            
+            return GroupInvitation(
+                id: invitationId,
+                groupId: groupId,
+                inviterId: inviterId,
+                inviterName: inviterName,
+                inviteeEmail: inviteeEmail,
+                status: status,
+                expiresAt: expiresAt,
+                createdAt: createdAt
+            )
+        }
     }
     
     // MARK: - Friends (B-10~B-13 好友功能)
@@ -5151,45 +5198,44 @@ extension SupabaseService {
     func fetchTradingRankings(period: String = "all", limit: Int = 10) async throws -> [TradingUserRanking] {
         try SupabaseManager.shared.ensureInitialized()
         
-        struct TradingUserData: Codable {
-            let id: String
-            let name: String
-            let cumulativeReturn: Double
-            let totalAssets: Double
-            let totalProfit: Double
-            let avatarUrl: String?
-            let createdAt: String
-            
-            enum CodingKeys: String, CodingKey {
-                case id
-                case name
-                case cumulativeReturn = "cumulative_return"
-                case totalAssets = "total_assets"
-                case totalProfit = "total_profit"
-                case avatarUrl = "avatar_url"
-                case createdAt = "created_at"
-            }
-        }
-        
-        let tradingUsers: [TradingUserData] = try await self.client
+        let response: PostgrestResponse<Data> = try await self.client
             .from("trading_users")
             .select("id, name, cumulative_return, total_assets, total_profit, avatar_url, created_at")
             .eq("is_active", value: true)
             .order("cumulative_return", ascending: false)
             .limit(limit)
             .execute()
-            .value
         
-        let rankings = tradingUsers.enumerated().map { index, user in
-            TradingUserRanking(
+        return try parseTradingRankingsFromResponse(response)
+    }
+    
+    private func parseTradingRankingsFromResponse(_ response: PostgrestResponse<Data>) throws -> [TradingUserRanking] {
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse trading rankings response as JSON array", category: .database)
+            return []
+        }
+        
+        let rankings = jsonObject.enumerated().compactMap { index, userData in
+            guard let id = userData["id"] as? String,
+                  let name = userData["name"] as? String,
+                  let cumulativeReturn = userData["cumulative_return"] as? Double,
+                  let totalAssets = userData["total_assets"] as? Double,
+                  let totalProfit = userData["total_profit"] as? Double else {
+                Logger.warning("Missing required fields in trading user data", category: .database)
+                return nil
+            }
+            
+            let avatarUrl = userData["avatar_url"] as? String
+            
+            return TradingUserRanking(
                 rank: index + 1,
-                userId: user.id,
-                name: user.name,
-                returnRate: user.cumulativeReturn,
-                totalAssets: user.totalAssets,
-                totalProfit: user.totalProfit,
-                avatarUrl: user.avatarUrl,
-                period: period
+                userId: id,
+                name: name,
+                returnRate: cumulativeReturn,
+                totalAssets: totalAssets,
+                totalProfit: totalProfit,
+                avatarUrl: avatarUrl,
+                period: "all"
             )
         }
         

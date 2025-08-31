@@ -98,10 +98,29 @@ class SupabaseManager {
             let url = URL(string: "https://wujlbjrouqcpnifbakmw.supabase.co")!
             let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1amxianJvdXFjcG5pZmJha213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTMxNjcsImV4cCI6MjA2NzM4OTE2N30.2-l82gsxWDLMj3gUnSpj8sHddMLtX-JgqrbnY5c_9bg"
 
+            // 配置 URLSession 以改善網路穩定性
+            let configuration = URLSessionConfiguration.default
+            configuration.timeoutIntervalForRequest = 30.0  // 30秒請求超時
+            configuration.timeoutIntervalForResource = 60.0 // 60秒資源超時
+            configuration.requestCachePolicy = .useProtocolCachePolicy
+            configuration.urlCache = URLCache(memoryCapacity: 10 * 1024 * 1024, diskCapacity: 50 * 1024 * 1024)
+            
+            let customSession = URLSession(configuration: configuration)
+            
             // 配置客戶端
             self.client = SupabaseClient(
                 supabaseURL: url,
-                supabaseKey: anonKey
+                supabaseKey: anonKey,
+                options: SupabaseClientOptions(
+                    db: SupabaseClientOptions.DatabaseOptions(
+                        schema: "public"
+                    ),
+                    auth: SupabaseClientOptions.AuthOptions(
+                        autoRefreshToken: true,
+                        persistSession: true,
+                        detectSessionInUrl: false
+                    )
+                )
             )
             
             // 添加認證狀態監聽

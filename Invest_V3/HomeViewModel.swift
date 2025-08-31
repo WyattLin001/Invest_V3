@@ -78,37 +78,62 @@ class HomeViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        do {
-            // 並行載入資料
-            async let groupsTask = loadInvestmentGroups()
-            async let rankingsTask = loadTradingRankings()
-            async let joinedGroupsTask = refreshJoinedGroups()
-            async let invitationsTask = loadPendingInvitations()
+        await withTaskGroup(of: Void.self) { group in
+            // 使用 TaskGroup 進行並行載入，提供更好的取消支援
+            group.addTask { [weak self] in
+                do {
+                    try await self?.loadInvestmentGroups()
+                } catch {
+                    await self?.handleDataLoadError(error, context: "載入投資群組")
+                }
+            }
             
-            try await groupsTask
-            try await rankingsTask
-            try await joinedGroupsTask
-            try await invitationsTask
+            group.addTask { [weak self] in
+                do {
+                    try await self?.loadTradingRankings()
+                } catch {
+                    await self?.handleDataLoadError(error, context: "載入排行榜")
+                }
+            }
             
-            // 統合載入完成訊息
-            let groupCount = investmentGroups.count
-            let rankingCount = tradingRankings.count
-            let joinedCount = joinedIds.count
-            let inviteCount = pendingInvitations.count
+            group.addTask { [weak self] in
+                await self?.refreshJoinedGroups()
+            }
             
-            print("📊 資料載入完成: \(groupCount)個群組, \(rankingCount)筆排行榜, \(joinedCount)個已加入群組, \(inviteCount)個邀請")
-            
-        } catch {
-            // 忽略取消錯誤，避免在快速重新整理時顯示錯誤
-            if error is CancellationError {
-                print("⚠️ 資料載入被取消（正常情況，用戶快速重新整理）")
-            } else {
-                errorMessage = "載入資料失敗: \(error.localizedDescription)"
-                print("HomeViewModel loadData error: \(error)")
+            group.addTask { [weak self] in
+                await self?.loadPendingInvitations()
             }
         }
         
+        // 統合載入完成訊息
+        let groupCount = investmentGroups.count
+        let rankingCount = tradingRankings.count
+        let joinedCount = joinedIds.count
+        let inviteCount = pendingInvitations.count
+        
+        print("📊 資料載入完成: \(groupCount)個群組, \(rankingCount)筆排行榜, \(joinedCount)個已加入群組, \(inviteCount)個邀請")
+        
         isLoading = false
+    }
+    
+    private func handleDataLoadError(_ error: Error, context: String) async {
+        // 處理特定的網路取消錯誤
+        if let nsError = error as NSError?, nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+            print("⚠️ \(context)被取消（用戶快速切換或網路中斷）")
+            return
+        }
+        
+        // 處理 Swift 任務取消
+        if error is CancellationError {
+            print("⚠️ \(context)被取消（任務層級取消）")
+            return
+        }
+        
+        // 其他錯誤才顯示給用戶
+        await MainActor.run {
+            self.errorMessage = "\(context)失敗: \(error.localizedDescription)"
+        }
+        print("❌ \(context) error: \(error)")
     }
     
     // MARK: - 投資功能
@@ -335,7 +360,14 @@ class HomeViewModel: ObservableObject {
             let joinedGroups = try await ServiceCoordinator.shared.groups.getUserGroups()
             self.joinedIds = Set(joinedGroups.map { $0.id })
         } catch {
-            print("❌ 獲取已加入群組失敗: \(error)")
+            // 處理網路取消錯誤
+            if let nsError = error as NSError?, nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+                print("⚠️ 獲取已加入群組被取消（網路中斷或快速切換）")
+            } else if error is CancellationError {
+                print("⚠️ 獲取已加入群組被取消（任務取消）")
+            } else {
+                print("❌ 獲取已加入群組失敗: \(error)")
+            }
         }
     }
     
@@ -350,7 +382,14 @@ class HomeViewModel: ObservableObject {
                 print("✅ 發現 \(invitations.count) 個待處理邀請")
             }
         } catch {
-            print("❌ 載入邀請失敗: \(error)")
+            // 處理網路取消錯誤
+            if let nsError = error as NSError?, nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+                print("⚠️ 載入邀請被取消（網路中斷或快速切換）")
+            } else if error is CancellationError {
+                print("⚠️ 載入邀請被取消（任務取消）")
+            } else {
+                print("❌ 載入邀請失敗: \(error)")
+            }
         }
     }
     
