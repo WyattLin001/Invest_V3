@@ -3571,13 +3571,14 @@ class SupabaseService: ObservableObject {
             .eq("id", value: invitationId.uuidString)
             .execute()
         
-        // 獲取邀請詳情以便加入群組
-        let invitations: [GroupInvitation] = try await client
+        // 獲取邀請詳情以便加入群組 - 使用手動 JSON 解析
+        let response: PostgrestResponse<Data> = try await client
             .from("group_invitations")
-            .select()
+            .select("*, user_profiles!inviter_id(display_name)")
             .eq("id", value: invitationId.uuidString)
             .execute()
-            .value
+        
+        let invitations = try parseInvitationsFromResponse(response)
         
         guard let invitation = invitations.first else {
             throw SupabaseError.dataNotFound
@@ -5215,7 +5216,7 @@ extension SupabaseService {
             return []
         }
         
-        let rankings = jsonObject.enumerated().compactMap { index, userData in
+        let rankings: [TradingUserRanking] = jsonObject.enumerated().compactMap { index, userData in
             guard let id = userData["id"] as? String,
                   let name = userData["name"] as? String,
                   let cumulativeReturn = userData["cumulative_return"] as? Double,
