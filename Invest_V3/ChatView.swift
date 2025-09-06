@@ -782,7 +782,8 @@ struct ChatView: View {
                             .font(.headline)
                             .foregroundColor(.gray900)
                         
-                        Text(viewModel.selectedGroup?.rules ?? "無特別規定")
+                        Text(viewModel.selectedGroup?.rules.isEmpty == false ? 
+                             viewModel.selectedGroup!.rules.joined(separator: "\n") : "無特別規定")
                             .font(.body)
                             .foregroundColor(.gray700)
                             .padding()

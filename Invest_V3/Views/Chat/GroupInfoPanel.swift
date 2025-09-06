@@ -87,8 +87,8 @@ struct GroupInfoPanel: View {
                 groupStatistics
                 
                 // 群組描述
-                if let rules = group.rules, !rules.isEmpty {
-                    groupDescription(rules)
+                if !group.rules.isEmpty {
+                    groupDescription(group.rules.joined(separator: "\n"))
                 }
                 
                 // 群組規則

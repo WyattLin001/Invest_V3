@@ -12,7 +12,7 @@ struct InvestmentGroup: Codable, Identifiable {
     let maxMembers: Int
     let category: String?
     let description: String?
-    let rules: String?
+    let rules: [String]
     let isPrivate: Bool
     let inviteCode: String?
     let portfolioValue: Double
@@ -48,7 +48,7 @@ struct InvestmentGroup: Codable, Identifiable {
         maxMembers = try container.decodeIfPresent(Int.self, forKey: .maxMembers) ?? 100
         category = try container.decodeIfPresent(String.self, forKey: .category)
         description = try container.decodeIfPresent(String.self, forKey: .description)
-        rules = try container.decodeIfPresent(String.self, forKey: .rules)
+        rules = try container.decodeIfPresent([String].self, forKey: .rules) ?? []
         isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate) ?? false
         inviteCode = try container.decodeIfPresent(String.self, forKey: .inviteCode)
         portfolioValue = try container.decodeIfPresent(Double.self, forKey: .portfolioValue) ?? 0.0
@@ -78,7 +78,7 @@ struct InvestmentGroup: Codable, Identifiable {
     }
     
     // Regular initializer for creating new instances
-    init(id: UUID, name: String, host: String, hostId: UUID? = nil, returnRate: Double, entryFee: String?, tokenCost: Int, memberCount: Int, maxMembers: Int = 100, category: String?, description: String?, rules: String?, isPrivate: Bool = false, inviteCode: String? = nil, portfolioValue: Double = 0.0, rankingPosition: Int = 0, createdAt: Date, updatedAt: Date) {
+    init(id: UUID, name: String, host: String, hostId: UUID? = nil, returnRate: Double, entryFee: String?, tokenCost: Int, memberCount: Int, maxMembers: Int = 100, category: String?, description: String?, rules: [String] = [], isPrivate: Bool = false, inviteCode: String? = nil, portfolioValue: Double = 0.0, rankingPosition: Int = 0, createdAt: Date, updatedAt: Date) {
         self.id = id
         self.name = name
         self.host = host
