@@ -253,18 +253,40 @@ class SupabaseService: ObservableObject {
     func fetchInvestmentGroups() async throws -> [InvestmentGroup] {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: PostgrestResponse<Data> = try await client
-            .from("investment_groups")
-            .select()
-            .execute()
+        Logger.info("🔍 開始載入投資群組...", category: .database)
         
-        // Manual JSON parsing to avoid decoder issues
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-            Logger.warning("Unable to parse investment groups response", category: .database)
-            return []
-        }
+        do {
+            let response: PostgrestResponse<Data> = try await client
+                .from("investment_groups")
+                .select()
+                .execute()
+            
+            Logger.debug("📡 Supabase 響應狀態: \(response.status)", category: .database)
+            Logger.debug("📦 響應數據大小: \(response.data.count) bytes", category: .database)
+            
+            // 記錄原始響應內容用於調試
+            if let responseString = String(data: response.data, encoding: .utf8) {
+                Logger.debug("📄 原始響應內容: \(responseString)", category: .database)
+            } else {
+                Logger.error("❌ 無法將響應轉換為字符串", category: .database)
+            }
+            
+            // Manual JSON parsing to avoid decoder issues
+            guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+                Logger.error("❌ 無法解析投資群組響應為JSON數組", category: .database)
+                // 嘗試解析為其他類型以獲得更多信息
+                if let jsonAny = try? JSONSerialization.jsonObject(with: response.data, options: []) {
+                    Logger.debug("📋 實際響應類型: \(type(of: jsonAny))", category: .database)
+                    Logger.debug("📋 實際響應內容: \(jsonAny)", category: .database)
+                }
+                throw SupabaseError.dataCorrupted("投資群組數據解析失敗")
+            }
+        
+        Logger.info("✅ 成功解析 \(jsonObject.count) 個投資群組記錄", category: .database)
         
         return jsonObject.compactMap { groupData -> InvestmentGroup? in
+            Logger.debug("🔍 解析群組數據: \(groupData.keys.sorted())", category: .database)
+            
             // Parse required fields
             guard let idString = groupData["id"] as? String,
                   let groupId = UUID(uuidString: idString),
@@ -275,10 +297,11 @@ class SupabaseService: ObservableObject {
                   let updatedAtString = groupData["updated_at"] as? String,
                   let createdAt = ISO8601DateFormatter().date(from: createdAtString),
                   let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+                Logger.warning("⚠️ 群組數據缺少必要字段: \(groupData.keys.sorted())", category: .database)
                 return nil
             }
             
-            // Parse optional fields
+            // Parse optional fields - host_id 字段確實存在
             let hostIdString = groupData["host_id"] as? String
             let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
             let returnRate = groupData["return_rate"] as? Double ?? 0.0
@@ -292,6 +315,8 @@ class SupabaseService: ObservableObject {
             let inviteCode = groupData["invite_code"] as? String
             let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
             let rankingPosition = groupData["ranking_position"] as? Int ?? 0
+            
+            Logger.debug("✅ 成功解析群組: \(name)", category: .database)
             
             return InvestmentGroup(
                 id: groupId,
@@ -3594,25 +3619,48 @@ class SupabaseService: ObservableObject {
     func fetchPendingInvites() async throws -> [GroupInvitation] {
         try SupabaseManager.shared.ensureInitialized()
         
+        Logger.info("📧 開始載入待處理邀請...", category: .database)
+        
         guard let currentUser = try? await getCurrentUserAsync() else {
+            Logger.warning("⚠️ 無法獲取當前用戶，無法載入邀請", category: .database)
             return []
         }
         
-        // 查詢通過 Email 或 user_id 的邀請 - 使用手動 JSON 解析
-        let response: PostgrestResponse<Data> = try await client
-            .from("group_invitations")
-            .select("*, user_profiles!inviter_id(display_name)")
-            .or("invitee_email.eq.\(currentUser.email),invitee_id.eq.\(currentUser.id.uuidString)")
-            .eq("status", value: "pending")
-            .execute()
+        Logger.debug("👤 當前用戶: \(currentUser.email) (\(currentUser.id))", category: .database)
         
-        return try parseInvitationsFromResponse(response)
+        do {
+            // 查詢通過 Email 或 user_id 的邀請 - 使用手動 JSON 解析
+            let response: PostgrestResponse<Data> = try await client
+                .from("group_invitations")
+                .select("*, user_profiles!inviter_id(display_name)")
+                .or("invitee_email.eq.\(currentUser.email),invitee_id.eq.\(currentUser.id.uuidString)")
+                .eq("status", value: "pending")
+                .execute()
+            
+            Logger.debug("📡 邀請響應狀態: \(response.status)", category: .database)
+            Logger.debug("📦 響應數據大小: \(response.data.count) bytes", category: .database)
+            
+            // 記錄原始響應內容用於調試
+            if let responseString = String(data: response.data, encoding: .utf8) {
+                Logger.debug("📄 邀請原始響應: \(responseString)", category: .database)
+            }
+            
+            return try parseInvitationsFromResponse(response)
+        } catch {
+            Logger.error("❌ 載入待處理邀請失敗: \(error)", category: .database)
+            throw error
+        }
     }
     
     private func parseInvitationsFromResponse(_ response: PostgrestResponse<Data>) throws -> [GroupInvitation] {
         guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-            Logger.warning("Unable to parse invitations response as JSON array", category: .database)
-            return []
+            Logger.error("❌ 無法解析邀請響應為JSON數組", category: .database)
+            // 嘗試解析為其他類型以獲得更多信息
+            if let jsonAny = try? JSONSerialization.jsonObject(with: response.data, options: []) {
+                Logger.debug("📋 邀請實際響應類型: \(type(of: jsonAny))", category: .database)
+                Logger.debug("📋 邀請實際響應內容: \(jsonAny)", category: .database)
+            }
+            throw SupabaseError.dataCorrupted("邀請數據解析失敗")
         }
         
         return jsonObject.compactMap { invitationData in
@@ -5199,21 +5247,41 @@ extension SupabaseService {
     func fetchTradingRankings(period: String = "all", limit: Int = 10) async throws -> [TradingUserRanking] {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: PostgrestResponse<Data> = try await self.client
-            .from("trading_users")
-            .select("id, name, cumulative_return, total_assets, total_profit, avatar_url, created_at")
-            .eq("is_active", value: true)
-            .order("cumulative_return", ascending: false)
-            .limit(limit)
-            .execute()
+        Logger.info("🏆 開始載入交易排行榜... (period: \(period), limit: \(limit))", category: .database)
         
-        return try parseTradingRankingsFromResponse(response)
+        do {
+            let response: PostgrestResponse<Data> = try await self.client
+                .from("trading_users")
+                .select("id, name, cumulative_return, total_assets, total_profit, avatar_url, created_at")
+                .eq("is_active", value: true)
+                .order("cumulative_return", ascending: false)
+                .limit(limit)
+                .execute()
+            
+            Logger.debug("📡 排行榜響應狀態: \(response.status)", category: .database)
+            Logger.debug("📦 響應數據大小: \(response.data.count) bytes", category: .database)
+            
+            // 記錄原始響應內容用於調試
+            if let responseString = String(data: response.data, encoding: .utf8) {
+                Logger.debug("📄 排行榜原始響應: \(responseString)", category: .database)
+            }
+            
+            return try parseTradingRankingsFromResponse(response)
+        } catch {
+            Logger.error("❌ 載入交易排行榜失敗: \(error)", category: .database)
+            throw error
+        }
     }
     
     private func parseTradingRankingsFromResponse(_ response: PostgrestResponse<Data>) throws -> [TradingUserRanking] {
         guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-            Logger.warning("Unable to parse trading rankings response as JSON array", category: .database)
-            return []
+            Logger.error("❌ 無法解析交易排行榜響應為JSON數組", category: .database)
+            // 嘗試解析為其他類型以獲得更多信息
+            if let jsonAny = try? JSONSerialization.jsonObject(with: response.data, options: []) {
+                Logger.debug("📋 排行榜實際響應類型: \(type(of: jsonAny))", category: .database)
+                Logger.debug("📋 排行榜實際響應內容: \(jsonAny)", category: .database)
+            }
+            throw SupabaseError.dataCorrupted("交易排行榜數據解析失敗")
         }
         
         let rankings: [TradingUserRanking] = jsonObject.enumerated().compactMap { index, userData in

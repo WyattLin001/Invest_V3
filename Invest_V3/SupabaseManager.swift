@@ -116,9 +116,7 @@ class SupabaseManager {
                         schema: "public"
                     ),
                     auth: SupabaseClientOptions.AuthOptions(
-                        autoRefreshToken: true,
-                        persistSession: true,
-                        detectSessionInUrl: false
+                        autoRefreshToken: true
                     )
                 )
             )

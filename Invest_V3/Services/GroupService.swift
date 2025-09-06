@@ -273,7 +273,7 @@ class GroupService: ObservableObject {
         try SupabaseManager.shared.ensureInitialized()
         
         let currentUser = try await SupabaseService.shared.getCurrentUserAsync()
-        Logger.info("📋 獲取用戶群組列表", category: .database)
+        Logger.info("📋 開始獲取用戶群組列表: \(currentUser.id)", category: .database)
         
         // First get the group IDs that the user is a member of
         let membershipResponse: PostgrestResponse<Data> = try await client
