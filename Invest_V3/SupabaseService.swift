@@ -8848,4 +8848,3 @@ extension SupabaseService {
             .execute()
     }
 }
-}
