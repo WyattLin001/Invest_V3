@@ -75,6 +75,47 @@ class SupabaseService: ObservableObject {
 
     private init() { }
     
+    // MARK: - 防禦性解析輔助方法
+    
+    private func extractString(from value: Any?, key: String) -> String? {
+        if let stringValue = value as? String {
+            return stringValue.isEmpty ? nil : stringValue
+        } else if let arrayValue = value as? [String], let firstValue = arrayValue.first {
+            Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+            return firstValue.isEmpty ? nil : firstValue
+        } else if let arrayValue = value as? [Any], let firstValue = arrayValue.first as? String {
+            Logger.warning("⚠️ \(key) 字段返回混合數組，取第一個字符串: \(firstValue)", category: .database)
+            return firstValue.isEmpty ? nil : firstValue
+        }
+        return nil
+    }
+    
+    private func extractInt(from value: Any?, key: String) -> Int? {
+        if let intValue = value as? Int {
+            return intValue
+        } else if let stringValue = value as? String, let intValue = Int(stringValue) {
+            return intValue
+        } else if let arrayValue = value as? [Int], let firstValue = arrayValue.first {
+            Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+            return firstValue
+        }
+        return nil
+    }
+    
+    private func extractDouble(from value: Any?, key: String) -> Double? {
+        if let doubleValue = value as? Double {
+            return doubleValue
+        } else if let stringValue = value as? String, let doubleValue = Double(stringValue) {
+            return doubleValue
+        } else if let intValue = value as? Int {
+            return Double(intValue)
+        } else if let arrayValue = value as? [Double], let firstValue = arrayValue.first {
+            Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+            return firstValue
+        }
+        return nil
+    }
+    
     // 獲取當前用戶
     public func getCurrentUser() -> UserProfile? {
         // 檢查是否在 Preview 模式
@@ -279,53 +320,13 @@ class SupabaseService: ObservableObject {
                     Logger.debug("📋 實際響應類型: \(type(of: jsonAny))", category: .database)
                     Logger.debug("📋 實際響應內容: \(jsonAny)", category: .database)
                 }
-                throw SupabaseError.dataCorrupted("投資群組數據解析失敗")
+                throw SupabaseError.dataCorrupted
             }
         
         Logger.info("✅ 成功解析 \(jsonObject.count) 個投資群組記錄", category: .database)
         
         return jsonObject.compactMap { groupData -> InvestmentGroup? in
             Logger.debug("🔍 解析群組數據: \(groupData.keys.sorted())", category: .database)
-            
-            // 防禦性解析函數：處理字符串/數組混合類型
-            func extractString(from value: Any?, key: String) -> String? {
-                if let stringValue = value as? String {
-                    return stringValue.isEmpty ? nil : stringValue
-                } else if let arrayValue = value as? [String], let firstValue = arrayValue.first {
-                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
-                    return firstValue.isEmpty ? nil : firstValue
-                } else if let arrayValue = value as? [Any], let firstValue = arrayValue.first as? String {
-                    Logger.warning("⚠️ \(key) 字段返回混合數組，取第一個字符串: \(firstValue)", category: .database)
-                    return firstValue.isEmpty ? nil : firstValue
-                }
-                return nil
-            }
-            
-            func extractInt(from value: Any?, key: String) -> Int? {
-                if let intValue = value as? Int {
-                    return intValue
-                } else if let stringValue = value as? String, let intValue = Int(stringValue) {
-                    return intValue
-                } else if let arrayValue = value as? [Int], let firstValue = arrayValue.first {
-                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
-                    return firstValue
-                }
-                return nil
-            }
-            
-            func extractDouble(from value: Any?, key: String) -> Double? {
-                if let doubleValue = value as? Double {
-                    return doubleValue
-                } else if let stringValue = value as? String, let doubleValue = Double(stringValue) {
-                    return doubleValue
-                } else if let intValue = value as? Int {
-                    return Double(intValue)
-                } else if let arrayValue = value as? [Double], let firstValue = arrayValue.first {
-                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
-                    return firstValue
-                }
-                return nil
-            }
             
             // Parse required fields with defensive extraction
             guard let idString = extractString(from: groupData["id"], key: "id"),
@@ -3389,7 +3390,7 @@ class SupabaseService: ObservableObject {
     
     /// 錯誤日誌記錄
     func logError(message: String) {
-        let timestamp = DateFormatter.iso8601.string(from: Date())
+        let timestamp = ISO8601DateFormatter().string(from: Date())
         let logMessage = "[\(timestamp)] \(message)"
         
         // 記錄到控制台
@@ -3702,23 +3703,10 @@ class SupabaseService: ObservableObject {
                 Logger.debug("📋 邀請實際響應類型: \(type(of: jsonAny))", category: .database)
                 Logger.debug("📋 邀請實際響應內容: \(jsonAny)", category: .database)
             }
-            throw SupabaseError.dataCorrupted("邀請數據解析失敗")
+            throw SupabaseError.dataCorrupted
         }
         
         return jsonObject.compactMap { invitationData in
-            // 防禦性解析函數（復用）
-            func extractString(from value: Any?, key: String) -> String? {
-                if let stringValue = value as? String {
-                    return stringValue.isEmpty ? nil : stringValue
-                } else if let arrayValue = value as? [String], let firstValue = arrayValue.first {
-                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
-                    return firstValue.isEmpty ? nil : firstValue
-                } else if let arrayValue = value as? [Any], let firstValue = arrayValue.first as? String {
-                    Logger.warning("⚠️ \(key) 字段返回混合數組，取第一個字符串: \(firstValue)", category: .database)
-                    return firstValue.isEmpty ? nil : firstValue
-                }
-                return nil
-            }
             
             guard let idString = extractString(from: invitationData["id"], key: "id"),
                   let invitationId = UUID(uuidString: idString),
@@ -4591,7 +4579,7 @@ class SupabaseService: ObservableObject {
             description: description,
             status: status,
             paymentMethod: paymentMethod,
-            createdAt: DateFormatter.iso8601.string(from: Date())
+            createdAt: ISO8601DateFormatter().string(from: Date())
         )
         
         let _ = try await client
@@ -5338,37 +5326,10 @@ extension SupabaseService {
                 Logger.debug("📋 排行榜實際響應類型: \(type(of: jsonAny))", category: .database)
                 Logger.debug("📋 排行榜實際響應內容: \(jsonAny)", category: .database)
             }
-            throw SupabaseError.dataCorrupted("交易排行榜數據解析失敗")
+            throw SupabaseError.dataCorrupted
         }
         
         let rankings: [TradingUserRanking] = jsonObject.enumerated().compactMap { index, userData in
-            // 防禦性解析函數（復用）
-            func extractString(from value: Any?, key: String) -> String? {
-                if let stringValue = value as? String {
-                    return stringValue.isEmpty ? nil : stringValue
-                } else if let arrayValue = value as? [String], let firstValue = arrayValue.first {
-                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
-                    return firstValue.isEmpty ? nil : firstValue
-                } else if let arrayValue = value as? [Any], let firstValue = arrayValue.first as? String {
-                    Logger.warning("⚠️ \(key) 字段返回混合數組，取第一個字符串: \(firstValue)", category: .database)
-                    return firstValue.isEmpty ? nil : firstValue
-                }
-                return nil
-            }
-            
-            func extractDouble(from value: Any?, key: String) -> Double? {
-                if let doubleValue = value as? Double {
-                    return doubleValue
-                } else if let stringValue = value as? String, let doubleValue = Double(stringValue) {
-                    return doubleValue
-                } else if let intValue = value as? Int {
-                    return Double(intValue)
-                } else if let arrayValue = value as? [Double], let firstValue = arrayValue.first {
-                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
-                    return firstValue
-                }
-                return nil
-            }
             
             guard let id = extractString(from: userData["id"], key: "id"),
                   let name = extractString(from: userData["name"], key: "name"),
