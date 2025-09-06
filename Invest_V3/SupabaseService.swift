@@ -382,6 +382,10 @@ class SupabaseService: ObservableObject {
                 updatedAt: updatedAt
             )
         }
+        } catch {
+            Logger.error("Failed to fetch investment groups: \(error.localizedDescription)", category: .database)
+            throw error
+        }
     }
     
     // MARK: - Search Functions
