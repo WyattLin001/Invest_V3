@@ -577,7 +577,7 @@ struct DonationRanking: Identifiable {
             maxMembers: 200,
             category: "價值投資",
             description: "專注於長期價值投資策略的討論群組",
-            rules: "歡迎理性分析與經驗分享，禁止短線投機討論",
+            rules: ["歡迎理性分析與經驗分享，禁止短線投機討論"],
             isPrivate: false,
             inviteCode: nil,
             portfolioValue: 0.0,

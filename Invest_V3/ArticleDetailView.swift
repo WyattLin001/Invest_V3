@@ -650,7 +650,7 @@ struct ArticleDetailView: View {
                         maxMembers: 100,
                         category: "股票投資",
                         description: "用於預覽的模擬投資群組",
-                        rules: "投資群組規則",
+                        rules: ["投資群組規則"],
                         isPrivate: false,
                         inviteCode: nil,
                         portfolioValue: 0.0,

@@ -604,9 +604,9 @@ class ChatViewModel: ObservableObject {
     
     private func createMockGroups() -> [InvestmentGroup] {
         return [
-            InvestmentGroup(id: UUID(), name: "科技股投資俱樂部", host: "張投資", hostId: nil, returnRate: 15.5, entryFee: "10 代幣", tokenCost: 10, memberCount: 25, maxMembers: 100, category: "科技股", description: "專業台灣科技股投資討論群組", rules: "專注於台灣科技股，禁止投機短線操作，每日最多交易3次", isPrivate: false, inviteCode: nil, portfolioValue: 0.0, rankingPosition: 0, createdAt: Date(), updatedAt: Date()),
-            InvestmentGroup(id: UUID(), name: "價值投資學院", host: "李分析師", hostId: nil, returnRate: 12.3, entryFee: "20 代幣", tokenCost: 20, memberCount: 18, maxMembers: 100, category: "價值投資", description: "深度價值投資分析與學習社群", rules: "長期持有策略，最少持股期間30天，重視基本面分析", isPrivate: false, inviteCode: nil, portfolioValue: 0.0, rankingPosition: 0, createdAt: Date(), updatedAt: Date()),
-            InvestmentGroup(id: UUID(), name: "AI科技前瞻", host: "林未來", hostId: nil, returnRate: 22.1, entryFee: "50 代幣", tokenCost: 50, memberCount: 8, maxMembers: 100, category: "科技股", description: "AI與半導體投資機會專業分析", rules: "專注AI、半導體相關股票，需定期分享投資心得", isPrivate: false, inviteCode: nil, portfolioValue: 0.0, rankingPosition: 0, createdAt: Date(), updatedAt: Date())
+            InvestmentGroup(id: UUID(), name: "科技股投資俱樂部", host: "張投資", hostId: nil, returnRate: 15.5, entryFee: "10 代幣", tokenCost: 10, memberCount: 25, maxMembers: 100, category: "科技股", description: "專業台灣科技股投資討論群組", rules: ["專注於台灣科技股，禁止投機短線操作，每日最多交易3次"], isPrivate: false, inviteCode: nil, portfolioValue: 0.0, rankingPosition: 0, createdAt: Date(), updatedAt: Date()),
+            InvestmentGroup(id: UUID(), name: "價值投資學院", host: "李分析師", hostId: nil, returnRate: 12.3, entryFee: "20 代幣", tokenCost: 20, memberCount: 18, maxMembers: 100, category: "價值投資", description: "深度價值投資分析與學習社群", rules: ["長期持有策略，最少持股期間30天，重視基本面分析"], isPrivate: false, inviteCode: nil, portfolioValue: 0.0, rankingPosition: 0, createdAt: Date(), updatedAt: Date()),
+            InvestmentGroup(id: UUID(), name: "AI科技前瞻", host: "林未來", hostId: nil, returnRate: 22.1, entryFee: "50 代幣", tokenCost: 50, memberCount: 8, maxMembers: 100, category: "科技股", description: "AI與半導體投資機會專業分析", rules: ["專注AI、半導體相關股票，需定期分享投資心得"], isPrivate: false, inviteCode: nil, portfolioValue: 0.0, rankingPosition: 0, createdAt: Date(), updatedAt: Date())
         ]
     }
     
