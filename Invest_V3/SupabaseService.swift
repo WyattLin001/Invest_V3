@@ -287,34 +287,76 @@ class SupabaseService: ObservableObject {
         return jsonObject.compactMap { groupData -> InvestmentGroup? in
             Logger.debug("🔍 解析群組數據: \(groupData.keys.sorted())", category: .database)
             
-            // Parse required fields
-            guard let idString = groupData["id"] as? String,
-                  let groupId = UUID(uuidString: idString),
-                  let name = groupData["name"] as? String,
-                  let host = groupData["host"] as? String,
-                  let memberCount = groupData["member_count"] as? Int,
-                  let createdAtString = groupData["created_at"] as? String,
-                  let updatedAtString = groupData["updated_at"] as? String,
-                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
-                Logger.warning("⚠️ 群組數據缺少必要字段: \(groupData.keys.sorted())", category: .database)
+            // 防禦性解析函數：處理字符串/數組混合類型
+            func extractString(from value: Any?, key: String) -> String? {
+                if let stringValue = value as? String {
+                    return stringValue.isEmpty ? nil : stringValue
+                } else if let arrayValue = value as? [String], let firstValue = arrayValue.first {
+                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+                    return firstValue.isEmpty ? nil : firstValue
+                } else if let arrayValue = value as? [Any], let firstValue = arrayValue.first as? String {
+                    Logger.warning("⚠️ \(key) 字段返回混合數組，取第一個字符串: \(firstValue)", category: .database)
+                    return firstValue.isEmpty ? nil : firstValue
+                }
                 return nil
             }
             
-            // Parse optional fields - host_id 字段確實存在
-            let hostIdString = groupData["host_id"] as? String
+            func extractInt(from value: Any?, key: String) -> Int? {
+                if let intValue = value as? Int {
+                    return intValue
+                } else if let stringValue = value as? String, let intValue = Int(stringValue) {
+                    return intValue
+                } else if let arrayValue = value as? [Int], let firstValue = arrayValue.first {
+                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+                    return firstValue
+                }
+                return nil
+            }
+            
+            func extractDouble(from value: Any?, key: String) -> Double? {
+                if let doubleValue = value as? Double {
+                    return doubleValue
+                } else if let stringValue = value as? String, let doubleValue = Double(stringValue) {
+                    return doubleValue
+                } else if let intValue = value as? Int {
+                    return Double(intValue)
+                } else if let arrayValue = value as? [Double], let firstValue = arrayValue.first {
+                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+                    return firstValue
+                }
+                return nil
+            }
+            
+            // Parse required fields with defensive extraction
+            guard let idString = extractString(from: groupData["id"], key: "id"),
+                  let groupId = UUID(uuidString: idString),
+                  let name = extractString(from: groupData["name"], key: "name"),
+                  let host = extractString(from: groupData["host"], key: "host"),
+                  let memberCount = extractInt(from: groupData["member_count"], key: "member_count"),
+                  let createdAtString = extractString(from: groupData["created_at"], key: "created_at"),
+                  let updatedAtString = extractString(from: groupData["updated_at"], key: "updated_at"),
+                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
+                Logger.error("❌ 群組數據缺少必要字段或類型不匹配", category: .database)
+                Logger.debug("📋 可用字段: \(groupData.keys.sorted())", category: .database)
+                Logger.debug("📋 字段類型: \(groupData.mapValues { type(of: $0) })", category: .database)
+                return nil
+            }
+            
+            // Parse optional fields with defensive extraction
+            let hostIdString = extractString(from: groupData["host_id"], key: "host_id")
             let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
-            let returnRate = groupData["return_rate"] as? Double ?? 0.0
-            let entryFee = groupData["entry_fee"] as? String
-            let tokenCost = groupData["token_cost"] as? Int ?? 0
-            let maxMembers = groupData["max_members"] as? Int ?? 100
-            let category = groupData["category"] as? String
-            let description = groupData["description"] as? String
-            let rules = groupData["rules"] as? String
-            let isPrivate = groupData["is_private"] as? Bool ?? false
-            let inviteCode = groupData["invite_code"] as? String
-            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
-            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
+            let returnRate = extractDouble(from: groupData["return_rate"], key: "return_rate") ?? 0.0
+            let entryFee = extractString(from: groupData["entry_fee"], key: "entry_fee")
+            let tokenCost = extractInt(from: groupData["token_cost"], key: "token_cost") ?? 0
+            let maxMembers = extractInt(from: groupData["max_members"], key: "max_members") ?? 100
+            let category = extractString(from: groupData["category"], key: "category")
+            let description = extractString(from: groupData["description"], key: "description")
+            let rules = extractString(from: groupData["rules"], key: "rules")
+            let isPrivate = (groupData["is_private"] as? Bool) ?? false
+            let inviteCode = extractString(from: groupData["invite_code"], key: "invite_code")
+            let portfolioValue = extractDouble(from: groupData["portfolio_value"], key: "portfolio_value") ?? 0.0
+            let rankingPosition = extractInt(from: groupData["ranking_position"], key: "ranking_position") ?? 0
             
             Logger.debug("✅ 成功解析群組: \(name)", category: .database)
             
@@ -3664,33 +3706,48 @@ class SupabaseService: ObservableObject {
         }
         
         return jsonObject.compactMap { invitationData in
-            guard let idString = invitationData["id"] as? String,
-                  let invitationId = UUID(uuidString: idString),
-                  let groupIdString = invitationData["group_id"] as? String,
-                  let groupId = UUID(uuidString: groupIdString),
-                  let inviterIdString = invitationData["inviter_id"] as? String,
-                  let inviterId = UUID(uuidString: inviterIdString),
-                  let statusString = invitationData["status"] as? String,
-                  let status = InvitationStatus(rawValue: statusString),
-                  let createdAtString = invitationData["created_at"] as? String,
-                  let expiresAtString = invitationData["expires_at"] as? String,
-                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-                  let expiresAt = ISO8601DateFormatter().date(from: expiresAtString) else {
-                Logger.warning("Missing required fields in invitation data", category: .database)
+            // 防禦性解析函數（復用）
+            func extractString(from value: Any?, key: String) -> String? {
+                if let stringValue = value as? String {
+                    return stringValue.isEmpty ? nil : stringValue
+                } else if let arrayValue = value as? [String], let firstValue = arrayValue.first {
+                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+                    return firstValue.isEmpty ? nil : firstValue
+                } else if let arrayValue = value as? [Any], let firstValue = arrayValue.first as? String {
+                    Logger.warning("⚠️ \(key) 字段返回混合數組，取第一個字符串: \(firstValue)", category: .database)
+                    return firstValue.isEmpty ? nil : firstValue
+                }
                 return nil
             }
             
-            // Extract inviter name from nested user_profiles data
+            guard let idString = extractString(from: invitationData["id"], key: "id"),
+                  let invitationId = UUID(uuidString: idString),
+                  let groupIdString = extractString(from: invitationData["group_id"], key: "group_id"),
+                  let groupId = UUID(uuidString: groupIdString),
+                  let inviterIdString = extractString(from: invitationData["inviter_id"], key: "inviter_id"),
+                  let inviterId = UUID(uuidString: inviterIdString),
+                  let statusString = extractString(from: invitationData["status"], key: "status"),
+                  let status = InvitationStatus(rawValue: statusString),
+                  let createdAtString = extractString(from: invitationData["created_at"], key: "created_at"),
+                  let expiresAtString = extractString(from: invitationData["expires_at"], key: "expires_at"),
+                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+                  let expiresAt = ISO8601DateFormatter().date(from: expiresAtString) else {
+                Logger.error("❌ 邀請數據缺少必要字段或類型不匹配", category: .database)
+                Logger.debug("📋 可用字段: \(invitationData.keys.sorted())", category: .database)
+                Logger.debug("📋 字段類型: \(invitationData.mapValues { type(of: $0) })", category: .database)
+                return nil
+            }
+            
+            // Extract inviter name from nested user_profiles data with defensive parsing
             let inviterName: String
-            if let userProfiles = invitationData["user_profiles"] as? [String: Any],
-               let displayName = userProfiles["display_name"] as? String {
-                inviterName = displayName
+            if let userProfiles = invitationData["user_profiles"] as? [String: Any] {
+                inviterName = extractString(from: userProfiles["display_name"], key: "display_name") ?? "未知邀請者"
             } else {
                 inviterName = "未知用戶"
             }
             
-            // Handle optional invitee email
-            let inviteeEmail = invitationData["invitee_email"] as? String ?? ""
+            // Handle optional invitee email with defensive parsing
+            let inviteeEmail = extractString(from: invitationData["invitee_email"], key: "invitee_email") ?? ""
             
             return GroupInvitation(
                 id: invitationId,
@@ -5285,16 +5342,46 @@ extension SupabaseService {
         }
         
         let rankings: [TradingUserRanking] = jsonObject.enumerated().compactMap { index, userData in
-            guard let id = userData["id"] as? String,
-                  let name = userData["name"] as? String,
-                  let cumulativeReturn = userData["cumulative_return"] as? Double,
-                  let totalAssets = userData["total_assets"] as? Double,
-                  let totalProfit = userData["total_profit"] as? Double else {
-                Logger.warning("Missing required fields in trading user data", category: .database)
+            // 防禦性解析函數（復用）
+            func extractString(from value: Any?, key: String) -> String? {
+                if let stringValue = value as? String {
+                    return stringValue.isEmpty ? nil : stringValue
+                } else if let arrayValue = value as? [String], let firstValue = arrayValue.first {
+                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+                    return firstValue.isEmpty ? nil : firstValue
+                } else if let arrayValue = value as? [Any], let firstValue = arrayValue.first as? String {
+                    Logger.warning("⚠️ \(key) 字段返回混合數組，取第一個字符串: \(firstValue)", category: .database)
+                    return firstValue.isEmpty ? nil : firstValue
+                }
                 return nil
             }
             
-            let avatarUrl = userData["avatar_url"] as? String
+            func extractDouble(from value: Any?, key: String) -> Double? {
+                if let doubleValue = value as? Double {
+                    return doubleValue
+                } else if let stringValue = value as? String, let doubleValue = Double(stringValue) {
+                    return doubleValue
+                } else if let intValue = value as? Int {
+                    return Double(intValue)
+                } else if let arrayValue = value as? [Double], let firstValue = arrayValue.first {
+                    Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+                    return firstValue
+                }
+                return nil
+            }
+            
+            guard let id = extractString(from: userData["id"], key: "id"),
+                  let name = extractString(from: userData["name"], key: "name"),
+                  let cumulativeReturn = extractDouble(from: userData["cumulative_return"], key: "cumulative_return"),
+                  let totalAssets = extractDouble(from: userData["total_assets"], key: "total_assets"),
+                  let totalProfit = extractDouble(from: userData["total_profit"], key: "total_profit") else {
+                Logger.error("❌ 排行榜用戶數據缺少必要字段或類型不匹配", category: .database)
+                Logger.debug("📋 可用字段: \(userData.keys.sorted())", category: .database)
+                Logger.debug("📋 字段類型: \(userData.mapValues { type(of: $0) })", category: .database)
+                return nil
+            }
+            
+            let avatarUrl = extractString(from: userData["avatar_url"], key: "avatar_url")
             
             return TradingUserRanking(
                 rank: index + 1,
