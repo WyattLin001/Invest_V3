@@ -115,9 +115,7 @@ class SupabaseManager {
                     db: SupabaseClientOptions.DatabaseOptions(
                         schema: "public"
                     ),
-                    auth: SupabaseClientOptions.AuthOptions(
-                        autoRefreshToken: true
-                    )
+                    auth: SupabaseClientOptions.AuthOptions()
                 )
             )
             
