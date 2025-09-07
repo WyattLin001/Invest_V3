@@ -5901,7 +5901,22 @@ extension SupabaseService {
             }
         }
         
-        let result = try JSONDecoder().decode(InitializeResponse.self, from: response.data)
+        // Use defensive JSON parsing instead of JSONDecoder
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [String: Any],
+              let success = jsonObject["success"] as? Bool,
+              let message = extractString(from: jsonObject["message"], key: "message") else {
+            Logger.error("❌ 無法解析初始化響應", category: .database)
+            throw SupabaseError.dataCorrupted
+        }
+        
+        let result = InitializeResponse(
+            success: success,
+            message: message,
+            userId: extractString(from: jsonObject["user_id"], key: "user_id"),
+            displayName: extractString(from: jsonObject["display_name"], key: "display_name"),
+            balance: extractInt(from: jsonObject["balance"], key: "balance"),
+            totalRevenue: extractInt(from: jsonObject["total_revenue"], key: "total_revenue")
+        )
         
         if result.success {
             print("✅ [SupabaseService] 當前用戶數據初始化成功: \(result.message)")
@@ -6240,7 +6255,35 @@ extension SupabaseService {
                 .eq("is_active", value: true)
                 .execute()
             
-            let violations = try JSONDecoder().decode([UserViolation].self, from: violationResponse.data)
+            // Use defensive JSON parsing instead of JSONDecoder
+            let violations: [UserViolation]
+            if let jsonArray = try? JSONSerialization.jsonObject(with: violationResponse.data, options: []) as? [[String: Any]] {
+                violations = jsonArray.compactMap { violationData -> UserViolation? in
+                guard let idString = extractString(from: violationData["id"], key: "id"),
+                      let id = UUID(uuidString: idString),
+                      let userIdString = extractString(from: violationData["user_id"], key: "user_id"),
+                      let userId = UUID(uuidString: userIdString),
+                      let violationType = extractString(from: violationData["violation_type"], key: "violation_type"),
+                      let createdAtString = extractString(from: violationData["created_at"], key: "created_at"),
+                      let createdAt = ISO8601DateFormatter().date(from: createdAtString) else {
+                    Logger.warning("Invalid violation data: \(violationData)", category: .database)
+                    return nil
+                }
+                
+                let isActive = violationData["is_active"] as? Bool ?? true
+                
+                return UserViolation(
+                    id: id,
+                    userId: userId,
+                    violationType: violationType,
+                    createdAt: createdAt,
+                    isActive: isActive
+                )
+                }
+            } else {
+                Logger.warning("Unable to parse violations response, assuming no violations", category: .database)
+                violations = []
+            }
             
             // 檢查是否有有效的違規記錄
             let hasActiveViolations = !violations.isEmpty
@@ -7260,7 +7303,20 @@ extension SupabaseService {
                 .eq("status", value: "accepted")
                 .execute()
             
-            let currentUserFriends = try JSONDecoder().decode([FriendshipResponse].self, from: currentUserFriendsResponse.data)
+            // Use defensive JSON parsing instead of JSONDecoder
+            let currentUserFriends: [FriendshipResponse]
+            if let jsonArray = try? JSONSerialization.jsonObject(with: currentUserFriendsResponse.data, options: []) as? [[String: Any]] {
+                currentUserFriends = jsonArray.compactMap { friendData -> FriendshipResponse? in
+                    guard let friendIdString = extractString(from: friendData["friend_id"], key: "friend_id") else {
+                        Logger.warning("Invalid friendship data: \(friendData)", category: .database)
+                        return nil
+                    }
+                    return FriendshipResponse(friendId: friendIdString)
+                }
+            } else {
+                Logger.warning("Unable to parse current user friends response", category: .database)
+                currentUserFriends = []
+            }
             
             let currentFriendIds = Set(currentUserFriends.map { $0.friendId })
             
@@ -7272,7 +7328,20 @@ extension SupabaseService {
                 .eq("status", value: "accepted")
                 .execute()
             
-            let targetUserFriends = try JSONDecoder().decode([FriendshipResponse].self, from: targetUserFriendsResponse.data)
+            // Use defensive JSON parsing instead of JSONDecoder
+            let targetUserFriends: [FriendshipResponse]
+            if let jsonArray = try? JSONSerialization.jsonObject(with: targetUserFriendsResponse.data, options: []) as? [[String: Any]] {
+                targetUserFriends = jsonArray.compactMap { friendData -> FriendshipResponse? in
+                    guard let friendIdString = extractString(from: friendData["friend_id"], key: "friend_id") else {
+                        Logger.warning("Invalid target friendship data: \(friendData)", category: .database)
+                        return nil
+                    }
+                    return FriendshipResponse(friendId: friendIdString)
+                }
+            } else {
+                Logger.warning("Unable to parse target user friends response", category: .database)
+                targetUserFriends = []
+            }
             
             let targetFriendIds = Set(targetUserFriends.map { $0.friendId })
             
