@@ -13,6 +13,47 @@ class GroupService: ObservableObject {
     
     private init() {}
     
+    private func extractString(from value: Any?, key: String) -> String? {
+        if let stringValue = value as? String {
+            return stringValue.isEmpty ? nil : stringValue
+        } else if let arrayValue = value as? [String], let firstValue = arrayValue.first {
+            Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+            return firstValue.isEmpty ? nil : firstValue
+        } else if let arrayValue = value as? [Any], let firstValue = arrayValue.first as? String {
+            Logger.warning("⚠️ \(key) 字段返回混合數組，取第一個字符串: \(firstValue)", category: .database)
+            return firstValue.isEmpty ? nil : firstValue
+        }
+        return nil
+    }
+    
+    private func extractInt(from value: Any?, key: String) -> Int? {
+        if let intValue = value as? Int {
+            return intValue
+        } else if let stringValue = value as? String, let intValue = Int(stringValue) {
+            return intValue
+        } else if let doubleValue = value as? Double {
+            return Int(doubleValue)
+        } else if let arrayValue = value as? [Int], let firstValue = arrayValue.first {
+            Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+            return firstValue
+        }
+        return nil
+    }
+    
+    private func extractDouble(from value: Any?, key: String) -> Double? {
+        if let doubleValue = value as? Double {
+            return doubleValue
+        } else if let intValue = value as? Int {
+            return Double(intValue)
+        } else if let stringValue = value as? String, let doubleValue = Double(stringValue) {
+            return doubleValue
+        } else if let arrayValue = value as? [Double], let firstValue = arrayValue.first {
+            Logger.warning("⚠️ \(key) 字段返回數組，取第一個元素: \(firstValue)", category: .database)
+            return firstValue
+        }
+        return nil
+    }
+    
     private func extractStringArray(from value: Any?, key: String) -> [String] {
         if let arrayValue = value as? [String] {
             return arrayValue.filter { !$0.isEmpty }
@@ -160,7 +201,21 @@ class GroupService: ObservableObject {
             .eq("user_id", value: currentUser.id.uuidString)
             .execute()
         
-        let existingMembership = try JSONDecoder().decode([MembershipCheck].self, from: response.data)
+        // Use defensive JSON parsing instead of JSONDecoder
+        guard let jsonArray = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
+            Logger.warning("Unable to parse membership response, assuming no existing membership", category: .database)
+            let existingMembership: [MembershipCheck] = []
+            return // Continue with empty membership check
+        }
+        
+        let existingMembership = jsonArray.compactMap { memberData -> MembershipCheck? in
+            guard let idString = extractString(from: memberData["id"], key: "id"),
+                  let id = UUID(uuidString: idString) else {
+                Logger.warning("Invalid membership id in response: \(memberData)", category: .database)
+                return nil
+            }
+            return MembershipCheck(id: id)
+        }
         
         if !existingMembership.isEmpty {
             Logger.warning("⚠️ 用戶已是群組成員", category: .database)
@@ -262,7 +317,39 @@ class GroupService: ObservableObject {
             .single()
             .execute()
         
-        let groupData = try JSONDecoder().decode(GroupDetailsResponse.self, from: response.data)
+        // Use defensive JSON parsing instead of JSONDecoder
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [String: Any] else {
+            Logger.error("❌ 無法解析群組詳情響應為JSON", category: .database)
+            throw SupabaseError.dataCorrupted
+        }
+        
+        // Parse the group details manually with defensive extraction
+        guard let idString = extractString(from: jsonObject["id"], key: "id"),
+              let name = extractString(from: jsonObject["name"], key: "name"),
+              let host = extractString(from: jsonObject["host"], key: "host"),
+              let memberCount = extractInt(from: jsonObject["member_count"], key: "member_count"),
+              let returnRate = extractDouble(from: jsonObject["return_rate"], key: "return_rate"),
+              let createdAtString = extractString(from: jsonObject["created_at"], key: "created_at"),
+              let updatedAtString = extractString(from: jsonObject["updated_at"], key: "updated_at") else {
+            Logger.error("❌ 群組詳情數據缺少必要字段", category: .database)
+            throw SupabaseError.dataCorrupted
+        }
+        
+        // Create the group details response manually
+        let groupData = GroupDetailsResponse(
+            id: idString,
+            name: name,
+            host: host,
+            hostId: extractString(from: jsonObject["host_id"], key: "host_id"),
+            returnRate: returnRate,
+            entryFee: extractString(from: jsonObject["entry_fee"], key: "entry_fee"),
+            memberCount: memberCount,
+            category: extractString(from: jsonObject["category"], key: "category"),
+            description: extractString(from: jsonObject["description"], key: "description"),
+            isPrivate: jsonObject["is_private"] as? Bool,
+            createdAt: createdAtString,
+            updatedAt: updatedAtString
+        )
         
         let formatter = ISO8601DateFormatter()
         let createdDate = formatter.date(from: groupData.createdAt) ?? Date()
@@ -493,7 +580,41 @@ class GroupService: ObservableObject {
             .single()
             .execute()
         
-        return try JSONDecoder().decode(GroupInvitationData.self, from: response.data)
+        // Use defensive JSON parsing instead of JSONDecoder
+        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [String: Any] else {
+            Logger.error("❌ 無法解析群組邀請響應為JSON", category: .database)
+            throw SupabaseError.dataCorrupted
+        }
+        
+        // Parse the invitation manually with defensive extraction
+        guard let idString = extractString(from: jsonObject["id"], key: "id"),
+              let id = UUID(uuidString: idString),
+              let groupIdString = extractString(from: jsonObject["group_id"], key: "group_id"),
+              let groupId = UUID(uuidString: groupIdString),
+              let inviterIdString = extractString(from: jsonObject["inviter_id"], key: "inviter_id"),
+              let inviterId = UUID(uuidString: inviterIdString),
+              let inviteeIdString = extractString(from: jsonObject["invitee_id"], key: "invitee_id"),
+              let inviteeId = UUID(uuidString: inviteeIdString),
+              let statusString = extractString(from: jsonObject["status"], key: "status"),
+              let status = GroupInvitationStatus(rawValue: statusString),
+              let createdAtString = extractString(from: jsonObject["created_at"], key: "created_at"),
+              let createdAt = ISO8601DateFormatter().date(from: createdAtString),
+              let expiresAtString = extractString(from: jsonObject["expires_at"], key: "expires_at"),
+              let expiresAt = ISO8601DateFormatter().date(from: expiresAtString) else {
+            Logger.error("❌ 群組邀請數據缺少必要字段", category: .database)
+            throw SupabaseError.dataCorrupted
+        }
+        
+        return GroupInvitationData(
+            id: id,
+            groupId: groupId,
+            inviterId: inviterId,
+            inviteeId: inviteeId,
+            message: extractString(from: jsonObject["message"], key: "message"),
+            status: status,
+            createdAt: createdAt,
+            expiresAt: expiresAt
+        )
     }
     
     private func parseGroupsFromResponse(_ response: PostgrestResponse<Data>) throws -> [InvestmentGroup] {
