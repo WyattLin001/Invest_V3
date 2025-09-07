@@ -13,6 +13,31 @@ class GroupService: ObservableObject {
     
     private init() {}
     
+    private func extractStringArray(from value: Any?, key: String) -> [String] {
+        if let arrayValue = value as? [String] {
+            return arrayValue.filter { !$0.isEmpty }
+        } else if let stringValue = value as? String, !stringValue.isEmpty {
+            // Handle case where single string is expected to be converted to array
+            return [stringValue]
+        } else if let arrayValue = value as? [Any] {
+            // Handle mixed array types including JSONB arrays
+            return arrayValue.compactMap { element in
+                if let stringElement = element as? String, !stringElement.isEmpty {
+                    return stringElement
+                } else if let numberElement = element as? NSNumber {
+                    return numberElement.stringValue
+                } else {
+                    return nil
+                }
+            }
+        } else if value is NSNull || value == nil {
+            // Handle null/nil values
+            return []
+        }
+        print("🔍 \(key) 字段返回意外類型: \(type(of: value))，使用默認值: []")
+        return []
+    }
+    
     // MARK: - 群組基本操作
     
     /// 創建投資群組
@@ -530,7 +555,7 @@ class GroupService: ObservableObject {
             let maxMembers = validGroupData["max_members"] as? Int ?? 100
             let category = validGroupData["category"] as? String
             let description = validGroupData["description"] as? String
-            let rules = validGroupData["rules"] as? String
+            let rules = extractStringArray(from: validGroupData["rules"], key: "rules")
             let isPrivate = validGroupData["is_private"] as? Bool ?? false
             let inviteCode = validGroupData["invite_code"] as? String
             let portfolioValue = validGroupData["portfolio_value"] as? Double ?? 0.0
@@ -550,7 +575,7 @@ class GroupService: ObservableObject {
                 maxMembers: maxMembers,
                 category: category,
                 description: description,
-                rules: rules?.isEmpty == false ? [rules!] : [],
+                rules: rules,
                 isPrivate: isPrivate,
                 inviteCode: inviteCode,
                 portfolioValue: portfolioValue,
@@ -594,7 +619,7 @@ class GroupService: ObservableObject {
             let maxMembers = groupData["max_members"] as? Int ?? 100
             let category = groupData["category"] as? String
             let description = groupData["description"] as? String
-            let rules = groupData["rules"] as? String
+            let rules = extractStringArray(from: groupData["rules"], key: "rules")
             let isPrivate = groupData["is_private"] as? Bool ?? false
             let inviteCode = groupData["invite_code"] as? String
             let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
@@ -612,7 +637,7 @@ class GroupService: ObservableObject {
                 maxMembers: maxMembers,
                 category: category,
                 description: description,
-                rules: rules?.isEmpty == false ? [rules!] : [],
+                rules: rules,
                 isPrivate: isPrivate,
                 inviteCode: inviteCode,
                 portfolioValue: portfolioValue,

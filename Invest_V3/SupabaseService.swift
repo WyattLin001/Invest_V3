@@ -116,6 +116,31 @@ class SupabaseService: ObservableObject {
         return nil
     }
     
+    private func extractStringArray(from value: Any?, key: String) -> [String] {
+        if let arrayValue = value as? [String] {
+            return arrayValue.filter { !$0.isEmpty }
+        } else if let stringValue = value as? String, !stringValue.isEmpty {
+            // Handle case where single string is expected to be converted to array
+            return [stringValue]
+        } else if let arrayValue = value as? [Any] {
+            // Handle mixed array types including JSONB arrays
+            return arrayValue.compactMap { element in
+                if let stringElement = element as? String, !stringElement.isEmpty {
+                    return stringElement
+                } else if let numberElement = element as? NSNumber {
+                    return numberElement.stringValue
+                } else {
+                    return nil
+                }
+            }
+        } else if value is NSNull || value == nil {
+            // Handle null/nil values
+            return []
+        }
+        Logger.debug("🔍 \(key) 字段返回意外類型: \(type(of: value))，使用默認值: []", category: .database)
+        return []
+    }
+    
     // 獲取當前用戶
     public func getCurrentUser() -> UserProfile? {
         // 檢查是否在 Preview 模式
@@ -353,7 +378,7 @@ class SupabaseService: ObservableObject {
             let maxMembers = extractInt(from: groupData["max_members"], key: "max_members") ?? 100
             let category = extractString(from: groupData["category"], key: "category")
             let description = extractString(from: groupData["description"], key: "description")
-            let rules = extractString(from: groupData["rules"], key: "rules")
+            let rules = extractStringArray(from: groupData["rules"], key: "rules")
             let isPrivate = (groupData["is_private"] as? Bool) ?? false
             let inviteCode = extractString(from: groupData["invite_code"], key: "invite_code")
             let portfolioValue = extractDouble(from: groupData["portfolio_value"], key: "portfolio_value") ?? 0.0
@@ -373,7 +398,7 @@ class SupabaseService: ObservableObject {
                 maxMembers: maxMembers,
                 category: category,
                 description: description,
-                rules: rules?.isEmpty == false ? [rules!] : [],
+                rules: rules,
                 isPrivate: isPrivate,
                 inviteCode: inviteCode,
                 portfolioValue: portfolioValue,
@@ -436,7 +461,7 @@ class SupabaseService: ObservableObject {
             let maxMembers = groupData["max_members"] as? Int ?? 100
             let category = groupData["category"] as? String
             let description = groupData["description"] as? String
-            let rules = groupData["rules"] as? String
+            let rules = extractStringArray(from: groupData["rules"], key: "rules")
             let isPrivate = groupData["is_private"] as? Bool ?? false
             let inviteCode = groupData["invite_code"] as? String
             let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
@@ -454,7 +479,7 @@ class SupabaseService: ObservableObject {
                 maxMembers: maxMembers,
                 category: category,
                 description: description,
-                rules: rules?.isEmpty == false ? [rules!] : [],
+                rules: rules,
                 isPrivate: isPrivate,
                 inviteCode: inviteCode,
                 portfolioValue: portfolioValue,
@@ -1097,7 +1122,7 @@ class SupabaseService: ObservableObject {
             let maxMembers = groupData["max_members"] as? Int ?? 100
             let category = groupData["category"] as? String
             let description = groupData["description"] as? String
-            let rules = groupData["rules"] as? String
+            let rules = extractStringArray(from: groupData["rules"], key: "rules")
             let isPrivate = groupData["is_private"] as? Bool ?? false
             let inviteCode = groupData["invite_code"] as? String
             let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
@@ -1115,7 +1140,7 @@ class SupabaseService: ObservableObject {
                 maxMembers: maxMembers,
                 category: category,
                 description: description,
-                rules: rules?.isEmpty == false ? [rules!] : [],
+                rules: rules,
                 isPrivate: isPrivate,
                 inviteCode: inviteCode,
                 portfolioValue: portfolioValue,
@@ -5977,7 +6002,7 @@ extension SupabaseService {
             let maxMembers = groupData["max_members"] as? Int ?? 100
             let category = groupData["category"] as? String
             let description = groupData["description"] as? String
-            let rules = groupData["rules"] as? String
+            let rules = extractStringArray(from: groupData["rules"], key: "rules")
             let isPrivate = groupData["is_private"] as? Bool ?? false
             let inviteCode = groupData["invite_code"] as? String
             let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
@@ -5995,7 +6020,7 @@ extension SupabaseService {
                 maxMembers: maxMembers,
                 category: category,
                 description: description,
-                rules: rules?.isEmpty == false ? [rules!] : [],
+                rules: rules,
                 isPrivate: isPrivate,
                 inviteCode: inviteCode,
                 portfolioValue: portfolioValue,
