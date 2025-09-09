@@ -321,96 +321,14 @@ class SupabaseService: ObservableObject {
         
         Logger.info("🔍 開始載入投資群組...", category: .database)
         
-        do {
-            let response: PostgrestResponse<Data> = try await client
-                .from("investment_groups")
-                .select()
-                .execute()
+        let response: [InvestmentGroup] = try await client
+            .from("investment_groups")
+            .select()
+            .execute()
+            .value
             
-            Logger.debug("📡 Supabase 響應狀態: \(response.status)", category: .database)
-            Logger.debug("📦 響應數據大小: \(response.data.count) bytes", category: .database)
-            
-            // 記錄原始響應內容用於調試
-            if let responseString = String(data: response.data, encoding: .utf8) {
-                Logger.debug("📄 原始響應內容: \(responseString)", category: .database)
-            } else {
-                Logger.error("❌ 無法將響應轉換為字符串", category: .database)
-            }
-            
-            // Manual JSON parsing to avoid decoder issues
-            guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-                Logger.error("❌ 無法解析投資群組響應為JSON數組", category: .database)
-                // 嘗試解析為其他類型以獲得更多信息
-                if let jsonAny = try? JSONSerialization.jsonObject(with: response.data, options: []) {
-                    Logger.debug("📋 實際響應類型: \(type(of: jsonAny))", category: .database)
-                    Logger.debug("📋 實際響應內容: \(jsonAny)", category: .database)
-                }
-                throw SupabaseError.dataCorrupted
-            }
-        
-        Logger.info("✅ 成功解析 \(jsonObject.count) 個投資群組記錄", category: .database)
-        
-        return jsonObject.compactMap { groupData -> InvestmentGroup? in
-            Logger.debug("🔍 解析群組數據: \(groupData.keys.sorted())", category: .database)
-            
-            // Parse required fields with defensive extraction
-            guard let idString = extractString(from: groupData["id"], key: "id"),
-                  let groupId = UUID(uuidString: idString),
-                  let name = extractString(from: groupData["name"], key: "name"),
-                  let host = extractString(from: groupData["host"], key: "host"),
-                  let memberCount = extractInt(from: groupData["member_count"], key: "member_count"),
-                  let createdAtString = extractString(from: groupData["created_at"], key: "created_at"),
-                  let updatedAtString = extractString(from: groupData["updated_at"], key: "updated_at"),
-                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
-                Logger.error("❌ 群組數據缺少必要字段或類型不匹配", category: .database)
-                Logger.debug("📋 可用字段: \(groupData.keys.sorted())", category: .database)
-                Logger.debug("📋 字段類型: \(groupData.mapValues { type(of: $0) })", category: .database)
-                return nil
-            }
-            
-            // Parse optional fields with defensive extraction
-            let hostIdString = extractString(from: groupData["host_id"], key: "host_id")
-            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
-            let returnRate = extractDouble(from: groupData["return_rate"], key: "return_rate") ?? 0.0
-            let entryFee = extractString(from: groupData["entry_fee"], key: "entry_fee")
-            let tokenCost = extractInt(from: groupData["token_cost"], key: "token_cost") ?? 0
-            let maxMembers = extractInt(from: groupData["max_members"], key: "max_members") ?? 100
-            let category = extractString(from: groupData["category"], key: "category")
-            let description = extractString(from: groupData["description"], key: "description")
-            let rules = extractStringArray(from: groupData["rules"], key: "rules")
-            let isPrivate = (groupData["is_private"] as? Bool) ?? false
-            let inviteCode = extractString(from: groupData["invite_code"], key: "invite_code")
-            let portfolioValue = extractDouble(from: groupData["portfolio_value"], key: "portfolio_value") ?? 0.0
-            let rankingPosition = extractInt(from: groupData["ranking_position"], key: "ranking_position") ?? 0
-            
-            Logger.debug("✅ 成功解析群組: \(name)", category: .database)
-            
-            return InvestmentGroup(
-                id: groupId,
-                name: name,
-                host: host,
-                hostId: hostId,
-                returnRate: returnRate,
-                entryFee: entryFee,
-                tokenCost: tokenCost,
-                memberCount: memberCount,
-                maxMembers: maxMembers,
-                category: category,
-                description: description,
-                rules: rules,
-                isPrivate: isPrivate,
-                inviteCode: inviteCode,
-                portfolioValue: portfolioValue,
-                rankingPosition: rankingPosition,
-                createdAt: createdAt,
-                updatedAt: updatedAt
-            )
-        }
-        } catch {
-            Logger.error("Failed to fetch investment groups: \(error.localizedDescription)", category: .database)
-            throw error
-        }
+        Logger.info("✅ 成功載入 \(response.count) 個投資群組", category: .database)
+        return response
     }
     
     // MARK: - Search Functions
@@ -425,69 +343,12 @@ class SupabaseService: ObservableObject {
         
         let searchQuery = query.lowercased()
         
-        // 搜尋群組名稱、主持人、分類或描述包含關鍵字的群組
-        let response: PostgrestResponse<Data> = try await client
+        let groups: [InvestmentGroup] = try await client
             .from("investment_groups")
             .select()
             .or("name.ilike.%\(searchQuery)%,host.ilike.%\(searchQuery)%,category.ilike.%\(searchQuery)%")
             .execute()
-        
-        // Manual JSON parsing to avoid decoder issues
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-            Logger.warning("Unable to parse search response", category: .database)
-            return []
-        }
-        
-        let groups = jsonObject.compactMap { groupData -> InvestmentGroup? in
-            // Parse required fields
-            guard let idString = groupData["id"] as? String,
-                  let groupId = UUID(uuidString: idString),
-                  let name = groupData["name"] as? String,
-                  let host = groupData["host"] as? String,
-                  let memberCount = groupData["member_count"] as? Int,
-                  let createdAtString = groupData["created_at"] as? String,
-                  let updatedAtString = groupData["updated_at"] as? String,
-                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
-                return nil
-            }
-            
-            // Parse optional fields
-            let hostIdString = groupData["host_id"] as? String
-            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
-            let returnRate = groupData["return_rate"] as? Double ?? 0.0
-            let entryFee = groupData["entry_fee"] as? String
-            let tokenCost = groupData["token_cost"] as? Int ?? 0
-            let maxMembers = groupData["max_members"] as? Int ?? 100
-            let category = groupData["category"] as? String
-            let description = groupData["description"] as? String
-            let rules = extractStringArray(from: groupData["rules"], key: "rules")
-            let isPrivate = groupData["is_private"] as? Bool ?? false
-            let inviteCode = groupData["invite_code"] as? String
-            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
-            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
-            
-            return InvestmentGroup(
-                id: groupId,
-                name: name,
-                host: host,
-                hostId: hostId,
-                returnRate: returnRate,
-                entryFee: entryFee,
-                tokenCost: tokenCost,
-                memberCount: memberCount,
-                maxMembers: maxMembers,
-                category: category,
-                description: description,
-                rules: rules,
-                isPrivate: isPrivate,
-                inviteCode: inviteCode,
-                portfolioValue: portfolioValue,
-                rankingPosition: rankingPosition,
-                createdAt: createdAt,
-                updatedAt: updatedAt
-            )
-        }
+            .value
         
         Logger.debug("搜尋群組: \(groups.count) 結果", category: .database)
         return groups
@@ -558,66 +419,15 @@ class SupabaseService: ObservableObject {
     func fetchInvestmentGroup(id: UUID) async throws -> InvestmentGroup {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response: PostgrestResponse<Data> = try await client
+        let group: InvestmentGroup = try await client
             .from("investment_groups")
             .select()
             .eq("id", value: id)
+            .single()
             .execute()
+            .value
         
-        // Manual JSON parsing to avoid decoder issues
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]],
-              let groupData = jsonObject.first else {
-            throw SupabaseError.dataNotFound
-        }
-        
-        // Parse required fields
-        guard let idString = groupData["id"] as? String,
-              let groupId = UUID(uuidString: idString),
-              let name = groupData["name"] as? String,
-              let host = groupData["host"] as? String,
-              let memberCount = groupData["member_count"] as? Int,
-              let createdAtString = groupData["created_at"] as? String,
-              let updatedAtString = groupData["updated_at"] as? String,
-              let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-              let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
-            throw SupabaseError.dataCorrupted
-        }
-        
-        // Parse optional fields
-        let hostIdString = groupData["host_id"] as? String
-        let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
-        let returnRate = groupData["return_rate"] as? Double ?? 0.0
-        let entryFee = groupData["entry_fee"] as? String
-        let tokenCost = groupData["token_cost"] as? Int ?? 0
-        let maxMembers = groupData["max_members"] as? Int ?? 100
-        let category = groupData["category"] as? String
-        let description = groupData["description"] as? String
-        let rules = groupData["rules"] as? String
-        let isPrivate = groupData["is_private"] as? Bool ?? false
-        let inviteCode = groupData["invite_code"] as? String
-        let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
-        let rankingPosition = groupData["ranking_position"] as? Int ?? 0
-        
-        return InvestmentGroup(
-            id: groupId,
-            name: name,
-            host: host,
-            hostId: hostId,
-            returnRate: returnRate,
-            entryFee: entryFee,
-            tokenCost: tokenCost,
-            memberCount: memberCount,
-            maxMembers: maxMembers,
-            category: category,
-            description: description,
-            rules: rules?.isEmpty == false ? [rules!] : [],
-            isPrivate: isPrivate,
-            inviteCode: inviteCode,
-            portfolioValue: portfolioValue,
-            rankingPosition: rankingPosition,
-            createdAt: createdAt,
-            updatedAt: updatedAt
-        )
+        return group
     }
     
     func createInvestmentGroup(
@@ -1086,69 +896,13 @@ class SupabaseService: ObservableObject {
             return []
         }
         
-        // 獲取群組詳細信息 - 使用手動解析避免decoder問題
-        let response: PostgrestResponse<Data> = try await client
+        // 獲取群組詳細信息 - 使用簡化方法
+        let groups: [InvestmentGroup] = try await client
             .from("investment_groups")
             .select()
             .in("id", values: groupIds.map { $0.uuidString })
             .execute()
-        
-        // 手動解析JSON避免自動decoder問題
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-            Logger.warning("Unable to parse groups response", category: .database)
-            return []
-        }
-        
-        let groups = jsonObject.compactMap { groupData -> InvestmentGroup? in
-            // Parse required fields
-            guard let idString = groupData["id"] as? String,
-                  let groupId = UUID(uuidString: idString),
-                  let name = groupData["name"] as? String,
-                  let host = groupData["host"] as? String,
-                  let memberCount = groupData["member_count"] as? Int,
-                  let createdAtString = groupData["created_at"] as? String,
-                  let updatedAtString = groupData["updated_at"] as? String,
-                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
-                return nil
-            }
-            
-            // Parse optional fields
-            let hostIdString = groupData["host_id"] as? String
-            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
-            let returnRate = groupData["return_rate"] as? Double ?? 0.0
-            let entryFee = groupData["entry_fee"] as? String
-            let tokenCost = groupData["token_cost"] as? Int ?? 0
-            let maxMembers = groupData["max_members"] as? Int ?? 100
-            let category = groupData["category"] as? String
-            let description = groupData["description"] as? String
-            let rules = extractStringArray(from: groupData["rules"], key: "rules")
-            let isPrivate = groupData["is_private"] as? Bool ?? false
-            let inviteCode = groupData["invite_code"] as? String
-            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
-            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
-            
-            return InvestmentGroup(
-                id: groupId,
-                name: name,
-                host: host,
-                hostId: hostId,
-                returnRate: returnRate,
-                entryFee: entryFee,
-                tokenCost: tokenCost,
-                memberCount: memberCount,
-                maxMembers: maxMembers,
-                category: category,
-                description: description,
-                rules: rules,
-                isPrivate: isPrivate,
-                inviteCode: inviteCode,
-                portfolioValue: portfolioValue,
-                rankingPosition: rankingPosition,
-                createdAt: createdAt,
-                updatedAt: updatedAt
-            )
-        }
+            .value
         
         return groups
     }
@@ -1157,70 +911,19 @@ class SupabaseService: ObservableObject {
     func findAndJoinGroupById(groupId: String) async throws -> InvestmentGroup? {
         try await SupabaseManager.shared.ensureInitialized()
         
-        // 直接查找群組 - 使用手動解析
-        let response: PostgrestResponse<Data> = try await client
+        // 直接查找群組 - 使用簡化方法
+        let groups: [InvestmentGroup] = try await client
             .from("investment_groups")
             .select()
             .eq("id", value: groupId)
             .limit(1)
             .execute()
+            .value
         
-        // Manual JSON parsing to avoid decoder issues
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]],
-              let groupData = jsonObject.first else {
+        guard let group = groups.first else {
             Logger.warning("群組不存在: \(groupId)", category: .database)
             return nil
         }
-        
-        // Parse required fields
-        guard let idString = groupData["id"] as? String,
-              let foundGroupId = UUID(uuidString: idString),
-              let name = groupData["name"] as? String,
-              let host = groupData["host"] as? String,
-              let memberCount = groupData["member_count"] as? Int,
-              let createdAtString = groupData["created_at"] as? String,
-              let updatedAtString = groupData["updated_at"] as? String,
-              let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-              let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
-            Logger.warning("無法解析群組資料", category: .database)
-            return nil
-        }
-        
-        // Parse optional fields
-        let hostIdString = groupData["host_id"] as? String
-        let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
-        let returnRate = groupData["return_rate"] as? Double ?? 0.0
-        let entryFee = groupData["entry_fee"] as? String
-        let tokenCost = groupData["token_cost"] as? Int ?? 0
-        let maxMembers = groupData["max_members"] as? Int ?? 100
-        let category = groupData["category"] as? String
-        let description = groupData["description"] as? String
-        let rules = groupData["rules"] as? String
-        let isPrivate = groupData["is_private"] as? Bool ?? false
-        let inviteCode = groupData["invite_code"] as? String
-        let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
-        let rankingPosition = groupData["ranking_position"] as? Int ?? 0
-        
-        let group = InvestmentGroup(
-            id: foundGroupId,
-            name: name,
-            host: host,
-            hostId: hostId,
-            returnRate: returnRate,
-            entryFee: entryFee,
-            tokenCost: tokenCost,
-            memberCount: memberCount,
-            maxMembers: maxMembers,
-            category: category,
-            description: description,
-            rules: rules?.isEmpty == false ? [rules!] : [],
-            isPrivate: isPrivate,
-            inviteCode: inviteCode,
-            portfolioValue: portfolioValue,
-            rankingPosition: rankingPosition,
-            createdAt: createdAt,
-            updatedAt: updatedAt
-        )
         
         Logger.debug("找到群組: \(group.name)", category: .database)
         
@@ -3668,23 +3371,46 @@ class SupabaseService: ObservableObject {
             .eq("id", value: invitationId.uuidString)
             .execute()
         
-        // 獲取邀請詳情以便加入群組 - 使用手動 JSON 解析
-        let response: PostgrestResponse<Data> = try await client
+        // 獲取邀請詳情以便加入群組 - 使用簡化方法
+        struct InvitationData: Codable {
+            let id: String
+            let groupId: String
+            let inviterId: String
+            let inviteeId: String?
+            let inviteeEmail: String?
+            let message: String?
+            let status: String
+            let createdAt: String
+            let expiresAt: String
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case groupId = "group_id"
+                case inviterId = "inviter_id"
+                case inviteeId = "invitee_id"
+                case inviteeEmail = "invitee_email"
+                case message, status
+                case createdAt = "created_at"
+                case expiresAt = "expires_at"
+            }
+        }
+        
+        let invitationData: [InvitationData] = try await client
             .from("group_invitations")
-            .select("*, user_profiles!inviter_id(display_name)")
+            .select("id, group_id, inviter_id, invitee_id, invitee_email, message, status, created_at, expires_at")
             .eq("id", value: invitationId.uuidString)
             .execute()
+            .value
         
-        let invitations = try parseInvitationsFromResponse(response)
-        
-        guard let invitation = invitations.first else {
+        guard let invitationRecord = invitationData.first,
+              let groupId = UUID(uuidString: invitationRecord.groupId) else {
             throw SupabaseError.dataNotFound
         }
         
         // 加入群組
-        try await joinGroup(invitation.groupId)
+        try await joinGroup(groupId)
         
-        logError(message: "✅ [邀請] 成功接受邀請並加入群組: \(invitation.groupId)")
+        logError(message: "✅ [邀請] 成功接受邀請並加入群組: \(groupId)")
     }
     
     /// 獲取待處理的邀請 (支援 Email 和 user_id 兩種方式)
@@ -3700,84 +3426,39 @@ class SupabaseService: ObservableObject {
         
         Logger.debug("👤 當前用戶: \(currentUser.email) (\(currentUser.id))", category: .database)
         
-        do {
-            // 查詢通過 Email 或 user_id 的邀請 - 使用手動 JSON 解析
-            let response: PostgrestResponse<Data> = try await client
-                .from("group_invitations")
-                .select("*, user_profiles!inviter_id(display_name)")
-                .or("invitee_email.eq.\(currentUser.email),invitee_id.eq.\(currentUser.id.uuidString)")
-                .eq("status", value: "pending")
-                .execute()
-            
-            Logger.debug("📡 邀請響應狀態: \(response.status)", category: .database)
-            Logger.debug("📦 響應數據大小: \(response.data.count) bytes", category: .database)
-            
-            // 記錄原始響應內容用於調試
-            if let responseString = String(data: response.data, encoding: .utf8) {
-                Logger.debug("📄 邀請原始響應: \(responseString)", category: .database)
-            }
-            
-            return try parseInvitationsFromResponse(response)
-        } catch {
-            Logger.error("❌ 載入待處理邀請失敗: \(error)", category: .database)
-            throw error
-        }
-    }
-    
-    private func parseInvitationsFromResponse(_ response: PostgrestResponse<Data>) throws -> [GroupInvitation] {
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-            Logger.error("❌ 無法解析邀請響應為JSON數組", category: .database)
-            // 嘗試解析為其他類型以獲得更多信息
-            if let jsonAny = try? JSONSerialization.jsonObject(with: response.data, options: []) {
-                Logger.debug("📋 邀請實際響應類型: \(type(of: jsonAny))", category: .database)
-                Logger.debug("📋 邀請實際響應內容: \(jsonAny)", category: .database)
-            }
-            throw SupabaseError.dataCorrupted
-        }
+        // 簡化查詢，不使用 join 操作
+        let invitationsData: [GroupInvitationData] = try await client
+            .from("group_invitations")
+            .select("id, group_id, inviter_id, invitee_id, invitee_email, message, status, created_at, expires_at")
+            .or("invitee_email.eq.\(currentUser.email),invitee_id.eq.\(currentUser.id.uuidString)")
+            .eq("status", value: "pending")
+            .execute()
+            .value
         
-        return jsonObject.compactMap { invitationData in
+        // 轉換為 GroupInvitation 格式
+        let invitations = invitationsData.compactMap { data -> GroupInvitation? in
+            // 獲取邀請者名稱（簡化版，使用邀請者ID作為臨時名稱）
+            let inviterName = "User \(data.inviterId)" // 可以後續優化為獲取真實用戶名
             
-            guard let idString = extractString(from: invitationData["id"], key: "id"),
-                  let invitationId = UUID(uuidString: idString),
-                  let groupIdString = extractString(from: invitationData["group_id"], key: "group_id"),
-                  let groupId = UUID(uuidString: groupIdString),
-                  let inviterIdString = extractString(from: invitationData["inviter_id"], key: "inviter_id"),
-                  let inviterId = UUID(uuidString: inviterIdString),
-                  let statusString = extractString(from: invitationData["status"], key: "status"),
-                  let status = InvitationStatus(rawValue: statusString),
-                  let createdAtString = extractString(from: invitationData["created_at"], key: "created_at"),
-                  let expiresAtString = extractString(from: invitationData["expires_at"], key: "expires_at"),
-                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-                  let expiresAt = ISO8601DateFormatter().date(from: expiresAtString) else {
-                Logger.error("❌ 邀請數據缺少必要字段或類型不匹配", category: .database)
-                Logger.debug("📋 可用字段: \(invitationData.keys.sorted())", category: .database)
-                Logger.debug("📋 字段類型: \(invitationData.mapValues { type(of: $0) })", category: .database)
-                return nil
-            }
-            
-            // Extract inviter name from nested user_profiles data with defensive parsing
-            let inviterName: String
-            if let userProfiles = invitationData["user_profiles"] as? [String: Any] {
-                inviterName = extractString(from: userProfiles["display_name"], key: "display_name") ?? "未知邀請者"
-            } else {
-                inviterName = "未知用戶"
-            }
-            
-            // Handle optional invitee email with defensive parsing
-            let inviteeEmail = extractString(from: invitationData["invitee_email"], key: "invitee_email") ?? ""
+            // 確定邀請者email
+            let inviteeEmail = currentUser.email
             
             return GroupInvitation(
-                id: invitationId,
-                groupId: groupId,
-                inviterId: inviterId,
+                id: data.id,
+                groupId: data.groupId,
+                inviterId: data.inviterId,
                 inviterName: inviterName,
                 inviteeEmail: inviteeEmail,
-                status: status,
-                expiresAt: expiresAt,
-                createdAt: createdAt
+                status: InvitationStatus(rawValue: data.status.rawValue) ?? .pending,
+                expiresAt: data.expiresAt,
+                createdAt: data.createdAt
             )
         }
+        
+        Logger.info("✅ 成功載入 \(invitations.count) 個待處理邀請", category: .database)
+        return invitations
     }
+    
     
     // MARK: - Friends (B-10~B-13 好友功能)
     
@@ -5323,70 +5004,33 @@ extension SupabaseService {
         
         Logger.info("🏆 開始載入交易排行榜... (period: \(period), limit: \(limit))", category: .database)
         
-        do {
-            let response: PostgrestResponse<Data> = try await self.client
-                .from("trading_users")
-                .select("id, name, cumulative_return, total_assets, total_profit, avatar_url, created_at")
-                .eq("is_active", value: true)
-                .order("cumulative_return", ascending: false)
-                .limit(limit)
-                .execute()
-            
-            Logger.debug("📡 排行榜響應狀態: \(response.status)", category: .database)
-            Logger.debug("📦 響應數據大小: \(response.data.count) bytes", category: .database)
-            
-            // 記錄原始響應內容用於調試
-            if let responseString = String(data: response.data, encoding: .utf8) {
-                Logger.debug("📄 排行榜原始響應: \(responseString)", category: .database)
-            }
-            
-            return try parseTradingRankingsFromResponse(response)
-        } catch {
-            Logger.error("❌ 載入交易排行榜失敗: \(error)", category: .database)
-            throw error
-        }
-    }
-    
-    private func parseTradingRankingsFromResponse(_ response: PostgrestResponse<Data>) throws -> [TradingUserRanking] {
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-            Logger.error("❌ 無法解析交易排行榜響應為JSON數組", category: .database)
-            // 嘗試解析為其他類型以獲得更多信息
-            if let jsonAny = try? JSONSerialization.jsonObject(with: response.data, options: []) {
-                Logger.debug("📋 排行榜實際響應類型: \(type(of: jsonAny))", category: .database)
-                Logger.debug("📋 排行榜實際響應內容: \(jsonAny)", category: .database)
-            }
-            throw SupabaseError.dataCorrupted
-        }
+        let response: [TradingUserRanking] = try await self.client
+            .from("trading_users")
+            .select("id, name, cumulative_return, total_assets, total_profit, avatar_url")
+            .eq("is_active", value: true)
+            .order("cumulative_return", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
         
-        let rankings: [TradingUserRanking] = jsonObject.enumerated().compactMap { index, userData in
-            
-            guard let id = extractString(from: userData["id"], key: "id"),
-                  let name = extractString(from: userData["name"], key: "name"),
-                  let cumulativeReturn = extractDouble(from: userData["cumulative_return"], key: "cumulative_return"),
-                  let totalAssets = extractDouble(from: userData["total_assets"], key: "total_assets"),
-                  let totalProfit = extractDouble(from: userData["total_profit"], key: "total_profit") else {
-                Logger.error("❌ 排行榜用戶數據缺少必要字段或類型不匹配", category: .database)
-                Logger.debug("📋 可用字段: \(userData.keys.sorted())", category: .database)
-                Logger.debug("📋 字段類型: \(userData.mapValues { type(of: $0) })", category: .database)
-                return nil
-            }
-            
-            let avatarUrl = extractString(from: userData["avatar_url"], key: "avatar_url")
-            
-            return TradingUserRanking(
+        // 設置正確的排名和period
+        let rankedResponse = response.enumerated().map { index, ranking in
+            TradingUserRanking(
                 rank: index + 1,
-                userId: id,
-                name: name,
-                returnRate: cumulativeReturn,
-                totalAssets: totalAssets,
-                totalProfit: totalProfit,
-                avatarUrl: avatarUrl,
-                period: "all"
+                userId: ranking.userId,
+                name: ranking.name,
+                returnRate: ranking.returnRate,
+                totalAssets: ranking.totalAssets,
+                totalProfit: ranking.totalProfit,
+                avatarUrl: ranking.avatarUrl,
+                period: period
             )
         }
         
-        return rankings
+        Logger.info("✅ 成功載入 \(rankedResponse.count) 個交易排行榜", category: .database)
+        return rankedResponse
     }
+    
     
     /// 獲取用戶的投資績效資料
     func fetchUserTradingPerformance(userId: String) async throws -> TradingUserPerformance? {
@@ -5878,11 +5522,6 @@ extension SupabaseService {
     func initializeCurrentUserData() async throws -> String {
         try SupabaseManager.shared.ensureInitialized()
         
-        let response = try await client
-            .rpc("initialize_current_user_data")
-            .execute()
-        
-        // 創建一個結構來處理返回的 JSON
         struct InitializeResponse: Codable {
             let success: Bool
             let message: String
@@ -5901,22 +5540,10 @@ extension SupabaseService {
             }
         }
         
-        // Use defensive JSON parsing instead of JSONDecoder
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [String: Any],
-              let success = jsonObject["success"] as? Bool,
-              let message = extractString(from: jsonObject["message"], key: "message") else {
-            Logger.error("❌ 無法解析初始化響應", category: .database)
-            throw SupabaseError.dataCorrupted
-        }
-        
-        let result = InitializeResponse(
-            success: success,
-            message: message,
-            userId: extractString(from: jsonObject["user_id"], key: "user_id"),
-            displayName: extractString(from: jsonObject["display_name"], key: "display_name"),
-            balance: extractInt(from: jsonObject["balance"], key: "balance"),
-            totalRevenue: extractInt(from: jsonObject["total_revenue"], key: "total_revenue")
-        )
+        let result: InitializeResponse = try await client
+            .rpc("initialize_current_user_data")
+            .execute()
+            .value
         
         if result.success {
             print("✅ [SupabaseService] 當前用戶數據初始化成功: \(result.message)")
@@ -5981,69 +5608,12 @@ extension SupabaseService {
             throw SupabaseError.notAuthenticated
         }
         
-        // 查詢用戶為主持人的群組 - 使用手動解析
-        let response: PostgrestResponse<Data> = try await client
+        let groups: [InvestmentGroup] = try await client
             .from("investment_groups")
             .select()
             .eq("host_id", value: currentUser.id.uuidString)
             .execute()
-        
-        // Manual JSON parsing to avoid decoder issues
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-            Logger.warning("Unable to parse user hosted groups response", category: .database)
-            return []
-        }
-        
-        let groups = jsonObject.compactMap { groupData -> InvestmentGroup? in
-            // Parse required fields
-            guard let idString = groupData["id"] as? String,
-                  let groupId = UUID(uuidString: idString),
-                  let name = groupData["name"] as? String,
-                  let host = groupData["host"] as? String,
-                  let memberCount = groupData["member_count"] as? Int,
-                  let createdAtString = groupData["created_at"] as? String,
-                  let updatedAtString = groupData["updated_at"] as? String,
-                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
-                return nil
-            }
-            
-            // Parse optional fields
-            let hostIdString = groupData["host_id"] as? String
-            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
-            let returnRate = groupData["return_rate"] as? Double ?? 0.0
-            let entryFee = groupData["entry_fee"] as? String
-            let tokenCost = groupData["token_cost"] as? Int ?? 0
-            let maxMembers = groupData["max_members"] as? Int ?? 100
-            let category = groupData["category"] as? String
-            let description = groupData["description"] as? String
-            let rules = extractStringArray(from: groupData["rules"], key: "rules")
-            let isPrivate = groupData["is_private"] as? Bool ?? false
-            let inviteCode = groupData["invite_code"] as? String
-            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
-            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
-            
-            return InvestmentGroup(
-                id: groupId,
-                name: name,
-                host: host,
-                hostId: hostId,
-                returnRate: returnRate,
-                entryFee: entryFee,
-                tokenCost: tokenCost,
-                memberCount: memberCount,
-                maxMembers: maxMembers,
-                category: category,
-                description: description,
-                rules: rules,
-                isPrivate: isPrivate,
-                inviteCode: inviteCode,
-                portfolioValue: portfolioValue,
-                rankingPosition: rankingPosition,
-                createdAt: createdAt,
-                updatedAt: updatedAt
-            )
-        }
+            .value
         
         print("✅ [SupabaseService] 獲取用戶主持的群組: \(groups.count) 個")
         return groups
@@ -6247,45 +5817,14 @@ extension SupabaseService {
         Logger.debug("⚠️ 檢查作者違規記錄: \(authorId)", category: .database)
         
         do {
-            // 實現違規記錄檢查機制
-            let violationResponse = try await client
+            let violations: [UserViolation] = try await client
                 .from("user_violations")
-                .select("id, violation_type, created_at, is_active")
+                .select("*")
                 .eq("user_id", value: authorId)
                 .eq("is_active", value: true)
                 .execute()
+                .value
             
-            // Use defensive JSON parsing instead of JSONDecoder
-            let violations: [UserViolation]
-            if let jsonArray = try? JSONSerialization.jsonObject(with: violationResponse.data, options: []) as? [[String: Any]] {
-                violations = jsonArray.compactMap { violationData -> UserViolation? in
-                guard let idString = extractString(from: violationData["id"], key: "id"),
-                      let id = UUID(uuidString: idString),
-                      let userIdString = extractString(from: violationData["user_id"], key: "user_id"),
-                      let userId = UUID(uuidString: userIdString),
-                      let violationType = extractString(from: violationData["violation_type"], key: "violation_type"),
-                      let createdAtString = extractString(from: violationData["created_at"], key: "created_at"),
-                      let createdAt = ISO8601DateFormatter().date(from: createdAtString) else {
-                    Logger.warning("Invalid violation data: \(violationData)", category: .database)
-                    return nil
-                }
-                
-                let isActive = violationData["is_active"] as? Bool ?? true
-                
-                return UserViolation(
-                    id: id,
-                    userId: userId,
-                    violationType: violationType,
-                    createdAt: createdAt,
-                    isActive: isActive
-                )
-                }
-            } else {
-                Logger.warning("Unable to parse violations response, assuming no violations", category: .database)
-                violations = []
-            }
-            
-            // 檢查是否有有效的違規記錄
             let hasActiveViolations = !violations.isEmpty
             
             if hasActiveViolations {
@@ -6298,7 +5837,6 @@ extension SupabaseService {
             
         } catch {
             print("❌ [SupabaseService] 檢查違規記錄失敗: \(error)")
-            // 默認返回 false，表示無違規
             return false
         }
     }
@@ -7295,61 +6833,27 @@ extension SupabaseService {
     /// 計算兩個用戶之間的共同好友數量
     private func calculateMutualFriendsCount(currentUserId: String, targetUserId: String) async -> Int {
         do {
-            // 獲取當前用戶的好友列表
-            let currentUserFriendsResponse = try await client
+            let currentUserFriends: [FriendshipResponse] = try await client
                 .from("friendships")
                 .select("friend_id")
                 .eq("user_id", value: currentUserId)
                 .eq("status", value: "accepted")
                 .execute()
+                .value
             
-            // Use defensive JSON parsing instead of JSONDecoder
-            let currentUserFriends: [FriendshipResponse]
-            if let jsonArray = try? JSONSerialization.jsonObject(with: currentUserFriendsResponse.data, options: []) as? [[String: Any]] {
-                currentUserFriends = jsonArray.compactMap { friendData -> FriendshipResponse? in
-                    guard let friendIdString = extractString(from: friendData["friend_id"], key: "friend_id") else {
-                        Logger.warning("Invalid friendship data: \(friendData)", category: .database)
-                        return nil
-                    }
-                    return FriendshipResponse(friendId: friendIdString)
-                }
-            } else {
-                Logger.warning("Unable to parse current user friends response", category: .database)
-                currentUserFriends = []
-            }
-            
-            let currentFriendIds = Set(currentUserFriends.map { $0.friendId })
-            
-            // 獲取目標用戶的好友列表
-            let targetUserFriendsResponse = try await client
+            let targetUserFriends: [FriendshipResponse] = try await client
                 .from("friendships")
                 .select("friend_id")
                 .eq("user_id", value: targetUserId)
                 .eq("status", value: "accepted")
                 .execute()
+                .value
             
-            // Use defensive JSON parsing instead of JSONDecoder
-            let targetUserFriends: [FriendshipResponse]
-            if let jsonArray = try? JSONSerialization.jsonObject(with: targetUserFriendsResponse.data, options: []) as? [[String: Any]] {
-                targetUserFriends = jsonArray.compactMap { friendData -> FriendshipResponse? in
-                    guard let friendIdString = extractString(from: friendData["friend_id"], key: "friend_id") else {
-                        Logger.warning("Invalid target friendship data: \(friendData)", category: .database)
-                        return nil
-                    }
-                    return FriendshipResponse(friendId: friendIdString)
-                }
-            } else {
-                Logger.warning("Unable to parse target user friends response", category: .database)
-                targetUserFriends = []
-            }
-            
+            let currentFriendIds = Set(currentUserFriends.map { $0.friendId })
             let targetFriendIds = Set(targetUserFriends.map { $0.friendId })
-            
-            // 計算交集
             let mutualFriends = currentFriendIds.intersection(targetFriendIds)
             
             Logger.debug("🤝 計算共同好友: \(currentUserId) 和 \(targetUserId) 有 \(mutualFriends.count) 個共同好友", category: .database)
-            
             return mutualFriends.count
             
         } catch {

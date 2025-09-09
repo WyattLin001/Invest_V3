@@ -16,7 +16,48 @@ struct TradingUserRanking: Identifiable, Codable {
     let period: String // 排名週期: weekly, monthly, all
     
     enum CodingKeys: String, CodingKey {
-        case id, rank, userId, name, returnRate, totalAssets, totalProfit, avatarUrl, period
+        case id
+        case userId = "id" // 資料庫中使用id作為userId
+        case name
+        case returnRate = "cumulative_return" // 映射到資料庫字段
+        case totalAssets = "total_assets" // 映射到資料庫字段
+        case totalProfit = "total_profit" // 映射到資料庫字段
+        case avatarUrl = "avatar_url" // 映射到資料庫字段
+    }
+    
+    // 自定義初始化方法，處理缺少的rank和period字段
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // 處理id字段 - 如果是UUID字符串就使用，否則生成新的
+        if let idString = try? container.decode(String.self, forKey: .userId) {
+            userId = idString
+        } else {
+            userId = try container.decode(String.self, forKey: .id)
+        }
+        
+        name = try container.decode(String.self, forKey: .name)
+        returnRate = try container.decode(Double.self, forKey: .returnRate)
+        totalAssets = try container.decode(Double.self, forKey: .totalAssets)
+        totalProfit = try container.decode(Double.self, forKey: .totalProfit)
+        avatarUrl = try container.decodeIfPresent(String.self, forKey: .avatarUrl)
+        
+        // 默認值 - rank會在service中設置，period使用默認值
+        rank = 0 // 會在service中被正確設置
+        period = "all" // 默認值
+    }
+    
+    // 手動初始化方法，用於service中創建完整的ranking對象
+    init(id: UUID = UUID(), rank: Int, userId: String, name: String, returnRate: Double, totalAssets: Double, totalProfit: Double, avatarUrl: String?, period: String) {
+        self.id = id
+        self.rank = rank
+        self.userId = userId
+        self.name = name
+        self.returnRate = returnRate
+        self.totalAssets = totalAssets
+        self.totalProfit = totalProfit
+        self.avatarUrl = avatarUrl
+        self.period = period
     }
     
     // 格式化的回報率字串
