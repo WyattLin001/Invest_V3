@@ -17,7 +17,6 @@ struct TradingUserRanking: Identifiable, Codable {
     
     enum CodingKeys: String, CodingKey {
         case id
-        case userId = "id" // 資料庫中使用id作為userId
         case name
         case returnRate = "cumulative_return" // 映射到資料庫字段
         case totalAssets = "total_assets" // 映射到資料庫字段
@@ -29,12 +28,8 @@ struct TradingUserRanking: Identifiable, Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        // 處理id字段 - 如果是UUID字符串就使用，否則生成新的
-        if let idString = try? container.decode(String.self, forKey: .userId) {
-            userId = idString
-        } else {
-            userId = try container.decode(String.self, forKey: .id)
-        }
+        // 處理id字段 - 資料庫中的id字段就是userId
+        userId = try container.decode(String.self, forKey: .id)
         
         name = try container.decode(String.self, forKey: .name)
         returnRate = try container.decode(Double.self, forKey: .returnRate)
