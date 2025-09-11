@@ -141,6 +141,18 @@ struct TradingUserPerformance: Identifiable, Codable {
     let cashBalance: Double
     let avatarUrl: String?
     
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case name
+        case rank
+        case returnRate = "return_rate" // 使用不同的數據庫字段避免衝突
+        case totalAssets = "total_assets"
+        case totalProfit = "total_profit"
+        case cashBalance = "cash_balance"
+        case avatarUrl = "avatar_url"
+    }
+    
     // 持倉市值
     var positionValue: Double {
         return totalAssets - cashBalance
