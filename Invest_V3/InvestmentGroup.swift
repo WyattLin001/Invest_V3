@@ -48,7 +48,30 @@ struct InvestmentGroup: Codable, Identifiable {
         maxMembers = try container.decodeIfPresent(Int.self, forKey: .maxMembers) ?? 100
         category = try container.decodeIfPresent(String.self, forKey: .category)
         description = try container.decodeIfPresent(String.self, forKey: .description)
-        rules = try container.decodeIfPresent([String].self, forKey: .rules) ?? []
+        // Handle rules field - DB stores as text, Swift expects [String]
+        if let rulesText = try? container.decodeIfPresent(String.self, forKey: .rules) {
+            // If we get a string from DB, convert it to array
+            if rulesText.isEmpty {
+                rules = []
+            } else if rulesText.hasPrefix("[") && rulesText.hasSuffix("]") {
+                // Handle JSON array string
+                if let data = rulesText.data(using: .utf8),
+                   let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [String] {
+                    rules = jsonArray
+                } else {
+                    // Fallback: treat as single rule
+                    rules = [rulesText]
+                }
+            } else {
+                // Single rule text - wrap in array
+                rules = [rulesText]
+            }
+        } else if let rulesArray = try? container.decodeIfPresent([String].self, forKey: .rules) {
+            // Handle case where DB might already return array (for compatibility)
+            rules = rulesArray ?? []
+        } else {
+            rules = []
+        }
         isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate) ?? false
         inviteCode = try container.decodeIfPresent(String.self, forKey: .inviteCode)
         portfolioValue = try container.decodeIfPresent(Double.self, forKey: .portfolioValue) ?? 0.0

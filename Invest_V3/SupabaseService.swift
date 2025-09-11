@@ -75,6 +75,98 @@ class SupabaseService: ObservableObject {
 
     private init() { }
     
+    // MARK: - 網路重試機制
+    
+    /// 網路重試配置
+    private struct NetworkRetryConfig {
+        static let maxRetries = 3
+        static let baseDelay: TimeInterval = 1.0
+        static let maxDelay: TimeInterval = 8.0
+        static let backoffMultiplier = 2.0
+    }
+    
+    /// 帶重試機制的網路請求執行器
+    private func executeWithRetry<T>(
+        operation: @escaping () async throws -> T,
+        retryableErrorCheck: ((Error) -> Bool)? = nil
+    ) async throws -> T {
+        var lastError: Error?
+        
+        for attempt in 0..<NetworkRetryConfig.maxRetries {
+            do {
+                return try await operation()
+            } catch {
+                lastError = error
+                
+                // 檢查是否為可重試的錯誤
+                let shouldRetry = retryableErrorCheck?(error) ?? isRetryableError(error)
+                
+                // 如果不能重試或已達最大重試次數
+                guard shouldRetry && attempt < NetworkRetryConfig.maxRetries - 1 else {
+                    Logger.error("請求失敗，不再重試: \(error.localizedDescription)", category: .network)
+                    throw error
+                }
+                
+                // 計算延遲時間（指數退避）
+                let delay = min(
+                    NetworkRetryConfig.baseDelay * pow(NetworkRetryConfig.backoffMultiplier, Double(attempt)),
+                    NetworkRetryConfig.maxDelay
+                )
+                
+                Logger.warning("請求失敗，將在 \(String(format: "%.1f", delay))秒後重試 (第\(attempt + 1)次): \(error.localizedDescription)", category: .network)
+                
+                // 等待後重試
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+        }
+        
+        // 這行代碼不應該被執行到，但為了類型安全
+        throw lastError ?? SupabaseError.networkError
+    }
+    
+    /// 判斷錯誤是否可重試
+    private func isRetryableError(_ error: Error) -> Bool {
+        let errorString = error.localizedDescription.lowercased()
+        
+        // 網路相關的可重試錯誤
+        if errorString.contains("timeout") ||
+           errorString.contains("timed out") ||
+           errorString.contains("network connection lost") ||
+           errorString.contains("connection timeout") ||
+           errorString.contains("no route to host") ||
+           errorString.contains("connection refused") ||
+           errorString.contains("network is unreachable") {
+            return true
+        }
+        
+        // HTTP 5xx 服務器錯誤（可重試）
+        if errorString.contains("500") ||
+           errorString.contains("502") ||
+           errorString.contains("503") ||
+           errorString.contains("504") {
+            return true
+        }
+        
+        // 檢查 URLError
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut,
+                 .cannotConnectToHost,
+                 .cannotFindHost,
+                 .networkConnectionLost,
+                 .notConnectedToInternet,
+                 .internationalRoamingOff,
+                 .dataNotAllowed,
+                 .dnsLookupFailed:
+                return true
+            default:
+                return false
+            }
+        }
+        
+        return false
+    }
+    
     // MARK: - 防禦性解析輔助方法
     
     private func extractString(from value: Any?, key: String) -> String? {

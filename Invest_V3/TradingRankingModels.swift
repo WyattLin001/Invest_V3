@@ -16,12 +16,13 @@ struct TradingUserRanking: Identifiable, Codable {
     let period: String // 排名週期: weekly, monthly, all
     
     enum CodingKeys: String, CodingKey {
-        case id
+        case id // userId 對應資料庫的 id 字段
         case name
         case returnRate = "cumulative_return" // 映射到資料庫字段
         case totalAssets = "total_assets" // 映射到資料庫字段
         case totalProfit = "total_profit" // 映射到資料庫字段
         case avatarUrl = "avatar_url" // 映射到資料庫字段
+        // rank 和 period 在 service 層設置，不需要從 DB 解碼
     }
     
     // 自定義初始化方法，處理缺少的rank和period字段
@@ -146,7 +147,7 @@ struct TradingUserPerformance: Identifiable, Codable {
         case userId = "user_id"
         case name
         case rank
-        case returnRate = "return_rate" // 使用不同的數據庫字段避免衝突
+        case returnRate = "cumulative_return" // 修正：對應trading_users表的cumulative_return字段
         case totalAssets = "total_assets"
         case totalProfit = "total_profit"
         case cashBalance = "cash_balance"

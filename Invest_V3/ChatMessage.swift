@@ -36,6 +36,7 @@ struct ChatMessage: Codable, Identifiable {
         case senderName = "sender_name"
         case content
         case isInvestmentCommand = "is_investment_command"
+        case userRole = "user_role"  // 修復：添加缺失的userRole字段映射
         case createdAt = "created_at"
     }
     
