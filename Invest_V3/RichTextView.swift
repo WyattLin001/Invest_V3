@@ -564,16 +564,22 @@ struct RichTextView: UIViewRepresentable {
         
         private func createImageCaptionForEditor(imageIndex: Int, imageId: String, attribution: ImageAttribution?) -> NSAttributedString {
             let sourceText = attribution?.displayText ?? "未知"
-            let captionText = "圖片\(imageIndex)[來源：\(sourceText)]"  // 移除開頭的 \n
+            let captionText = "圖片\(imageIndex)[來源：\(sourceText)]"
             
-            // 設置標籤樣式，緊貼圖片顯示，無額外間距
+            // Ultra Think 解決方案：創建完全獨立的段落屬性
             let captionAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 13, weight: .regular),
                 .foregroundColor: UIColor.systemGray2,
                 .paragraphStyle: {
                     let style = NSMutableParagraphStyle()
                     style.alignment = .center
-                    // 移除 paragraphSpacing 和 paragraphSpacingBefore，讓標註緊貼圖片
+                    // 明確重置所有段落屬性，確保獨立性
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 0
+                    style.tailIndent = 0
+                    style.paragraphSpacing = 0
+                    style.paragraphSpacingBefore = 0
+                    style.lineSpacing = 0
                     return style
                 }()
             ]
@@ -626,17 +632,22 @@ struct RichTextView: UIViewRepresentable {
             
             print("🖼️ 配置圖片附件 - 原始尺寸: \(image.size), 最終尺寸: \(attachment.bounds.size), 圖片已設置: \(attachment.image != nil)")
             
-            // 準備插入的內容 - 為圖片添加置中對齊
+            // Ultra Think 優化：為圖片創建完全獨立的段落屬性
             let centeredImageAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 17),
                 .foregroundColor: UIColor.label,
                 .paragraphStyle: {
                     let style = NSMutableParagraphStyle()
                     style.alignment = .center  // 圖片置中對齊
+                    // 明確重置所有段落屬性，防止影響後續內容
                     style.firstLineHeadIndent = 0
                     style.headIndent = 0
-                    style.paragraphSpacing = 8
-                    style.paragraphSpacingBefore = 8
+                    style.tailIndent = 0
+                    style.paragraphSpacing = 0
+                    style.paragraphSpacingBefore = 0
+                    style.lineSpacing = 0
+                    style.minimumLineHeight = 0
+                    style.maximumLineHeight = 0
                     return style
                 }()
             ]
@@ -648,15 +659,22 @@ struct RichTextView: UIViewRepresentable {
             let imageCaption = createImageCaptionForEditor(imageIndex: imageCounter, imageId: imageId, attribution: attribution)
             let insertionIndex = selectedRange.location + selectedRange.length
             
-            // 創建正常段落屬性（用於圖片後的換行）
+            // Ultra Think 優化：創建完全獨立的用戶輸入段落屬性
             let normalAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 17),
                 .foregroundColor: UIColor.label,
                 .paragraphStyle: {
                     let style = NSMutableParagraphStyle()
                     style.alignment = .left  // 明確設置左對齊
+                    // 完全重置所有段落屬性，確保獨立性
                     style.firstLineHeadIndent = 0
                     style.headIndent = 0
+                    style.tailIndent = 0
+                    style.paragraphSpacing = 0
+                    style.paragraphSpacingBefore = 0
+                    style.lineSpacing = 0
+                    style.minimumLineHeight = 0
+                    style.maximumLineHeight = 0
                     return style
                 }()
             ]
@@ -679,28 +697,31 @@ struct RichTextView: UIViewRepresentable {
             // 插入圖片、標籤和必要的格式
             var finalCursorPosition: Int
             
+            // Ultra Think 方案：使用段落分隔符創建真正獨立的段落
+            let paragraphSeparator = "\u{2029}"  // Unicode 段落分隔符，強制段落分離
+            
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
-                // 非開頭位置且前面沒有換行：添加前導換行 + 置中圖片 + 標籤換行 + 左對齊用戶輸入行
+                // 非開頭位置且前面沒有換行：前導換行 + 圖片段落 + 標註段落 + 用戶輸入段落
                 let beforeNewline = NSAttributedString(string: "\n")
-                let captionNewline = NSAttributedString(string: "\n")  // 圖片和標註之間的換行
-                let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes) // 標註後的用戶輸入行
+                let captionSeparator = NSAttributedString(string: paragraphSeparator)  // 強制段落分離
+                let userInputSeparator = NSAttributedString(string: paragraphSeparator, attributes: normalAttributes) // 創建用戶輸入段落
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
                 mutableText.insert(finalAttachmentString, at: insertionIndex + 1)
-                mutableText.insert(captionNewline, at: insertionIndex + 2)
+                mutableText.insert(captionSeparator, at: insertionIndex + 2)
                 mutableText.insert(imageCaption, at: insertionIndex + 3)
-                mutableText.insert(userInputNewline, at: insertionIndex + 4)
+                mutableText.insert(userInputSeparator, at: insertionIndex + 4)
                 
                 finalCursorPosition = insertionIndex + 5
             } else {
-                // 開頭位置或前面已有換行：置中圖片 + 標籤換行 + 左對齊用戶輸入行
-                let captionNewline = NSAttributedString(string: "\n")  // 圖片和標註之間的換行
-                let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes) // 標註後的用戶輸入行
+                // 開頭位置或前面已有換行：圖片段落 + 標註段落 + 用戶輸入段落
+                let captionSeparator = NSAttributedString(string: paragraphSeparator)  // 強制段落分離
+                let userInputSeparator = NSAttributedString(string: paragraphSeparator, attributes: normalAttributes) // 創建用戶輸入段落
                 
                 mutableText.insert(finalAttachmentString, at: insertionIndex)
-                mutableText.insert(captionNewline, at: insertionIndex + 1)
+                mutableText.insert(captionSeparator, at: insertionIndex + 1)
                 mutableText.insert(imageCaption, at: insertionIndex + 2)
-                mutableText.insert(userInputNewline, at: insertionIndex + 3)
+                mutableText.insert(userInputSeparator, at: insertionIndex + 3)
                 
                 finalCursorPosition = insertionIndex + 4
             }
@@ -800,41 +821,53 @@ struct RichTextView: UIViewRepresentable {
             
             let insertionIndex = selectedRange.location + selectedRange.length
             
-            // 創建正常段落屬性（用於圖片後的換行）
+            // Ultra Think 優化：創建完全獨立的用戶輸入段落屬性
             let normalAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 17),
                 .foregroundColor: UIColor.label,
                 .paragraphStyle: {
                     let style = NSMutableParagraphStyle()
                     style.alignment = .left  // 恢復左對齊
+                    // 完全重置所有段落屬性，確保獨立性
                     style.firstLineHeadIndent = 0
                     style.headIndent = 0
+                    style.tailIndent = 0
+                    style.paragraphSpacing = 0
+                    style.paragraphSpacingBefore = 0
+                    style.lineSpacing = 0
+                    style.minimumLineHeight = 0
+                    style.maximumLineHeight = 0
                     return style
                 }()
             ]
             
-            // 插入圖片和必要的格式
+            // Ultra Think 方案：使用段落分隔符確保用戶輸入段落獨立
+            let paragraphSeparator = "\u{2029}"
+            var finalCursorPosition: Int
+            
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
-                // 非開頭位置且前面沒有換行：添加前導換行 + 置中圖片 + 後續換行
+                // 非開頭位置且前面沒有換行：前導換行 + 圖片段落 + 用戶輸入段落
                 let beforeNewline = NSAttributedString(string: "\n")
-                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                let userInputSeparator = NSAttributedString(string: paragraphSeparator, attributes: normalAttributes)
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
                 mutableText.insert(finalAttachmentString, at: insertionIndex + 1)
-                mutableText.insert(afterNewline, at: insertionIndex + 2)
+                mutableText.insert(userInputSeparator, at: insertionIndex + 2)
                 
-                // 設置游標在圖片後的換行符後面
-                textView.selectedRange = NSRange(location: insertionIndex + 3, length: 0)
+                finalCursorPosition = insertionIndex + 3
             } else {
-                // 開頭位置或前面已有換行：只插入置中圖片 + 後續換行
-                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                // 開頭位置或前面已有換行：圖片段落 + 用戶輸入段落
+                let userInputSeparator = NSAttributedString(string: paragraphSeparator, attributes: normalAttributes)
                 
                 mutableText.insert(finalAttachmentString, at: insertionIndex)
-                mutableText.insert(afterNewline, at: insertionIndex + 1)
+                mutableText.insert(userInputSeparator, at: insertionIndex + 1)
                 
-                // 設置游標在圖片後的換行符後面
-                textView.selectedRange = NSRange(location: insertionIndex + 2, length: 0)
+                finalCursorPosition = insertionIndex + 2
             }
+            
+            // 設置游標位置
+            textView.selectedRange = NSRange(location: finalCursorPosition, length: 0)
+            textView.typingAttributes = normalAttributes
             
             // 更新文字內容
             textView.attributedText = mutableText
