@@ -47,6 +47,9 @@ struct RichTextView: UIViewRepresentable {
                 uiView.textContainer.maximumNumberOfLines = 0
                 uiView.textContainer.lineBreakMode = .byWordWrapping
                 
+                // 重新計算所有圖片附件的尺寸（如果容器寬度已變化）
+                self.recalculateImageSizes(in: uiView)
+                
                 // 強制重新佈局
                 uiView.layoutManager.ensureLayout(for: uiView.textContainer)
                 uiView.setNeedsLayout()
@@ -64,6 +67,33 @@ struct RichTextView: UIViewRepresentable {
     func resetImageCounter() {
         // 通過 NotificationCenter 來通知重置
         NotificationCenter.default.post(name: NSNotification.Name("ResetImageCounter"), object: nil)
+    }
+    
+    // 重新計算所有圖片附件的尺寸
+    private func recalculateImageSizes(in textView: UITextView) {
+        let textStorage = textView.textStorage
+        let fullRange = NSRange(location: 0, length: textStorage.length)
+        
+        textStorage.enumerateAttribute(.attachment, in: fullRange) { value, range, _ in
+            if let attachment = value as? NSTextAttachment,
+               let image = attachment.image {
+                
+                // 使用當前容器寬度重新計算圖片尺寸
+                let containerWidth = textView.bounds.width
+                let newDisplaySize = ImageSizeConfiguration.calculateDisplaySize(
+                    for: image,
+                    containerWidth: containerWidth,
+                    textContainerInsets: textView.textContainerInset
+                )
+                
+                // 只有在尺寸確實發生變化時才更新
+                if abs(attachment.bounds.size.width - newDisplaySize.width) > 1.0 ||
+                   abs(attachment.bounds.size.height - newDisplaySize.height) > 1.0 {
+                    attachment.bounds = CGRect(origin: .zero, size: newDisplaySize)
+                    print("🔄 重新計算圖片尺寸: \(newDisplaySize)")
+                }
+            }
+        }
     }
     
     // MARK: - Apple-like 工具列
@@ -580,8 +610,13 @@ struct RichTextView: UIViewRepresentable {
             // 創建 attachment 並直接設置圖片，避免載入延遲
             let attachment = NSTextAttachment()
             
-            // 計算顯示尺寸
-            let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
+            // 使用動態尺寸計算，考慮文字容器寬度
+            let containerWidth = textView.bounds.width > 0 ? textView.bounds.width : UIScreen.main.bounds.width
+            let displaySize = ImageSizeConfiguration.calculateDisplaySize(
+                for: image,
+                containerWidth: containerWidth,
+                textContainerInsets: textView.textContainerInset
+            )
             
             // 創建已解碼和優化的圖片以確保立即顯示
             let optimizedImage = createOptimizedImage(from: image, targetSize: displaySize)
@@ -592,8 +627,25 @@ struct RichTextView: UIViewRepresentable {
             
             print("🖼️ 配置圖片附件 - 原始尺寸: \(image.size), 最終尺寸: \(attachment.bounds.size), 圖片已設置: \(attachment.image != nil)")
             
-            // 準備插入的內容
-            let attachmentString = NSAttributedString(attachment: attachment)
+            // 準備插入的內容 - 為圖片添加置中對齊
+            let centeredImageAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 17),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.alignment = .center  // 圖片置中對齊
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 0
+                    style.paragraphSpacing = 8
+                    style.paragraphSpacingBefore = 8
+                    return style
+                }()
+            ]
+            
+            let centeredAttachmentString = NSAttributedString(attachment: attachment)
+            let finalAttachmentString = NSMutableAttributedString(attributedString: centeredAttachmentString)
+            finalAttachmentString.addAttributes(centeredImageAttributes, range: NSRange(location: 0, length: finalAttachmentString.length))
+            
             let imageCaption = createImageCaptionForEditor(imageIndex: imageCounter, imageId: imageId, attribution: attribution)
             let insertionIndex = selectedRange.location + selectedRange.length
             
@@ -629,24 +681,24 @@ struct RichTextView: UIViewRepresentable {
             var finalCursorPosition: Int
             
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
-                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 標籤 + 兩個換行確保用戶輸入在新行
+                // 非開頭位置且前面沒有換行：添加前導換行 + 置中圖片 + 標籤 + 兩個換行確保用戶輸入在新行
                 let beforeNewline = NSAttributedString(string: "\n")
                 let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
-                mutableText.insert(attachmentString, at: insertionIndex + 1)
+                mutableText.insert(finalAttachmentString, at: insertionIndex + 1)
                 mutableText.insert(imageCaption, at: insertionIndex + 2)
                 mutableText.insert(afterNewline, at: insertionIndex + 3)
                 mutableText.insert(userInputNewline, at: insertionIndex + 4)
                 
                 finalCursorPosition = insertionIndex + 5
             } else {
-                // 開頭位置或前面已有換行：插入圖片 + 標籤 + 兩個換行確保用戶輸入在新行
+                // 開頭位置或前面已有換行：插入置中圖片 + 標籤 + 兩個換行確保用戶輸入在新行
                 let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
-                mutableText.insert(attachmentString, at: insertionIndex)
+                mutableText.insert(finalAttachmentString, at: insertionIndex)
                 mutableText.insert(imageCaption, at: insertionIndex + 1)
                 mutableText.insert(afterNewline, at: insertionIndex + 2)
                 mutableText.insert(userInputNewline, at: insertionIndex + 3)
@@ -708,7 +760,14 @@ struct RichTextView: UIViewRepresentable {
             
             // 創建 attachment 並直接設置優化的圖片
             let attachment = NSTextAttachment()
-            let displaySize = ImageSizeConfiguration.calculateDisplaySize(for: image)
+            
+            // 使用動態尺寸計算，考慮文字容器寬度
+            let containerWidth = textView.bounds.width > 0 ? textView.bounds.width : UIScreen.main.bounds.width
+            let displaySize = ImageSizeConfiguration.calculateDisplaySize(
+                for: image,
+                containerWidth: containerWidth,
+                textContainerInsets: textView.textContainerInset
+            )
             let optimizedImage = createOptimizedImage(from: image, targetSize: displaySize)
             
             attachment.image = optimizedImage
@@ -721,8 +780,25 @@ struct RichTextView: UIViewRepresentable {
                 context: "編輯器"
             )
             
-            // 準備插入的內容
-            let attachmentString = NSAttributedString(attachment: attachment)
+            // 準備插入的內容 - 為圖片添加置中對齊
+            let centeredImageAttributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 17),
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: {
+                    let style = NSMutableParagraphStyle()
+                    style.alignment = .center  // 圖片置中對齊
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 0
+                    style.paragraphSpacing = 8
+                    style.paragraphSpacingBefore = 8
+                    return style
+                }()
+            ]
+            
+            let centeredAttachmentString = NSAttributedString(attachment: attachment)
+            let finalAttachmentString = NSMutableAttributedString(attributedString: centeredAttachmentString)
+            finalAttachmentString.addAttributes(centeredImageAttributes, range: NSRange(location: 0, length: finalAttachmentString.length))
+            
             let insertionIndex = selectedRange.location + selectedRange.length
             
             // 創建正常段落屬性（用於圖片後的換行）
@@ -731,6 +807,7 @@ struct RichTextView: UIViewRepresentable {
                 .foregroundColor: UIColor.label,
                 .paragraphStyle: {
                     let style = NSMutableParagraphStyle()
+                    style.alignment = .left  // 恢復左對齊
                     style.firstLineHeadIndent = 0
                     style.headIndent = 0
                     return style
@@ -739,21 +816,21 @@ struct RichTextView: UIViewRepresentable {
             
             // 插入圖片和必要的格式
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
-                // 非開頭位置且前面沒有換行：添加前導換行 + 圖片 + 後續換行
+                // 非開頭位置且前面沒有換行：添加前導換行 + 置中圖片 + 後續換行
                 let beforeNewline = NSAttributedString(string: "\n")
                 let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
-                mutableText.insert(attachmentString, at: insertionIndex + 1)
+                mutableText.insert(finalAttachmentString, at: insertionIndex + 1)
                 mutableText.insert(afterNewline, at: insertionIndex + 2)
                 
                 // 設置游標在圖片後的換行符後面
                 textView.selectedRange = NSRange(location: insertionIndex + 3, length: 0)
             } else {
-                // 開頭位置或前面已有換行：只插入圖片 + 後續換行
+                // 開頭位置或前面已有換行：只插入置中圖片 + 後續換行
                 let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
-                mutableText.insert(attachmentString, at: insertionIndex)
+                mutableText.insert(finalAttachmentString, at: insertionIndex)
                 mutableText.insert(afterNewline, at: insertionIndex + 1)
                 
                 // 設置游標在圖片後的換行符後面
