@@ -564,17 +564,16 @@ struct RichTextView: UIViewRepresentable {
         
         private func createImageCaptionForEditor(imageIndex: Int, imageId: String, attribution: ImageAttribution?) -> NSAttributedString {
             let sourceText = attribution?.displayText ?? "未知"
-            let captionText = "\n圖片\(imageIndex)[來源：\(sourceText)]"
+            let captionText = "圖片\(imageIndex)[來源：\(sourceText)]"  // 移除開頭的 \n
             
-            // 設置標籤樣式，與預覽模式一致
+            // 設置標籤樣式，緊貼圖片顯示，無額外間距
             let captionAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 13, weight: .regular),
                 .foregroundColor: UIColor.systemGray2,
                 .paragraphStyle: {
                     let style = NSMutableParagraphStyle()
                     style.alignment = .center
-                    style.paragraphSpacing = 4
-                    style.paragraphSpacingBefore = 4
+                    // 移除 paragraphSpacing 和 paragraphSpacingBefore，讓標註緊貼圖片
                     return style
                 }()
             ]
@@ -681,26 +680,26 @@ struct RichTextView: UIViewRepresentable {
             var finalCursorPosition: Int
             
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
-                // 非開頭位置且前面沒有換行：添加前導換行 + 置中圖片 + 標籤 + 兩個換行確保用戶輸入在新行
+                // 非開頭位置且前面沒有換行：添加前導換行 + 置中圖片 + 標籤換行 + 左對齊用戶輸入行
                 let beforeNewline = NSAttributedString(string: "\n")
-                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
-                let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                let captionNewline = NSAttributedString(string: "\n")  // 圖片和標註之間的換行
+                let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes) // 標註後的用戶輸入行
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
                 mutableText.insert(finalAttachmentString, at: insertionIndex + 1)
-                mutableText.insert(imageCaption, at: insertionIndex + 2)
-                mutableText.insert(afterNewline, at: insertionIndex + 3)
+                mutableText.insert(captionNewline, at: insertionIndex + 2)
+                mutableText.insert(imageCaption, at: insertionIndex + 3)
                 mutableText.insert(userInputNewline, at: insertionIndex + 4)
                 
                 finalCursorPosition = insertionIndex + 5
             } else {
-                // 開頭位置或前面已有換行：插入置中圖片 + 標籤 + 兩個換行確保用戶輸入在新行
-                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
-                let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                // 開頭位置或前面已有換行：置中圖片 + 標籤換行 + 左對齊用戶輸入行
+                let captionNewline = NSAttributedString(string: "\n")  // 圖片和標註之間的換行
+                let userInputNewline = NSAttributedString(string: "\n", attributes: normalAttributes) // 標註後的用戶輸入行
                 
                 mutableText.insert(finalAttachmentString, at: insertionIndex)
-                mutableText.insert(imageCaption, at: insertionIndex + 1)
-                mutableText.insert(afterNewline, at: insertionIndex + 2)
+                mutableText.insert(captionNewline, at: insertionIndex + 1)
+                mutableText.insert(imageCaption, at: insertionIndex + 2)
                 mutableText.insert(userInputNewline, at: insertionIndex + 3)
                 
                 finalCursorPosition = insertionIndex + 4
@@ -712,13 +711,14 @@ struct RichTextView: UIViewRepresentable {
             // 設置游標位置（在更新內容後）
             textView.selectedRange = NSRange(location: finalCursorPosition, length: 0)
             
-            // 設置後續輸入的屬性為正常格式（明確左對齊）
+            // 設置後續輸入的屬性為正常格式（明確左對齊，等待用戶輸入）
             textView.typingAttributes = normalAttributes
             
             // 確保立即顯示圖片和標籤
             DispatchQueue.main.async {
-                // 重新設置游標位置確保正確
+                // 重新設置游標位置確保正確，並確保左對齊用戶輸入
                 textView.selectedRange = NSRange(location: finalCursorPosition, length: 0)
+                textView.typingAttributes = normalAttributes  // 再次確保左對齊屬性
                 
                 // 強制重新計算布局
                 let textStorage = textView.textStorage
@@ -780,7 +780,7 @@ struct RichTextView: UIViewRepresentable {
                 context: "編輯器"
             )
             
-            // 準備插入的內容 - 為圖片添加置中對齊
+            // 準備插入的內容 - 為圖片添加置中對齊，無額外間距
             let centeredImageAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 17),
                 .foregroundColor: UIColor.label,
@@ -789,8 +789,7 @@ struct RichTextView: UIViewRepresentable {
                     style.alignment = .center  // 圖片置中對齊
                     style.firstLineHeadIndent = 0
                     style.headIndent = 0
-                    style.paragraphSpacing = 8
-                    style.paragraphSpacingBefore = 8
+                    // 移除 paragraphSpacing，保持緊密佈局
                     return style
                 }()
             ]
