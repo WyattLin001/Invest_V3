@@ -380,80 +380,63 @@ class GroupService: ObservableObject {
         return group
     }
     
-    /// 獲取用戶的群組列表
+    /// 獲取用戶的群組列表 - 使用經過驗證的簡單方法
     func getUserGroups() async throws -> [InvestmentGroup] {
         try SupabaseManager.shared.ensureInitialized()
         
         let currentUser = try await SupabaseService.shared.getCurrentUserAsync()
         Logger.info("📋 開始獲取用戶群組列表: \(currentUser.id)", category: .database)
         
-        // First get the group IDs that the user is a member of
-        let membershipResponse: PostgrestResponse<Data> = try await client
+        // 獲取用戶加入的群組 ID - 使用簡單的 Codable 解碼
+        struct GroupMemberBasic: Codable {
+            let groupId: String
+            
+            enum CodingKeys: String, CodingKey {
+                case groupId = "group_id"
+            }
+        }
+        
+        let memberRecords: [GroupMemberBasic] = try await client
             .from("group_members")
             .select("group_id")
             .eq("user_id", value: currentUser.id.uuidString)
             .execute()
+            .value  // 🎯 使用經過驗證的直接 Codable 解碼
         
-        // Debug: Log the raw membership response
-        if let membershipString = String(data: membershipResponse.data, encoding: .utf8) {
-            Logger.debug("Raw membership response: \(membershipString)", category: .database)
-        }
-        
-        // Parse the group IDs
-        guard let membershipJson = try? JSONSerialization.jsonObject(with: membershipResponse.data, options: []) as? [[String: Any]] else {
-            Logger.warning("Unable to parse membership response", category: .database)
-            return []
-        }
-        
-        let groupIds = membershipJson.compactMap { membership in
-            (membership["group_id"] as? String).flatMap { UUID(uuidString: $0) }
-        }
+        let groupIds = memberRecords.compactMap { UUID(uuidString: $0.groupId) }
         
         guard !groupIds.isEmpty else {
             Logger.info("用戶沒有加入任何群組", category: .database)
             return []
         }
         
-        // Now fetch the actual group details
-        let groupsResponse: PostgrestResponse<Data> = try await client
+        // 獲取群組詳細信息 - 使用經過驗證的簡單方法
+        let groups: [InvestmentGroup] = try await client
             .from("investment_groups")
-            .select("*")
+            .select()
             .in("id", values: groupIds.map { $0.uuidString })
             .execute()
+            .value  // 🎯 使用經過驗證的直接 Codable 解碼
         
-        // Debug: Log the raw groups response
-        if let groupsString = String(data: groupsResponse.data, encoding: .utf8) {
-            Logger.debug("Raw groups response: \(groupsString)", category: .database)
-        }
-        
-        // Parse groups using manual JSON parsing - with error handling
-        do {
-            let groups = try parseGroupsDirectFromResponse(groupsResponse)
-            Logger.info("✅ 獲取到 \(groups.count) 個群組", category: .database)
-            return groups
-        } catch {
-            Logger.error("❌ 解析群組資料失敗: \(error)", category: .database)
-            throw error
-        }
+        Logger.info("✅ 獲取到 \(groups.count) 個群組", category: .database)
+        return groups
     }
     
-    /// 搜尋公開群組
+    /// 搜尋公開群組 - 使用經過驗證的簡單方法
     func searchPublicGroups(query: String? = nil, category: String? = nil, limit: Int = 20) async throws -> [InvestmentGroup] {
         try SupabaseManager.shared.ensureInitialized()
         
         Logger.info("🔍 搜尋公開群組", category: .database)
         
-        var searchQuery = client
+        // 使用經過驗證的簡單 Codable 解碼
+        let groups: [InvestmentGroup] = try await client
             .from("investment_groups")
             .select()
             .eq("is_private", value: false)
             .limit(limit)
             .order("member_count", ascending: false)
-        
-        // TODO: Implement search filtering when PostgrestTransformBuilder methods are available
-        
-        let response: PostgrestResponse<Data> = try await searchQuery.execute()
-        let groups = try parseGroupsDirectFromResponse(response)
+            .execute()
+            .value  // 🎯 使用經過驗證的直接 Codable 解碼
         
         Logger.info("✅ 搜尋完成，找到 \(groups.count) 個群組", category: .database)
         return groups
@@ -707,67 +690,7 @@ class GroupService: ObservableObject {
         }
     }
     
-    private func parseGroupsDirectFromResponse(_ response: PostgrestResponse<Data>) throws -> [InvestmentGroup] {
-        // Parse the direct investment_groups table response
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] else {
-            Logger.warning("Unable to parse direct groups response as JSON array", category: .database)
-            return []
-        }
-        
-        Logger.debug("Parsing \(jsonObject.count) groups directly from investment_groups table", category: .database)
-        
-        return jsonObject.compactMap { groupData in
-            // Parse all required fields
-            guard let idString = groupData["id"] as? String,
-                  let groupId = UUID(uuidString: idString),
-                  let name = groupData["name"] as? String,
-                  let host = groupData["host"] as? String,
-                  let memberCount = groupData["member_count"] as? Int,
-                  let createdAtString = groupData["created_at"] as? String,
-                  let updatedAtString = groupData["updated_at"] as? String,
-                  let createdAt = ISO8601DateFormatter().date(from: createdAtString),
-                  let updatedAt = ISO8601DateFormatter().date(from: updatedAtString) else {
-                Logger.warning("Missing required fields in group data: \(groupData.keys)", category: .database)
-                return nil
-            }
-            
-            // Parse optional fields with defaults
-            let hostIdString = groupData["host_id"] as? String
-            let hostId = hostIdString.flatMap { UUID(uuidString: $0) }
-            let returnRate = groupData["return_rate"] as? Double ?? 0.0
-            let entryFee = groupData["entry_fee"] as? String
-            let tokenCost = groupData["token_cost"] as? Int ?? 0
-            let maxMembers = groupData["max_members"] as? Int ?? 100
-            let category = groupData["category"] as? String
-            let description = groupData["description"] as? String
-            let rules = extractStringArray(from: groupData["rules"], key: "rules")
-            let isPrivate = groupData["is_private"] as? Bool ?? false
-            let inviteCode = groupData["invite_code"] as? String
-            let portfolioValue = groupData["portfolio_value"] as? Double ?? 0.0
-            let rankingPosition = groupData["ranking_position"] as? Int ?? 0
-            
-            return InvestmentGroup(
-                id: groupId,
-                name: name,
-                host: host,
-                hostId: hostId,
-                returnRate: returnRate,
-                entryFee: entryFee,
-                tokenCost: tokenCost,
-                memberCount: memberCount,
-                maxMembers: maxMembers,
-                category: category,
-                description: description,
-                rules: rules,
-                isPrivate: isPrivate,
-                inviteCode: inviteCode,
-                portfolioValue: portfolioValue,
-                rankingPosition: rankingPosition,
-                createdAt: createdAt,
-                updatedAt: updatedAt
-            )
-        }
-    }
+    // 移除了複雜的手動 JSON 解析方法 - 現在使用經過驗證的簡單 .execute().value 方法
     
     private func parseGroupMembersFromResponse(_ response: PostgrestResponse<Data>) throws -> [GroupMember] {
         // 這裡需要實現解析邏輯
