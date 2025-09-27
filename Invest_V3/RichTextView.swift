@@ -604,18 +604,29 @@ struct RichTextView: UIViewRepresentable {
             
             let captionString = NSMutableAttributedString(string: captionText, attributes: captionAttributes)
             
-            // 添加一個左對齊的零寬度字符來重置樣式
+            // 添加強制格式重置字符，確保後續輸入左對齊
             let resetAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 13, weight: .regular),
+                .font: UIFont.systemFont(ofSize: 17),
                 .foregroundColor: UIColor.clear,
                 .paragraphStyle: {
                     let style = NSMutableParagraphStyle()
                     style.alignment = .left
+                    style.firstLineHeadIndent = 0
+                    style.headIndent = 0
+                    style.tailIndent = 0
+                    style.paragraphSpacing = 0
+                    style.paragraphSpacingBefore = 0
+                    style.lineSpacing = 0
                     return style
                 }()
             ]
-            let resetString = NSAttributedString(string: "\u{200B}", attributes: resetAttributes) // 零寬度空格
-            captionString.append(resetString)
+            
+            // 添加多個重置字符確保格式重置生效
+            let resetString1 = NSAttributedString(string: "\u{200B}", attributes: resetAttributes) // 零寬度空格
+            let resetString2 = NSAttributedString(string: "\u{2060}", attributes: resetAttributes) // 單詞連接符
+            
+            captionString.append(resetString1)
+            captionString.append(resetString2)
             
             return captionString
         }
@@ -725,19 +736,19 @@ struct RichTextView: UIViewRepresentable {
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
                 mutableText.insert(finalAttachmentString, at: insertionIndex + 1)
-                mutableText.insert(imageCaption, at: insertionIndex + 2)
-                mutableText.insert(afterNewline, at: insertionIndex + 3)
+                mutableText.insert(imageCaption, at: insertionIndex + 1 + finalAttachmentString.length)
+                mutableText.insert(afterNewline, at: insertionIndex + 1 + finalAttachmentString.length + imageCaption.length)
                 
-                finalCursorPosition = insertionIndex + 4
+                finalCursorPosition = insertionIndex + 1 + finalAttachmentString.length + imageCaption.length + afterNewline.length
             } else {
                 // 開頭位置或前面已有換行：圖片 + 標註 + 換行
                 let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
                 mutableText.insert(finalAttachmentString, at: insertionIndex)
-                mutableText.insert(imageCaption, at: insertionIndex + 1)
-                mutableText.insert(afterNewline, at: insertionIndex + 2)
+                mutableText.insert(imageCaption, at: insertionIndex + finalAttachmentString.length)
+                mutableText.insert(afterNewline, at: insertionIndex + finalAttachmentString.length + imageCaption.length)
                 
-                finalCursorPosition = insertionIndex + 3
+                finalCursorPosition = insertionIndex + finalAttachmentString.length + imageCaption.length + afterNewline.length
             }
             
             // 更新文字內容
@@ -748,6 +759,24 @@ struct RichTextView: UIViewRepresentable {
             
             // 設置後續輸入的屬性為正常格式（明確左對齊，等待用戶輸入）
             textView.typingAttributes = normalAttributes
+            
+            // 立即在光標位置插入一個左對齊的空字符來確保格式
+            if finalCursorPosition < textView.attributedText.length {
+                let mutableTextForReset = NSMutableAttributedString(attributedString: textView.attributedText)
+                let leftAlignString = NSAttributedString(string: "", attributes: normalAttributes)
+                mutableTextForReset.insert(leftAlignString, at: finalCursorPosition)
+                textView.attributedText = mutableTextForReset
+            }
+            
+            print("🖼️ 圖片插入完成，游標位置: \(finalCursorPosition)")
+            
+            // 驗證光標位置附近的文字內容
+            let currentText = textView.attributedText.string
+            let cursorIndex = finalCursorPosition
+            if cursorIndex > 0 && cursorIndex <= currentText.count {
+                let beforeCursor = String(currentText.prefix(min(cursorIndex, currentText.count)))
+                print("🔍 光標前文字: ...'\(beforeCursor.suffix(20))'")
+            }
             
             // 確保立即顯示圖片和標籤
             DispatchQueue.main.async {
