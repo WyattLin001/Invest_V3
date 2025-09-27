@@ -524,10 +524,13 @@ struct MediumStyleEditor: View {
             Logger.info("🎯 觸發圖片來源選擇器顯示，狀態已重置", category: .editor)
             Logger.debug("📋 當前狀態 - pendingImage: \(self.pendingImage != nil), userDidSelectAttribution: \(self.userDidSelectAttribution)", category: .editor)
             
-            // Ultra Think 修復：延遲清空選擇，確保 PhotosPicker 狀態正確重置
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.selectedPhotosPickerItems.removeAll()
-                Logger.debug("🧹 延遲清空 PhotosPicker 選擇項目", category: .editor)
+            // Ultra Think 修復：在 SimpleImageAttributionPicker 顯示後立即清空，避免影響下次選擇
+            DispatchQueue.main.async {
+                // 確保 sheet 已經開始顯示後再清空
+                if self.showImageAttributionPicker {
+                    self.selectedPhotosPickerItems.removeAll()
+                    Logger.debug("🧹 SimpleImageAttributionPicker 顯示後清空選擇項目", category: .editor)
+                }
             }
         }
     }
@@ -563,10 +566,12 @@ struct MediumStyleEditor: View {
             self.selectedImageAttribution = nil  // 清空舊的選擇
             self.showImageAttributionPicker = true
             
-            // Ultra Think 修復：延遲清空選擇，確保 PhotosPicker 狀態正確重置
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.selectedPhotosPickerItems.removeAll()
-                Logger.debug("🧹 延遲清空 PhotosPicker 選擇項目（舊版）", category: .editor)
+            // Ultra Think 修復：在 SimpleImageAttributionPicker 顯示後立即清空，避免影響下次選擇
+            DispatchQueue.main.async {
+                if self.showImageAttributionPicker {
+                    self.selectedPhotosPickerItems.removeAll()
+                    Logger.debug("🧹 SimpleImageAttributionPicker 顯示後清空選擇項目（舊版）", category: .editor)
+                }
             }
         }
     }
@@ -602,11 +607,9 @@ struct MediumStyleEditor: View {
             toastMessage = "圖片處理失敗：\(message)"
             showToast = true
             
-            // Ultra Think 修復：延遲清空選擇，確保 PhotosPicker 狀態正確重置
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.selectedPhotosPickerItems.removeAll()
-                Logger.debug("🧹 錯誤處理後延遲清空 PhotosPicker 選擇項目", category: .editor)
-            }
+            // Ultra Think 修復：錯誤情況下立即清空選擇項目
+            self.selectedPhotosPickerItems.removeAll()
+            Logger.debug("🧹 錯誤處理後清空 PhotosPicker 選擇項目", category: .editor)
         }
     }
     
