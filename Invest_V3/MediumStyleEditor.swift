@@ -434,7 +434,7 @@ struct MediumStyleEditor: View {
             .background(backgroundColor)
             .onChange(of: attributedContent) { oldValue, newValue in
                 // 🎯 避免無效的更新觸發
-                guard newValue.string != oldValue.string else { return }
+                guard !newValue.isEqual(to: oldValue) else { return }
                 
                 hasTypingActivity = true
                 updateWordCount()
