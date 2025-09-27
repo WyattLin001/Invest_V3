@@ -252,23 +252,36 @@ struct MediumStyleEditor: View {
             SimpleImageAttributionPicker(selectedAttribution: Binding(
                 get: { selectedImageAttribution },
                 set: { attribution in
+                    Logger.info("✅ 用戶確認選擇來源：\(attribution?.displayText ?? "nil")", category: .editor)
                     selectedImageAttribution = attribution
                     userDidSelectAttribution = true  // 標記用戶已確認選擇
                     
                     if let image = pendingImage {
+                        Logger.info("🎯 使用用戶選擇的來源插入圖片", category: .editor)
                         insertImageWithAttribution(image, attribution: attribution)
                         pendingImage = nil
                         selectedImageAttribution = nil  // 清空選擇狀態
+                    } else {
+                        Logger.warning("⚠️ 沒有待處理的圖片", category: .editor)
                     }
                 }
             ))
             .onDisappear {
+                Logger.debug("🔄 SimpleImageAttributionPicker onDisappear 觸發", category: .editor)
+                Logger.debug("📋 onDisappear 狀態 - pendingImage: \(pendingImage != nil), userDidSelectAttribution: \(userDidSelectAttribution)", category: .editor)
+                
                 // 只有在用戶未確認選擇且還有待處理圖片時，才提供默認 attribution
                 if let image = pendingImage, !userDidSelectAttribution {
+                    Logger.warning("❌ 用戶未選擇來源，使用默認值 iPhone", category: .editor)
                     let defaultAttribution = createDefaultAttribution()
                     insertImageWithAttribution(image, attribution: defaultAttribution)
                     pendingImage = nil
+                } else if pendingImage == nil {
+                    Logger.debug("✅ 沒有待處理圖片，無需默認處理", category: .editor)
+                } else if userDidSelectAttribution {
+                    Logger.debug("✅ 用戶已選擇來源，無需默認處理", category: .editor)
                 }
+                
                 // 重置所有相關狀態
                 userDidSelectAttribution = false
                 selectedImageAttribution = nil
@@ -509,6 +522,7 @@ struct MediumStyleEditor: View {
             self.selectedImageAttribution = nil  // 清空舊的選擇
             self.showImageAttributionPicker = true
             Logger.info("🎯 觸發圖片來源選擇器顯示，狀態已重置", category: .editor)
+            Logger.debug("📋 當前狀態 - pendingImage: \(self.pendingImage != nil), userDidSelectAttribution: \(self.userDidSelectAttribution)", category: .editor)
             
             // Ultra Think 修復：延遲清空選擇，確保 PhotosPicker 狀態正確重置
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
