@@ -716,33 +716,28 @@ struct RichTextView: UIViewRepresentable {
             // 插入圖片、標籤和必要的格式
             var finalCursorPosition: Int
             
-            // Ultra Think 方案：使用段落分隔符創建真正獨立的段落
-            let paragraphSeparator = "\u{2029}"  // Unicode 段落分隔符，強制段落分離
+            // Ultra Think 修復：簡化插入邏輯，確保游標在圖片後下一行左對齊
             
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
-                // 非開頭位置且前面沒有換行：前導換行 + 圖片段落 + 標註段落 + 用戶輸入段落
+                // 非開頭位置且前面沒有換行：前導換行 + 圖片 + 標註 + 換行
                 let beforeNewline = NSAttributedString(string: "\n")
-                let captionSeparator = NSAttributedString(string: paragraphSeparator)  // 強制段落分離
-                let userInputSeparator = NSAttributedString(string: paragraphSeparator, attributes: normalAttributes) // 創建用戶輸入段落
+                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
                 mutableText.insert(beforeNewline, at: insertionIndex)
                 mutableText.insert(finalAttachmentString, at: insertionIndex + 1)
-                mutableText.insert(captionSeparator, at: insertionIndex + 2)
-                mutableText.insert(imageCaption, at: insertionIndex + 3)
-                mutableText.insert(userInputSeparator, at: insertionIndex + 4)
-                
-                finalCursorPosition = insertionIndex + 5
-            } else {
-                // 開頭位置或前面已有換行：圖片段落 + 標註段落 + 用戶輸入段落
-                let captionSeparator = NSAttributedString(string: paragraphSeparator)  // 強制段落分離
-                let userInputSeparator = NSAttributedString(string: paragraphSeparator, attributes: normalAttributes) // 創建用戶輸入段落
-                
-                mutableText.insert(finalAttachmentString, at: insertionIndex)
-                mutableText.insert(captionSeparator, at: insertionIndex + 1)
                 mutableText.insert(imageCaption, at: insertionIndex + 2)
-                mutableText.insert(userInputSeparator, at: insertionIndex + 3)
+                mutableText.insert(afterNewline, at: insertionIndex + 3)
                 
                 finalCursorPosition = insertionIndex + 4
+            } else {
+                // 開頭位置或前面已有換行：圖片 + 標註 + 換行
+                let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
+                
+                mutableText.insert(finalAttachmentString, at: insertionIndex)
+                mutableText.insert(imageCaption, at: insertionIndex + 1)
+                mutableText.insert(afterNewline, at: insertionIndex + 2)
+                
+                finalCursorPosition = insertionIndex + 3
             }
             
             // 更新文字內容
