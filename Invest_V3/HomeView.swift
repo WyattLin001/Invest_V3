@@ -348,8 +348,9 @@ struct HomeView: View {
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
                 }
-                .padding(16)
-                .frame(height: 64)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .frame(minHeight: 68)
                 .background(
                     LinearGradient(
                         gradient: Gradient(colors: [Color.brandGreen, Color.brandGreen.opacity(0.8)]),
@@ -363,11 +364,13 @@ struct HomeView: View {
                 .accessibilityHint("開啟投資面板進行模擬股票交易")
             }
         }
-        .padding(.all, 20)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 20)
         .background(Color.surfacePrimary)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
     }
 
     
