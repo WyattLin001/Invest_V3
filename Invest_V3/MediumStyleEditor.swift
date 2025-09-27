@@ -225,20 +225,24 @@ struct MediumStyleEditor: View {
             titleCharacterCount = newValue.count
         }
         .onChange(of: selectedPhotosPickerItems) { oldItems, newItems in
-            Logger.debug("圖片選擇器變更 - 舊: \(oldItems.count), 新: \(newItems.count)", category: .editor)
+            Logger.debug("🔍 Ultra Think 調試 - 圖片選擇器變更", category: .editor)
+            Logger.debug("  - 舊項目數: \(oldItems.count)", category: .editor)
+            Logger.debug("  - 新項目數: \(newItems.count)", category: .editor)
+            Logger.debug("  - showImageAttributionPicker: \(showImageAttributionPicker)", category: .editor)
+            Logger.debug("  - userDidSelectAttribution: \(userDidSelectAttribution)", category: .editor)
             
-            // 只處理新增的項目
-            guard !newItems.isEmpty, newItems.count > oldItems.count else { 
-                Logger.debug("沒有新項目，跳過處理", category: .editor)
+            // Ultra Think 修復：處理任何新選擇，不限制 count > oldItems.count
+            guard !newItems.isEmpty else { 
+                Logger.debug("❌ 項目列表為空，跳過處理", category: .editor)
                 return 
             }
             
             guard let item = newItems.last else { 
-                Logger.warning("找不到最新項目", category: .editor)
+                Logger.warning("❌ 找不到最新項目", category: .editor)
                 return 
             }
             
-            Logger.info("開始處理圖片", category: .editor)
+            Logger.info("✅ 開始處理圖片 - 項目ID: \(item.itemIdentifier ?? "未知")", category: .editor)
             
             Task {
                 await processSelectedImageWithAttribution(item)
@@ -505,8 +509,12 @@ struct MediumStyleEditor: View {
             self.selectedImageAttribution = nil  // 清空舊的選擇
             self.showImageAttributionPicker = true
             Logger.info("🎯 觸發圖片來源選擇器顯示，狀態已重置", category: .editor)
-            // 處理完成後清空選擇
-            selectedPhotosPickerItems.removeAll()
+            
+            // Ultra Think 修復：延遲清空選擇，確保 PhotosPicker 狀態正確重置
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.selectedPhotosPickerItems.removeAll()
+                Logger.debug("🧹 延遲清空 PhotosPicker 選擇項目", category: .editor)
+            }
         }
     }
     
@@ -540,8 +548,12 @@ struct MediumStyleEditor: View {
             self.userDidSelectAttribution = false  // 重置選擇狀態
             self.selectedImageAttribution = nil  // 清空舊的選擇
             self.showImageAttributionPicker = true
-            // 處理完成後清空選擇
-            selectedPhotosPickerItems.removeAll()
+            
+            // Ultra Think 修復：延遲清空選擇，確保 PhotosPicker 狀態正確重置
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.selectedPhotosPickerItems.removeAll()
+                Logger.debug("🧹 延遲清空 PhotosPicker 選擇項目（舊版）", category: .editor)
+            }
         }
     }
     
@@ -575,7 +587,12 @@ struct MediumStyleEditor: View {
             // 顯示用戶友好的錯誤訊息
             toastMessage = "圖片處理失敗：\(message)"
             showToast = true
-            selectedPhotosPickerItems.removeAll()
+            
+            // Ultra Think 修復：延遲清空選擇，確保 PhotosPicker 狀態正確重置
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.selectedPhotosPickerItems.removeAll()
+                Logger.debug("🧹 錯誤處理後延遲清空 PhotosPicker 選擇項目", category: .editor)
+            }
         }
     }
     
