@@ -21,6 +21,16 @@ struct MediumStyleEditor: View {
     @State private var showImageAttributionPicker: Bool = false
     @State private var pendingImage: UIImage?
     @State private var selectedImageAttribution: ImageAttribution?
+    @State private var currentImageSource: ImageSourceType = .unknown
+    @State private var userDidSelectAttribution: Bool = false  // 追蹤用戶是否已確認選擇
+    
+    // 圖片來源類型枚舉
+    enum ImageSourceType {
+        case photosLibrary
+        case camera
+        case clipboard
+        case unknown
+    }
     @State private var titleCharacterCount: Int = 0
     @State private var isPublishing: Bool = false
     @State private var showSaveDraftAlert = false
@@ -70,18 +80,10 @@ struct MediumStyleEditor: View {
     // 字數統計
     private let maxTitleLength = 100
     
-    // 顏色配置
-    private var backgroundColor: Color {
-        colorScheme == .dark ? .gray100 : .white
-    }
-    
-    private var textColor: Color {
-        colorScheme == .dark ? .gray900 : .black
-    }
-    
-    private var secondaryTextColor: Color {
-        colorScheme == .dark ? .gray600 : .secondary
-    }
+    // 顏色配置 - 使用系統自適應顏色避免無限重繪
+    private let backgroundColor = Color(UIColor.systemBackground)
+    private let textColor = Color(UIColor.label)
+    private let secondaryTextColor = Color(UIColor.secondaryLabel)
     
     // 檢查是否有未保存的更改
     private var hasUnsavedChanges: Bool {
@@ -247,12 +249,26 @@ struct MediumStyleEditor: View {
                 get: { selectedImageAttribution },
                 set: { attribution in
                     selectedImageAttribution = attribution
+                    userDidSelectAttribution = true  // 標記用戶已確認選擇
+                    
                     if let image = pendingImage {
                         insertImageWithAttribution(image, attribution: attribution)
                         pendingImage = nil
+                        selectedImageAttribution = nil  // 清空選擇狀態
                     }
                 }
             ))
+            .onDisappear {
+                // 只有在用戶未確認選擇且還有待處理圖片時，才提供默認 attribution
+                if let image = pendingImage, !userDidSelectAttribution {
+                    let defaultAttribution = createDefaultAttribution()
+                    insertImageWithAttribution(image, attribution: defaultAttribution)
+                    pendingImage = nil
+                }
+                // 重置所有相關狀態
+                userDidSelectAttribution = false
+                selectedImageAttribution = nil
+            }
         }
     }
     
@@ -383,11 +399,14 @@ struct MediumStyleEditor: View {
         }
     }
     
-    // MARK: - 富文本編輯器
+    // MARK: - 富文本編輯器 (整合 Ultra Think 修復)
     private var richTextEditor: some View {
         RichTextView(attributedText: $attributedContent)
             .background(backgroundColor)
             .onChange(of: attributedContent) { _, newValue in
+                // 🎯 避免無效的更新觸發
+                guard newValue.string != attributedContent.string else { return }
+                
                 hasTypingActivity = true
                 updateWordCount()
                 scheduleAutoSave()
@@ -395,19 +414,14 @@ struct MediumStyleEditor: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowPhotoPicker"))) { _ in
                 showPhotoPicker = true
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageLoadedForDraft"))) { _ in
-                // 圖片加載完成後強制更新顯示
-                self.attributedContent = self.attributedContent
-            }
     }
     
-    // MARK: - 圖片處理
+    // MARK: - 圖片處理  
     private func insertImage(_ image: UIImage) {
-        // 通知 RichTextView 插入圖片
-        NotificationCenter.default.post(
-            name: NSNotification.Name("InsertImage"),
-            object: image
-        )
+        // 統一使用帶來源選擇的方法，確保用戶輸入不被忽略
+        let defaultAttribution = createDefaultAttribution()
+        Logger.info("🎯 舊方法調用，使用預設來源：\(defaultAttribution.displayText)", category: .editor)
+        insertImageWithAttribution(image, attribution: defaultAttribution)
     }
     
     // 生成圖片的一致性ID（基於圖片數據的哈希）
@@ -415,21 +429,47 @@ struct MediumStyleEditor: View {
         return ImageUtils.generateImageId(from: image)
     }
     
+    // 創建默認的圖片來源標註
+    private func createDefaultAttribution() -> ImageAttribution {
+        return createSmartDefaultAttribution(for: currentImageSource)
+    }
+    
+    // 智能檢測默認來源
+    private func createSmartDefaultAttribution(for source: ImageSourceType) -> ImageAttribution {
+        switch source {
+        case .photosLibrary:
+            // 從照片庫選擇，通常是手機拍攝
+            return ImageAttribution(source: .custom, customText: "iPhone")
+            
+        case .camera:
+            // 直接拍攝
+            return ImageAttribution(source: .author, customText: nil)
+            
+        case .clipboard:
+            // 從剪貼板粘貼，可能是截圖
+            return ImageAttribution(source: .screenshot, customText: nil)
+            
+        case .unknown:
+            // 未知來源，使用通用默認值
+            return ImageAttribution(source: .custom, customText: "iPhone")
+        }
+    }
+    
     // 插入帶來源標註的圖片
     private func insertImageWithAttribution(_ image: UIImage, attribution: ImageAttribution?) {
         // 生成基於圖片內容的一致性ID
         let imageId = generateImageId(from: image)
         
-        // 如果有標註，保存到管理器
-        if let attribution = attribution {
-            ImageAttributionManager.shared.setAttribution(for: imageId, attribution: attribution)
-            Logger.info("已為圖片 \(imageId) 設置來源標註: \(attribution.displayText)", category: .editor)
-        }
+        // 確保總是有 attribution，如果沒有則使用默認值
+        let finalAttribution = attribution ?? createDefaultAttribution()
         
-        // 通知 RichTextView 插入圖片（優先使用帶標註版本）
+        // 保存到管理器
+        ImageAttributionManager.shared.setAttribution(for: imageId, attribution: finalAttribution)
+        
+        // 通知 RichTextView 插入圖片（總是帶有標註）
         NotificationCenter.default.post(
             name: NSNotification.Name("InsertImageWithAttribution"),
-            object: ["image": image, "imageId": imageId, "attribution": attribution as Any]
+            object: ["image": image, "imageId": imageId, "attribution": finalAttribution]
         )
     }
     
@@ -460,7 +500,11 @@ struct MediumStyleEditor: View {
         await MainActor.run {
             Logger.info("成功處理圖片：\(fileName)", category: .editor)
             self.pendingImage = image
+            self.currentImageSource = .photosLibrary  // 標記來源為照片庫
+            self.userDidSelectAttribution = false  // 重置選擇狀態
+            self.selectedImageAttribution = nil  // 清空舊的選擇
             self.showImageAttributionPicker = true
+            Logger.info("🎯 觸發圖片來源選擇器顯示，狀態已重置", category: .editor)
             // 處理完成後清空選擇
             selectedPhotosPickerItems.removeAll()
         }
@@ -489,7 +533,13 @@ struct MediumStyleEditor: View {
         
         await MainActor.run {
             Logger.info("成功處理圖片：\(fileName)", category: .editor)
-            insertImage(image)
+            Logger.info("🎯 舊流程被調用，重定向到帶來源選擇的新流程", category: .editor)
+            // 重定向到新的帶來源選擇的流程
+            self.pendingImage = image
+            self.currentImageSource = .photosLibrary
+            self.userDidSelectAttribution = false  // 重置選擇狀態
+            self.selectedImageAttribution = nil  // 清空舊的選擇
+            self.showImageAttributionPicker = true
             // 處理完成後清空選擇
             selectedPhotosPickerItems.removeAll()
         }
@@ -575,10 +625,15 @@ struct MediumStyleEditor: View {
             segments.append((attributedText, attachment))
         }
 
+        var imageCounter = 0
+        
         for segment in segments {
             if let attachment = segment.attachment,
                let image = attachment.image ?? attachment.image(forBounds: attachment.bounds, textContainer: nil, characterIndex: 0),
                let data = image.jpegData(compressionQuality: 0.8) {
+                // 增加圖片計數器
+                imageCounter += 1
+                
                 // 使用一致的圖片ID生成方法
                 let imageId = generateImageId(from: image)
                 // 添加時間戳確保文件名唯一，避免重複上傳錯誤
@@ -599,11 +654,24 @@ struct MediumStyleEditor: View {
                         markdown += EnhancedImageInserter.insertImageWithAttribution(
                             imageUrl: url,
                             attribution: attribution,
-                            altText: ""
+                            altText: "",
+                            imageIndex: imageCounter
                         )
                     } else {
-                        Logger.debug("圖片 \(imageId) 沒有來源標註，使用默認格式", category: .editor)
-                        markdown += "![](\(url))"
+                        // 為沒有來源標註的圖片創建默認標註
+                        Logger.debug("圖片 \(imageId) 沒有來源標註，創建默認標註", category: .editor)
+                        let defaultAttribution = createSmartDefaultAttribution(for: .unknown)
+                        
+                        // 保存默認標註以供後續使用
+                        ImageAttributionManager.shared.setAttribution(for: imageId, attribution: defaultAttribution)
+                        
+                        // 使用默認標註生成 Markdown
+                        markdown += EnhancedImageInserter.insertImageWithAttribution(
+                            imageUrl: url,
+                            attribution: defaultAttribution,
+                            altText: "",
+                            imageIndex: imageCounter
+                        )
                     }
                 } catch {
                     Logger.error("❌ 圖片上傳失敗: \(error.localizedDescription)", category: .editor)
@@ -1004,36 +1072,36 @@ struct MediumStyleEditor: View {
             if self.hasTypingActivity && self.hasUnsavedChanges {
                 Task {
                     await self.autoSaveDraft(silent: true)
-                    self.hasTypingActivity = false
+                    await MainActor.run {
+                        self.hasTypingActivity = false
+                    }
                 }
             }
         }
     }
     
-    /// 更新字數統計和閱讀時間
+    /// 更新字數統計和閱讀時間 (優化避免循環引用)
     private func updateWordCount() {
         let fullText = title + " " + attributedContent.string
         
-        // 計算中文字符數（包括中文標點符號）
-        let chineseCount = fullText.unicodeScalars.filter { scalar in
-            // 中文字符範圍
-            (scalar.value >= 0x4E00 && scalar.value <= 0x9FFF) ||
-            // 中文標點符號
-            (scalar.value >= 0x3000 && scalar.value <= 0x303F) ||
-            (scalar.value >= 0xFF00 && scalar.value <= 0xFFEF)
-        }.count
+        // 🎯 簡化字數計算避免複雜的Unicode操作
+        // 使用更簡單高效的方法
+        let basicWordCount = fullText.count
         
-        // 計算英文單詞數
-        let words = fullText.components(separatedBy: .whitespacesAndNewlines)
-            .compactMap { word in
-                let trimmed = word.trimmingCharacters(in: .punctuationCharacters)
-                // 只計算包含英文字母的單詞
-                return trimmed.isEmpty || !trimmed.unicodeScalars.contains(where: { CharacterSet.letters.contains($0) && $0.value < 0x4E00 }) ? nil : trimmed
-            }
+        // 簡單估算：如果包含中文字符就按字符數計算，否則按單詞數計算
+        let hasChineseCharacters = fullText.range(of: "[\\u4e00-\\u9fff]", options: .regularExpression) != nil
         
-        wordCount = chineseCount + words.count
+        if hasChineseCharacters {
+            // 有中文：按字符數計算（去除空格）
+            wordCount = fullText.replacingOccurrences(of: " ", with: "").count
+        } else {
+            // 純英文：按單詞數計算
+            wordCount = fullText.components(separatedBy: .whitespacesAndNewlines)
+                .filter { !$0.trimmingCharacters(in: .punctuationCharacters).isEmpty }
+                .count
+        }
         
-        // 根據平均閱讀速度計算閱讀時間（假設每分鐘250字）
+        // 計算閱讀時間（每分鐘250字）
         readingTime = max(1, Int(ceil(Double(wordCount) / 250.0)))
     }
     
@@ -1184,15 +1252,9 @@ struct PreviewSheet: View {
     let isPaid: Bool
     
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) var colorScheme
     
-    private var backgroundColor: Color {
-        colorScheme == .dark ? .gray100 : .white
-    }
-    
-    private var textColor: Color {
-        colorScheme == .dark ? .gray900 : .black
-    }
+    private let backgroundColor = Color(UIColor.systemBackground)
+    private let textColor = Color(UIColor.label)
     
     var body: some View {
         NavigationStack {
