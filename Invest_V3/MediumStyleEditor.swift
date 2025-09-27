@@ -23,6 +23,7 @@ struct MediumStyleEditor: View {
     @State private var selectedImageAttribution: ImageAttribution?
     @State private var currentImageSource: ImageSourceType = .unknown
     @State private var userDidSelectAttribution: Bool = false  // 追蹤用戶是否已確認選擇
+    @State private var imageProcessingInProgress: Bool = false  // 追蹤圖片是否正在處理中
     
     // 圖片來源類型枚舉
     enum ImageSourceType {
@@ -259,8 +260,9 @@ struct MediumStyleEditor: View {
                     if let image = pendingImage {
                         Logger.info("🎯 使用用戶選擇的來源插入圖片：\(attribution?.displayText ?? "nil")", category: .editor)
                         
-                        // 立即清空 pendingImage 防止重複處理
+                        // 立即清空 pendingImage 和標記處理完成，防止重複處理
                         pendingImage = nil
+                        imageProcessingInProgress = false
                         
                         // 插入圖片
                         insertImageWithAttribution(image, attribution: attribution)
@@ -268,7 +270,7 @@ struct MediumStyleEditor: View {
                         // 清空選擇狀態
                         selectedImageAttribution = nil
                         
-                        Logger.debug("🎯 用戶選擇處理完成，已清空 pendingImage", category: .editor)
+                        Logger.debug("🎯 用戶選擇處理完成，已清空狀態", category: .editor)
                         
                         // Ultra Think 修復：用戶完成選擇後清空 PhotosPicker
                         DispatchQueue.main.async {
@@ -282,21 +284,35 @@ struct MediumStyleEditor: View {
             ))
             .onDisappear {
                 Logger.debug("🔄 SimpleImageAttributionPicker onDisappear 觸發", category: .editor)
-                Logger.debug("📋 onDisappear 狀態 - pendingImage: \(pendingImage != nil), userDidSelectAttribution: \(userDidSelectAttribution)", category: .editor)
+                Logger.debug("📋 onDisappear 狀態 - pendingImage: \(pendingImage != nil), userDidSelectAttribution: \(userDidSelectAttribution), imageProcessingInProgress: \(imageProcessingInProgress)", category: .editor)
                 
-                // 延遲執行，確保用戶選擇的處理邏輯先完成
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    // 只有在用戶真的未選擇且還有待處理圖片時，才提供默認 attribution
-                    if let image = self.pendingImage, !self.userDidSelectAttribution {
-                        Logger.warning("❌ 用戶未選擇來源，使用默認值", category: .editor)
-                        let defaultAttribution = self.createDefaultAttribution()
-                        self.insertImageWithAttribution(image, attribution: defaultAttribution)
-                        self.pendingImage = nil
-                    } else if self.pendingImage == nil {
-                        Logger.debug("✅ 沒有待處理圖片，無需默認處理", category: .editor)
-                    } else if self.userDidSelectAttribution {
-                        Logger.debug("✅ 用戶已選擇來源，無需默認處理", category: .editor)
+                // 只有當選擇器真正關閉且沒有正在處理的圖片時才處理默認邏輯
+                // 延遲執行，確保狀態更新完成
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    // 多重檢查防止誤觸發
+                    guard !self.showImageAttributionPicker,  // 選擇器沒有重新打開
+                          self.imageProcessingInProgress,     // 確實有圖片正在處理
+                          let image = self.pendingImage,      // 確實有待處理圖片
+                          !self.userDidSelectAttribution      // 用戶確實沒有選擇
+                    else {
+                        if self.showImageAttributionPicker {
+                            Logger.debug("🔄 選擇器重新打開，跳過onDisappear處理", category: .editor)
+                        } else if !self.imageProcessingInProgress {
+                            Logger.debug("✅ 沒有圖片正在處理，跳過onDisappear處理", category: .editor)
+                        } else if self.pendingImage == nil {
+                            Logger.debug("✅ 沒有待處理圖片，無需默認處理", category: .editor)
+                        } else if self.userDidSelectAttribution {
+                            Logger.debug("✅ 用戶已選擇來源，無需默認處理", category: .editor)
+                        }
+                        return
                     }
+                    
+                    // 用戶未選擇來源，使用默認值
+                    Logger.warning("❌ 用戶未選擇來源，使用默認值", category: .editor)
+                    let defaultAttribution = self.createDefaultAttribution()
+                    self.insertImageWithAttribution(image, attribution: defaultAttribution)
+                    self.pendingImage = nil
+                    self.imageProcessingInProgress = false
                     
                     // 重置所有相關狀態
                     self.userDidSelectAttribution = false
@@ -543,6 +559,7 @@ struct MediumStyleEditor: View {
             self.currentImageSource = .photosLibrary  // 標記來源為照片庫
             self.userDidSelectAttribution = false  // 重置選擇狀態
             self.selectedImageAttribution = nil  // 清空舊的選擇
+            self.imageProcessingInProgress = true  // 標記圖片正在處理
             self.showImageAttributionPicker = true
             Logger.info("🎯 觸發圖片來源選擇器顯示，狀態已重置", category: .editor)
             Logger.debug("📋 當前狀態 - pendingImage: \(self.pendingImage != nil), userDidSelectAttribution: \(self.userDidSelectAttribution)", category: .editor)
@@ -581,6 +598,7 @@ struct MediumStyleEditor: View {
             self.currentImageSource = .photosLibrary
             self.userDidSelectAttribution = false  // 重置選擇狀態
             self.selectedImageAttribution = nil  // 清空舊的選擇
+            self.imageProcessingInProgress = true  // 標記圖片正在處理
             self.showImageAttributionPicker = true
             
             // Ultra Think 修復：不立即清空，等待用戶完成選擇後再清空
