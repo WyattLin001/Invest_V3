@@ -152,6 +152,23 @@ struct RichTextView: UIViewRepresentable {
             imageCounter = 0
         }
         
+        // Ultra Think 修復：動態計算當前文檔中的圖片數量
+        private func getCurrentImageCount() -> Int {
+            guard let textView = textView else { return 0 }
+            
+            let textStorage = textView.textStorage
+            let fullRange = NSRange(location: 0, length: textStorage.length)
+            var imageCount = 0
+            
+            textStorage.enumerateAttribute(.attachment, in: fullRange) { value, range, _ in
+                if let attachment = value as? NSTextAttachment, attachment.image != nil {
+                    imageCount += 1
+                }
+            }
+            
+            return imageCount
+        }
+        
         init(_ parent: RichTextView) {
             self.parent = parent
             super.init()
@@ -564,7 +581,8 @@ struct RichTextView: UIViewRepresentable {
         
         private func createImageCaptionForEditor(imageIndex: Int, imageId: String, attribution: ImageAttribution?) -> NSAttributedString {
             let sourceText = attribution?.displayText ?? "未知"
-            let captionText = "圖片\(imageIndex)[來源：\(sourceText)]"
+            // Ultra Think 修復：恢復 Photo 格式，前面加空格防止文字分裂
+            let captionText = " Photo \(imageIndex) - \(sourceText)"
             
             // Ultra Think 解決方案：創建完全獨立的段落屬性
             let captionAttributes: [NSAttributedString.Key: Any] = [
@@ -606,8 +624,9 @@ struct RichTextView: UIViewRepresentable {
         func insertImageWithCaptionPlaceholder(image: UIImage, imageId: String, attribution: ImageAttribution?) {
             guard let textView = textView else { return }
             
-            // 增加圖片計數器
-            imageCounter += 1
+            // Ultra Think 修復：使用動態計數器，基於實際圖片數量
+            let currentImageCount = getCurrentImageCount()
+            let newImageIndex = currentImageCount + 1
             
             let selectedRange = textView.selectedRange
             let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
@@ -656,7 +675,7 @@ struct RichTextView: UIViewRepresentable {
             let finalAttachmentString = NSMutableAttributedString(attributedString: centeredAttachmentString)
             finalAttachmentString.addAttributes(centeredImageAttributes, range: NSRange(location: 0, length: finalAttachmentString.length))
             
-            let imageCaption = createImageCaptionForEditor(imageIndex: imageCounter, imageId: imageId, attribution: attribution)
+            let imageCaption = createImageCaptionForEditor(imageIndex: newImageIndex, imageId: imageId, attribution: attribution)
             let insertionIndex = selectedRange.location + selectedRange.length
             
             // Ultra Think 優化：創建完全獨立的用戶輸入段落屬性
