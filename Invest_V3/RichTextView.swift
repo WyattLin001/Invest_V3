@@ -729,27 +729,37 @@ struct RichTextView: UIViewRepresentable {
             
             // Ultra Think 修復：簡化插入邏輯，確保游標在圖片後下一行左對齊
             
+            // Ultra Think 修復：重新設計插入邏輯，組合完整內容後一次性插入
+            let finalInsertContent = NSMutableAttributedString()
+            var insertOffset = 0
+            
             if insertionIndex > 0 && !textView.attributedText.string.hasSuffix("\n") {
                 // 非開頭位置且前面沒有換行：前導換行 + 圖片 + 標註 + 換行
                 let beforeNewline = NSAttributedString(string: "\n")
                 let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
-                mutableText.insert(beforeNewline, at: insertionIndex)
-                mutableText.insert(finalAttachmentString, at: insertionIndex + 1)
-                mutableText.insert(imageCaption, at: insertionIndex + 1 + finalAttachmentString.length)
-                mutableText.insert(afterNewline, at: insertionIndex + 1 + finalAttachmentString.length + imageCaption.length)
+                finalInsertContent.append(beforeNewline)
+                finalInsertContent.append(finalAttachmentString)
+                finalInsertContent.append(imageCaption)
+                finalInsertContent.append(afterNewline)
                 
-                finalCursorPosition = insertionIndex + 1 + finalAttachmentString.length + imageCaption.length + afterNewline.length
+                insertOffset = beforeNewline.length
             } else {
                 // 開頭位置或前面已有換行：圖片 + 標註 + 換行
                 let afterNewline = NSAttributedString(string: "\n", attributes: normalAttributes)
                 
-                mutableText.insert(finalAttachmentString, at: insertionIndex)
-                mutableText.insert(imageCaption, at: insertionIndex + finalAttachmentString.length)
-                mutableText.insert(afterNewline, at: insertionIndex + finalAttachmentString.length + imageCaption.length)
+                finalInsertContent.append(finalAttachmentString)
+                finalInsertContent.append(imageCaption)
+                finalInsertContent.append(afterNewline)
                 
-                finalCursorPosition = insertionIndex + finalAttachmentString.length + imageCaption.length + afterNewline.length
+                insertOffset = 0
             }
+            
+            // 一次性插入所有內容
+            mutableText.insert(finalInsertContent, at: insertionIndex)
+            
+            // 計算最終光標位置：插入位置 + 插入內容長度
+            finalCursorPosition = insertionIndex + finalInsertContent.length
             
             // 更新文字內容
             textView.attributedText = mutableText
@@ -760,53 +770,35 @@ struct RichTextView: UIViewRepresentable {
             // 設置後續輸入的屬性為正常格式（明確左對齊，等待用戶輸入）
             textView.typingAttributes = normalAttributes
             
-            // 立即在光標位置插入一個左對齊的空字符來確保格式
-            if finalCursorPosition < textView.attributedText.length {
-                let mutableTextForReset = NSMutableAttributedString(attributedString: textView.attributedText)
-                let leftAlignString = NSAttributedString(string: "", attributes: normalAttributes)
-                mutableTextForReset.insert(leftAlignString, at: finalCursorPosition)
-                textView.attributedText = mutableTextForReset
-            }
-            
             print("🖼️ 圖片插入完成，游標位置: \(finalCursorPosition)")
+            print("🔍 總文字長度: \(textView.attributedText.length)")
             
             // 驗證光標位置附近的文字內容
             let currentText = textView.attributedText.string
             let cursorIndex = finalCursorPosition
             if cursorIndex > 0 && cursorIndex <= currentText.count {
                 let beforeCursor = String(currentText.prefix(min(cursorIndex, currentText.count)))
-                print("🔍 光標前文字: ...'\(beforeCursor.suffix(20))'")
+                print("🔍 光標前文字: ...'\(beforeCursor.suffix(30))'")
             }
             
-            // 確保立即顯示圖片和標籤
+            // 檢查光標位置後的字符
+            if cursorIndex < currentText.count {
+                let afterCursor = String(currentText.dropFirst(cursorIndex).prefix(10))
+                print("🔍 光標後文字: '\(afterCursor)'...")
+            } else {
+                print("🔍 光標在文末")
+            }
+            
+            // 確保立即顯示圖片和標籤  
             DispatchQueue.main.async {
-                // 重新設置游標位置確保正確，並確保左對齊用戶輸入
+                print("🔄 異步確認光標位置: \(finalCursorPosition)")
+                
+                // 確保光標位置正確
                 textView.selectedRange = NSRange(location: finalCursorPosition, length: 0)
-                textView.typingAttributes = normalAttributes  // 再次確保左對齊屬性
+                textView.typingAttributes = normalAttributes
                 
-                // 強制重新計算布局
-                let textStorage = textView.textStorage
-                let layoutManager = textView.layoutManager
-                let textContainer = textView.textContainer
-                
-                // 無效化並重新計算layout
-                let fullRange = NSRange(location: 0, length: textStorage.length)
-                layoutManager.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
-                layoutManager.invalidateDisplay(forCharacterRange: fullRange)
-                layoutManager.ensureLayout(for: textContainer)
-                
-                // 確保文本容器大小正確
-                textContainer.size = CGSize(
-                    width: textView.frame.width - textView.textContainerInset.left - textView.textContainerInset.right,
-                    height: CGFloat.greatestFiniteMagnitude
-                )
-                
-                // 觸發重新繪製
+                // 簡化的布局更新
                 textView.setNeedsDisplay()
-                textView.setNeedsLayout()
-                textView.layoutIfNeeded()
-                
-                // 通知SwiftUI更新
                 textView.invalidateIntrinsicContentSize()
                 if let customTextView = textView as? CustomTextView {
                     customTextView.invalidateIntrinsicContentSize()
