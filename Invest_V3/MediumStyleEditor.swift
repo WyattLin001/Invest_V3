@@ -407,9 +407,9 @@ struct MediumStyleEditor: View {
     private var richTextEditor: some View {
         RichTextView(attributedText: $attributedContent)
             .background(backgroundColor)
-            .onChange(of: attributedContent) { _, newValue in
+            .onChange(of: attributedContent) { oldValue, newValue in
                 // 🎯 避免無效的更新觸發
-                guard newValue.string != attributedContent.string else { return }
+                guard newValue.string != oldValue.string else { return }
                 
                 hasTypingActivity = true
                 updateWordCount()
@@ -671,8 +671,7 @@ struct MediumStyleEditor: View {
                         markdown += EnhancedImageInserter.insertImageWithAttribution(
                             imageUrl: url,
                             attribution: attribution,
-                            altText: "",
-                            imageIndex: imageCounter
+                            altText: ""
                         )
                     } else {
                         // 為沒有來源標註的圖片創建默認標註
@@ -686,8 +685,7 @@ struct MediumStyleEditor: View {
                         markdown += EnhancedImageInserter.insertImageWithAttribution(
                             imageUrl: url,
                             attribution: defaultAttribution,
-                            altText: "",
-                            imageIndex: imageCounter
+                            altText: ""
                         )
                     }
                 } catch {
